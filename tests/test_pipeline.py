@@ -262,6 +262,100 @@ class TestResultParser(unittest.TestCase):
         self.assertEqual(links, [(1, "202606021914030201"),
                                  (11, "202606021914030211")])
 
+    def test_parse_card_entry_with_past_run(self):
+        from nankeiba.scraping import parser as P
+        html = (
+            "<html><body><li class='distance'>ダ2,200m</li>"
+            "<table><tr>"
+            "<th class='position'>1</th><td class='number'>5</td>"
+            "<td class='name'>サトノ <a href='/horse_detail/detail/HORSEID/120230894'>"
+            "ウマ名</a> 母名 (母父) 7.6 （3人気） 2022/4/24生 馬主</td>"
+            "<td class='profile'>牡4 鹿毛 56.0 野畑凌 （川崎） 【 1.4% 】 【 10.5% 】 村田順</td>"
+            "<td class='weightDistance'>478 +1</td>"
+            "<td class='race place06'><div class='firstInfo'><span class='place'>6</span>"
+            "<span class='stateInfo'>良</span><span class='numberInfo'>13頭</span></div>"
+            "川崎 26.05.14<br><span class='raceName'>"
+            "<a href='/race_performance/list/RACEID/202605142100000009'>レイノ賞</a></span><br>"
+            "Ｃ１<br>1600左ダ<br>13人<br>増田充<br>56.0<br>1:46.1 (0.4)<br>"
+            "40.1 477k 9番<br>13-13-11-7<br>相手馬</td>"
+            "</tr></table></body></html>")
+        card = P.parse_card_page(html, "202606021914030211")
+        self.assertEqual(card.place, "船橋")           # RACEID 由来
+        self.assertEqual(card.distance, 2200)
+        self.assertEqual(len(card.entries), 1)
+        e = card.entries[0]
+        self.assertEqual(e.umaban, 5)
+        self.assertEqual(e.horse_id, "120230894")
+        self.assertEqual(e.horse_name, "ウマ名")
+        self.assertEqual(e.jockey, "野畑凌")
+        self.assertEqual(e.jockey_win_rate, 1.4)
+        self.assertEqual(e.trainer, "村田順")
+        self.assertEqual(e.horse_weight_diff, 1)
+        self.assertEqual(len(e.recent_runs), 1)
+        pr = e.recent_runs[0]
+        self.assertEqual(pr.date, "2026-05-14")        # リンク RACEID 由来
+        self.assertEqual(pr.place, "川崎")
+        self.assertEqual(pr.distance, 1600)
+        self.assertEqual(pr.finish_pos, 6)
+        self.assertEqual(pr.jockey, "増田充")           # 前走騎手(乗り替わり判定用)
+        self.assertEqual(pr.corner, [13, 13, 11, 7])
+
+
+@unittest.skipUnless(_HAS_BS4, "beautifulsoup4 が必要")
+class TestEnrich(unittest.TestCase):
+    """出馬表 -> 『走らせる』観点の特徴量・信号の導出。"""
+
+    def _card(self):
+        from nankeiba.scraping.parser import ParsedCard, CardEntry, PastRun
+        run1 = PastRun(date="2026-05-14", place="川崎", distance=1600, surface="ダ",
+                       field_size=13, finish_pos=6, popularity=5, jockey="増田充",
+                       weight_carried=56.0, time="1:46.1", agari=40.1,
+                       horse_weight=477, gate=9, corner=[13, 13, 11, 7],
+                       baba="良", race_name="レイノ賞")
+        run2 = PastRun(date="2026-05-02", place="船橋", distance=1800, surface="ダ",
+                       field_size=12, finish_pos=3, popularity=4, jockey="増田充",
+                       weight_carried=56.0, time="1:55.0", agari=39.5,
+                       horse_weight=476, gate=4, corner=[6, 5, 4, 3],
+                       baba="良", race_name="特別")
+        entry = CardEntry(
+            umaban=5, waku=1, horse_id="120230894", horse_name="ウマ名",
+            sire=None, dam=None, sex_age="牡4", weight_carried=56.0,
+            jockey="野畑凌", jockey_affil="川崎", jockey_win_rate=1.4,
+            jockey_top3_rate=10.5, trainer="村田順", horse_weight=478,
+            horse_weight_diff=1, exp_odds=7.6, exp_pop=3,
+            recent_runs=[run1, run2])
+        return ParsedCard(race_id="202606021914030211", date="2026-06-02",
+                          place="船橋", distance=2200, surface="ダ",
+                          field_size=1, race_name="11R", entries=[entry])
+
+    def test_running_signals(self):
+        from nankeiba.scraping import enrich as E
+        rec = E.build_enriched_race(self._card())
+        h = rec["horses"][0]
+        s = h["signals"]
+        self.assertEqual(s["days_since_last"], 19)          # 6/2 - 5/14
+        self.assertEqual(s["interval_bucket"], "naka1")     # 中1〜2週
+        self.assertTrue(s["jockey_changed"])                # 増田充 -> 野畑凌
+        self.assertEqual(s["prev_jockey"], "増田充")
+        self.assertTrue(s["place_changed"])                 # 川崎 -> 船橋
+        self.assertEqual(s["distance_change"], 600)         # 1600 -> 2200
+        # 「走らせる」特徴量がひと通り出ている
+        for k in ("interval_fit", "toughness", "tatakii", "jockey_change"):
+            self.assertIn(k, h["features"])
+
+    def test_finish_label_attached(self):
+        from nankeiba.scraping import enrich as E
+        from nankeiba.scraping.parser import ParsedRace, ParsedRow
+        result = ParsedRace(
+            race_id="202606021914030211", date="2026-06-02", place="船橋",
+            distance=2200, surface="ダ", field_size=1,
+            rows=[ParsedRow(finish_pos=2, umaban=5, waku=1, horse_id="120230894",
+                            horse_name="ウマ名", jockey="野畑凌", trainer="村田順",
+                            popularity=3, time="2:20.0")])
+        rec = E.build_enriched_race(self._card(), result)
+        self.assertEqual(rec["result_order"], [5])
+        self.assertEqual(rec["horses"][0]["finish_pos"], 2)   # ラベル付与
+
 
 class TestUmaban(unittest.TestCase):
     def test_umaban_distinct_from_horse_id(self):

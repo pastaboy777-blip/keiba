@@ -85,6 +85,31 @@ python3 scripts/build_dataset.py --data data/results.jsonl --bet-type trio
 collect_data.py ──(JSONL)──▶ core/dataset.py ──(Race)──▶ learn.py / backtest.py
 ```
 
+### 「走らせる」観点を重視した充実収集(出馬表 + 結果)
+
+`collect_data.py` が「結果 + オッズ」(バックテスト用)を集めるのに対し、
+`collect_nankan.py` は **出馬表(各馬の前5走履歴)+ 結果** を集め、本パイプラインの
+コンセプト「ズブい馬をいかに走らせるか」に直結する特徴量を付けて蓄積する。
+
+```bash
+# 出馬表の各馬の近走から『走らせる』特徴量を算出し、着順ラベル付きで貯める
+python3 scripts/collect_nankan.py --start 2026-06-02 --end 2026-06-02 \
+    --place 船橋 --out data/nankan_enriched.jsonl
+# 南関4場まとめて(非開催場・非開催日は自動スキップ)
+python3 scripts/collect_nankan.py --start 2026-06-02 --end 2026-06-02 --all
+```
+
+1行=1レースで、各馬に次を持つ(`scraping/enrich.py`):
+- `signals` … 人が読める素データ: 出走間隔[日]・間隔バケット(連闘/中1週/休み明け)・
+  叩き○走目・タフネス・直近90日出走数・乗り替わり有無・場替わり・距離変更・馬体重増減
+- `features` … `core.features.horse_features` が出す「走らせる」特徴量ベクトル
+  (間隔フィット/叩き良化/乗り替わり強化/騎手の追える力/場・距離適性/使い込み疲労 …)
+- `recent_runs` … 前5走の生データ、`finish_pos` … 結果(学習ラベル)
+
+> 出馬表は各馬の **前5走(競走日・着順・競馬場・距離・騎手・通過順位 …)** を含むため、
+> 1日分の収集だけでも間隔・叩き・乗り替わり等を即座に算出できる(長期の履歴蓄積が前提の
+> `backtest` 経路と違い、その日のカードから直接「今日走らせられているか」を読める)。
+
 - 収集の JSONL 形式は `core/dataset.py` の冒頭を参照(結果 + オッズ + 馬番)。
 - 騎手・厩舎の勝率は `dataset.derive_conn_stats` が**学習区間だけ**から推定(リーク防止)。
 - `src/nankeiba/scraping/client.py` はレート制限(既定1.5秒間隔)とキャッシュ付き。
@@ -169,6 +194,10 @@ src/nankeiba/
     learn_lgbm.py   重み学習(LightGBM lambdarank・任意)
     synth.py        検証用 合成データ生成
   scraping/    データ収集(楽天競馬専用・ローカル実行)
-scripts/       demo / train / collect_data
+    race_id.py      楽天 RACEID / 南関場コード
+    parser.py       競走成績ページ・出馬表(前5走)・レース一覧のパース
+    odds.py         三連複/三連単オッズ(人気高配当順の全組リスト)
+    enrich.py       出馬表 → 「走らせる」特徴量 + 結果ラベル の充実化
+scripts/       demo / train / collect_data(結果+オッズ)/ collect_nankan(出馬表+結果)
 tests/         単体テスト
 ```

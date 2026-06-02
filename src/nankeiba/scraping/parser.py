@@ -48,6 +48,62 @@ class ParsedRace:
     rows: list[ParsedRow]  # 着順順
 
 
+@dataclass
+class PastRun:
+    """出馬表に載る各馬の1走分の近走履歴(前のセッションで重視した観点の素)。"""
+    date: str | None         # 'YYYY-MM-DD'(間隔・叩き判定の核)
+    place: str | None        # 競馬場(場替わり判定)
+    distance: int | None     # 距離[m](距離変更判定)
+    surface: str | None      # 'ダ' / '芝'
+    field_size: int | None
+    finish_pos: int | None
+    popularity: int | None
+    jockey: str | None       # 乗り替わり判定
+    weight_carried: float | None
+    time: str | None
+    agari: float | None      # 上がり3F[秒]
+    horse_weight: int | None
+    gate: int | None
+    corner: list[int]        # コーナー通過順(脚質)
+    baba: str | None
+    race_name: str | None
+
+
+@dataclass
+class CardEntry:
+    """出馬表の1頭分。"""
+    umaban: int | None
+    waku: int | None
+    horse_id: str
+    horse_name: str
+    sire: str | None
+    dam: str | None
+    sex_age: str | None
+    weight_carried: float | None
+    jockey: str | None
+    jockey_affil: str | None
+    jockey_win_rate: float | None    # 騎手【勝率】= 追える力の代理
+    jockey_top3_rate: float | None   # 騎手【3着内率】
+    trainer: str | None
+    horse_weight: int | None
+    horse_weight_diff: int | None
+    exp_odds: float | None           # 出馬表時点の予想オッズ
+    exp_pop: int | None              # 予想人気
+    recent_runs: list[PastRun]
+
+
+@dataclass
+class ParsedCard:
+    race_id: str
+    date: str
+    place: str
+    distance: int
+    surface: str
+    field_size: int
+    race_name: str
+    entries: list[CardEntry]
+
+
 # ---------------------------------------------------------------------------
 # レース一覧 / 出馬表ページ -> 各レースの RACEID
 # ---------------------------------------------------------------------------
@@ -121,7 +177,154 @@ def parse_result_page(html: str, race_id: str) -> ParsedRace:
     )
 
 
+# ---------------------------------------------------------------------------
+# 出馬表(race_card)ページ -> ParsedCard(各馬の近走履歴つき)
+# ---------------------------------------------------------------------------
+
+def parse_card_page(html: str, race_id: str) -> ParsedCard:
+    """出馬表ページをパースし、各馬の基本情報 + 前5走の近走履歴を返す。"""
+    if BeautifulSoup is None:
+        raise ImportError("beautifulsoup4 が必要です: pip install beautifulsoup4")
+    soup = BeautifulSoup(html, "html.parser")
+    info = parse_race_id(race_id)
+    distance, surface = _extract_distance(soup)
+    race_name = _safe_text(soup.find("h1", class_="unique"))
+
+    entries: list[CardEntry] = []
+    for tr in soup.find_all("tr"):
+        name_td = tr.find("td", class_="name")
+        if name_td is None or not name_td.find("a", href=lambda h: h and "HORSEID/" in h):
+            continue
+        entries.append(_parse_card_entry(tr))
+
+    return ParsedCard(
+        race_id=race_id, date=info["date"], place=info["place"] or _extract_place(soup),
+        distance=distance, surface=surface, field_size=len(entries),
+        race_name=race_name, entries=entries,
+    )
+
+
+def _parse_card_entry(tr) -> CardEntry:
+    name_td = tr.find("td", class_="name")
+    horse_a = name_td.find("a", href=lambda h: h and "HORSEID/" in h)
+    horse_name = horse_a.get_text(strip=True)
+    name_txt = name_td.get_text(" ", strip=True)
+    sire = name_txt.split(horse_name)[0].strip() or None
+    dam = None
+    after = name_txt.split(horse_name, 1)[-1].lstrip()
+    if after and not after.startswith("("):
+        dam = after.split("(")[0].split("（")[0].strip() or None
+    m_odds = re.search(r"([\d.]+)\s*[（(]\s*(\d+)\s*人気", name_txt)
+    exp_odds = float(m_odds.group(1)) if m_odds else None
+    exp_pop = int(m_odds.group(2)) if m_odds else None
+
+    prof = tr.find("td", class_="profile")
+    prof_txt = prof.get_text(" ", strip=True) if prof else ""
+    sex_age = _search(r"([牡牝セ騸せん]+\d+)", prof_txt)
+    rates = re.findall(r"【\s*([\d.]+)\s*%", prof_txt)
+    win_rate = float(rates[0]) if rates else None
+    top3_rate = float(rates[1]) if len(rates) > 1 else None
+    affil_m = re.search(r"[（(]([^）)]+)[）)]", prof_txt)
+    jockey_affil = re.sub(r"\s+", "", affil_m.group(1)) if affil_m else None
+    weight_carried = _searchf(r"(\d{2,3}\.\d)", prof_txt)
+    # 騎手名: 負担重量と所属（…）の間
+    jockey = None
+    jm = re.search(r"\d{2,3}\.\d\s+(\S+?)\s*[（(]", prof_txt)
+    if jm:
+        jockey = jm.group(1)
+    trainer = prof_txt.rsplit("】", 1)[-1].strip() or None if "】" in prof_txt else None
+
+    wd = tr.find("td", class_="weightDistance")
+    horse_weight = horse_weight_diff = None
+    if wd:
+        wt = wd.get_text(" ", strip=True)
+        hw = re.search(r"(\d+)", wt)
+        df = re.search(r"([+-]\d+)", wt)
+        horse_weight = int(hw.group(1)) if hw else None
+        horse_weight_diff = int(df.group(1)) if df else None
+
+    runs = [_parse_past_run(td)
+            for td in tr.find_all("td", class_=re.compile(r"\bplace\d+"))]
+
+    return CardEntry(
+        umaban=_safe_int(tr.find("td", class_="number")),
+        waku=_safe_int(tr.find(class_="position")),
+        horse_id=_href_id(horse_a["href"]), horse_name=horse_name,
+        sire=sire, dam=dam, sex_age=sex_age, weight_carried=weight_carried,
+        jockey=jockey, jockey_affil=jockey_affil,
+        jockey_win_rate=win_rate, jockey_top3_rate=top3_rate, trainer=trainer,
+        horse_weight=horse_weight, horse_weight_diff=horse_weight_diff,
+        exp_odds=exp_odds, exp_pop=exp_pop, recent_runs=runs,
+    )
+
+
+def _parse_past_run(td) -> PastRun:
+    finish_pos = _safe_int(td.find("span", class_="place"))
+    baba = _safe_text(td.find("span", class_="stateInfo")) or None
+    field_size = _safe_int(td.find("span", class_="numberInfo"))
+    race_name = _safe_text(td.find("span", class_="raceName")) or None
+    # 日付は近走リンクの RACEID(YYYYMMDD…)が最も確実
+    date = None
+    link = td.find("a", href=re.compile(r"RACEID/\d{8}"))
+    if link:
+        m = re.search(r"RACEID/(\d{4})(\d{2})(\d{2})", link["href"])
+        if m:
+            date = f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+    # 残りテキストを行で解析(firstInfo/raceName を除去)
+    work = BeautifulSoup(str(td), "html.parser")
+    for el in work.find_all(class_=["firstInfo", "raceName"]):
+        el.extract()
+    lines = [x.strip() for x in work.get_text("\n").split("\n") if x.strip()]
+
+    place = lines[0].split()[0] if lines else None
+    if date is None and lines:  # フォールバック: "YY.MM.DD"
+        dm = re.search(r"(\d{2})\.(\d{2})\.(\d{2})", lines[0])
+        if dm:
+            date = f"20{dm.group(1)}-{dm.group(2)}-{dm.group(3)}"
+    blob = "\n".join(lines)
+    dm = re.search(r"(\d{3,4})\s*([左右直]?)\s*([ダ芝])", blob)
+    distance = int(dm.group(1)) if dm else None
+    surface = dm.group(3) if dm else None
+    popularity = None
+    pm = re.search(r"(?m)^\s*(\d+)人\s*$", blob)
+    jockey = weight_carried = None
+    if pm:
+        popularity = int(pm.group(1))
+        # 人気の次行 = 騎手、その次 = 負担重量
+        idx = lines.index(pm.group(0).strip()) if pm.group(0).strip() in lines else None
+        if idx is not None and idx + 1 < len(lines):
+            jockey = re.sub(r"^[▲△☆◇★]+", "", lines[idx + 1]).strip() or None
+        if idx is not None and idx + 2 < len(lines):
+            wm = re.match(r"^(\d{2,3}\.\d)$", lines[idx + 2])
+            weight_carried = float(wm.group(1)) if wm else None
+    agm = re.search(r"(\d{2}\.\d)\s+(\d+)k\s+(\d+)番", blob)
+    agari = float(agm.group(1)) if agm else None
+    horse_weight = int(agm.group(2)) if agm else None
+    gate = int(agm.group(3)) if agm else None
+    time = _search(r"(\d:\d{2}\.\d)", blob)
+    cm = re.search(r"(?m)^\s*(\d+(?:-\d+)+)\s*$", blob)
+    corner = [int(x) for x in cm.group(1).split("-")] if cm else []
+
+    return PastRun(
+        date=date, place=place, distance=distance, surface=surface,
+        field_size=field_size, finish_pos=finish_pos, popularity=popularity,
+        jockey=jockey, weight_carried=weight_carried, time=time, agari=agari,
+        horse_weight=horse_weight, gate=gate, corner=corner, baba=baba,
+        race_name=race_name,
+    )
+
+
 # --- 小物 ---
+
+def _search(pat: str, text: str) -> str | None:
+    m = re.search(pat, text)
+    return m.group(1) if m else None
+
+
+def _searchf(pat: str, text: str) -> float | None:
+    m = re.search(pat, text)
+    return float(m.group(1)) if m else None
+
 
 def _find_result_table(soup):
     """着順表(th.order と td.horse を持つ table)を探す。"""
