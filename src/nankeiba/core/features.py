@@ -177,9 +177,27 @@ def fatigue_penalty(
 # 総合スコア
 # ---------------------------------------------------------------------------
 
+# 特徴量の名前(重みベクトルと1対1対応)。学習はこの係数を最適化する。
+FEATURE_NAMES: list[str] = [
+    "ability",        # 着順ベースの地力
+    "interval_fit",   # 出走間隔フィット
+    "toughness",      # タフネス指数(中心化)
+    "tatakii",        # 叩き良化
+    "jockey_change",  # 乗り替わり強化
+    "jockey_power",   # 騎手の追える力
+    "trainer",        # 厩舎の仕上げ手腕
+    "place_fit",      # 競馬場替わり適性
+    "distance_fit",   # 距離変更適性
+    "fatigue",        # 使い込み疲労(負)
+]
+
+
 @dataclass
 class ScoreWeights:
-    interval: float = 0.6
+    """各特徴量の重み。既定値は手設定のプライア。learn で上書きできる。"""
+
+    ability: float = 1.0
+    interval_fit: float = 0.6
     toughness: float = 0.3
     tatakii: float = 1.0
     jockey_change: float = 1.0
@@ -188,6 +206,51 @@ class ScoreWeights:
     place_fit: float = 0.5
     distance_fit: float = 0.5
     fatigue: float = 1.0
+
+    def as_dict(self) -> dict[str, float]:
+        return {f: getattr(self, f) for f in FEATURE_NAMES}
+
+    @classmethod
+    def from_dict(cls, d: dict[str, float]) -> "ScoreWeights":
+        return cls(**{f: d.get(f, 0.0) for f in FEATURE_NAMES})
+
+
+def horse_features(
+    runs: Sequence[iv.RunRecord],
+    ctx: RaceContext,
+    *,
+    jockeys: ConnStats | None = None,
+    trainers: ConnStats | None = None,
+    interval_prior: dict[str, float] | None = None,
+) -> dict[str, float]:
+    """馬1頭の特徴量ベクトル(重みをかける前の生の値)。
+
+    「ズブい馬を走らせる」観点を数値化したもの。スコア = Σ 重み×特徴量。
+    """
+    jockeys = jockeys or ConnStats()
+    trainers = trainers or ConnStats()
+    runs = list(runs)
+
+    profile = iv.build_profile(runs)
+    iv._fill_intervals(runs)
+    upcoming_days = (
+        (_parse_date(ctx.date) - _parse_date(runs[0].date)).days if runs else None
+    )
+    baseline = profile.ability_baseline
+    n_tatakii = starts_since_layoff(runs, upcoming_days)
+
+    return {
+        "ability": profile.ability,
+        "interval_fit": iv.interval_fit(profile, upcoming_days, prior=interval_prior),
+        "toughness": profile.toughness - 0.5,
+        "tatakii": tatakii_bonus(n_tatakii),
+        "jockey_change": jockey_change_signal(runs, ctx, jockeys),
+        "jockey_power": jockeys.get(ctx.jockey) - jockeys.default,
+        "trainer": trainers.get(ctx.trainer) - trainers.default,
+        "place_fit": place_change_fit(runs, ctx, baseline),
+        "distance_fit": distance_change_fit(runs, ctx, baseline),
+        "fatigue": fatigue_penalty(profile, upcoming_days),
+    }
 
 
 def horse_score(
@@ -199,37 +262,12 @@ def horse_score(
     weights: ScoreWeights | None = None,
     interval_prior: dict[str, float] | None = None,
 ) -> float:
-    """馬1頭の総合強さスコア(任意実数)。
+    """馬1頭の総合強さスコア = 重み・特徴量の内積。
 
-    「ズブい馬を走らせる」観点(間隔・タフネス・叩き・乗り替わり・舞台/距離替わり)を
-    すべて合算する。Plackett-Luce には exp(このスコア) を渡す。
+    Plackett-Luce には exp(このスコア) を渡す。
     """
-    w = weights or ScoreWeights()
-    jockeys = jockeys or ConnStats()
-    trainers = trainers or ConnStats()
-    runs = list(runs)
-
-    profile = iv.build_profile(runs)
-    iv._fill_intervals(runs)
-    upcoming_days = (
-        (_parse_date(ctx.date) - _parse_date(runs[0].date)).days if runs else None
+    w = (weights or ScoreWeights()).as_dict()
+    feats = horse_features(
+        runs, ctx, jockeys=jockeys, trainers=trainers, interval_prior=interval_prior
     )
-    baseline = profile.ability_baseline
-
-    score = profile.ability
-    score += w.interval * iv.interval_fit(profile, upcoming_days, prior=interval_prior)
-    score += w.toughness * (profile.toughness - 0.5)
-
-    n_tatakii = starts_since_layoff(runs, upcoming_days)
-    score += w.tatakii * tatakii_bonus(n_tatakii)
-
-    score += w.jockey_change * jockey_change_signal(runs, ctx, jockeys)
-    score += w.jockey_power * (jockeys.get(ctx.jockey) - jockeys.default)
-    score += w.trainer * (trainers.get(ctx.trainer) - trainers.default)
-
-    score += w.place_fit * place_change_fit(runs, ctx, baseline)
-    score += w.distance_fit * distance_change_fit(runs, ctx, baseline)
-
-    score += w.fatigue * fatigue_penalty(profile, upcoming_days)
-
-    return score
+    return sum(w[f] * feats[f] for f in FEATURE_NAMES)

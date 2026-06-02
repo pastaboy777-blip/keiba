@@ -47,6 +47,7 @@
 
 ```bash
 python3 scripts/demo.py            # 合成データでエンドツーエンド・デモ
+python3 scripts/train.py           # データから重みを学習し、未来レースで検証
 python3 -m unittest discover -s tests -v
 ```
 
@@ -73,9 +74,40 @@ python3 scripts/collect_data.py    # netkeiba 地方からの収集(セレクタ
 - netkeiba は HTML 構造を変えることがあるため、`parser.py` のセレクタは
   実データを見ながら調整が必要。
 
+## データから重みを学習する
+
+手設定の重み(`ScoreWeights` の既定値)に頼らず、**過去レースの着順から各観点の
+重みを自動で学習**できる。
+
+```python
+from nankeiba.core.learn import train_scorer
+from nankeiba.core.backtest import run_backtest
+
+# 時系列で前半=学習・後半=検証(リーク無し)
+scorer = train_scorer(train_races, jockeys=jockeys, trainers=trainers,
+                       epochs=60, lr=0.2, l2=1e-3, top_k=3)
+for name, w in scorer.importances():
+    print(name, round(w, 3))          # 特徴量重要度(標準化済み係数)
+
+res = run_backtest(test_races, score_fn=scorer, bet_type="trio")  # 学習重みで検証
+```
+
+- **学習モデル**: 各馬を特徴量ベクトルにし、線形スコア `s = w·x` を与える。
+  レース着順は **Plackett-Luce** に従うとして、観測着順の対数尤度を勾配上昇で
+  最大化する(=予測に使う確率モデルと同一で整合的)。`core/learn.py`
+- 特徴量は学習データで標準化し、推論時も同じ統計量を使う(`LearnedScorer`)。
+- `top_k=3` で「上位3着の説明力」を最大化(三連系に直結)。
+- **共線性に注意**: 出走間隔と叩き良化は相関するため、個々の係数の符号は
+  不安定になりうる(joint の予測は妥当)。`l2` を上げると安定する。
+- **非線形版(任意)**: `core/learn_lgbm.py` は LightGBM の lambdarank で
+  非線形な相互作用(短間隔×叩き2走目で特に走る、等)を学習できる。
+  `LgbmScorer` は `score_fn` 互換。要 `pip install lightgbm numpy`。
+
+`scripts/train.py` が学習→重要度表示→検証(既定重み vs 学習重み)の一連を実演する。
+
 ## 重み・閾値のチューニング
 
-- `core/features.py` の `ScoreWeights` で各観点の重みを調整。
+- `core/features.py` の `ScoreWeights` で各観点の重みを手調整。
 - `core/interval.py` の `INTERVAL_PRIOR` は南関の全体傾向プライア。
   リアルデータで間隔バケット別の実成績を集計し、学習値で上書きするのが望ましい。
 - `core/betting.py` の `ev_threshold` を上げると点数は減るが過信への保険になる。
@@ -94,12 +126,14 @@ python3 scripts/collect_data.py    # netkeiba 地方からの収集(セレクタ
 src/nankeiba/
   core/        核心ロジック(標準ライブラリのみ・テスト可能)
     interval.py     出走間隔・タフネス
-    features.py     「走らせる」総合スコア
+    features.py     「走らせる」総合スコア(重み×特徴量)
     probability.py  Plackett-Luce 確率変換
     betting.py      期待値ベース買い目選定
     backtest.py     時系列バックテスト(ROI)
+    learn.py        重み学習(Plackett-Luce 尤度最大化・標準ライブラリ)
+    learn_lgbm.py   重み学習(LightGBM lambdarank・任意)
     synth.py        検証用 合成データ生成
   scraping/    データ収集(netkeiba 地方・ローカル実行)
-scripts/       demo / collect_data
+scripts/       demo / train / collect_data
 tests/         単体テスト
 ```

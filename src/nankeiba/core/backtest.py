@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Sequence
+from typing import Callable, Optional, Sequence
 
 from . import interval as iv
 from . import probability as pb
@@ -75,6 +75,7 @@ def run_backtest(
     jockeys: ConnStats | None = None,
     trainers: ConnStats | None = None,
     weights: ScoreWeights | None = None,
+    score_fn: Optional[Callable[[list, RaceContext], float]] = None,
     bet_type: str = "trio",            # "trio"(三連複) or "trifecta"(三連単)
     ev_threshold: float = 1.2,
     stake_per_bet: float = 100.0,
@@ -86,6 +87,9 @@ def run_backtest(
 
     各レースで、出走各馬の「過去走」だけからスコア → 確率 → 期待値 → 買い目。
     確定結果で精算し ROI を集計する。履歴は精算後に更新する(リーク防止)。
+
+    score_fn を渡すとスコア計算をそれに委譲する(学習済みスコアラー等)。
+    None の場合は weights を使った horse_score を用いる。
     """
     history: dict[int, list[iv.RunRecord]] = {}
     res = BacktestResult()
@@ -107,9 +111,12 @@ def run_backtest(
                 jockey=e.jockey,
                 trainer=e.trainer,
             )
-            scores[e.horse_id] = horse_score(
-                past, ctx, jockeys=jockeys, trainers=trainers, weights=weights
-            )
+            if score_fn is not None:
+                scores[e.horse_id] = score_fn(past, ctx)
+            else:
+                scores[e.horse_id] = horse_score(
+                    past, ctx, jockeys=jockeys, trainers=trainers, weights=weights
+                )
             if len(past) < min_history:
                 enough = False
 

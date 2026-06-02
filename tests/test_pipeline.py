@@ -14,7 +14,12 @@ from nankeiba.core import probability as pb
 from nankeiba.core import betting as bt
 from nankeiba.core import synth
 from nankeiba.core.backtest import run_backtest
-from nankeiba.core.features import RaceContext, ConnStats, horse_score, starts_since_layoff
+from nankeiba.core.features import (
+    RaceContext, ConnStats, ScoreWeights, FEATURE_NAMES,
+    horse_score, horse_features, starts_since_layoff,
+)
+from nankeiba.core import learn as L
+from math import isfinite
 
 
 class TestInterval(unittest.TestCase):
@@ -99,6 +104,47 @@ class TestBacktestSmoke(unittest.TestCase):
         self.assertGreater(res.spent, 0)
         self.assertGreater(res.n_bet_races, 0)
         self.assertTrue(0.2 < res.roi < 5.0, f"ROI out of sane range: {res.roi}")
+
+
+class TestFeatures(unittest.TestCase):
+    def test_feature_keys_match_names(self):
+        runs = [iv.RunRecord("2024-02-20", "大井", 1400, 12, 3)]
+        ctx = RaceContext("2024-03-01", "大井", 1400, 12, jockey="J01")
+        feats = horse_features(runs, ctx)
+        self.assertEqual(set(feats), set(FEATURE_NAMES))
+
+    def test_score_is_weighted_dot(self):
+        runs = [iv.RunRecord("2024-02-20", "大井", 1400, 12, 3)]
+        ctx = RaceContext("2024-03-01", "大井", 1400, 12, jockey="J01")
+        feats = horse_features(runs, ctx)
+        w = ScoreWeights()
+        expected = sum(w.as_dict()[f] * feats[f] for f in FEATURE_NAMES)
+        self.assertAlmostEqual(horse_score(runs, ctx, weights=w), expected, places=9)
+
+
+class TestLearn(unittest.TestCase):
+    def test_train_scorer_runs(self):
+        races, jockeys, trainers = synth.generate_season(n_races=300, seed=3)
+        scorer = L.train_scorer(races, jockeys=jockeys, trainers=trainers,
+                                epochs=10, lr=0.2, min_history=4, seed=0)
+        # 重みは有限で、全特徴量ぶんある
+        self.assertEqual(set(scorer.weights), set(FEATURE_NAMES))
+        self.assertTrue(all(isfinite(v) for v in scorer.weights.values()))
+        # スコアラーは実数を返す
+        ctx = RaceContext("2024-06-01", "大井", 1400, 10, jockey="J01")
+        s = scorer([iv.RunRecord("2024-05-20", "大井", 1400, 10, 2)], ctx)
+        self.assertTrue(isfinite(s))
+        # importances は降順
+        imps = [abs(v) for _, v in scorer.importances()]
+        self.assertEqual(imps, sorted(imps, reverse=True))
+
+    def test_backtest_accepts_score_fn(self):
+        races, jockeys, trainers = synth.generate_season(n_races=300, seed=4)
+        scorer = L.train_scorer(races, jockeys=jockeys, trainers=trainers,
+                                epochs=10, min_history=4, seed=0)
+        res = run_backtest(races, jockeys=jockeys, trainers=trainers,
+                           score_fn=scorer, bet_type="trio", min_history=4)
+        self.assertGreater(res.spent, 0)
 
 
 if __name__ == "__main__":
