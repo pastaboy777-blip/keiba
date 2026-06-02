@@ -26,7 +26,7 @@ class PoliteClient:
         cache_dir: str | Path = "data/cache",
         *,
         min_interval: float = 1.5,
-        encoding: str = "euc-jp",
+        encoding: str | None = None,
         user_agent: str = "nankeiba-research/0.1 (personal use)",
         timeout: float = 15.0,
     ):
@@ -57,7 +57,11 @@ class PoliteClient:
         self._last = time.time()
 
         resp = self.session.get(url, timeout=self.timeout)
-        resp.encoding = self.encoding  # netkeiba は EUC-JP
+        # 文字コード: 明示指定 > メタ宣言/推定(新nar=UTF-8, 旧db=EUC-JP 両対応)
+        if self.encoding:
+            resp.encoding = self.encoding
+        elif not resp.encoding or resp.encoding.lower() in ("iso-8859-1", "ascii"):
+            resp.encoding = resp.apparent_encoding
         resp.raise_for_status()
         html = resp.text
         cp.write_text(html, encoding="utf-8")
