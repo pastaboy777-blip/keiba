@@ -9,12 +9,16 @@ BeautifulSoup が必要: pip install beautifulsoup4
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 try:
     from bs4 import BeautifulSoup
 except ImportError:
     BeautifulSoup = None  # type: ignore
+
+# race_id は12桁。リンク href から拾うためのパターン(構造変化に強い)。
+_RACE_ID_RE = re.compile(r"race_id=(\d{12})")
 
 
 @dataclass
@@ -37,6 +41,26 @@ class ParsedRace:
     distance: int
     field_size: int
     rows: list[ParsedRow]  # 着順順
+
+
+def parse_race_ids_from_list(html: str, *, nankan_only: bool = True) -> list[str]:
+    """日次の出走表/レース一覧ページから race_id を抽出する。
+
+    テーブル構造ではなく href 内の ``race_id=XXXXXXXXXXXX`` を正規表現で拾うため、
+    HTML レイアウト変更に強い。重複は除き、出現順を保つ。
+    bs4 不要(正規表現のみ)なのでオフラインでもテスト可能。
+    """
+    from .race_id import is_nankan
+    seen: set[str] = set()
+    out: list[str] = []
+    for rid in _RACE_ID_RE.findall(html):
+        if rid in seen:
+            continue
+        if nankan_only and not is_nankan(rid):
+            continue
+        seen.add(rid)
+        out.append(rid)
+    return out
 
 
 def parse_result_page(html: str, race_id: str) -> ParsedRace:

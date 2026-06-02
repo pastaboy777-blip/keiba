@@ -189,6 +189,34 @@ class TestOddsParser(unittest.TestCase):
         self.assertIn((3, 5, 8), d)
 
 
+class TestRaceListParser(unittest.TestCase):
+    def test_extracts_nankan_ids_dedup_ordered(self):
+        from nankeiba.scraping import parser as P
+        html = '''
+        <a href="../race/result.html?race_id=202444010111">11R</a>
+        <a href="result.html?race_id=202444010112">12R</a>
+        <a href="result.html?race_id=202444010111">dup</a>
+        <a href="result.html?race_id=202406010111">中央(除外)</a>
+        '''
+        ids = P.parse_race_ids_from_list(html, nankan_only=True)
+        self.assertEqual(ids, ["202444010111", "202444010112"])  # 重複除去・順序保持・南関のみ
+
+
+class TestResumeDedup(unittest.TestCase):
+    def test_existing_race_ids_skips_collected(self):
+        import tempfile, os, json
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+        import collect_data as C
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(os.path.join(tmp, "r.jsonl"))
+            self.assertEqual(C.existing_race_ids(p), set())  # 無ければ空
+            with p.open("w", encoding="utf-8") as f:
+                f.write(json.dumps({"race_id": "202444010111"}) + "\n")
+                f.write("\n")                       # 空行は無視
+                f.write("{bad json}\n")             # 壊れた行も無視
+            self.assertEqual(C.existing_race_ids(p), {"202444010111"})
+
+
 class TestUmaban(unittest.TestCase):
     def test_umaban_distinct_from_horse_id(self):
         races, _, _ = synth.generate_season(n_races=5, seed=9)
