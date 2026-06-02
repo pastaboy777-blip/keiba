@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# スクレイピングのキャッシュ・収集データ
+data/cache/
+data/*.parquet
+data/*.csv
+data/*.sqlite
+data/*.db
+
+.DS_Store
+.idea/
+.vscode/
