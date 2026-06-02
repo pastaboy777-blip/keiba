@@ -115,13 +115,16 @@ def generate_season(
         rid = f"{cur:%Y%m%d}{r:03d}"
 
         entries: list[Entry] = []
-        true_strength: dict[int, float] = {}
-        public_strength: dict[int, float] = {}
+        true_strength: dict[int, float] = {}   # 馬番 -> 真の強さ
+        public_strength: dict[int, float] = {}  # 馬番 -> 世間の見かけ強さ
+        um_to_horse: dict[int, _Horse] = {}
 
-        for h in field:
+        for idx, h in enumerate(field):
+            um = idx + 1  # 馬番(レース内の通し番号)
+            um_to_horse[um] = h
             jk = rng.choice(jockey_names)
             tr = rng.choice(trainer_names)
-            entries.append(Entry(horse_id=h.id, jockey=jk, trainer=tr))
+            entries.append(Entry(horse_id=h.id, umaban=um, jockey=jk, trainer=tr))
 
             days = (cur - h.last_date).days if h.last_date else None
             # 叩き数の更新
@@ -142,23 +145,24 @@ def generate_season(
                 + h.place_apt[place]
                 + dist_apt
             )
-            true_strength[h.id] = ts
+            true_strength[um] = ts
 
             # --- 世間の見かけ強さ(オッズの素): 間隔・叩き・条件替わりを無視 ---
             # 直近着順と騎手人気だけ。市場の盲点を作る。
             ps = h.recent_form + 0.5 * jockey_skill[jk] + rng.gauss(0.0, 0.2)
-            public_strength[h.id] = ps
+            public_strength[um] = ps
 
         # --- 着順をサンプリング(Gumbel = Plackett-Luce サンプリング)---
         def gumbel():
             u = rng.random()
             return -log(-log(max(1e-12, u)))
 
-        ranked = sorted(field, key=lambda h: true_strength[h.id] + 0.8 * gumbel(), reverse=True)
-        result_order = [h.id for h in ranked]
+        ranked = sorted(true_strength, key=lambda um: true_strength[um] + 0.8 * gumbel(),
+                        reverse=True)
+        result_order = ranked  # 着順に並べた馬番
 
-        # --- オッズ生成(世間の確率 + 控除)---
-        ps_exp = {hid: exp(s) for hid, s in public_strength.items()}
+        # --- オッズ生成(世間の確率 + 控除。馬番キー)---
+        ps_exp = {um: exp(s) for um, s in public_strength.items()}
         trio_odds = _trio_odds_from_strengths(ps_exp, takeout)
         trifecta_odds = _trifecta_odds_from_strengths(ps_exp, takeout)
 
@@ -169,10 +173,10 @@ def generate_season(
         ))
 
         # --- 馬の状態更新(次走のために)---
-        pos_of = {hid: i + 1 for i, hid in enumerate(result_order)}
-        for h in field:
+        pos_of = {um: i + 1 for i, um in enumerate(result_order)}
+        for um, h in um_to_horse.items():
             h.last_date = cur
-            fp = pos_of[h.id]
+            fp = pos_of[um]
             strength = (field_size - fp) / (field_size - 1)
             # 直近着順強さ(世間が見る form)を指数移動平均で更新
             h.recent_form = 0.6 * h.recent_form + 0.8 * (strength - 0.5)

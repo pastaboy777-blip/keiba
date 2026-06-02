@@ -122,6 +122,65 @@ class TestFeatures(unittest.TestCase):
         self.assertAlmostEqual(horse_score(runs, ctx, weights=w), expected, places=9)
 
 
+class TestDataset(unittest.TestCase):
+    def test_roundtrip_and_backtest(self):
+        import tempfile, os
+        from nankeiba.core import dataset as ds
+        races, jockeys, trainers = synth.generate_season(n_races=120, seed=2)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "r.jsonl")
+            ds.save_races(races, path)
+            loaded = ds.load_races(path)
+        self.assertEqual(len(loaded), len(races))
+        # 往復後も馬番キーのオッズ・着順が保たれ、バックテストが動く
+        res = run_backtest(loaded, jockeys=jockeys, trainers=trainers,
+                           bet_type="trio", min_history=4)
+        self.assertEqual(res.n_races, len(races))
+        self.assertGreaterEqual(res.spent, 0)
+
+    def test_derive_conn_stats(self):
+        from nankeiba.core import dataset as ds
+        races, _, _ = synth.generate_season(n_races=200, seed=5)
+        jockeys, trainers = ds.derive_conn_stats(races)
+        self.assertTrue(0.0 < jockeys.default < 1.0)
+        # 推定勝率は妥当な範囲
+        for r in list(jockeys.rates.values())[:20]:
+            self.assertTrue(0.0 <= r <= 1.0)
+
+
+class TestOddsParser(unittest.TestCase):
+    def test_trio_keys_sorted(self):
+        from nankeiba.scraping import odds as O
+        payload = {"odds": {"8-3-5": "42.1", "1-2-4": "10.0"}}
+        d = O.parse_odds_payload(payload, bet_type="trio")
+        self.assertIn((3, 5, 8), d)            # 三連複は昇順化
+        self.assertAlmostEqual(d[(3, 5, 8)], 42.1)
+
+    def test_trifecta_keeps_order(self):
+        from nankeiba.scraping import odds as O
+        payload = {"5-3-8": "210.4"}
+        d = O.parse_odds_payload(payload, bet_type="trifecta")
+        self.assertIn((5, 3, 8), d)            # 三連単は着順保持
+
+    def test_concatenated_key(self):
+        from nankeiba.scraping import odds as O
+        payload = {"030508": "42.1"}           # 固定幅連結キーにも対応
+        d = O.parse_odds_payload(payload, bet_type="trio")
+        self.assertIn((3, 5, 8), d)
+
+
+class TestUmaban(unittest.TestCase):
+    def test_umaban_distinct_from_horse_id(self):
+        races, _, _ = synth.generate_season(n_races=5, seed=9)
+        race = races[0]
+        # 馬番は 1..field_size、horse_id はプール全体のIDで別物
+        umabans = sorted(e.umaban for e in race.entries)
+        self.assertEqual(umabans, list(range(1, race.field_size + 1)))
+        # オッズのキーは馬番(<= field_size)で構成される
+        any_combo = next(iter(race.trio_odds))
+        self.assertTrue(all(1 <= x <= race.field_size for x in any_combo))
+
+
 class TestLearn(unittest.TestCase):
     def test_train_scorer_runs(self):
         races, jockeys, trainers = synth.generate_season(n_races=300, seed=3)

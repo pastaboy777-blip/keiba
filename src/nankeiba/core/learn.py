@@ -45,11 +45,11 @@ def build_training_rows(
     interval_prior: dict[str, float] | None = None,
 ) -> list[list[_Row]]:
     """時系列順に過去走だけから特徴量を作る。レースごとの行リストを返す。"""
-    history: dict[int, list[iv.RunRecord]] = {}
+    history: dict[object, list[iv.RunRecord]] = {}
     out: list[list[_Row]] = []
 
     for race in sorted(races, key=lambda r: r.date):
-        pos_of = {hid: i + 1 for i, hid in enumerate(race.result_order)}
+        pos_of = {um: i + 1 for i, um in enumerate(race.result_order)}
         rows: list[_Row] = []
         for e in race.entries:
             past = history.get(e.horse_id, [])
@@ -60,7 +60,7 @@ def build_training_rows(
             feat = horse_features(
                 past, ctx, jockeys=jockeys, trainers=trainers, interval_prior=interval_prior
             )
-            rows.append(_Row(feat=feat, pos=pos_of.get(e.horse_id, race.field_size),
+            rows.append(_Row(feat=feat, pos=pos_of.get(e.num(), race.field_size),
                              n_hist=len(past)))
         out.append(rows)
 
@@ -68,7 +68,7 @@ def build_training_rows(
         for e in race.entries:
             rec = iv.RunRecord(
                 date=race.date, place=race.place, distance=race.distance,
-                field_size=race.field_size, finish_pos=pos_of.get(e.horse_id, race.field_size),
+                field_size=race.field_size, finish_pos=pos_of.get(e.num(), race.field_size),
                 jockey=e.jockey, trainer=e.trainer,
             )
             history.setdefault(e.horse_id, []).insert(0, rec)

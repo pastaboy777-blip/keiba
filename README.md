@@ -59,20 +59,43 @@ python3 -m unittest discover -s tests -v
 > 合成上のエッジは小さく乱数に敏感で、実戦の利益を保証しない。
 > **必ずリアルデータでバックテストし、重み・閾値を検証・チューニングすること。**
 
-## リアルデータの取得(ローカル実行)
+## リアルデータの取得 → 学習 → 検証(ローカル実行)
 
 ネットワークが必要なため、ローカル環境で実行する:
 
 ```bash
 pip install -r requirements.txt
-python3 scripts/collect_data.py    # netkeiba 地方からの収集(セレクタは要調整)
+
+# 1) netkeiba 地方から「結果 + 三連複/三連単オッズ」を収集(JSONL 出力)
+python3 scripts/collect_data.py --year 2024 --place 大井 --out data/results.jsonl
+python3 scripts/collect_data.py --year 2024 --place 川崎 --out data/results.jsonl
+#   …船橋・浦和・複数年ぶん集めるほど精度が上がる
+
+# 2) 収集データから学習 → 検証(時系列分割・回収率を表示)
+python3 scripts/build_dataset.py --data data/results.jsonl --bet-type trio
 ```
 
+データの流れ:
+```
+collect_data.py ──(JSONL)──▶ core/dataset.py ──(Race)──▶ learn.py / backtest.py
+```
+
+- 収集の JSONL 形式は `core/dataset.py` の冒頭を参照(結果 + オッズ + 馬番)。
+- 騎手・厩舎の勝率は `dataset.derive_conn_stats` が**学習区間だけ**から推定(リーク防止)。
 - `src/nankeiba/scraping/client.py` はレート制限(既定1.5秒間隔)とキャッシュ付き。
 - **節度を持って利用すること**: アクセス間隔を空け、robots.txt と各サイトの
   利用規約を尊重し、個人利用の範囲にとどめる。
-- netkeiba は HTML 構造を変えることがあるため、`parser.py` のセレクタは
-  実データを見ながら調整が必要。
+
+### ⚠️ セレクタ/エンドポイントは要確認
+
+netkeiba は HTML 構造や API を変えることがあるため、本環境(ネット遮断)では
+実サイトに対する検証ができていない。次のファイルは実データを見て調整が必要:
+
+- `scraping/parser.py` … 結果テーブルの CSS セレクタ・td 列インデックス
+- `scraping/odds.py` … 三連複/三連単オッズの API URL と type コード
+
+> 結果ページ/オッズの HTML(または JSON)サンプルを共有してもらえれば、
+> 正確なセレクタ・パース処理を実装できる。`data/cache/` に保存された生 HTML が使える。
 
 ## データから重みを学習する
 

@@ -20,6 +20,7 @@ except ImportError:
 @dataclass
 class ParsedRow:
     finish_pos: int
+    umaban: int | None
     horse_id: str
     horse_name: str
     jockey: str
@@ -60,12 +61,16 @@ def parse_result_page(html: str, race_id: str) -> ParsedRace:
             finish_pos = int(tds[0].get_text(strip=True))
         except ValueError:
             continue
-        a = tr.find("a", href=True)
-        horse_id = _href_id(a["href"]) if a else ""
+        # 馬名リンク(/horse/<id>/)から馬の永続IDを取る
+        horse_a = tr.find("a", href=lambda h: h and "/horse/" in h)
+        horse_id = _href_id(horse_a["href"]) if horse_a else ""
+        # 馬番(td.Num など)。無ければ td 列インデックスで代用。
+        umaban = _safe_int(tr.select_one("td.Num")) or (_safe_int(tds[2]) if len(tds) > 2 else None)
         rows.append(ParsedRow(
             finish_pos=finish_pos,
+            umaban=umaban,
             horse_id=horse_id,
-            horse_name=a.get_text(strip=True) if a else "",
+            horse_name=horse_a.get_text(strip=True) if horse_a else "",
             jockey=_safe_text(tds[6]) if len(tds) > 6 else "",
             trainer=None,
             popularity=_safe_int(tds[10]) if len(tds) > 10 else None,
