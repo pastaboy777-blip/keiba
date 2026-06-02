@@ -71,6 +71,10 @@ python3 scripts/collect_data.py --year 2024 --place 大井 --out data/results.js
 python3 scripts/collect_data.py --year 2024 --place 川崎 --out data/results.jsonl
 #   …船橋・浦和・複数年ぶん集めるほど精度が上がる
 
+#    ── または楽天競馬(keiba.rakuten.co.jp)から収集(同じ JSONL 形式)──
+#    開催日の一覧ページを引く RACEID を渡すと、各レースの結果+オッズを収集
+python3 scripts/collect_rakuten.py --list-raceid 20240101200101 --out data/rakuten.jsonl
+
 # 2) 収集データから学習 → 検証(時系列分割・回収率を表示)
 python3 scripts/build_dataset.py --data data/results.jsonl --bet-type trio
 ```
@@ -93,6 +97,9 @@ netkeiba は HTML 構造や API を変えることがあるため、本環境(�
 
 - `scraping/parser.py` … 結果テーブルの CSS セレクタ・td 列インデックス
 - `scraping/odds.py` … 三連複/三連単オッズの API URL と type コード
+- `scraping/rakuten.py` … 楽天競馬の URL・場コード(jyoCD)・結果/オッズHTMLの
+  パース(RACEID は一覧ページのリンク抽出が主経路)。オフライン純粋ロジックは
+  `tests/test_rakuten.py` で検証済み。HTML 依存部は実データで要調整。
 
 > 結果ページ/オッズの HTML(または JSON)サンプルを共有してもらえれば、
 > 正確なセレクタ・パース処理を実装できる。`data/cache/` に保存された生 HTML が使える。
