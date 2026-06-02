@@ -42,6 +42,7 @@ class RaceContext:
     field_size: int
     jockey: str | None = None
     trainer: str | None = None
+    baba: str | None = None   # 馬場状態 '良'/'稍'/'重'/'不'
 
 
 @dataclass
@@ -177,12 +178,61 @@ def fatigue_penalty(
 # 総合スコア
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# 脚質(先行力)・末脚・馬場適性  ※通過順・上がり3F順位・馬場が必要
+# ---------------------------------------------------------------------------
+
+def _norm_baba(b: str | None) -> str | None:
+    return b[0] if b else None
+
+
+def senkou_power(runs: Sequence[iv.RunRecord], *, half_life: int = 3) -> float:
+    """先行力。前で運ぶほど +、後方ほど −(中心化、データ無しは 0)。
+
+    各走の最初のコーナー通過順位を頭数で正規化し、直近を重く加重平均する。
+    南関の小回り・脚抜きの悪い良ダートでは前で運べる馬が有利。
+    """
+    runs = [r for r in runs if r.corner_pos]
+    if not runs:
+        return 0.0
+    w = iv._recency_weights(len(runs), half_life=half_life)
+    val = 0.0
+    for wi, r in zip(w, runs):
+        pos = r.corner_pos[0]
+        val += wi * ((r.field_size - pos) / max(1, r.field_size - 1))
+    return val - 0.5
+
+
+def agari_sharpness(runs: Sequence[iv.RunRecord], *, half_life: int = 3) -> float:
+    """末脚の鋭さ。上がり3F順位が速いほど +(中心化、データ無しは 0)。"""
+    runs = [r for r in runs if r.agari_rank is not None]
+    if not runs:
+        return 0.0
+    w = iv._recency_weights(len(runs), half_life=half_life)
+    val = 0.0
+    for wi, r in zip(w, runs):
+        val += wi * ((r.field_size - r.agari_rank) / max(1, r.field_size - 1))
+    return val - 0.5
+
+
+def baba_fit(runs: Sequence[iv.RunRecord], ctx: "RaceContext", baseline: float) -> float:
+    """馬場適性。今回と同じ馬場区分での自身比相対成績(データ無しは 0)。"""
+    today = _norm_baba(ctx.baba)
+    if today is None:
+        return 0.0
+    vals = [r.finish_strength() - baseline for r in runs if _norm_baba(r.baba) == today]
+    return sum(vals) / len(vals) if vals else 0.0
+
+
 # 特徴量の名前(重みベクトルと1対1対応)。学習はこの係数を最適化する。
 FEATURE_NAMES: list[str] = [
     "ability",        # 着順ベースの地力
     "interval_fit",   # 出走間隔フィット
     "toughness",      # タフネス指数(中心化)
     "tatakii",        # 叩き良化
+    "senkou",         # 先行力(脚質)
+    "agari",          # 末脚の鋭さ
+    "baba_fit",       # 馬場適性
     "jockey_change",  # 乗り替わり強化
     "jockey_power",   # 騎手の追える力
     "trainer",        # 厩舎の仕上げ手腕
@@ -200,6 +250,9 @@ class ScoreWeights:
     interval_fit: float = 0.6
     toughness: float = 0.3
     tatakii: float = 1.0
+    senkou: float = 0.5
+    agari: float = 0.3
+    baba_fit: float = 0.5
     jockey_change: float = 1.0
     jockey_power: float = 0.8
     trainer: float = 0.4
@@ -244,6 +297,9 @@ def horse_features(
         "interval_fit": iv.interval_fit(profile, upcoming_days, prior=interval_prior),
         "toughness": profile.toughness - 0.5,
         "tatakii": tatakii_bonus(n_tatakii),
+        "senkou": senkou_power(runs),
+        "agari": agari_sharpness(runs),
+        "baba_fit": baba_fit(runs, ctx, baseline),
         "jockey_change": jockey_change_signal(runs, ctx, jockeys),
         "jockey_power": jockeys.get(ctx.jockey) - jockeys.default,
         "trainer": trainers.get(ctx.trainer) - trainers.default,

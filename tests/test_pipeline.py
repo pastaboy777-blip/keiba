@@ -113,6 +113,26 @@ class TestFeatures(unittest.TestCase):
         feats = horse_features(runs, ctx)
         self.assertEqual(set(feats), set(FEATURE_NAMES))
 
+    def test_senkou_and_agari(self):
+        from nankeiba.core.features import senkou_power, agari_sharpness
+        # 逃げ(通過1番手)・最速上がり の馬は先行力+・末脚+
+        front = [iv.RunRecord("2026-05-01", "船橋", 1000, 12, 1,
+                              corner_pos=[1, 1], agari_rank=1)]
+        back = [iv.RunRecord("2026-05-01", "船橋", 1000, 12, 8,
+                             corner_pos=[12, 12], agari_rank=12)]
+        self.assertGreater(senkou_power(front), senkou_power(back))
+        self.assertGreater(agari_sharpness(front), agari_sharpness(back))
+        # データ無しは 0(ニュートラル)
+        self.assertEqual(senkou_power([iv.RunRecord("2026-05-01", "船橋", 1000, 12, 3)]), 0.0)
+
+    def test_baba_fit(self):
+        from nankeiba.core.features import baba_fit
+        runs = [iv.RunRecord("2026-05-01", "船橋", 1000, 12, 1, baba="良"),
+                iv.RunRecord("2026-04-01", "船橋", 1000, 12, 10, baba="重")]
+        ctx = RaceContext("2026-06-01", "船橋", 1000, 12, baba="良")
+        # 良馬場で好走(baseline 0.5)→ 正
+        self.assertGreater(baba_fit(runs, ctx, 0.5), 0.0)
+
     def test_score_is_weighted_dot(self):
         runs = [iv.RunRecord("2024-02-20", "大井", 1400, 12, 3)]
         ctx = RaceContext("2024-03-01", "大井", 1400, 12, jockey="J01")

@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Sequence
 
@@ -90,6 +90,9 @@ class RunRecord:
         jockey:      騎手名(任意。乗り替わり判定に使う)
         trainer:     調教師名(任意)
         popularity:  人気順(任意。期待との乖離を見るのに使える)
+        baba:        馬場状態('良'/'稍'/'重'/'不' など。先頭1文字で判定)
+        corner_pos:  各コーナー通過順位(前→後)。例 [10,8,6]。脚質判定に使う
+        agari_rank:  上がり3F順位(1=最速)。末脚の鋭さに使う
         days_since_last: 前走からの間隔[日]。None なら build_profile が日付列から補完。
     """
 
@@ -101,6 +104,9 @@ class RunRecord:
     jockey: str | None = None
     trainer: str | None = None
     popularity: int | None = None
+    baba: str | None = None
+    corner_pos: list[int] = field(default_factory=list)
+    agari_rank: int | None = None
     days_since_last: int | None = None
 
     def finish_strength(self) -> float:
