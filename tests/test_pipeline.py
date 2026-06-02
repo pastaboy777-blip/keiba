@@ -226,5 +226,30 @@ class TestLearn(unittest.TestCase):
         self.assertGreater(res.spent, 0)
 
 
+class TestPastedIngest(unittest.TestCase):
+    SAMPLE = (
+        "1\t4\t4\tミラクルミッキー\t牡4\t56.0\t525kg\t＋2\t笹川翼\t稲益貴弘\t1:15.4\t-\t38.4\t4-4-4\t2\n"
+        "2\t8\t12\tミヤビモルタル\t牡5\t56.0\t517kg\t-5\t矢野貴之\t岩崎真樹\t1:15.4\tアタマ\t38.6\t3-3-3\t1\n"
+        "3\t5\t6\tザビッグマン\t牡7\t56.0\t556kg\t-9\t澤田龍哉\t新井清重\t1:15.8\t２\t37.8\t11-12-10\t3\n"
+    )
+
+    def test_parse(self):
+        from nankeiba.ingest.pasted import parse_result_table
+        from nankeiba.core import dataset as ds
+        rec = parse_result_table(self.SAMPLE, place="船橋", date="2026-06-01",
+                                 distance=1200, baba="良")
+        self.assertEqual(rec["field_size"], 3)
+        first = rec["result"][0]
+        self.assertEqual(first["umaban"], 4)
+        self.assertEqual(first["horse_name"], "ミラクルミッキー")
+        self.assertEqual(first["corner_pos"], [4, 4, 4])
+        # ザビッグマンは上がり最速(37.8)→ agari_rank 1
+        big = [r for r in rec["result"] if r["horse_name"] == "ザビッグマン"][0]
+        self.assertEqual(big["agari_rank"], 1)
+        # dataset.Race へ変換できる
+        race = ds.race_from_dict(rec)
+        self.assertEqual(race.result_order[0], 4)  # 1着の馬番
+
+
 if __name__ == "__main__":
     unittest.main()
