@@ -20,8 +20,8 @@ from nankeiba.core.features import RaceContext, horse_score
 from nankeiba.core import probability as pb
 
 RACE_DATE = "2026-06-02"
-PLACE = "川崎"
-DISTANCE = 900       # ※実際の距離は要確認(暫定)
+PLACE = "船橋"
+DISTANCE = 1000
 FIELD = 14
 
 # (馬番, 馬名, 騎手, 単勝, 人気, [過去走 (日付,場,距離,頭数,着順) 新しい順])
