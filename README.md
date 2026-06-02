@@ -30,7 +30,7 @@
 ## パイプライン全体像
 
 ```
-① データ収集   netkeiba 地方 から 結果/オッズ を取得(src/nankeiba/scraping)
+① データ収集   楽天競馬 から 結果/オッズ を取得(src/nankeiba/scraping)
 ② 特徴量/スコア 「走らせる」観点を合算した強さスコア(core/features.py)
 ③ 確率変換     Plackett-Luce で 三連複/三連単 の的中確率(core/probability.py)
 ④ 期待値判定   確率 × オッズ > 閾値 の買い目だけ購入(core/betting.py)
@@ -66,10 +66,15 @@ python3 -m unittest discover -s tests -v
 ```bash
 pip install -r requirements.txt
 
-# 1) netkeiba 地方から「結果 + 三連複/三連単オッズ」を収集(JSONL 出力)
-python3 scripts/collect_data.py --year 2024 --place 大井 --out data/results.jsonl
-python3 scripts/collect_data.py --year 2024 --place 川崎 --out data/results.jsonl
-#   …船橋・浦和・複数年ぶん集めるほど精度が上がる
+# 1) 楽天競馬から「結果 + 三連複/三連単オッズ」を日付範囲で収集(JSONL 出力)
+python3 scripts/collect_data.py --start 2024-01-01 --end 2024-12-31 \
+    --place 大井 --out data/results.jsonl
+python3 scripts/collect_data.py --start 2024-01-01 --end 2024-12-31 \
+    --place 川崎 --out data/results.jsonl
+#   …船橋・浦和・複数年ぶん集めるほど精度が上がる(非開催日は自動スキップ)
+
+# まず1レースだけ取得してパースを確認(推奨):
+python3 scripts/fetch_one.py --date 2024-01-01 --place 大井 --race 11
 
 # 2) 収集データから学習 → 検証(時系列分割・回収率を表示)
 python3 scripts/build_dataset.py --data data/results.jsonl --bet-type trio
@@ -83,19 +88,26 @@ collect_data.py ──(JSONL)──▶ core/dataset.py ──(Race)──▶ lea
 - 収集の JSONL 形式は `core/dataset.py` の冒頭を参照(結果 + オッズ + 馬番)。
 - 騎手・厩舎の勝率は `dataset.derive_conn_stats` が**学習区間だけ**から推定(リーク防止)。
 - `src/nankeiba/scraping/client.py` はレート制限(既定1.5秒間隔)とキャッシュ付き。
-- **節度を持って利用すること**: アクセス間隔を空け、robots.txt と各サイトの
+- **節度を持って利用すること**: アクセス間隔を空け、robots.txt と楽天競馬の
   利用規約を尊重し、個人利用の範囲にとどめる。
 
-### ⚠️ セレクタ/エンドポイントは要確認
+### 楽天競馬専用の収集の仕組み
 
-netkeiba は HTML 構造や API を変えることがあるため、本環境(ネット遮断)では
-実サイトに対する検証ができていない。次のファイルは実データを見て調整が必要:
+本パイプラインのデータ収集は **楽天競馬(keiba.rakuten.co.jp)専用**。南関4場
+(浦和=18・船橋=19・大井=20・川崎=21)を対象に、2026-06 時点の HTML 構造で
+**実サイト検証済み**。
 
-- `scraping/parser.py` … 結果テーブルの CSS セレクタ・td 列インデックス
-- `scraping/odds.py` … 三連複/三連単オッズの API URL と type コード
+- **RACEID**(18桁): `YYYYMMDD + 場コード(2) + …(開催回/日) + R(2)`。
+  内部の開催回採番に依存しないよう、**日付+場のインデックスページから各レースの
+  実 RACEID リンクを収集**してから結果/オッズを取りに行く(`scraping/parser.py`)。
+- **結果**: 競走成績ページ `race_performance`(着順・馬・騎手・調教師・人気・タイム)。
+- **オッズ**: `odds/sanrenfuku`(三連複)・`odds/sanrentan`(三連単)。
+  既定のマトリクス表は頭数が多いと一部を省略するため、同ページ内の
+  **「人気高配当順」全組リスト(切り詰めなし)** を解析して全組み合わせを取得する
+  (確定後ページにも確定オッズが残るので結果と同時に収集可能)。
 
-> 結果ページ/オッズの HTML(または JSON)サンプルを共有してもらえれば、
-> 正確なセレクタ・パース処理を実装できる。`data/cache/` に保存された生 HTML が使える。
+> サイト改修でクラス名等が変わった場合は `scraping/parser.py` / `scraping/odds.py`
+> を調整する。`data/cache/` に保存される生 HTML が確認に使える。
 
 ## データから重みを学習する
 
@@ -156,7 +168,7 @@ src/nankeiba/
     learn.py        重み学習(Plackett-Luce 尤度最大化・標準ライブラリ)
     learn_lgbm.py   重み学習(LightGBM lambdarank・任意)
     synth.py        検証用 合成データ生成
-  scraping/    データ収集(netkeiba 地方・ローカル実行)
+  scraping/    データ収集(楽天競馬専用・ローカル実行)
 scripts/       demo / train / collect_data
 tests/         単体テスト
 ```

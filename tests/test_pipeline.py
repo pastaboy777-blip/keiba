@@ -21,6 +21,12 @@ from nankeiba.core.features import (
 from nankeiba.core import learn as L
 from math import isfinite
 
+try:
+    import bs4  # noqa: F401  スクレイピングのパーサテストに必要(任意依存)
+    _HAS_BS4 = True
+except ImportError:
+    _HAS_BS4 = False
+
 
 class TestInterval(unittest.TestCase):
     def test_buckets(self):
@@ -168,25 +174,93 @@ class TestDataset(unittest.TestCase):
             self.assertTrue(0.0 <= r <= 1.0)
 
 
+@unittest.skipUnless(_HAS_BS4, "beautifulsoup4 が必要")
 class TestOddsParser(unittest.TestCase):
+    """楽天競馬オッズページ(人気高配当順リスト)のパース。"""
+
+    def _page(self, rows: str) -> str:
+        return ("<html><body><div id='ninkiKohaitoJun'><table>"
+                "<tr><th>順位</th><th>組番</th><th>オッズ</th></tr>"
+                f"{rows}</table></div></body></html>")
+
     def test_trio_keys_sorted(self):
         from nankeiba.scraping import odds as O
-        payload = {"odds": {"8-3-5": "42.1", "1-2-4": "10.0"}}
-        d = O.parse_odds_payload(payload, bet_type="trio")
+        html = self._page(
+            "<tr><td>1</td><td>8-3-5</td><td><span class='hot'>42.1</span></td></tr>"
+            "<tr><td>2</td><td>1-2-4</td><td><span>10.0</span></td></tr>")
+        d = O.parse_odds_html(html, bet_type="trio")
         self.assertIn((3, 5, 8), d)            # 三連複は昇順化
         self.assertAlmostEqual(d[(3, 5, 8)], 42.1)
 
     def test_trifecta_keeps_order(self):
         from nankeiba.scraping import odds as O
-        payload = {"5-3-8": "210.4"}
-        d = O.parse_odds_payload(payload, bet_type="trifecta")
+        html = self._page(
+            "<tr><td>1</td><td>5→3→8</td><td><span>210.4</span></td></tr>")
+        d = O.parse_odds_html(html, bet_type="trifecta")
         self.assertIn((5, 3, 8), d)            # 三連単は着順保持
+        self.assertAlmostEqual(d[(5, 3, 8)], 210.4)
 
-    def test_concatenated_key(self):
+    def test_skips_unsold_and_invalid(self):
         from nankeiba.scraping import odds as O
-        payload = {"030508": "42.1"}           # 固定幅連結キーにも対応
-        d = O.parse_odds_payload(payload, bet_type="trio")
-        self.assertIn((3, 5, 8), d)
+        html = self._page(
+            "<tr><td>1</td><td>2-4-6</td><td><span>-</span></td></tr>"   # 発売外
+            "<tr><td>2</td><td>3-3-7</td><td><span>5.0</span></td></tr>"  # 同番(不正)
+            "<tr><td>3</td><td>1-2-3</td><td><span>1,234.5</span></td></tr>")  # カンマ
+        d = O.parse_odds_html(html, bet_type="trio")
+        self.assertNotIn((2, 4, 6), d)
+        self.assertEqual(len(d), 1)
+        self.assertAlmostEqual(d[(1, 2, 3)], 1234.5)
+
+
+@unittest.skipUnless(_HAS_BS4, "beautifulsoup4 が必要")
+class TestResultParser(unittest.TestCase):
+    """楽天競馬 競走成績ページのパース。"""
+
+    def test_parse_result_rows(self):
+        from nankeiba.scraping import parser as P
+        html = (
+            "<html><body><li class='distance'>ダ1,200m</li>"
+            "<table><tr><th class='order'>着順</th><th class='horse'>馬名</th></tr>"
+            "<tbody>"
+            "<tr><td class='order'>2</td><th class='position'>3</th>"
+            "<td class='number'>5</td>"
+            "<td class='horse'><a href='/horse_detail/detail/HORSEID/2820260025'>ウマA</a></td>"
+            "<td class='jockey'>西村栄<br>(船橋)</td><td class='tamer'>佐々功</td>"
+            "<td class='time'>1:17.4</td><td class='rank'>5</td></tr>"
+            "<tr><td class='order'>1</td><th class='position'>1</th>"
+            "<td class='number'>2</td>"
+            "<td class='horse'><a href='/horse_detail/detail/HORSEID/120250133'>ウマB</a></td>"
+            "<td class='jockey'>澤田龍<br>(船橋)</td><td class='tamer'>長谷剛</td>"
+            "<td class='time'>1:17.1</td><td class='rank'>2</td></tr>"
+            "<tr><td class='order'>中止</td><th class='position'>2</th>"
+            "<td class='number'>9</td>"
+            "<td class='horse'><a href='/horse_detail/detail/HORSEID/999'>ウマC</a></td>"
+            "<td class='jockey'>誰か</td><td class='tamer'>厩舎</td>"
+            "<td class='time'></td><td class='rank'></td></tr>"
+            "</tbody></table></body></html>")
+        race = P.parse_result_page(html, "202606021914030201")
+        self.assertEqual(race.place, "船橋")          # RACEID 由来(19=船橋)
+        self.assertEqual(race.distance, 1200)
+        self.assertEqual(race.surface, "ダ")
+        self.assertEqual(race.field_size, 2)          # 中止馬は除外
+        self.assertEqual([r.finish_pos for r in race.rows], [1, 2])  # 着順ソート
+        winner = race.rows[0]
+        self.assertEqual(winner.umaban, 2)
+        self.assertEqual(winner.horse_id, "120250133")
+        self.assertEqual(winner.jockey, "澤田龍")     # 所属(船橋)を除去
+        self.assertEqual(winner.trainer, "長谷剛")
+        self.assertEqual(winner.popularity, 2)
+
+    def test_parse_race_links(self):
+        from nankeiba.scraping import parser as P
+        html = (
+            "<a href='/race_card/list/RACEID/202606021900000000'>一覧</a>"   # 末尾00=除外
+            "<a href='/race_card/list/RACEID/202606021914030201'>1R</a>"
+            "<a href='/race_card/list/RACEID/202606021914030211'>11R</a>"
+            "<a href='/race_card/list/RACEID/202606022014030201'>他場</a>")  # 場違い
+        links = P.parse_race_links(html, date_yyyymmdd="20260602", jyo_code="19")
+        self.assertEqual(links, [(1, "202606021914030201"),
+                                 (11, "202606021914030211")])
 
 
 class TestUmaban(unittest.TestCase):

@@ -1,64 +1,82 @@
-"""三連複・三連単オッズの取得とパース。
+"""楽天競馬(keiba.rakuten.co.jp)の三連複・三連単オッズを取得・パースする。
 
-netkeiba(地方)はオッズを JavaScript から JSON API で読み込む。代表的には
-    https://nar.netkeiba.com/api/api_get_jra_odds.html?race_id=<id>&type=<n>
-のような XHR で、馬番の組み合わせ -> オッズ の辞書が返る。
-※ エンドポイントURLと type コード(三連複/三連単の別)はサイト仕様変更で
-   変わりうるため、実環境で要確認。本リポジトリはネット遮断のため未検証。
+楽天競馬のオッズは JSON API ではなく HTML で配信される。確定後のページにも
+確定オッズが残るため、結果と同時に収集できる。
 
-ここでは「組み合わせ文字列 -> オッズ」の JSON を Race 用の辞書に正規化する
-パース部分を提供する(この部分はオフラインでテスト可能)。
+ページ URL:
+    三連複: https://keiba.rakuten.co.jp/odds/sanrenfuku/RACEID/<id>
+    三連単: https://keiba.rakuten.co.jp/odds/sanrentan/RACEID/<id>
 
-組み合わせ文字列の想定: 三連複 "3-5-8"(順不同), 三連単 "5-3-8"(着順)。
-netkeiba の生キーが "030508" のような連結数値の場合もあるため両対応する。
+HTML 構造(2026-06 時点で検証済み):
+  既定の「枠・馬番順」マトリクス表は頭数が多いと一部組を省略する(切り詰め)。
+  一方、同ページ内の隠し要素 <div id="ninkiKohaitoJun">(人気高配当順)に
+  **全組み合わせ** が「順位・組番・オッズ」のフラットな表で含まれる。こちらを使う。
+    - 三連複: 組番は "8-9-10"(馬番をハイフン区切り・順不同)
+    - 三連単: 組番は "9→10→8"(着順を矢印区切り)
+  オッズ値は組番セル隣の <span> テキスト(発売外は "-")。
+
+BeautifulSoup が必要: pip install beautifulsoup4
 """
 
 from __future__ import annotations
 
-import json
-from typing import Mapping
+import re
 
-# type コード(要確認のためのプレースホルダ)
-ODDS_TYPE = {"trio": "b7", "trifecta": "b8"}
-ODDS_API = "https://nar.netkeiba.com/api/api_get_jra_odds.html?race_id={race_id}&type={type}"
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    BeautifulSoup = None  # type: ignore
+
+# bet_type -> 楽天のオッズ種別パス
+ODDS_KIND = {"trio": "sanrenfuku", "trifecta": "sanrentan"}
+ODDS_URL = "https://keiba.rakuten.co.jp/odds/{kind}/RACEID/{race_id}"
+
+# 組番(馬番3つ)を取り出す: "8-9-10" / "9→10→8" の双方に対応
+_COMBO_RE = re.compile(r"^\s*(\d+)\s*[-－→]\s*(\d+)\s*[-－→]\s*(\d+)\s*$")
 
 
-def odds_api_url(race_id: str, bet_type: str) -> str:
-    return ODDS_API.format(race_id=race_id, type=ODDS_TYPE[bet_type])
+def odds_url(race_id: str, bet_type: str) -> str:
+    return ODDS_URL.format(kind=ODDS_KIND[bet_type], race_id=race_id)
 
 
-def _split_combo_key(key: str, *, ordered: bool, width: int = 2) -> tuple[int, ...]:
-    """生キーを馬番タプルに変換する。
+def _to_float(text: str) -> float | None:
+    text = text.strip().replace(",", "")
+    if not text or text == "-":
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
 
-    "3-5-8" のような区切り、または "030508" のような固定幅連結の両方に対応。
-    ordered=False(三連複)は昇順に並べ替える。
+
+def parse_odds_html(html: str, *, bet_type: str) -> dict[tuple[int, ...], float]:
+    """オッズページ HTML を {馬番タプル: オッズ} に正規化する。
+
+    trio(三連複): キーは昇順タプル。trifecta(三連単): キーは着順タプル。
+    人気高配当順の全組リスト(切り詰めなし)から抽出する。
     """
-    if "-" in key:
-        nums = tuple(int(x) for x in key.split("-"))
-    else:
-        nums = tuple(int(key[i:i + width]) for i in range(0, len(key), width))
-    return nums if ordered else tuple(sorted(nums))
+    if BeautifulSoup is None:
+        raise ImportError("beautifulsoup4 が必要です: pip install beautifulsoup4")
+    soup = BeautifulSoup(html, "html.parser")
 
+    container = soup.find(id="ninkiKohaitoJun")
+    if container is None:
+        return {}
 
-def parse_odds_payload(
-    payload: Mapping | str, *, bet_type: str
-) -> dict[tuple[int, ...], float]:
-    """オッズ JSON(または dict)を {馬番タプル: オッズ} に正規化する。
-
-    payload は {"odds": {"3-5-8": "42.1", ...}} のような構造、または
-    その中の odds 辞書そのものを受け取る。値は文字列/数値どちらも可。
-    """
-    if isinstance(payload, str):
-        payload = json.loads(payload)
-    raw = payload.get("odds", payload) if isinstance(payload, Mapping) else payload
     ordered = bet_type == "trifecta"
     out: dict[tuple[int, ...], float] = {}
-    for k, v in raw.items():
-        try:
-            o = float(v)
-        except (TypeError, ValueError):
+    for tr in container.find_all("tr"):
+        tds = tr.find_all("td")
+        if len(tds) < 3:
             continue
-        if o <= 0:
+        m = _COMBO_RE.match(tds[1].get_text(strip=True))
+        if not m:
             continue
-        out[_split_combo_key(str(k), ordered=ordered)] = o
+        combo = tuple(int(x) for x in m.groups())
+        if len(set(combo)) != 3:
+            continue
+        val = _to_float(tds[-1].get_text())
+        if val is None or val <= 0:
+            continue
+        out[combo if ordered else tuple(sorted(combo))] = val
     return out

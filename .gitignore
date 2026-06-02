@@ -6,6 +6,7 @@ venv/
 
 # スクレイピングのキャッシュ・収集データ
 data/cache/
+data/*.jsonl
 data/*.parquet
 data/*.csv
 data/*.sqlite
