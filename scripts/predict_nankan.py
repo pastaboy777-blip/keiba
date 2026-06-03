@@ -28,7 +28,43 @@ from nankeiba.core import features as F
 from nankeiba.core import probability as pb
 
 CARD_URL = "https://keiba.rakuten.co.jp/race_card/list/RACEID/{race_id}"
+RESULT_URL = "https://keiba.rakuten.co.jp/race_performance/list/RACEID/{race_id}"
 BABA_FULL = {"良": "良", "稍": "稍重", "重": "重", "不": "不良"}
+
+
+def _t2s(t):
+    if not t or ":" not in str(t):
+        return None
+    m, s = str(t).split(":")
+    return int(m) * 60 + float(s)
+
+
+def day_target_time(client, races, distance):
+    """当日の決着時計トレンドから、この距離の『想定勝ち時計(秒)』を逆算する。
+
+    同距離の確定レースがあればその中央値、無ければ全確定レースの秒/1000m中央値×距離。
+    返り値: (想定秒, 説明) / 確定レースが無ければ (None, ...)。
+    """
+    same, idx = [], []
+    for _rno, rid in races:
+        try:
+            res = P.parse_result_page(client.get(RESULT_URL.format(race_id=rid)), rid)
+        except Exception:  # noqa: BLE001
+            continue
+        if not res.rows:
+            continue
+        sec = _t2s(res.rows[0].time)
+        if not sec:
+            continue
+        if res.distance == distance:
+            same.append(sec)
+        idx.append(sec / res.distance * 1000)
+    import statistics as st
+    if same:
+        return st.median(same), f"同距離{len(same)}R中央値"
+    if idx:
+        return st.median(idx) * distance / 1000, f"全{len(idx)}R秒/1000m換算"
+    return None, "確定レースなし"
 
 
 def weights_for(mode: str) -> F.ScoreWeights:
@@ -88,10 +124,36 @@ def _median(xs):
     return None if n == 0 else (xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2)
 
 
-def zubu_ana_picks(card, jockeys, *, pop_min: int = 6):
-    """『ズブい馬を走らせる』観点で人気薄(穴)を拾う。
+def _best_time_at(entry, distance):
+    """この距離での自己最速タイム(秒)。無ければ None。"""
+    ts = [_t2s(pr.time) for pr in entry.recent_runs if pr.distance == distance and _t2s(pr.time)]
+    return min(ts) if ts else None
 
-    方針(着順・時計は使わない):
+
+def time_fit(entry, distance, target_time):
+    """タイム適性: 当日想定勝ち時計に対し『今日の決着に間に合う持ち時計か』。
+
+    時計は"足切り＋小さな加点"として使う(最速=勝ちではないので過大評価しない)。
+    返り値: (flag, bonus, tag) ── flag 'fail' は足切り対象。
+    """
+    if target_time is None:
+        return "na", 0.0, None
+    best = _best_time_at(entry, distance)
+    if best is None:
+        return "na", 0.0, None        # 当該距離の持ち時計なし=判定不能(切らない)
+    if best <= target_time:
+        return "ok", 1.0, f"時計足りる(自己最速{best:.1f}≦想定{target_time:.1f})"
+    if best <= target_time + 0.8:
+        return "edge", 0.5, f"時計際どい({best:.1f})"
+    return "fail", 0.0, f"時計不足({best:.1f}>想定{target_time:.1f})"
+
+
+def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None):
+    """『ズブい馬を走らせる』観点 ＋ タイム適性フィルターで人気薄(穴)を拾う。
+
+    方針:
+      - タイム適性: 当日想定勝ち時計に間に合わない馬は足切り、間に合う馬に小加点
+        (着順は無視。"着順は悪いが時計は足りている"人気薄を救うのが狙い)
       - 上がりの遅い馬を重視(切れ味より前粘り・持続型=ズブさ)
       - 乗り替わり(特に上位騎手への強化)
       - 出走間隔: 連闘/中1〜2週で詰めてきた or 適度な間隔
@@ -117,8 +179,11 @@ def zubu_ana_picks(card, jockeys, *, pop_min: int = 6):
             date=card.date, place=card.place, distance=card.distance,
             field_size=card.field_size, jockey=e.jockey, trainer=e.trainer),
             E.past_runs_to_records(e))
-        score = 0.0
-        tags = []
+        tf_flag, tf_bonus, tf_tag = time_fit(e, card.distance, target_time)
+        if tf_flag == "fail":
+            continue   # 当日の決着に間に合わない=足切り
+        score = tf_bonus
+        tags = [tf_tag] if tf_tag else []
         sp = slow_pts.get(e.umaban, 0.0)
         if sp:
             score += sp
@@ -163,7 +228,9 @@ def main() -> None:
                     help="shomousen=消耗戦/時計のかかる馬場(タフネス・短間隔を加点)")
     ap.add_argument("--temp", type=float, default=1.0, help="確率の尖り(小さいほど自信)")
     ap.add_argument("--ana", action="store_true",
-                    help="ズブ穴ピックアップ(着順/時計を使わず、上がり遅さ・乗替・間隔詰めで人気薄を拾う)")
+                    help="ズブ穴ピックアップ(タイム適性フィルター＋上がり遅さ・乗替・間隔詰めで人気薄を拾う)")
+    ap.add_argument("--target-time", type=float, default=None,
+                    help="想定勝ち時計[秒](未指定なら当日トレンドから自動逆算)")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-06-01.jsonl", "data/samples/nankan_2026-06-02.jsonl"])
     args = ap.parse_args()
@@ -217,8 +284,13 @@ def main() -> None:
     print("三連複: " + " / ".join(f"{'-'.join(map(str,k))}({v*100:.1f}%)" for k, v in trio[:6]))
     print("三連単: " + " / ".join(f"{'→'.join(map(str,k))}({v*100:.2f}%)" for k, v in trifecta[:6]))
     if args.ana:
-        picks = zubu_ana_picks(card, jockeys)
-        print("\n--- ★ズブ穴ピックアップ(人気薄/着順・時計不問・上がり遅さ重視)---")
+        tt = args.target_time
+        note = "手動指定"
+        if tt is None:
+            tt, note = day_target_time(client, list(races.items()), card.distance)
+        picks = zubu_ana_picks(card, jockeys, target_time=tt)
+        tt_s = f"{tt:.1f}秒({note})" if tt else "算出不可(確定レースなし)"
+        print(f"\n--- ★ズブ穴ピックアップ(タイム適性フィルター＋走らせる)/ 想定勝ち時計 {tt_s} ---")
         if not picks:
             print("  該当なし")
         for e, score, tags in picks[:5]:
