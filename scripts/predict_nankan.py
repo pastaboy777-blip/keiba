@@ -82,6 +82,77 @@ def mark(rank: int) -> str:
     return {1: "◎", 2: "○", 3: "▲", 4: "△", 5: "△"}.get(rank, " ")
 
 
+def _median(xs):
+    xs = sorted(xs)
+    n = len(xs)
+    return None if n == 0 else (xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2)
+
+
+def zubu_ana_picks(card, jockeys, *, pop_min: int = 6):
+    """『ズブい馬を走らせる』観点で人気薄(穴)を拾う。
+
+    方針(着順・時計は使わない):
+      - 上がりの遅い馬を重視(切れ味より前粘り・持続型=ズブさ)
+      - 乗り替わり(特に上位騎手への強化)
+      - 出走間隔: 連闘/中1〜2週で詰めてきた or 適度な間隔
+      - 場替わり・距離短縮(条件を合わせてきた=走らせにきた)
+    """
+    # レース内の上がり順位(遅い=高ポイント)
+    ag = {}
+    for e in card.entries:
+        vals = [pr.agari for pr in e.recent_runs if pr.agari]
+        ag[e.umaban] = _median(vals)
+    have = sorted([(um, a) for um, a in ag.items() if a is not None], key=lambda x: -x[1])
+    n = len(have)
+    slow_pts = {}
+    for i, (um, _a) in enumerate(have):
+        pct = i / (n - 1) if n > 1 else 0.0   # 0=最も遅い
+        slow_pts[um] = 2.0 if pct <= 0.3 else (1.0 if pct <= 0.5 else 0.0)
+
+    picks = []
+    for e in card.entries:
+        if e.exp_pop is not None and e.exp_pop < pop_min:
+            continue   # 人気サイドは穴ピックの対象外
+        sig = E.running_signals(e, F.RaceContext(
+            date=card.date, place=card.place, distance=card.distance,
+            field_size=card.field_size, jockey=e.jockey, trainer=e.trainer),
+            E.past_runs_to_records(e))
+        score = 0.0
+        tags = []
+        sp = slow_pts.get(e.umaban, 0.0)
+        if sp:
+            score += sp
+            tags.append("上がり遅い(持続型)" if sp >= 2 else "上がりやや遅")
+        d = sig["days_since_last"]
+        if d is not None and d <= 14:
+            score += 1.0
+            tags.append(f"連闘/詰め({d}日)")
+        elif d is not None and 15 <= d <= 20:
+            score += 1.5
+            tags.append(f"中1-2週({d}日)")
+        elif d is not None and d >= 35:
+            score += 1.0
+            tags.append(f"間隔あけ({d}日)")
+        if sig["jockey_changed"]:
+            up = jockeys.get(e.jockey) - jockeys.get(sig["prev_jockey"])
+            if up > 0.01:
+                score += 1.5
+                tags.append(f"乗替強化→{e.jockey}")
+            else:
+                score += 0.5
+                tags.append(f"乗替→{e.jockey}")
+        if sig["place_changed"]:
+            score += 0.5
+            tags.append("場替わり")
+        if sig["distance_change"] is not None and sig["distance_change"] < 0:
+            score += 0.5
+            tags.append(f"距離短縮({sig['distance_change']}m)")
+        if score > 0:
+            picks.append((e, score, tags))
+    picks.sort(key=lambda x: -x[1])
+    return picks
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="楽天競馬 南関 1レース予想(走らせる観点)")
     ap.add_argument("--date", required=True, help="YYYY-MM-DD")
@@ -91,6 +162,8 @@ def main() -> None:
     ap.add_argument("--mode", choices=["normal", "shomousen"], default="normal",
                     help="shomousen=消耗戦/時計のかかる馬場(タフネス・短間隔を加点)")
     ap.add_argument("--temp", type=float, default=1.0, help="確率の尖り(小さいほど自信)")
+    ap.add_argument("--ana", action="store_true",
+                    help="ズブ穴ピックアップ(着順/時計を使わず、上がり遅さ・乗替・間隔詰めで人気薄を拾う)")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-06-01.jsonl", "data/samples/nankan_2026-06-02.jsonl"])
     args = ap.parse_args()
@@ -143,6 +216,15 @@ def main() -> None:
     print("\n--- 推奨買い目(モデル確率上位)---")
     print("三連複: " + " / ".join(f"{'-'.join(map(str,k))}({v*100:.1f}%)" for k, v in trio[:6]))
     print("三連単: " + " / ".join(f"{'→'.join(map(str,k))}({v*100:.2f}%)" for k, v in trifecta[:6]))
+    if args.ana:
+        picks = zubu_ana_picks(card, jockeys)
+        print("\n--- ★ズブ穴ピックアップ(人気薄/着順・時計不問・上がり遅さ重視)---")
+        if not picks:
+            print("  該当なし")
+        for e, score, tags in picks[:5]:
+            print(f"  ◇{e.umaban:>2} {e.horse_name[:10]:<11}({e.exp_pop}人気) "
+                  f"穴度{score:.1f}  {'・'.join(tags)}")
+
     print("\n※ オッズ未開放のためモデル確率での推奨。オッズ確定後は期待値(回収率)モードで再評価可。")
 
 
