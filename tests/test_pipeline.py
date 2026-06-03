@@ -319,7 +319,7 @@ class TestEnrich(unittest.TestCase):
                        baba="良", race_name="特別")
         entry = CardEntry(
             umaban=5, waku=1, horse_id="120230894", horse_name="ウマ名",
-            sire=None, dam=None, sex_age="牡4", weight_carried=56.0,
+            sire=None, dam=None, broodmare_sire=None, sex_age="牡4", weight_carried=56.0,
             jockey="野畑凌", jockey_affil="川崎", jockey_win_rate=1.4,
             jockey_top3_rate=10.5, trainer="村田順", horse_weight=478,
             horse_weight_diff=1, exp_odds=7.6, exp_pop=3,

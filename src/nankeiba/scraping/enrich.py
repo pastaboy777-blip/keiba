@@ -98,6 +98,9 @@ def build_enriched_race(card: ParsedCard, result: ParsedRace | None = None,
             "waku": e.waku,
             "horse_id": e.horse_id,
             "horse_name": e.horse_name,
+            "sire": e.sire,                 # 父(血統ファクターの素・要データ蓄積)
+            "dam": e.dam,                   # 母
+            "broodmare_sire": e.broodmare_sire,  # 母父
             "sex_age": e.sex_age,
             "jockey": e.jockey,
             "jockey_affil": e.jockey_affil,

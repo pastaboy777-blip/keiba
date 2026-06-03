@@ -78,6 +78,7 @@ class CardEntry:
     horse_name: str
     sire: str | None
     dam: str | None
+    broodmare_sire: str | None
     sex_age: str | None
     weight_carried: float | None
     jockey: str | None
@@ -237,8 +238,11 @@ def _parse_card_entry(tr) -> CardEntry:
     sire = name_txt.split(horse_name)[0].strip() or None
     dam = None
     after = name_txt.split(horse_name, 1)[-1].lstrip()
-    if after and not after.startswith("("):
+    if after and not after[0] in "(（":
         dam = after.split("(")[0].split("（")[0].strip() or None
+    # 母父: 馬名の後の最初の括弧(人気の「（N人気）」より前に出る)
+    bms_m = re.search(r"[（(]\s*([^）)0-9]+?)\s*[）)]", after)
+    broodmare_sire = bms_m.group(1).strip() if bms_m else None
     m_odds = re.search(r"([\d.]+)\s*[（(]\s*(\d+)\s*人気", name_txt)
     exp_odds = float(m_odds.group(1)) if m_odds else None
     exp_pop = int(m_odds.group(2)) if m_odds else None
@@ -275,7 +279,8 @@ def _parse_card_entry(tr) -> CardEntry:
         umaban=_safe_int(tr.find("td", class_="number")),
         waku=_safe_int(tr.find(class_="position")),
         horse_id=_href_id(horse_a["href"]), horse_name=horse_name,
-        sire=sire, dam=dam, sex_age=sex_age, weight_carried=weight_carried,
+        sire=sire, dam=dam, broodmare_sire=broodmare_sire,
+        sex_age=sex_age, weight_carried=weight_carried,
         jockey=jockey, jockey_affil=jockey_affil,
         jockey_win_rate=win_rate, jockey_top3_rate=top3_rate, trainer=trainer,
         horse_weight=horse_weight, horse_weight_diff=horse_weight_diff,
