@@ -31,6 +31,24 @@ CARD_URL = "https://keiba.rakuten.co.jp/race_card/list/RACEID/{race_id}"
 BABA_FULL = {"良": "良", "稍": "稍重", "重": "重", "不": "不良"}
 
 
+def weights_for(mode: str) -> F.ScoreWeights:
+    """予想モード別の重み。
+
+    shomousen(消耗戦/時計のかかる馬場): 6/3 1R・2R の学びを反映。
+    決着時計が遅い消耗戦では、ズブさ(タフネス)と短間隔(連闘・叩き上がり)で
+    使い込まれた馬が浮上し、使い込み疲労のマイナスは出にくい。道悪適性も加点。
+    """
+    w = F.ScoreWeights()
+    if mode == "shomousen":
+        w.toughness = 0.9      # 0.3 → 大幅加点(ズブさ=最重要)
+        w.interval_fit = 0.9   # 0.6 → 短間隔有利を強調
+        w.tatakii = 1.3        # 1.0 → 叩き上がり
+        w.baba_fit = 0.8       # 0.5 → 道悪適性
+        w.senkou = 0.6         # 0.5 → 前で運べる(止まりにくい)を微増
+        w.fatigue = 0.4        # 1.0 → 使い込みのマイナスを軽減
+    return w
+
+
 def trainer_stats_from_samples(paths) -> F.ConnStats:
     """蓄積済み充実データ(6/1・6/2 等)から調教師の好走率(3着内率)を推定。"""
     starts: dict[str, int] = {}
@@ -70,6 +88,8 @@ def main() -> None:
     ap.add_argument("--place", choices=list(NANKAN_CODES), required=True)
     ap.add_argument("--race", type=int, required=True)
     ap.add_argument("--baba", choices=list(BABA_FULL), default="良", help="想定馬場 良/稍/重/不")
+    ap.add_argument("--mode", choices=["normal", "shomousen"], default="normal",
+                    help="shomousen=消耗戦/時計のかかる馬場(タフネス・短間隔を加点)")
     ap.add_argument("--temp", type=float, default=1.0, help="確率の尖り(小さいほど自信)")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-06-01.jsonl", "data/samples/nankan_2026-06-02.jsonl"])
@@ -86,6 +106,7 @@ def main() -> None:
 
     jockeys = E.jockey_stats_from_card(card)
     trainers = trainer_stats_from_samples(args.samples)
+    weights = weights_for(args.mode)
 
     scores: dict[int, float] = {}
     rows = []
@@ -95,7 +116,7 @@ def main() -> None:
                             trainer=e.trainer, baba=args.baba)
         records = E.past_runs_to_records(e)
         feats = F.horse_features(records, ctx, jockeys=jockeys, trainers=trainers)
-        sc = F.horse_score(records, ctx, jockeys=jockeys, trainers=trainers)
+        sc = F.horse_score(records, ctx, jockeys=jockeys, trainers=trainers, weights=weights)
         scores[e.umaban] = sc
         rows.append((e, feats, sc))
 
@@ -105,8 +126,9 @@ def main() -> None:
     trifecta = sorted(pb.trifecta_probabilities(strengths).items(), key=lambda kv: -kv[1])
 
     ranked = sorted(rows, key=lambda r: -r[2])
+    mode_label = "消耗戦(タフネス・短間隔を加点)" if args.mode == "shomousen" else "通常"
     print(f"\n=== {card.place} {args.race}R {card.surface}{card.distance}m "
-          f"/ 想定馬場: {BABA_FULL[args.baba]} ===")
+          f"/ 想定馬場: {BABA_FULL[args.baba]} / モード: {mode_label} ===")
     print(f"{'印':<2}{'馬番':>3} {'馬名':<11}{'騎手':<6}{'上位3着%':>7} "
           f"{'道悪':>6}{'脚質':>6}{'間隔':>6}{'叩':>3}{'タフ':>6}")
     for i, (e, feats, sc) in enumerate(ranked, 1):
