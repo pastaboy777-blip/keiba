@@ -178,6 +178,31 @@ def parse_result_page(html: str, race_id: str) -> ParsedRace:
 
 
 # ---------------------------------------------------------------------------
+# レース条件(天候・馬場・発走時刻) ※成績/出馬表ページ共通
+# ---------------------------------------------------------------------------
+
+_BABA_SHORT = {"良": "良", "稍重": "稍", "稍": "稍", "重": "重", "不良": "不", "不": "不"}
+
+
+def parse_conditions(html: str) -> dict:
+    """ページから天候・馬場(ダ/芝)・発走時刻を抜く。
+
+    返り値: {"weather": "雨", "baba": "不", "baba_full": "不良", "post_time": "14:30"}
+    取れない項目は None。
+    """
+    weather = _search(r"天候[：:]\s*</dt>\s*<dd>\s*([^<\s]+)", html)
+    bm = re.search(r"<dt>\s*[ダ芝][：:]\s*</dt>\s*<dd>\s*([良稍重不]+)", html)
+    baba_full = bm.group(1) if bm else None
+    post = _search(r"発走時刻\s*</dt>\s*<dd>\s*([0-9]{1,2}:[0-9]{2})", html)
+    return {
+        "weather": weather,
+        "baba_full": baba_full,
+        "baba": _BABA_SHORT.get(baba_full) if baba_full else None,
+        "post_time": post,
+    }
+
+
+# ---------------------------------------------------------------------------
 # 出馬表(race_card)ページ -> ParsedCard(各馬の近走履歴つき)
 # ---------------------------------------------------------------------------
 
