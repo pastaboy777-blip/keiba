@@ -251,6 +251,8 @@ def main() -> None:
     scores: dict[int, float] = {}
     rows = []
     for e in card.entries:
+        if e.umaban is None:
+            continue   # 馬番が取れない行(取消・パース欠け)はスキップ
         ctx = F.RaceContext(date=card.date, place=card.place, distance=card.distance,
                             field_size=card.field_size, jockey=e.jockey,
                             trainer=e.trainer, baba=args.baba)
