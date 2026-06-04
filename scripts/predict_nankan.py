@@ -80,9 +80,37 @@ def weights_for(mode: str) -> F.ScoreWeights:
         w.interval_fit = 0.9   # 0.6 → 短間隔有利を強調
         w.tatakii = 1.3        # 1.0 → 叩き上がり
         w.baba_fit = 0.8       # 0.5 → 道悪適性
-        w.senkou = 0.6         # 0.5 → 前で運べる(止まりにくい)を微増
+        w.senkou = 0.9         # 0.5 → 前で運べる馬を大幅加点(上がり使えない=前残り)
+        w.agari = 0.0          # 0.3 → 切れ味は無効(上がりが使えない馬場)
         w.fatigue = 0.4        # 1.0 → 使い込みのマイナスを軽減
+    elif mode == "zenzan":
+        # 前残り/上がり使えない馬場の"中庸"版: 地力(ability)は残したまま、
+        # 前で運べる脚質と道悪適性だけ上乗せ、切れ味は無効。堅い決着を壊さない。
+        w.senkou = 0.9         # 前で運べる馬を加点
+        w.agari = 0.0          # 切れ味は無効
+        w.baba_fit = 0.7       # 道悪適性
     return w
+
+
+def agari_style_adjust(card, *, scale: float = 0.35):
+    """上がりが使えない(前残り)馬場向けの脚質補正。
+
+    各馬の近走の上がり(中央値)をレース内で比較し、**遅い=持続/前型を加点**、
+    **速い=切れ味/差し型を割引**する。上がりが使えない馬場では切れる脚は不発で、
+    前で粘れる持続型が残るため。返り値: {馬番: 補正スコア(±scale程度)}。
+    """
+    med = {}
+    for e in card.entries:
+        if e.umaban is None:
+            continue
+        vals = [pr.agari for pr in e.recent_runs if pr.agari]
+        if vals:
+            med[e.umaban] = _median(vals)
+    if len(med) < 3:
+        return {}
+    order = sorted(med, key=lambda um: -med[um])   # 遅い順
+    n = len(order)
+    return {um: scale * (1 - 2 * i / (n - 1)) for i, um in enumerate(order)}
 
 
 def trainer_stats_from_samples(paths) -> F.ConnStats:
@@ -226,7 +254,7 @@ def main() -> None:
     ap.add_argument("--place", choices=list(NANKAN_CODES), required=True)
     ap.add_argument("--race", type=int, required=True)
     ap.add_argument("--baba", choices=list(BABA_FULL), default="良", help="想定馬場 良/稍/重/不")
-    ap.add_argument("--mode", choices=["normal", "shomousen"], default="normal",
+    ap.add_argument("--mode", choices=["normal", "shomousen", "zenzan"], default="normal",
                     help="shomousen=消耗戦/時計のかかる馬場(タフネス・短間隔を加点)")
     ap.add_argument("--temp", type=float, default=1.0, help="確率の尖り(小さいほど自信)")
     ap.add_argument("--ana", action="store_true",
@@ -249,6 +277,8 @@ def main() -> None:
     jockeys = E.jockey_stats_from_card(card)
     trainers = trainer_stats_from_samples(args.samples)
     weights = weights_for(args.mode)
+    # 上がりが使えない(前残り)馬場では、本ランキングにも脚質補正を効かせる
+    agari_adj = agari_style_adjust(card) if args.mode in ("shomousen", "zenzan") else {}
 
     scores: dict[int, float] = {}
     rows = []
@@ -261,6 +291,7 @@ def main() -> None:
         records = E.past_runs_to_records(e)
         feats = F.horse_features(records, ctx, jockeys=jockeys, trainers=trainers)
         sc = F.horse_score(records, ctx, jockeys=jockeys, trainers=trainers, weights=weights)
+        sc += agari_adj.get(e.umaban, 0.0)   # 遅い上がり=持続型を加点 / 速い=割引
         scores[e.umaban] = sc
         rows.append((e, feats, sc))
 
