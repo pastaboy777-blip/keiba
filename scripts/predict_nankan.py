@@ -173,6 +173,8 @@ def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None):
 
     picks = []
     for e in card.entries:
+        if e.umaban is None:
+            continue   # 馬番が取れない行はスキップ
         if e.exp_pop is not None and e.exp_pop < pop_min:
             continue   # 人気サイドは穴ピックの対象外
         sig = E.running_signals(e, F.RaceContext(
