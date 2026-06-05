@@ -46,6 +46,8 @@ class ParsedRace:
     surface: str         # 'ダ' / '芝'
     field_size: int
     rows: list[ParsedRow]  # 着順順
+    baba: str | None = None       # 馬場状態 '良'/'稍'/'重'/'不'
+    weather: str | None = None    # 天候 '晴'/'曇'/'雨' 等
 
 
 @dataclass
@@ -171,10 +173,12 @@ def parse_result_page(html: str, race_id: str) -> ParsedRace:
             ))
 
     rows.sort(key=lambda r: r.finish_pos)
+    cond = parse_conditions(html)
     return ParsedRace(
         race_id=race_id, date=info["date"], place=place,
         distance=distance, surface=surface,
         field_size=len(rows), rows=rows,
+        baba=cond["baba"], weather=cond["weather"],
     )
 
 

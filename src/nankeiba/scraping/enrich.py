@@ -82,14 +82,17 @@ def build_enriched_race(card: ParsedCard, result: ParsedRace | None = None,
     jockeys = jockeys or jockey_stats_from_card(card)
     trainers = trainers or F.ConnStats()
     finish_of = {}
+    baba = weather = None
     if result is not None:
         finish_of = {r.umaban: r.finish_pos for r in result.rows}
+        baba, weather = result.baba, result.weather   # 実馬場(baba_fit を活かす)
 
     horses = []
     for e in card.entries:
         ctx = F.RaceContext(
             date=card.date, place=card.place, distance=card.distance,
             field_size=card.field_size, jockey=e.jockey, trainer=e.trainer,
+            baba=baba,
         )
         records = past_runs_to_records(e)
         feats = F.horse_features(records, ctx, jockeys=jockeys, trainers=trainers)
@@ -123,6 +126,8 @@ def build_enriched_race(card: ParsedCard, result: ParsedRace | None = None,
         "place": card.place,
         "distance": card.distance,
         "surface": card.surface,
+        "baba": baba,                # 実馬場 '良'/'稍'/'重'/'不'
+        "weather": weather,          # 天候
         "field_size": card.field_size,
         "race_name": card.race_name,
         "result_order": [r.umaban for r in result.rows] if result else None,
