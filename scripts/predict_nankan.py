@@ -242,6 +242,13 @@ def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None):
         if sig["distance_change"] is not None and sig["distance_change"] < 0:
             score += 0.5
             tags.append(f"距離短縮({sig['distance_change']}m)")
+        # ★主軸: 騎手の質(上位騎手が人気薄に乗る=市場が過小評価)。3ヶ月検証で
+        #   人気薄3着内率+12.7%、トップピック的中12.0%→16.4%(/6重み)に改善。
+        jq = e.jockey_top3_rate or 0.0
+        if jq > 0:
+            score += jq / 6.0
+            if jq >= 25:
+                tags.insert(0, f"上位騎手({e.jockey}・3着内{jq:.0f}%)")
         if score > 0:
             picks.append((e, score, tags))
     picks.sort(key=lambda x: -x[1])
