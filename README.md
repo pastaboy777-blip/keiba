@@ -136,6 +136,36 @@ res = run_backtest(test_races, score_fn=scorer, bet_type="trio")  # 学習重み
 - `core/betting.py` の `ev_threshold` を上げると点数は減るが過信への保険になる。
 - 検証は必ず**時系列分割**で(`backtest.run_backtest` は過去走のみ使用=リーク無し)。
 
+## ラップ分析(楽天競馬から自動取得)
+
+開催済みレースの**ハロンタイム(200mごとのラップ)**を楽天競馬から取得し、
+コーナー区間ラベル付き・200m換算グラフ付きで分析する。出力は表形式のHTMLと
+ターミナル表示。netkeiba 等が遮断される環境でも楽天競馬(keiba.rakuten.co.jp)は
+到達できることを確認している。
+
+```bash
+pip install -r requirements.txt   # requests が必要
+
+# 例: 5/18(月) 大井 9R〜12R を自動取得して分析
+python3 scripts/lap_analyze.py --date 2026-05-18 --place 大井 --races 9-12
+
+# 全レース
+python3 scripts/lap_analyze.py --date 2026-05-18 --place 大井 --races all
+
+# ネット不可の環境: ハロンタイムを手入力して分析(offline)
+python3 scripts/lap_analyze.py --offline --distance 1600 \
+    --laps "12.7-11.6-13.5-13.3-12.0-13.1-12.7-13.3" \
+    --place 大井 --race-no 11 --date 2026-05-18 --going 良
+```
+
+- 出力: `out/lap_<日付>_<場>.html`(緑ヘッダの表 + コーナー区間色分け + 200m換算の折れ線)。
+- 算出値: テン3F / 上がり3F(公式値優先)/ 前後半 / 平均ハロン / 最速・最遅区間 /
+  ペース判定(ハイ・ミドル・スロー)と前後傾バランス。
+- コーナー区間ラベルは大井の標準コース構成に基づく**目安**(1600m=8ハロンで
+  「スタート〜1C…直線」に一致)。
+- 分析ロジック(`analysis/lap.py`・`analysis/render.py`)は標準ライブラリのみ。
+  取得部(`scraping/rakuten.py`)のみ requests を使用。
+
 ## 次の拡張候補
 
 - 間隔バケット別・叩き走目別の実成績から `INTERVAL_PRIOR`/`tatakii_bonus` を学習
@@ -156,7 +186,11 @@ src/nankeiba/
     learn.py        重み学習(Plackett-Luce 尤度最大化・標準ライブラリ)
     learn_lgbm.py   重み学習(LightGBM lambdarank・任意)
     synth.py        検証用 合成データ生成
-  scraping/    データ収集(netkeiba 地方・ローカル実行)
-scripts/       demo / train / collect_data
+  analysis/    ラップ分析(標準ライブラリのみ)
+    lap.py          ハロンタイム→区間分析・ペース判定
+    render.py       表+200m換算グラフ(テキスト/HTML+inline SVG)
+  scraping/    データ収集(netkeiba 地方・楽天競馬・ローカル実行)
+    rakuten.py      楽天競馬の成績(ラップ)取得・パース
+scripts/       demo / train / collect_data / lap_analyze
 tests/         単体テスト
 ```

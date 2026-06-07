@@ -6,10 +6,14 @@ venv/
 
 # スクレイピングのキャッシュ・収集データ
 data/cache/
+data/cache_rakuten/
 data/*.parquet
 data/*.csv
 data/*.sqlite
 data/*.db
+
+# ラップ分析の出力(HTML)
+out/
 
 .DS_Store
 .idea/
