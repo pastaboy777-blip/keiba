@@ -113,8 +113,37 @@ def agari_style_adjust(card, *, scale: float = 0.35):
     return {um: scale * (1 - 2 * i / (n - 1)) for i, um in enumerate(order)}
 
 
+def jockey_top3_from_samples(paths) -> dict:
+    """蓄積データから騎手の3着内率(%)を推定。
+
+    出馬表に騎手成績が未反映(発走直前まで0%)の時のフォールバックに使う。
+    返り値: {騎手名: 3着内率%}(全体平均へ縮約)。
+    """
+    starts: dict[str, int] = {}
+    hits: dict[str, int] = {}
+    tot_s = tot_h = 0
+    for p in paths:
+        if not Path(p).exists():
+            continue
+        for line in open(p, encoding="utf-8"):
+            rec = json.loads(line)
+            for h in rec["horses"]:
+                j, fp = h.get("jockey"), h.get("finish_pos")
+                if not j or fp is None:
+                    continue
+                starts[j] = starts.get(j, 0) + 1
+                hits[j] = hits.get(j, 0) + (1 if fp <= 3 else 0)
+                tot_s += 1
+                tot_h += 1 if fp <= 3 else 0
+    if tot_s == 0:
+        return {}
+    prior = tot_h / tot_s
+    pseudo = 15.0
+    return {j: 100.0 * (hits[j] + pseudo * prior) / (starts[j] + pseudo) for j in starts}
+
+
 def trainer_stats_from_samples(paths) -> F.ConnStats:
-    """蓄積済み充実データ(6/1・6/2 等)から調教師の好走率(3着内率)を推定。"""
+    """蓄積済み充実データから調教師の好走率(3着内率)を推定。"""
     starts: dict[str, int] = {}
     hits: dict[str, int] = {}
     tot_s = tot_h = 0
@@ -176,7 +205,7 @@ def time_fit(entry, distance, target_time):
     return "fail", 0.0, f"時計不足({best:.1f}>想定{target_time:.1f})"
 
 
-def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None):
+def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None, jockey_rates=None):
     """『ズブい馬を走らせる』観点 ＋ タイム適性フィルターで人気薄(穴)を拾う。
 
     方針:
@@ -245,6 +274,8 @@ def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None):
         # ★主軸: 騎手の質(上位騎手が人気薄に乗る=市場が過小評価)。3ヶ月検証で
         #   人気薄3着内率+12.7%、トップピック的中12.0%→16.4%(/6重み)に改善。
         jq = e.jockey_top3_rate or 0.0
+        if jq <= 0 and jockey_rates:          # カード未反映時は蓄積データで代替
+            jq = jockey_rates.get(e.jockey, 0.0)
         if jq > 0:
             score += jq / 6.0
             if jq >= 25:
@@ -269,7 +300,8 @@ def main() -> None:
     ap.add_argument("--target-time", type=float, default=None,
                     help="想定勝ち時計[秒](未指定なら当日トレンドから自動逆算)")
     ap.add_argument("--samples", nargs="*", default=[
-        "data/samples/nankan_2026-06-01.jsonl", "data/samples/nankan_2026-06-02.jsonl"])
+        "data/samples/nankan_2026-04.jsonl", "data/samples/nankan_2026-05.jsonl",
+        "data/samples/nankan_2026-06.jsonl"])
     args = ap.parse_args()
 
     ymd = args.date.replace("-", "")
@@ -330,7 +362,8 @@ def main() -> None:
         note = "手動指定"
         if tt is None:
             tt, note = day_target_time(client, list(races.items()), card.distance)
-        picks = zubu_ana_picks(card, jockeys, target_time=tt)
+        jrates = jockey_top3_from_samples(args.samples)
+        picks = zubu_ana_picks(card, jockeys, target_time=tt, jockey_rates=jrates)
         tt_s = f"{tt:.1f}秒({note})" if tt else "算出不可(確定レースなし)"
         print(f"\n--- ★ズブ穴ピックアップ(タイム適性フィルター＋走らせる)/ 想定勝ち時計 {tt_s} ---")
         if not picks:
