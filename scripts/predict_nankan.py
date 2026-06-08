@@ -205,7 +205,8 @@ def time_fit(entry, distance, target_time):
     return "fail", 0.0, f"時計不足({best:.1f}>想定{target_time:.1f})"
 
 
-def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None, jockey_rates=None):
+def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
+                   jockey_rates=None, jockey_div: float = 8.0):
     """『ズブい馬を走らせる』観点 ＋ タイム適性フィルターで人気薄(穴)を拾う。
 
     方針:
@@ -277,7 +278,7 @@ def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None, jockey_
         if jq <= 0 and jockey_rates:          # カード未反映時は蓄積データで代替
             jq = jockey_rates.get(e.jockey, 0.0)
         if jq > 0:
-            score += jq / 6.0
+            score += jq / jockey_div          # 重みは --jw で調整(大=弱める)
             if jq >= 25:
                 tags.insert(0, f"上位騎手({e.jockey}・3着内{jq:.0f}%)")
         if score > 0:
@@ -299,6 +300,8 @@ def main() -> None:
                     help="ズブ穴ピックアップ(タイム適性フィルター＋上がり遅さ・乗替・間隔詰めで人気薄を拾う)")
     ap.add_argument("--target-time", type=float, default=None,
                     help="想定勝ち時計[秒](未指定なら当日トレンドから自動逆算)")
+    ap.add_argument("--jw", type=float, default=8.0,
+                    help="騎手の質の弱め係数(大きいほど騎手ファクターを下げる。既定8)")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-04.jsonl", "data/samples/nankan_2026-05.jsonl",
         "data/samples/nankan_2026-06.jsonl"])
@@ -363,7 +366,8 @@ def main() -> None:
         if tt is None:
             tt, note = day_target_time(client, list(races.items()), card.distance)
         jrates = jockey_top3_from_samples(args.samples)
-        picks = zubu_ana_picks(card, jockeys, target_time=tt, jockey_rates=jrates)
+        picks = zubu_ana_picks(card, jockeys, target_time=tt, jockey_rates=jrates,
+                               jockey_div=args.jw)
         tt_s = f"{tt:.1f}秒({note})" if tt else "算出不可(確定レースなし)"
         print(f"\n--- ★ズブ穴ピックアップ(タイム適性フィルター＋走らせる)/ 想定勝ち時計 {tt_s} ---")
         if not picks:
