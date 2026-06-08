@@ -235,10 +235,11 @@ def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
             continue   # 馬番が取れない行はスキップ
         if e.exp_pop is not None and e.exp_pop < pop_min:
             continue   # 人気サイドは穴ピックの対象外
+        records = E.past_runs_to_records(e)
         sig = E.running_signals(e, F.RaceContext(
             date=card.date, place=card.place, distance=card.distance,
             field_size=card.field_size, jockey=e.jockey, trainer=e.trainer),
-            E.past_runs_to_records(e))
+            records)
         tf_flag, tf_bonus, tf_tag = time_fit(e, card.distance, target_time)
         if tf_flag == "fail":
             continue   # 当日の決着に間に合わない=足切り
@@ -272,6 +273,13 @@ def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
         if sig["distance_change"] is not None and sig["distance_change"] < 0:
             score += 0.5
             tags.append(f"距離短縮({sig['distance_change']}m)")
+        # 前で運べる脚質(前残り馬場で穴になる・検証で人気薄+2.0/道悪+2.7)
+        sen = F.senkou_power(records)
+        if sen >= 0.2:
+            score += sen * 2.5
+            tags.append(f"前で運べる(脚質{sen:+.2f})")
+        elif sen <= -0.15:
+            score += sen * 1.5          # 後方型は減点(人気薄で-1.4)
         # ★主軸: 騎手の質(上位騎手が人気薄に乗る=市場が過小評価)。3ヶ月検証で
         #   人気薄3着内率+12.7%、トップピック的中12.0%→16.4%(/6重み)に改善。
         jq = e.jockey_top3_rate or 0.0
@@ -302,6 +310,8 @@ def main() -> None:
                     help="想定勝ち時計[秒](未指定なら当日トレンドから自動逆算)")
     ap.add_argument("--jw", type=float, default=8.0,
                     help="騎手の質の弱め係数(大きいほど騎手ファクターを下げる。既定8)")
+    ap.add_argument("--pop-min", type=int, default=6,
+                    help="ズブ穴の人気しきい値(この人気以下が対象。既定6=6番人気以下)")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-04.jsonl", "data/samples/nankan_2026-05.jsonl",
         "data/samples/nankan_2026-06.jsonl"])
@@ -367,7 +377,7 @@ def main() -> None:
             tt, note = day_target_time(client, list(races.items()), card.distance)
         jrates = jockey_top3_from_samples(args.samples)
         picks = zubu_ana_picks(card, jockeys, target_time=tt, jockey_rates=jrates,
-                               jockey_div=args.jw)
+                               jockey_div=args.jw, pop_min=args.pop_min)
         tt_s = f"{tt:.1f}秒({note})" if tt else "算出不可(確定レースなし)"
         print(f"\n--- ★ズブ穴ピックアップ(タイム適性フィルター＋走らせる)/ 想定勝ち時計 {tt_s} ---")
         if not picks:
