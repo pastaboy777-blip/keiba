@@ -206,7 +206,7 @@ def time_fit(entry, distance, target_time):
 
 
 def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
-                   jockey_rates=None, jockey_div: float = 8.0):
+                   jockey_rates=None, jockey_div: float = 12.0):
     """『ズブい馬を走らせる』観点 ＋ タイム適性フィルターで人気薄(穴)を拾う。
 
     方針:
@@ -319,8 +319,8 @@ def main() -> None:
                     help="ズブ穴ピックアップ(タイム適性フィルター＋上がり遅さ・乗替・間隔詰めで人気薄を拾う)")
     ap.add_argument("--target-time", type=float, default=None,
                     help="想定勝ち時計[秒](未指定なら当日トレンドから自動逆算)")
-    ap.add_argument("--jw", type=float, default=8.0,
-                    help="騎手の質の弱め係数(大きいほど騎手ファクターを下げる。既定8)")
+    ap.add_argument("--jw", type=float, default=12.0,
+                    help="騎手の質の弱め係数(大きいほど騎手ファクターを下げる。既定12)")
     ap.add_argument("--pop-min", type=int, default=6,
                     help="ズブ穴の人気しきい値(この人気以下が対象。既定6=6番人気以下)")
     ap.add_argument("--samples", nargs="*", default=[
