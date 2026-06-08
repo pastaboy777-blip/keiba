@@ -280,6 +280,17 @@ def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
             tags.append(f"前で運べる(脚質{sen:+.2f})")
         elif sen <= -0.15:
             score += sen * 1.5          # 後方型は減点(人気薄で-1.4)
+        # 純持続/スタミナ型: 「その距離にしては上がりが遅い」走が近5走にある馬。
+        # (1600mの41秒は普通なので絶対値ではなく距離相対で判定)。
+        # 切れ味皆無の前粘り型=時計のかかる消耗戦の馬場で穴になる。
+        def _slow_for_dist(pr):
+            if not pr.distance or not pr.agari:
+                return False
+            norm = 37.5 + pr.distance / 1000 * 2.0   # 距離別の上がり3F目安(実態準拠)
+            return pr.agari >= norm + 1.2            # 目安より1.2秒以上遅い=純持続
+        if any(_slow_for_dist(pr) for pr in e.recent_runs):
+            score += 1.0
+            tags.append("純持続型(距離比・上がり遅)")
         # ★主軸: 騎手の質(上位騎手が人気薄に乗る=市場が過小評価)。3ヶ月検証で
         #   人気薄3着内率+12.7%、トップピック的中12.0%→16.4%(/6重み)に改善。
         jq = e.jockey_top3_rate or 0.0
