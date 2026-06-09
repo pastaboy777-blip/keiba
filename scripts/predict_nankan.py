@@ -206,7 +206,7 @@ def time_fit(entry, distance, target_time):
 
 
 def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
-                   jockey_rates=None, jockey_div: float = 12.0):
+                   jockey_rates=None, jockey_div: float = 12.0, bias: str = "front"):
     """『ズブい馬を走らせる』観点 ＋ タイム適性フィルターで人気薄(穴)を拾う。
 
     方針:
@@ -273,13 +273,21 @@ def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
         if sig["distance_change"] is not None and sig["distance_change"] < 0:
             score += 0.5
             tags.append(f"距離短縮({sig['distance_change']}m)")
-        # 前で運べる脚質(前残り馬場で穴になる・検証で人気薄+2.0/道悪+2.7)
+        # 脚質ファクター。bias=front(既定)は前で運べる馬を加点(前残り馬場)、
+        # bias=sashi はトラックバイアスが差し有利の時間帯用に後方/差し脚を加点。
         sen = F.senkou_power(records)
-        if sen >= 0.2:
-            score += sen * 2.5
-            tags.append(f"前で運べる(脚質{sen:+.2f})")
-        elif sen <= -0.15:
-            score += sen * 1.5          # 後方型は減点(人気薄で-1.4)
+        if bias == "sashi":
+            if sen <= -0.2:
+                score += -sen * 2.5
+                tags.append(f"差し脚(後方{sen:+.2f})")
+            elif sen >= 0.15:
+                score += -sen * 1.5          # 前付けは減点(差し有利の時間帯)
+        else:  # front
+            if sen >= 0.2:
+                score += sen * 2.5
+                tags.append(f"前で運べる(脚質{sen:+.2f})")
+            elif sen <= -0.15:
+                score += sen * 1.5           # 後方型は減点(人気薄で-1.4)
         # 純持続/スタミナ型: 「その距離にしては上がりが遅い」走が近5走にある馬。
         # (1600mの41秒は普通なので絶対値ではなく距離相対で判定)。
         # 切れ味皆無の前粘り型=時計のかかる消耗戦の馬場で穴になる。
@@ -323,6 +331,8 @@ def main() -> None:
                     help="騎手の質の弱め係数(大きいほど騎手ファクターを下げる。既定12)")
     ap.add_argument("--pop-min", type=int, default=6,
                     help="ズブ穴の人気しきい値(この人気以下が対象。既定6=6番人気以下)")
+    ap.add_argument("--bias", choices=["front", "sashi"], default="front",
+                    help="脚質バイアス: front=前有利(既定)/ sashi=差し有利の時間帯用")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-04.jsonl", "data/samples/nankan_2026-05.jsonl",
         "data/samples/nankan_2026-06.jsonl"])
@@ -388,7 +398,7 @@ def main() -> None:
             tt, note = day_target_time(client, list(races.items()), card.distance)
         jrates = jockey_top3_from_samples(args.samples)
         picks = zubu_ana_picks(card, jockeys, target_time=tt, jockey_rates=jrates,
-                               jockey_div=args.jw, pop_min=args.pop_min)
+                               jockey_div=args.jw, pop_min=args.pop_min, bias=args.bias)
         tt_s = f"{tt:.1f}秒({note})" if tt else "算出不可(確定レースなし)"
         print(f"\n--- ★ズブ穴ピックアップ(タイム適性フィルター＋走らせる)/ 想定勝ち時計 {tt_s} ---")
         if not picks:
