@@ -181,6 +181,14 @@ def _median(xs):
     return None if n == 0 else (xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2)
 
 
+def _pstd(xs):
+    """母標準偏差(2点未満は None)。"""
+    if len(xs) < 2:
+        return None
+    m = sum(xs) / len(xs)
+    return (sum((x - m) ** 2 for x in xs) / len(xs)) ** 0.5
+
+
 def _best_time_at(entry, distance):
     """この距離での自己最速タイム(秒)。無ければ None。"""
     ts = [_t2s(pr.time) for pr in entry.recent_runs if pr.distance == distance and _t2s(pr.time)]
@@ -206,7 +214,8 @@ def time_fit(entry, distance, target_time):
 
 
 def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
-                   jockey_rates=None, jockey_div: float = 12.0, bias: str = "front"):
+                   jockey_rates=None, jockey_div: float = 12.0, bias: str = "front",
+                   stab: bool = False):
     """『ズブい馬を走らせる』観点 ＋ タイム適性フィルターで人気薄(穴)を拾う。
 
     方針:
@@ -299,6 +308,14 @@ def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
         if any(_slow_for_dist(pr) for pr in e.recent_runs):
             score += 1.0
             tags.append("純持続型(距離比・上がり遅)")
+        # 上がり安定(--stab): 毎回ほぼ同じ上がりを刻む=ムラがない人気薄。
+        # 単体では重/不・人気薄 +2.1 だが、複合に足すと精度低下(15.1→13.8)のため既定オフ。
+        if stab:
+            agaris = [pr.agari for pr in e.recent_runs if pr.agari]
+            sd = _pstd(agaris) if len(agaris) >= 3 else None
+            if sd is not None and sd <= 0.6:
+                score += 1.0
+                tags.append(f"上がり安定(毎回同じ・std{sd:.2f})")
         # ★主軸: 騎手の質(上位騎手が人気薄に乗る=市場が過小評価)。3ヶ月検証で
         #   人気薄3着内率+12.7%、トップピック的中12.0%→16.4%(/6重み)に改善。
         jq = e.jockey_top3_rate or 0.0
@@ -333,6 +350,8 @@ def main() -> None:
                     help="ズブ穴の人気しきい値(この人気以下が対象。既定6=6番人気以下)")
     ap.add_argument("--bias", choices=["front", "sashi"], default="front",
                     help="脚質バイアス: front=前有利(既定)/ sashi=差し有利の時間帯用")
+    ap.add_argument("--stab", action="store_true",
+                    help="上がり安定(毎回同じ上がり)を加点。単体+2.1だが複合では精度低下のため任意")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-04.jsonl", "data/samples/nankan_2026-05.jsonl",
         "data/samples/nankan_2026-06.jsonl"])
@@ -398,7 +417,7 @@ def main() -> None:
             tt, note = day_target_time(client, list(races.items()), card.distance)
         jrates = jockey_top3_from_samples(args.samples)
         picks = zubu_ana_picks(card, jockeys, target_time=tt, jockey_rates=jrates,
-                               jockey_div=args.jw, pop_min=args.pop_min, bias=args.bias)
+                               jockey_div=args.jw, pop_min=args.pop_min, bias=args.bias, stab=args.stab)
         tt_s = f"{tt:.1f}秒({note})" if tt else "算出不可(確定レースなし)"
         print(f"\n--- ★ズブ穴ピックアップ(タイム適性フィルター＋走らせる)/ 想定勝ち時計 {tt_s} ---")
         if not picks:
