@@ -105,6 +105,7 @@ class ParsedCard:
     field_size: int
     race_name: str
     entries: list[CardEntry]
+    race_class: str | None = None   # 条件('Ｃ３一二'/'Ｂ２一 選抜特別' 等)
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +220,7 @@ def parse_card_page(html: str, race_id: str) -> ParsedCard:
     info = parse_race_id(race_id)
     distance, surface = _extract_distance(soup)
     race_name = _safe_text(soup.find("h1", class_="unique"))
+    race_class = parse_race_class(html)
 
     entries: list[CardEntry] = []
     for tr in soup.find_all("tr"):
@@ -230,8 +232,14 @@ def parse_card_page(html: str, race_id: str) -> ParsedCard:
     return ParsedCard(
         race_id=race_id, date=info["date"], place=info["place"] or _extract_place(soup),
         distance=distance, surface=surface, field_size=len(entries),
-        race_name=race_name, entries=entries,
+        race_name=race_name, entries=entries, race_class=race_class,
     )
+
+
+def parse_race_class(html: str) -> str | None:
+    """レースの条件(クラス)を返す。例 'Ｃ３一二' / '夏木立賞競走　Ｂ２一　選抜特別'。"""
+    m = re.search(r"trackMainState.*?</ul>\s*<h2>([^<]+)</h2>", html, re.S)
+    return re.sub(r"\s+", " ", m.group(1)).strip() if m else None
 
 
 def _parse_card_entry(tr) -> CardEntry:

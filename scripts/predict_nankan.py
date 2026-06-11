@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -90,6 +91,20 @@ def weights_for(mode: str) -> F.ScoreWeights:
         w.agari = 0.0          # 切れ味は無効
         w.baba_fit = 0.7       # 道悪適性
     return w
+
+
+def class_to_bias(race_class) -> str:
+    """クラスから脚質バイアスを判定。C1以上(/B/A/オープン)=前、C2/C3/3歳=差し。
+
+    (6/11大井の検証: 上級条件ほど前残り、下級は差しが決まる傾向)
+    """
+    if not race_class:
+        return "front"
+    rc = race_class
+    if ("オープン" in rc or "ＯＰ" in rc or "Ｃ１" in rc or "C1" in rc
+            or re.search(r"[ＡＢAB][０-９0-9]", rc)):
+        return "front"        # 上級条件=前残り傾向
+    return "sashi"            # Ｃ２/Ｃ３/3歳など下級=差し
 
 
 def agari_style_adjust(card, *, scale: float = 0.35):
@@ -348,8 +363,8 @@ def main() -> None:
                     help="騎手の質の弱め係数(大きいほど騎手ファクターを下げる。既定12)")
     ap.add_argument("--pop-min", type=int, default=6,
                     help="ズブ穴の人気しきい値(この人気以下が対象。既定6=6番人気以下)")
-    ap.add_argument("--bias", choices=["front", "sashi"], default="front",
-                    help="脚質バイアス: front=前有利(既定)/ sashi=差し有利の時間帯用")
+    ap.add_argument("--bias", choices=["front", "sashi", "auto"], default="front",
+                    help="脚質バイアス: front/sashi/auto(クラスで自動:C1以上=前,下級=差し)")
     ap.add_argument("--stab", action="store_true",
                     help="上がり安定(毎回同じ上がり)を加点。単体+2.1だが複合では精度低下のため任意")
     ap.add_argument("--samples", nargs="*", default=[
@@ -416,8 +431,11 @@ def main() -> None:
         if tt is None:
             tt, note = day_target_time(client, list(races.items()), card.distance)
         jrates = jockey_top3_from_samples(args.samples)
+        bias = class_to_bias(card.race_class) if args.bias == "auto" else args.bias
+        if args.bias == "auto":
+            print(f"  (条件={card.race_class} → バイアス自動判定: {bias})")
         picks = zubu_ana_picks(card, jockeys, target_time=tt, jockey_rates=jrates,
-                               jockey_div=args.jw, pop_min=args.pop_min, bias=args.bias, stab=args.stab)
+                               jockey_div=args.jw, pop_min=args.pop_min, bias=bias, stab=args.stab)
         tt_s = f"{tt:.1f}秒({note})" if tt else "算出不可(確定レースなし)"
         print(f"\n--- ★ズブ穴ピックアップ(タイム適性フィルター＋走らせる)/ 想定勝ち時計 {tt_s} ---")
         if not picks:
