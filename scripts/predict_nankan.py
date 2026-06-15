@@ -532,11 +532,24 @@ def main() -> None:
     ap.add_argument("--keep-slow", action="store_true",
                     help="持ち時計が想定に届かない馬も足切りせず減点で残す"
                          "(消耗戦で粘る超人気薄=マイボンド型を拾う)")
+    ap.add_argument("--attrition-meet", action="store_true",
+                    help="時計超過の特別開催プリセット(今開催の川崎用)。"
+                         "keep-slow + no-jockey + time-margin2.0 を一括適用する一時レジーム")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-02.jsonl", "data/samples/nankan_2026-03.jsonl",
         "data/samples/nankan_2026-04.jsonl", "data/samples/nankan_2026-05.jsonl",
         "data/samples/nankan_2026-06.jsonl"])
     args = ap.parse_args()
+
+    # 時計超過の特別開催プリセット: その開催だけの一時レジーム(汎用既定は変えない)。
+    # 今開催の川崎のように全体に時計が掛かっている時、持ち時計の足切りを外し
+    # (=遅い持続型を残す)、上位騎手ファクターも外す(=馬の中身で拾う)。
+    if args.attrition_meet:
+        args.keep_slow = True
+        args.no_jockey = True
+        args.time_margin = max(args.time_margin, 2.0)
+        print("★今開催 特別運用[時計超過の重開催]: 時計足切り緩和 + 上位騎手ファクターOFF")
+        print("  ※汎用の検証済みモデル(既定)とは別。この開催限定の一時設定です。")
 
     ymd = args.date.replace("-", "")
     client = PoliteClient()
