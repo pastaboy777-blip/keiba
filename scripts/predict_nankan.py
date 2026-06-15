@@ -236,7 +236,9 @@ def wet_ana_stats_from_samples(paths, *, pop_min: int = 6) -> dict:
 # 人気薄の3着内を両期間で安定して予測できた信号だけを符号つき重みで線形結合する。
 # 値は標準化(蓄積データの平均/標準偏差)してから掛ける。市場情報(人気)は妙味を
 # 損なうため既定では使わない(=技能型)。
-ZUBU_V2_WEIGHTS = {"jockey": 0.20, "ability": 0.14, "senkou": 0.04, "agari": -0.04}
+# 重みは learn_zubu.py のロジスティック回帰で学習した係数(標準化後)に準拠。
+# jockey(騎手の質)と ability(地力)が二大ドライバー、senkou/agari は僅少。
+ZUBU_V2_WEIGHTS = {"jockey": 0.38, "ability": 0.29, "senkou": 0.02, "agari": -0.02}
 
 
 def zubu_v2_stats_from_samples(paths, *, pop_min: int = 6) -> dict:
