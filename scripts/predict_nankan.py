@@ -232,6 +232,73 @@ def wet_ana_stats_from_samples(paths, *, pop_min: int = 6) -> dict:
     return {"base": base, "trainer": tr_rates, "sire": si_rates}
 
 
+# ズブ穴ランキングの再重み付け(improve_zubu.py で検証=本線3着内 12.8%→21.5%)。
+# 人気薄の3着内を両期間で安定して予測できた信号だけを符号つき重みで線形結合する。
+# 値は標準化(蓄積データの平均/標準偏差)してから掛ける。市場情報(人気)は妙味を
+# 損なうため既定では使わない(=技能型)。
+ZUBU_V2_WEIGHTS = {"jockey": 0.20, "ability": 0.14, "senkou": 0.04, "agari": -0.04}
+
+
+def zubu_v2_stats_from_samples(paths, *, pop_min: int = 6) -> dict:
+    """v2スコアの標準化統計(人気薄での jockey/ability/senkou/agari の平均・標準偏差)。"""
+    acc: dict[str, list[float]] = {k: [] for k in ("jockey", "ability", "senkou", "agari")}
+    for p in paths:
+        if not Path(p).exists():
+            continue
+        for line in open(p, encoding="utf-8"):
+            line = line.strip()
+            if not line:
+                continue
+            rec = json.loads(line)
+            for h in rec["horses"]:
+                pop = h.get("exp_pop")
+                if pop is None or pop < pop_min:
+                    continue
+                feats = h.get("features") or {}
+                vals = [x["agari"] for x in h.get("recent_runs", []) if x.get("agari")]
+                if h.get("jockey_top3_rate") is not None:
+                    acc["jockey"].append(h["jockey_top3_rate"])
+                if feats.get("ability") is not None:
+                    acc["ability"].append(feats["ability"])
+                acc["senkou"].append(_senkou_from_recent(h.get("recent_runs", [])))
+                if vals:
+                    acc["agari"].append(sum(vals) / len(vals))
+    stats = {}
+    for k, xs in acc.items():
+        if not xs:
+            stats[k] = (0.0, 1.0)
+            continue
+        m = sum(xs) / len(xs)
+        sd = (sum((x - m) ** 2 for x in xs) / len(xs)) ** 0.5 or 1.0
+        stats[k] = (m, sd)
+    return stats
+
+
+def _senkou_from_recent(recent) -> float:
+    """近走のコーナー通過順から先行力(senkou)を算出(JSONL用の簡易版)。"""
+    recs = []
+    for r in recent:
+        if r.get("field_size") and r.get("corner"):
+            recs.append(F.iv.RunRecord(
+                date=r.get("date") or "2000-01-01", place=r.get("place") or "?",
+                distance=r.get("distance") or 0, field_size=r["field_size"],
+                finish_pos=r.get("finish_pos") or 1, corner_pos=r.get("corner") or []))
+    return F.senkou_power(recs) if recs else 0.0
+
+
+def zubu_v2_score(jockey_rate, ability, senkou, agari_med, stats) -> float:
+    """検証済みの線形スコア(標準化×符号つき重み)。値が大きいほど3着内に来やすい。"""
+    vals = {"jockey": jockey_rate, "ability": ability, "senkou": senkou, "agari": agari_med}
+    s = 0.0
+    for k, w in ZUBU_V2_WEIGHTS.items():
+        v = vals.get(k)
+        if v is None:
+            continue
+        m, sd = stats.get(k, (0.0, 1.0))
+        s += w * (v - m) / sd
+    return s
+
+
 def mark(rank: int) -> str:
     return {1: "◎", 2: "○", 3: "▲", 4: "△", 5: "△"}.get(rank, " ")
 
@@ -276,7 +343,8 @@ def time_fit(entry, distance, target_time):
 
 def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
                    jockey_rates=None, jockey_div: float = 12.0, bias: str = "front",
-                   stab: bool = False, baba: str | None = None, wet_stats=None):
+                   stab: bool = False, baba: str | None = None, wet_stats=None,
+                   v2_stats=None):
     """『ズブい馬を走らせる』観点 ＋ タイム適性フィルターで人気薄(穴)を拾う。
 
     方針:
@@ -400,7 +468,20 @@ def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
                 b = min(1.2, (si / base - 1.0) * 1.5)
                 score += b
                 tags.append(f"道悪巧者血統({e.sire})")
-        if score > 0:
+        # ★v2ランキング(既定): 検証で安定して効く信号だけの線形スコアで並べ替える。
+        #   現行ヒューリスティックの穴度は3着内をほぼ判別できなかった(相関≒0)ため、
+        #   表示順は v2 を主、ヒューリスティック score は補助(足切り/タグ生成)に使う。
+        if v2_stats is not None:
+            ability = F.horse_features(records, F.RaceContext(
+                date=card.date, place=card.place, distance=card.distance,
+                field_size=card.field_size, jockey=e.jockey, trainer=e.trainer,
+                baba=baba)).get("ability")
+            agari_med = _median([pr.agari for pr in e.recent_runs if pr.agari])
+            jq2 = e.jockey_top3_rate or (jockey_rates or {}).get(e.jockey, 0.0)
+            rank_key = zubu_v2_score(jq2, ability, F.senkou_power(records),
+                                     agari_med, v2_stats)
+            picks.append((e, rank_key, tags))
+        elif score > 0:
             picks.append((e, score, tags))
     picks.sort(key=lambda x: -x[1])
     return picks
@@ -430,6 +511,9 @@ def main() -> None:
     ap.add_argument("--wet-ana", action="store_true",
                     help="重馬場の穴特徴量(厩舎道悪穴率+血統)を有効化。"
                          "1210Rのバックテストでエッジ無しと判明したため既定OFF(実験用)")
+    ap.add_argument("--legacy-ana", action="store_true",
+                    help="ズブ穴ランキングを旧ヒューリスティック(穴度)に戻す。"
+                         "既定はv2(騎手質+地力+先行)で本線3着内 12.8%→21.5%に改善")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-02.jsonl", "data/samples/nankan_2026-03.jsonl",
         "data/samples/nankan_2026-04.jsonl", "data/samples/nankan_2026-05.jsonl",
@@ -506,16 +590,22 @@ def main() -> None:
         if args.wet_ana and args.baba in ("重", "不") and wet_stats and wet_stats.get("base"):
             print(f"  (重馬場特徴量ON[実験]: 道悪穴ベース{wet_stats['base']*100:.0f}% / "
                   f"厩舎{len(wet_stats['trainer'])}・種牡馬{len(wet_stats['sire'])}件)")
+        # v2ランキング(既定ON): 検証で本線3着内 12.8%→21.5% に改善した再重み付け。
+        v2_stats = None if args.legacy_ana else zubu_v2_stats_from_samples(
+            args.samples, pop_min=args.pop_min)
         picks = zubu_ana_picks(card, jockeys, target_time=tt, jockey_rates=jrates,
                                jockey_div=args.jw, pop_min=args.pop_min, bias=bias,
-                               stab=args.stab, baba=args.baba, wet_stats=wet_stats)
+                               stab=args.stab, baba=args.baba, wet_stats=wet_stats,
+                               v2_stats=v2_stats)
         tt_s = f"{tt:.1f}秒({note})" if tt else "算出不可(確定レースなし)"
-        print(f"\n--- ★ズブ穴ピックアップ(タイム適性フィルター＋走らせる)/ 想定勝ち時計 {tt_s} ---")
+        rank_label = "旧穴度" if args.legacy_ana else "評価(v2)"
+        print(f"\n--- ★ズブ穴ピックアップ({rank_label}順・騎手質+地力+先行軸)/ "
+              f"想定勝ち時計 {tt_s} ---")
         if not picks:
             print("  該当なし")
         for e, score, tags in picks[:5]:
             print(f"  ◇{e.umaban:>2} {e.horse_name[:10]:<11}({e.exp_pop}人気) "
-                  f"穴度{score:.1f}  {'・'.join(tags)}")
+                  f"{rank_label}{score:+.2f}  {'・'.join(tags)}")
 
     print("\n※ オッズ未開放のためモデル確率での推奨。オッズ確定後は期待値(回収率)モードで再評価可。")
 

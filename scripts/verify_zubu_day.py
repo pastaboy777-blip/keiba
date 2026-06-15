@@ -41,6 +41,8 @@ def main() -> None:
     ap.add_argument("--topn", type=int, default=5, help="検証するピック数(穴度上位)")
     ap.add_argument("--wet-ana", action="store_true",
                     help="重馬場の穴特徴量を有効化(既定OFF・エッジ無しと判明)")
+    ap.add_argument("--legacy-ana", action="store_true",
+                    help="旧ヒューリスティック穴度で検証(既定はv2)")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-02.jsonl", "data/samples/nankan_2026-03.jsonl",
         "data/samples/nankan_2026-04.jsonl", "data/samples/nankan_2026-05.jsonl",
@@ -55,6 +57,8 @@ def main() -> None:
     jrates = pn.jockey_top3_from_samples(args.samples)
     wet_stats = (pn.wet_ana_stats_from_samples(args.samples, pop_min=args.pop_min)
                  if args.wet_ana else None)
+    v2_stats = (None if args.legacy_ana
+                else pn.zubu_v2_stats_from_samples(args.samples, pop_min=args.pop_min))
 
     n_pick = n_board = 0          # 検証ピック総数 / うち3着内
     n_head = n_head_board = 0     # 本線(穴度1位)数 / うち3着内
@@ -77,7 +81,7 @@ def main() -> None:
         bias = pn.class_to_bias(card.race_class) if args.bias == "auto" else args.bias
         picks = pn.zubu_ana_picks(card, jockeys, target_time=tt, jockey_rates=jrates,
                                   jockey_div=args.jw, pop_min=args.pop_min, bias=bias,
-                                  baba=args.baba, wet_stats=wet_stats)
+                                  baba=args.baba, wet_stats=wet_stats, v2_stats=v2_stats)
         picks = picks[:args.topn]
 
         top3 = {r.umaban for r in res.rows[:3]}
