@@ -30,16 +30,25 @@ POP_MIN = 6
 CUTOFF = "2026-05-01"
 
 
-def signals_of(h, race, slow_cache):
+def signals_of(h, race, slow_cache, jtable):
     feats = h.get("features") or {}
     recs = bw.records_of(h)
     vals = [x["agari"] for x in h.get("recent_runs", []) if x.get("agari")]
+    sig = h.get("signals") or {}
+    jrate = h.get("jockey_top3_rate") or jtable.get(h.get("jockey"), 0.0)
+    upgrade = 0.0
+    if sig.get("jockey_changed"):
+        prev = jtable.get(sig.get("prev_jockey"), 0.0)
+        upgrade = 1.0 if (jrate - prev) >= 3.0 else 0.0
+    tatakii_jq = 1.0 if (sig.get("tatakii_n") in (2, 3) and jrate >= 22) else 0.0
     return {
         "jockey": h.get("jockey_top3_rate"),
         "ability": feats.get("ability"),
         "senkou": F.senkou_power(recs),
         "agari": (sum(vals) / len(vals)) if vals else None,   # 遅い=大 → 重みは負
         "pop": h.get("exp_pop"),
+        "upgrade": upgrade,            # 乗り替わり強化(走らせにきた)
+        "tatakii_jq": tatakii_jq,      # 叩き2-3走目 × 上位騎手
         "cur": bw.base_score(h, race, slow_cache),
     }
 
@@ -62,7 +71,7 @@ def _slow(race, ag):
     return out
 
 
-def build_rows(races):
+def build_rows(races, jtable):
     rows = []
     for r in races:
         sc = _slow(r, {h["umaban"]: (lambda v: sum(v)/len(v) if v else None)(
@@ -71,7 +80,7 @@ def build_rows(races):
         for h in r["horses"]:
             if h.get("exp_pop") is None or h["exp_pop"] < POP_MIN or h.get("finish_pos") is None:
                 continue
-            s = signals_of(h, r, sc)
+            s = signals_of(h, r, sc, jtable)
             rows.append((r["race_id"], r["date"], h["umaban"], s,
                          1 if h["finish_pos"] <= 3 else 0))
     return rows
@@ -90,6 +99,9 @@ def standardize(train, keys):
 # 信号 -> 重み(符号つき。analyze の検証rを丸めた値)
 WEIGHTS_A = {"jockey": 0.20, "ability": 0.14, "senkou": 0.04, "agari": -0.04}
 WEIGHTS_B = {"jockey": 0.20, "ability": 0.14, "senkou": 0.04, "agari": -0.04, "pop": -0.18}
+# 変種C: 「走らせる」サイン(乗り替わり強化・叩き2-3×上位騎手)を加点した哲学型。
+WEIGHTS_C = {"jockey": 0.16, "ability": 0.12, "senkou": 0.04, "agari": -0.04,
+             "upgrade": 0.25, "tatakii_jq": 0.30}
 
 
 def score(row, stats, weights):
@@ -123,18 +135,23 @@ def eval_top1(test_rows, scorer):
 
 def main() -> None:
     races = bw.load_races()
-    rows = build_rows(races)
+    import predict_nankan as pn
+    jtable = pn.jockey_top3_from_samples(bw.FILES)
+    rows = build_rows(races, jtable)
     train = [r for r in rows if r[1] < CUTOFF]
     test = [r for r in rows if r[1] >= CUTOFF]
-    stats = standardize(train, ["jockey", "ability", "senkou", "agari", "pop"])
+    stats = standardize(train, ["jockey", "ability", "senkou", "agari", "pop",
+                                "upgrade", "tatakii_jq"])
     print(f"人気薄 学習{len(train)}・検証{len(test)} (cutoff {CUTOFF})\n")
 
     cur = lambda r: (r[3]["cur"] if r[3]["cur"] is not None else -9)
     sA = lambda r: score(r, stats, WEIGHTS_A)
     sB = lambda r: score(r, stats, WEIGHTS_B)
+    sC = lambda r: score(r, stats, WEIGHTS_C)
 
-    print(f"{'スコア':<18}{'本線3着内':>10}{'上位5頭3着内':>12}")
-    for name, fn in [("現行 穴度", cur), ("改善A(技能型)", sA), ("改善B(市場込)", sB)]:
+    print(f"{'スコア':<22}{'本線3着内':>10}{'上位5頭3着内':>12}")
+    for name, fn in [("現行 穴度", cur), ("改善A(技能型)", sA),
+                     ("改善B(市場込)", sB), ("改善C(走らせる型)", sC)]:
         h, nh, b = eval_top1(test, fn)
         print(f"{name:<18}{h:>9.1f}%{b:>11.1f}%   (本線n={nh})")
     print("\n※ 検証期間のみで評価(学習期間で標準化統計を作成=リーク無し)。")
