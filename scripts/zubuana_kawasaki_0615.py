@@ -112,6 +112,15 @@ def zubu_score(r) -> float:
     return s
 
 
+def zubu_candidates(card: dict):
+    """ズブ穴候補(人気薄に絞り妙味順)と全頭のモデル着順を返す。"""
+    rows, order = analyze(card)
+    cand = [r for r in rows
+            if (r["pop"] and r["pop"] >= 5) or (r["odds"] and r["odds"] >= 12.0)]
+    cand.sort(key=zubu_score, reverse=True)
+    return cand, order
+
+
 def main() -> None:
     print("川崎 2026-06-15 後半(9〜12R)ズブ穴抽出")
     print("基準: タフネス・短間隔フィット・叩き2〜3走目・先行力 × 人気薄\n")

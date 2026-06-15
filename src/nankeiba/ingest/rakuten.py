@@ -158,3 +158,37 @@ def parse_race_card(page: str) -> dict:
     meta = parse_meta(page)
     meta["horses"] = parse_horses(page)
     return meta
+
+
+# ---------------------------------------------------------------------------
+# 競走成績(結果)ページ race_performance/list
+# ---------------------------------------------------------------------------
+
+def parse_result(page: str) -> dict:
+    """競走成績ページHTMLから着順と払戻(三連複/三連単)を抽出する。
+
+    返り値: {finish: [(着順, 馬番, 馬名, 人気), ...], trio: (組,円), trifecta: (組,円)}
+    """
+    tables = re.findall(r"<table[^>]*>.*?</table>", page, re.S)
+    finish: list[tuple[int, int, str, int | None]] = []
+    if tables:
+        for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", tables[0], re.S):
+            cells = [_text(c) for c in
+                     re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S)]
+            # 着順, 枠, 馬番, 馬名, ... , 人気(末尾)
+            if len(cells) >= 4 and cells[0].isdigit() and cells[2].isdigit():
+                pop = next((int(c) for c in reversed(cells) if c.isdigit()), None)
+                finish.append((int(cells[0]), int(cells[2]), cells[3], pop))
+    pay = " ".join(t for t in tables if "三連複" in t)
+    pay = _text(pay)
+    trio = re.search(r"三連複\s*([\d\-]+)\s*([\d,]+)\s*円", pay)
+    tri = re.search(r"三連単\s*([\d\-]+)\s*([\d,]+)\s*円", pay)
+    return {
+        "finish": finish[:8],
+        "trio": (trio.group(1), int(trio.group(2).replace(",", ""))) if trio else None,
+        "trifecta": (tri.group(1), int(tri.group(2).replace(",", ""))) if tri else None,
+    }
+
+
+def race_result_url(rid: str) -> str:
+    return f"https://keiba.rakuten.co.jp/race_performance/list/RACEID/{rid}"
