@@ -328,10 +328,11 @@ def _best_time_at(entry, distance):
     return min(ts) if ts else None
 
 
-def time_fit(entry, distance, target_time):
+def time_fit(entry, distance, target_time, *, margin: float = 0.8):
     """タイム適性: 当日想定勝ち時計に対し『今日の決着に間に合う持ち時計か』。
 
     時計は"足切り＋小さな加点"として使う(最速=勝ちではないので過大評価しない)。
+    margin を広げると『際どい』判定の幅が広がり、足切り(fail)が緩む。
     返り値: (flag, bonus, tag) ── flag 'fail' は足切り対象。
     """
     if target_time is None:
@@ -341,7 +342,7 @@ def time_fit(entry, distance, target_time):
         return "na", 0.0, None        # 当該距離の持ち時計なし=判定不能(切らない)
     if best <= target_time:
         return "ok", 1.0, f"時計足りる(自己最速{best:.1f}≦想定{target_time:.1f})"
-    if best <= target_time + 0.8:
+    if best <= target_time + margin:
         return "edge", 0.5, f"時計際どい({best:.1f})"
     return "fail", 0.0, f"時計不足({best:.1f}>想定{target_time:.1f})"
 
@@ -349,7 +350,8 @@ def time_fit(entry, distance, target_time):
 def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
                    jockey_rates=None, jockey_div: float = 12.0, bias: str = "front",
                    stab: bool = False, baba: str | None = None, wet_stats=None,
-                   v2_stats=None, v2_weights=None, use_jockey: bool = True):
+                   v2_stats=None, v2_weights=None, use_jockey: bool = True,
+                   time_margin: float = 0.8, keep_slow: bool = False):
     """『ズブい馬を走らせる』観点 ＋ タイム適性フィルターで人気薄(穴)を拾う。
 
     方針:
@@ -383,11 +385,14 @@ def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
             date=card.date, place=card.place, distance=card.distance,
             field_size=card.field_size, jockey=e.jockey, trainer=e.trainer),
             records)
-        tf_flag, tf_bonus, tf_tag = time_fit(e, card.distance, target_time)
-        if tf_flag == "fail":
-            continue   # 当日の決着に間に合わない=足切り
+        tf_flag, tf_bonus, tf_tag = time_fit(e, card.distance, target_time,
+                                             margin=time_margin)
+        if tf_flag == "fail" and not keep_slow:
+            continue   # 当日の決着に間に合わない=足切り(keep_slow で除外せず減点)
         score = tf_bonus
         tags = [tf_tag] if tf_tag else []
+        if tf_flag == "fail":          # keep_slow 時: 残すが減点(時計不足の保険)
+            score -= 0.5
         sp = slow_pts.get(e.umaban, 0.0)
         if sp:
             score += sp
@@ -522,6 +527,11 @@ def main() -> None:
     ap.add_argument("--no-jockey", action="store_true",
                     help="騎手ファクターを外す(地力+先行+持続で評価)。"
                          "馬の中身だけで穴を見る用。検証では精度が下がる点に注意")
+    ap.add_argument("--time-margin", type=float, default=0.8,
+                    help="タイム適性の『際どい』判定幅[秒]。大きいほど足切りが緩む(既定0.8)")
+    ap.add_argument("--keep-slow", action="store_true",
+                    help="持ち時計が想定に届かない馬も足切りせず減点で残す"
+                         "(消耗戦で粘る超人気薄=マイボンド型を拾う)")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-02.jsonl", "data/samples/nankan_2026-03.jsonl",
         "data/samples/nankan_2026-04.jsonl", "data/samples/nankan_2026-05.jsonl",
@@ -605,11 +615,15 @@ def main() -> None:
         if args.no_jockey:
             v2_weights = {k: v for k, v in ZUBU_V2_WEIGHTS.items() if k != "jockey"}
             print("  (騎手ファクターOFF: 地力+先行+持続で評価=精度低下に注意)")
+        if args.keep_slow or args.time_margin != 0.8:
+            print(f"  (タイム足切り緩和: margin={args.time_margin}"
+                  f"{'・時計不足も残す' if args.keep_slow else ''})")
         picks = zubu_ana_picks(card, jockeys, target_time=tt, jockey_rates=jrates,
                                jockey_div=args.jw, pop_min=args.pop_min, bias=bias,
                                stab=args.stab, baba=args.baba, wet_stats=wet_stats,
                                v2_stats=v2_stats, v2_weights=v2_weights,
-                               use_jockey=not args.no_jockey)
+                               use_jockey=not args.no_jockey,
+                               time_margin=args.time_margin, keep_slow=args.keep_slow)
         tt_s = f"{tt:.1f}秒({note})" if tt else "算出不可(確定レースなし)"
         rank_label = "旧穴度" if args.legacy_ana else "評価(v2)"
         print(f"\n--- ★ズブ穴ピックアップ({rank_label}順・騎手質+地力+先行軸)/ "
