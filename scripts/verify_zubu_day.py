@@ -39,7 +39,10 @@ def main() -> None:
     ap.add_argument("--jw", type=float, default=12.0)
     ap.add_argument("--pop-min", type=int, default=6)
     ap.add_argument("--topn", type=int, default=5, help="検証するピック数(穴度上位)")
+    ap.add_argument("--wet-ana", action="store_true",
+                    help="重馬場の穴特徴量を有効化(既定OFF・エッジ無しと判明)")
     ap.add_argument("--samples", nargs="*", default=[
+        "data/samples/nankan_2026-02.jsonl", "data/samples/nankan_2026-03.jsonl",
         "data/samples/nankan_2026-04.jsonl", "data/samples/nankan_2026-05.jsonl",
         "data/samples/nankan_2026-06.jsonl"])
     args = ap.parse_args()
@@ -50,7 +53,8 @@ def main() -> None:
     races = dict(P.parse_race_links(idx, date_yyyymmdd=ymd,
                                     jyo_code=NANKAN_CODES[args.place]))
     jrates = pn.jockey_top3_from_samples(args.samples)
-    wet_stats = pn.wet_ana_stats_from_samples(args.samples, pop_min=args.pop_min)
+    wet_stats = (pn.wet_ana_stats_from_samples(args.samples, pop_min=args.pop_min)
+                 if args.wet_ana else None)
 
     n_pick = n_board = 0          # 検証ピック総数 / うち3着内
     n_head = n_head_board = 0     # 本線(穴度1位)数 / うち3着内

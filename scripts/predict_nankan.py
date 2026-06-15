@@ -427,7 +427,11 @@ def main() -> None:
                     help="脚質バイアス: front/sashi/auto(クラスで自動:C1以上=前,下級=差し)")
     ap.add_argument("--stab", action="store_true",
                     help="上がり安定(毎回同じ上がり)を加点。単体+2.1だが複合では精度低下のため任意")
+    ap.add_argument("--wet-ana", action="store_true",
+                    help="重馬場の穴特徴量(厩舎道悪穴率+血統)を有効化。"
+                         "1210Rのバックテストでエッジ無しと判明したため既定OFF(実験用)")
     ap.add_argument("--samples", nargs="*", default=[
+        "data/samples/nankan_2026-02.jsonl", "data/samples/nankan_2026-03.jsonl",
         "data/samples/nankan_2026-04.jsonl", "data/samples/nankan_2026-05.jsonl",
         "data/samples/nankan_2026-06.jsonl"])
     args = ap.parse_args()
@@ -491,12 +495,16 @@ def main() -> None:
         if tt is None:
             tt, note = day_target_time(client, list(races.items()), card.distance)
         jrates = jockey_top3_from_samples(args.samples)
-        wet_stats = wet_ana_stats_from_samples(args.samples, pop_min=args.pop_min)
+        # 重馬場の穴特徴量(厩舎道悪穴率+血統)は --wet-ana 指定時のみ有効。
+        # 1210Rのリーク無しバックテストでエッジ無しと判明したため既定OFF(実験用に残す)。
+        wet_stats = None
+        if args.wet_ana:
+            wet_stats = wet_ana_stats_from_samples(args.samples, pop_min=args.pop_min)
         bias = class_to_bias(card.race_class) if args.bias == "auto" else args.bias
         if args.bias == "auto":
             print(f"  (条件={card.race_class} → バイアス自動判定: {bias})")
-        if args.baba in ("重", "不") and wet_stats.get("base"):
-            print(f"  (重馬場特徴量ON: 道悪穴ベース{wet_stats['base']*100:.0f}% / "
+        if args.wet_ana and args.baba in ("重", "不") and wet_stats and wet_stats.get("base"):
+            print(f"  (重馬場特徴量ON[実験]: 道悪穴ベース{wet_stats['base']*100:.0f}% / "
                   f"厩舎{len(wet_stats['trainer'])}・種牡馬{len(wet_stats['sire'])}件)")
         picks = zubu_ana_picks(card, jockeys, target_time=tt, jockey_rates=jrates,
                                jockey_div=args.jw, pop_min=args.pop_min, bias=bias,
