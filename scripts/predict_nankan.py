@@ -186,6 +186,52 @@ def trainer_stats_from_samples(paths) -> F.ConnStats:
     return F.ConnStats(rates=rates, default=prior)
 
 
+def wet_ana_stats_from_samples(paths, *, pop_min: int = 6) -> dict:
+    """道悪(重/不良)×人気薄に絞った『厩舎・種牡馬の穴 3着内率』を推定する。
+
+    重馬場では『道悪巧者の厩舎』と『ダート/道悪適性の種牡馬』が人気薄でも
+    3着内に粘る傾向が強い(川崎120Rの集計でベース約11%に対し2〜4倍)。
+    各率は全体ベース(prior)へベイズ縮約し、小標本のブレを抑える。
+
+    返り値: {"base": ベース3着内率, "trainer": {名:率}, "sire": {名:率}}
+    pop_min 番人気以下のみを母集団とする(=穴の定義)。
+    """
+    t_s: dict[str, int] = {}
+    t_h: dict[str, int] = {}
+    s_s: dict[str, int] = {}
+    s_h: dict[str, int] = {}
+    tot_s = tot_h = 0
+    for p in paths:
+        if not Path(p).exists():
+            continue
+        for line in open(p, encoding="utf-8"):
+            rec = json.loads(line)
+            baba = (rec.get("baba") or "")[:1]
+            if baba not in ("重", "不"):
+                continue
+            for h in rec["horses"]:
+                fp, pop = h.get("finish_pos"), h.get("exp_pop")
+                if fp is None or pop is None or pop < pop_min:
+                    continue
+                hit = 1 if fp <= 3 else 0
+                tot_s += 1
+                tot_h += hit
+                tr = h.get("trainer")
+                if tr:
+                    t_s[tr] = t_s.get(tr, 0) + 1
+                    t_h[tr] = t_h.get(tr, 0) + hit
+                si = h.get("sire")
+                if si:
+                    s_s[si] = s_s.get(si, 0) + 1
+                    s_h[si] = s_h.get(si, 0) + hit
+    if tot_s == 0:
+        return {"base": 0.0, "trainer": {}, "sire": {}}
+    base = tot_h / tot_s
+    tr_rates = {t: (t_h[t] + 12.0 * base) / (t_s[t] + 12.0) for t in t_s}
+    si_rates = {s: (s_h[s] + 8.0 * base) / (s_s[s] + 8.0) for s in s_s}
+    return {"base": base, "trainer": tr_rates, "sire": si_rates}
+
+
 def mark(rank: int) -> str:
     return {1: "◎", 2: "○", 3: "▲", 4: "△", 5: "△"}.get(rank, " ")
 
@@ -230,7 +276,7 @@ def time_fit(entry, distance, target_time):
 
 def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
                    jockey_rates=None, jockey_div: float = 12.0, bias: str = "front",
-                   stab: bool = False):
+                   stab: bool = False, baba: str | None = None, wet_stats=None):
     """『ズブい馬を走らせる』観点 ＋ タイム適性フィルターで人気薄(穴)を拾う。
 
     方針:
@@ -340,6 +386,20 @@ def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
             score += jq / jockey_div          # 重みは --jw で調整(大=弱める)
             if jq >= 25:
                 tags.insert(0, f"上位騎手({e.jockey}・3着内{jq:.0f}%)")
+        # ★重馬場(道悪)限定の穴特徴量: 厩舎の道悪穴率 + ダート/道悪巧者の種牡馬。
+        #   蓄積データ(道悪×人気薄)で平均より上振れする厩舎・血統を加点する。
+        if wet_stats and baba in ("重", "不") and wet_stats.get("base"):
+            base = wet_stats["base"]
+            tr = wet_stats["trainer"].get(e.trainer)
+            if tr and tr / base > 1.05:
+                b = min(1.2, (tr / base - 1.0) * 1.5)
+                score += b
+                tags.append(f"道悪穴厩舎({e.trainer}・{tr*100:.0f}%/{base*100:.0f}%)")
+            si = wet_stats["sire"].get(e.sire)
+            if si and si / base > 1.05:
+                b = min(1.2, (si / base - 1.0) * 1.5)
+                score += b
+                tags.append(f"道悪巧者血統({e.sire})")
         if score > 0:
             picks.append((e, score, tags))
     picks.sort(key=lambda x: -x[1])
@@ -431,11 +491,16 @@ def main() -> None:
         if tt is None:
             tt, note = day_target_time(client, list(races.items()), card.distance)
         jrates = jockey_top3_from_samples(args.samples)
+        wet_stats = wet_ana_stats_from_samples(args.samples, pop_min=args.pop_min)
         bias = class_to_bias(card.race_class) if args.bias == "auto" else args.bias
         if args.bias == "auto":
             print(f"  (条件={card.race_class} → バイアス自動判定: {bias})")
+        if args.baba in ("重", "不") and wet_stats.get("base"):
+            print(f"  (重馬場特徴量ON: 道悪穴ベース{wet_stats['base']*100:.0f}% / "
+                  f"厩舎{len(wet_stats['trainer'])}・種牡馬{len(wet_stats['sire'])}件)")
         picks = zubu_ana_picks(card, jockeys, target_time=tt, jockey_rates=jrates,
-                               jockey_div=args.jw, pop_min=args.pop_min, bias=bias, stab=args.stab)
+                               jockey_div=args.jw, pop_min=args.pop_min, bias=bias,
+                               stab=args.stab, baba=args.baba, wet_stats=wet_stats)
         tt_s = f"{tt:.1f}秒({note})" if tt else "算出不可(確定レースなし)"
         print(f"\n--- ★ズブ穴ピックアップ(タイム適性フィルター＋走らせる)/ 想定勝ち時計 {tt_s} ---")
         if not picks:

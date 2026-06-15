@@ -50,6 +50,7 @@ def main() -> None:
     races = dict(P.parse_race_links(idx, date_yyyymmdd=ymd,
                                     jyo_code=NANKAN_CODES[args.place]))
     jrates = pn.jockey_top3_from_samples(args.samples)
+    wet_stats = pn.wet_ana_stats_from_samples(args.samples, pop_min=args.pop_min)
 
     n_pick = n_board = 0          # 検証ピック総数 / うち3着内
     n_head = n_head_board = 0     # 本線(穴度1位)数 / うち3着内
@@ -71,7 +72,8 @@ def main() -> None:
         tt, _note = pn.day_target_time(client, list(races.items()), card.distance)
         bias = pn.class_to_bias(card.race_class) if args.bias == "auto" else args.bias
         picks = pn.zubu_ana_picks(card, jockeys, target_time=tt, jockey_rates=jrates,
-                                  jockey_div=args.jw, pop_min=args.pop_min, bias=bias)
+                                  jockey_div=args.jw, pop_min=args.pop_min, bias=bias,
+                                  baba=args.baba, wet_stats=wet_stats)
         picks = picks[:args.topn]
 
         top3 = {r.umaban for r in res.rows[:3]}
