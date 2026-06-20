@@ -16,3 +16,6 @@ data/*.db
 .DS_Store
 .idea/
 .vscode/
+
+# 生成画像・一時成果物(納品用に都度生成)
+*.png
