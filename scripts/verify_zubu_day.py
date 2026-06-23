@@ -90,7 +90,7 @@ def main() -> None:
             f"{r.finish_pos}着{r.umaban}{r.horse_name}({r.popularity}人)"
             for r in res.rows[:3])
         print("=" * 70)
-        print(f"川崎 {rno}R {card.surface}{card.distance}m  結果: {order_str}")
+        print(f"{args.place} {rno}R {card.surface}{card.distance}m  結果: {order_str}")
 
         pick_set = set()
         for i, (e, score, _tags) in enumerate(picks, 1):
