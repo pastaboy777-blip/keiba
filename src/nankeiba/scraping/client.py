@@ -3,6 +3,8 @@
 netkeiba 等の公開サイトを個人利用の範囲で取得するための薄いラッパー。
 - アクセス間隔を min_interval 秒以上空ける(サーバ負荷をかけない)
 - 取得済みページはローカルにキャッシュし、再取得しない
+  (注意: 結果未確定のページもキャッシュされる。確定直後に検証する時は
+   use_cache=False で再取得すること。PoliteClient(use_cache=False) で一括無効化可)
 - robots.txt と各サイトの利用規約を尊重して使うこと
 
 requests が必要: pip install requests
@@ -29,6 +31,7 @@ class PoliteClient:
         encoding: str | None = None,
         user_agent: str = "nankeiba-research/0.1 (personal use)",
         timeout: float = 15.0,
+        use_cache: bool = True,
     ):
         if requests is None:
             raise ImportError("requests が必要です: pip install requests")
@@ -37,6 +40,7 @@ class PoliteClient:
         self.min_interval = min_interval
         self.encoding = encoding
         self.timeout = timeout
+        self.use_cache = use_cache          # インスタンス既定。結果確定直後の検証では False 推奨
         self.session = requests.Session()
         self.session.headers["User-Agent"] = user_agent
         self._last = 0.0
@@ -45,7 +49,11 @@ class PoliteClient:
         key = hashlib.sha256(url.encode()).hexdigest()[:24]
         return self.cache / f"{key}.html"
 
-    def get(self, url: str, *, use_cache: bool = True) -> str:
+    def get(self, url: str, *, use_cache: bool | None = None) -> str:
+        # 明示指定があればそれを優先、無ければインスタンス既定に従う。
+        # (結果未確定時に掴んだページを後で再利用しないよう、検証時は False に)
+        if use_cache is None:
+            use_cache = self.use_cache
         cp = self._cache_path(url)
         if use_cache and cp.exists():
             return cp.read_text(encoding="utf-8")

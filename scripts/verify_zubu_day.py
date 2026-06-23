@@ -43,6 +43,8 @@ def main() -> None:
                     help="重馬場の穴特徴量を有効化(既定OFF・エッジ無しと判明)")
     ap.add_argument("--legacy-ana", action="store_true",
                     help="旧ヒューリスティック穴度で検証(既定はv2)")
+    ap.add_argument("--no-cache", action="store_true",
+                    help="ローカルキャッシュを使わず再取得(結果確定直後の検証で推奨)")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-02.jsonl", "data/samples/nankan_2026-03.jsonl",
         "data/samples/nankan_2026-04.jsonl", "data/samples/nankan_2026-05.jsonl",
@@ -50,7 +52,7 @@ def main() -> None:
     args = ap.parse_args()
 
     ymd = args.date.replace("-", "")
-    client = PoliteClient()
+    client = PoliteClient(use_cache=not args.no_cache)
     idx = client.get(CARD_URL.format(race_id=day_index_race_id(ymd, args.place)))
     races = dict(P.parse_race_links(idx, date_yyyymmdd=ymd,
                                     jyo_code=NANKAN_CODES[args.place]))
