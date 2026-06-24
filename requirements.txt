@@ -3,6 +3,10 @@
 requests>=2.28
 beautifulsoup4>=4.11
 
+# インフォグラフィック生成(scripts/track_report.py)に必要。
+# 毛筆フォントは fonts/ に Google Fonts を配置(--download で自動取得可)。
+Pillow>=10
+
 # 将来の拡張(モデル学習・データ分析)を行う場合の推奨:
 # pandas>=2.0
 # scikit-learn>=1.3
