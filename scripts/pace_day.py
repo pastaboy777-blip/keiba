@@ -44,6 +44,19 @@ def parse_laps(html: str):
     return []
 
 
+def winner_agari(html: str):
+    """1着馬の推定上がり3F[秒](td.spurt)を返す。無ければ None。"""
+    soup = BeautifulSoup(html, "html.parser")
+    for tr in soup.find_all("tr"):
+        od = tr.find("td", class_="order")
+        if od and od.get_text(strip=True) == "1":
+            sp = tr.find("td", class_="spurt")
+            if sp:
+                m = re.search(r"\d+\.\d+", sp.get_text())
+                return float(m.group()) if m else None
+    return None
+
+
 def last_corner_order(html: str):
     """最終コーナーの通過順(馬番の並び・前→後)を返す。無ければ []。
 
@@ -111,8 +124,7 @@ def main() -> None:
         raise SystemExit(f"{args.date} {args.place} のレースが見つかりません。")
 
     print(f"\n=== {args.date} {args.place} 展開読み(ラップ＋通過順) ===")
-    print(f"{'R':>3} {'距離':>7} {'前半3F':>6} {'上3F':>6} {'ペース':<20}"
-          f"{'勝ち':>4} {'脚質':<5} 勝ち馬")
+    print(f"{'R':>3} {'距離':>7} {'勝T':>8} {'上3F':>5} {'脚質':<5}{'前半3F':>6} {'ラップ展開':<18}勝ち馬")
     styles = {"逃げ": 0, "先行": 0, "中団": 0, "後方": 0, "?": 0}
     pace_counts = {"前傾": 0, "後傾": 0, "平均": 0}
     for rno in sorted(races):
@@ -127,13 +139,14 @@ def main() -> None:
         laps = parse_laps(html)
         order = last_corner_order(html)
         win = res.rows[0]
+        agari = winner_agari(html)            # 1着馬の推定上がり3F(笠松等ラップ無でも取れる)
         if len(laps) >= 6:
             first3, last3 = sum(laps[:3]), sum(laps[-3:])
             lab = pace_label(first3, last3)
-            f3, l3 = f"{first3:.1f}", f"{last3:.1f}"
+            f3 = f"{first3:.1f}"
         else:
-            first3 = last3 = None
-            lab, f3, l3 = "—(ラップ無)", "—", "—"
+            lab, f3 = "—(ラップ無)", "—"
+        l3 = f"{agari:.1f}" if agari else "—"   # 上がりは勝ち馬の推定上がりを使う
         st = style_of(win.umaban, order, res.field_size)
         styles[st] = styles.get(st, 0) + 1
         if "前傾" in lab:
@@ -143,8 +156,9 @@ def main() -> None:
         elif lab == "平均":
             pace_counts["平均"] += 1
         wn = next((r.horse_name for r in res.rows if r.umaban == win.umaban), "")
-        print(f"{rno:>3} {('ダ'+str(res.distance)):>7} {f3:>6} {l3:>6} {lab:<20}"
-              f"{'①'+str(win.umaban):>4} {st:<5} {wn}")
+        wt = win.time or "—"
+        print(f"{rno:>3} {('ダ'+str(res.distance)):>7} {wt:>8} {l3:>5} {st:<5}"
+              f"{f3:>6} {lab:<18}①{win.umaban} {wn}")
 
     classified = styles['逃げ'] + styles['先行'] + styles['中団'] + styles['後方']
     n = sum(styles.values())
