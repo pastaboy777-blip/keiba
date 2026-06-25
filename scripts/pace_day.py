@@ -54,9 +54,10 @@ def last_corner_order(html: str):
     rows = []
     for tr in soup.find_all("tr"):
         th = tr.find("th")
-        if th and re.search(r"[1-4１-４]角", th.get_text()):
+        # 浦和は『１角〜４角』、笠松等は『最初の直線/第２コーナー…』表記。両対応。
+        if th and re.search(r"角|コーナー|直線", th.get_text()):
             td = tr.find("td")
-            if td and td.get_text(strip=True):
+            if td and re.search(r"\d", td.get_text()):
                 rows.append(td.get_text(strip=True))
     if not rows:
         return []
@@ -145,22 +146,25 @@ def main() -> None:
         print(f"{rno:>3} {('ダ'+str(res.distance)):>7} {f3:>6} {l3:>6} {lab:<20}"
               f"{'①'+str(win.umaban):>4} {st:<5} {wn}")
 
+    classified = styles['逃げ'] + styles['先行'] + styles['中団'] + styles['後方']
     n = sum(styles.values())
     print(f"\n--- 当日サマリー({n}R) ---")
+    if classified == 0:
+        print("勝ち脚質: 判定不可(通過順データが取得できず)")
+        return
     fronts = styles['逃げ'] + styles['先行']
     print(f"勝ち脚質: 逃げ{styles['逃げ']}・先行{styles['先行']}・"
           f"中団{styles['中団']}・後方{styles['後方']}")
     print(f"ラップ形状: 前傾{pace_counts['前傾']}・平均{pace_counts['平均']}・"
           f"後傾{pace_counts['後傾']}")
-    if n:
-        ratio = fronts / n
-        if ratio >= 0.6:
-            verdict = "★前残り馬場(逃げ・先行が圧倒的)→ 明日も前で運べる馬を厚く"
-        elif ratio <= 0.35:
-            verdict = "★差し決まる馬場(中団・後方が好走)→ 明日は差し・展開崩れ狙い"
-        else:
-            verdict = "フラット(脚質偏りは小さい)→ 展開・枠で個別判断"
-        print(f"前(逃げ+先行)勝率 {fronts}/{n} = {ratio*100:.0f}%  {verdict}")
+    ratio = fronts / classified
+    if ratio >= 0.6:
+        verdict = "★前残り馬場(逃げ・先行が圧倒的)→ 明日も前で運べる馬を厚く"
+    elif ratio <= 0.35:
+        verdict = "★差し決まる馬場(中団・後方が好走)→ 明日は差し・展開崩れ狙い"
+    else:
+        verdict = "フラット(脚質偏りは小さい)→ 展開・枠で個別判断"
+    print(f"前(逃げ+先行)勝率 {fronts}/{classified} = {ratio*100:.0f}%  {verdict}")
 
 
 if __name__ == "__main__":
