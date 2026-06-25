@@ -100,6 +100,9 @@ def main() -> None:
                          "pace=展開オート(前で運びたい馬が多いR→ハイペース前崩れ→差しに切替)")
     ap.add_argument("--pop-min", type=int, default=6,
                     help="ズブ穴の人気しきい値(この人気以下が対象。既定6)")
+    ap.add_argument("--draw", choices=["all", "inner"], default="all",
+                    help="all=枠不問 / inner=内〜中枠のみ(馬番<=頭数の約6割)。"
+                         "笠松等のタイト前残り馬場で内が残る傾向に合わせる")
     ap.add_argument("--out", default=None, help="出力先Markdownパス(未指定なら標準出力)")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-02.jsonl", "data/samples/nankan_2026-03.jsonl",
@@ -148,6 +151,10 @@ def main() -> None:
                 e, v2, _t = item
                 return v2 - PACE_SASHI_K * F.senkou_power(E.past_runs_to_records(e))
             picks = sorted(picks, key=_adj, reverse=True)
+        # 内〜中枠フィルタ: 馬番が頭数の約6割以内の馬だけ残す(タイト前残り馬場向け)
+        if args.draw == "inner" and card.field_size:
+            thr = round(card.field_size * 0.6)
+            picks = [p for p in picks if p[0].umaban and p[0].umaban <= thr]
         dist_label = f"{card.surface}{card.distance}"
         collected.append((rno, dist_label, picks, bias, front_n))
 
@@ -165,7 +172,8 @@ def main() -> None:
     lines = []
     lines.append(f"## {int(ymd[4:6])}/{int(ymd[6:8])} {args.place} ズブ穴候補"
                  f"（{pn.BABA_FULL[args.baba]}想定・{args.from_r}R以降"
-                 f"{'・展開オート' if pace_on else ''}）")
+                 f"{'・展開オート' if pace_on else ''}"
+                 f"{'・内〜中枠' if args.draw == 'inner' else ''}）")
     lines.append("")
     head_cols = "| R | 距離 | " + ("展開 | " if pace_on else "") + "本命 | v2 | 主因 | 2番手 |"
     sep = "|---|---|" + ("---|" if pace_on else "") + "---|---|---|---|"
