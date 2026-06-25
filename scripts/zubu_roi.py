@@ -78,6 +78,10 @@ def main() -> None:
     ap.add_argument("--odds", required=True, help="結果+複勝/ワイドオッズ JSONL")
     ap.add_argument("--pop-min", type=int, default=6, help="穴の人気しきい値(既定6)")
     ap.add_argument("--place", default=None, help="場で絞る(例: 浦和)")
+    ap.add_argument("--min-v2", type=float, default=None,
+                    help="本命のv2がこの値未満のレースは見送る(確信度フィルタ)")
+    ap.add_argument("--min-odds", type=float, default=None,
+                    help="複勝オッズがこの値未満の本命は買わない(妙味フィルタ)")
     ap.add_argument("--samples", nargs="*", default=None,
                     help="v2標準化の母集団(既定=--enriched と同じ)")
     args = ap.parse_args()
@@ -111,12 +115,15 @@ def main() -> None:
         picks = ranked_ana(race, jrates, stats, args.pop_min)
         if not picks:
             continue
+        # 確信度フィルタ: 本命のv2が低いレースは見送る
+        if args.min_v2 is not None and picks[0][1] < args.min_v2:
+            continue
         n_join += 1
         top3, place_o, wide_o = o["top3"], o["place"], o["wide"]
 
         # --- 複勝: 本命(1位) ---
         um1 = picks[0][0]
-        if um1 in place_o:
+        if um1 in place_o and (args.min_odds is None or place_o[um1] >= args.min_odds):
             box = acc["複勝_本命"]
             box[0] += STAKE
             box[3] += 1
