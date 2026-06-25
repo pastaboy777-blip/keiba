@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))           # scripts/ (predict_nankan)
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from nankeiba.scraping.race_id import day_index_race_id, NANKAN_CODES
+from nankeiba.scraping.race_id import day_index_race_id, NANKAN_CODES, ALL_CODES
 from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping import parser as P
 from nankeiba.scraping import enrich as E
@@ -80,7 +80,9 @@ def emph(jockey: str | None, top_jockey: str | None) -> bool:
 def main() -> None:
     ap = argparse.ArgumentParser(description="南関 1日分 ズブ穴 統一表(Markdown)")
     ap.add_argument("--date", required=True, help="YYYY-MM-DD")
-    ap.add_argument("--place", choices=list(NANKAN_CODES), required=True)
+    ap.add_argument("--place", choices=list(ALL_CODES), required=True,
+                    help="南関4場 または 地方場(笠松/名古屋/園田/高知/佐賀 等。"
+                         "※地方はv2が南関学習のため転移性低=実験的)")
     ap.add_argument("--baba", choices=list(pn.BABA_FULL), default="不",
                     help="想定馬場ラベル(v2順位は不変。既定=不良)")
     ap.add_argument("--from", dest="from_r", type=int, default=1, help="開始R(既定1)")
@@ -97,7 +99,7 @@ def main() -> None:
     ymd = args.date.replace("-", "")
     client = PoliteClient()
     idx = client.get(pn.CARD_URL.format(race_id=day_index_race_id(ymd, args.place)))
-    races = dict(P.parse_race_links(idx, date_yyyymmdd=ymd, jyo_code=NANKAN_CODES[args.place]))
+    races = dict(P.parse_race_links(idx, date_yyyymmdd=ymd, jyo_code=ALL_CODES[args.place]))
     if not races:
         raise SystemExit(f"{args.date} {args.place} のレースが見つかりません。")
 
@@ -145,13 +147,13 @@ def main() -> None:
         jk1 = jockey_from_tags(t1)
         honmei = f"{circ(e1.umaban)}{e1.horse_name}"
         honmei_disp = f"**{honmei}**" if emph(jk1, top_jockey) else honmei
-        v1_disp = f"**+{v1:.2f}**" if emph(jk1, top_jockey) else f"+{v1:.2f}"
+        v1_disp = f"**{v1:+.2f}**" if emph(jk1, top_jockey) else f"{v1:+.2f}"
         cause = shuin_summary(t1)
         cause_disp = cause.replace(top_jockey, f"**{top_jockey}**") if (
             top_jockey and emph(jk1, top_jockey)) else cause
         if len(picks) > 1:
             e2, v2, _t2 = picks[1]
-            second = f"{circ(e2.umaban)}{e2.horse_name}(+{v2:.2f})"
+            second = f"{circ(e2.umaban)}{e2.horse_name}({v2:+.2f})"
         else:
             second = "—"
         lines.append(f"| {rno}R | {dist} | {honmei_disp} | {v1_disp} | {cause_disp} | {second} |")
@@ -164,11 +166,11 @@ def main() -> None:
                  else "### ★ 高評価")
     if len(headline) >= 2:
         a, b = headline[0], headline[1]
-        lines.append(f"- **{a[0]}R {a[1]}（+{a[2]:.2f}）／ {b[0]}R {b[1]}（+{b[2]:.2f}）** "
+        lines.append(f"- **{a[0]}R {a[1]}（{a[2]:+.2f}）／ {b[0]}R {b[1]}（{b[2]:+.2f}）** "
                      f"← 本日の頭抜け")
     tier = [h for h in headline[2:] if h[2] >= 2.4]
     if tier:
-        lines.append("- " + " ／ ".join(f"{r}R {n}（+{v:.2f}）" for r, n, v in tier))
+        lines.append("- " + " ／ ".join(f"{r}R {n}（{v:+.2f}）" for r, n, v in tier))
     if top_jockey and top_jockey_n >= 2:
         axis_rs = [f"{rno}R" for rno, _d, picks in collected
                    if picks and jockey_from_tags(picks[0][2]) == top_jockey]

@@ -28,19 +28,31 @@ NANKAN_CODES: dict[str, str] = {
     "川崎": "21",
 }
 
-# コード -> 場名 の逆引き
-CODE_TO_PLACE: dict[str, str] = {v: k for k, v in NANKAN_CODES.items()}
+# 楽天競馬がカバーする南関以外の地方場(NAR)コード。
+# v2モデルは南関で学習しているため、これら地方場の予想は転移性が低く実験的扱い。
+LOCAL_CODES: dict[str, str] = {
+    "門別": "36", "盛岡": "34", "水沢": "35", "金沢": "24",
+    "笠松": "23", "名古屋": "26", "園田": "27", "高知": "31", "佐賀": "32",
+}
+
+# 全場(南関+地方)。場名→コード。
+ALL_CODES: dict[str, str] = {**NANKAN_CODES, **LOCAL_CODES}
+
+# コード -> 場名 の逆引き(全場)
+CODE_TO_PLACE: dict[str, str] = {v: k for k, v in ALL_CODES.items()}
 
 
 def day_index_race_id(date_yyyymmdd: str, place: str) -> str:
     """その日・その場の「インデックス RACEID」を返す。
 
-    date_yyyymmdd: "20260602" のような8桁文字列。
+    date_yyyymmdd: "20260602" のような8桁文字列。place は南関4場または地方場名。
     出馬表/成績ページの入口として使い、各レースの実 RACEID をリンクから収集する。
     """
     if len(date_yyyymmdd) != 8 or not date_yyyymmdd.isdigit():
         raise ValueError(f"date は YYYYMMDD の8桁: {date_yyyymmdd!r}")
-    code = NANKAN_CODES[place]
+    code = ALL_CODES.get(place)
+    if code is None:
+        raise KeyError(f"未対応の場: {place}(対応: {list(ALL_CODES)})")
     return f"{date_yyyymmdd}{code}00000000"
 
 
@@ -59,4 +71,4 @@ def parse_race_id(race_id: str) -> dict:
 
 def is_nankan(race_id: str) -> bool:
     """南関4場の RACEID か。"""
-    return len(race_id) == 18 and race_id[8:10] in CODE_TO_PLACE
+    return len(race_id) == 18 and race_id[8:10] in set(NANKAN_CODES.values())
