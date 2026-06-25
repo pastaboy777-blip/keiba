@@ -26,8 +26,16 @@ from nankeiba.scraping.race_id import day_index_race_id, NANKAN_CODES, ALL_CODES
 from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping import parser as P
 from nankeiba.scraping import enrich as E
+from nankeiba.core import features as F
 
 import predict_nankan as pn
+
+# 前志向の脚質しきい値。senkou_power がこれ以上=前で運びたい馬。
+FRONT_TH = 0.2
+# 前で運びたい馬がこの数以上いると、ハイペースで前崩れ→差し有利と判定する。
+PACE_FRONT_CROWD = 3
+# 差し展開のとき v2 に乗せる脚質補正の強さ(差し馬=senkou負を加点・前馬を減点)。
+PACE_SASHI_K = 1.5
 
 CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
 
@@ -87,6 +95,9 @@ def main() -> None:
                     help="想定馬場ラベル(v2順位は不変。既定=不良)")
     ap.add_argument("--from", dest="from_r", type=int, default=1, help="開始R(既定1)")
     ap.add_argument("--to", dest="to_r", type=int, default=12, help="終了R(既定12)")
+    ap.add_argument("--bias", choices=["front", "sashi", "pace"], default="front",
+                    help="脚質バイアス: front=前残り(既定) / sashi=差し有利 / "
+                         "pace=展開オート(前で運びたい馬が多いR→ハイペース前崩れ→差しに切替)")
     ap.add_argument("--pop-min", type=int, default=6,
                     help="ズブ穴の人気しきい値(この人気以下が対象。既定6)")
     ap.add_argument("--out", default=None, help="出力先Markdownパス(未指定なら標準出力)")
@@ -107,41 +118,67 @@ def main() -> None:
     trainers = pn.trainer_stats_from_samples(args.samples)
     v2_stats = pn.zubu_v2_stats_from_samples(args.samples, pop_min=args.pop_min)
 
-    collected = []  # (rno, dist_label, picks)
+    collected = []  # (rno, dist_label, picks, bias, front_n)
     for rno in sorted(races):
         if rno < args.from_r or rno > args.to_r:
             continue
         card = P.parse_card_page(client.get(pn.CARD_URL.format(race_id=races[rno])), races[rno])
         jockeys = E.jockey_stats_from_card(card)
+        # 展開判定: 前で運びたい馬(senkou>=FRONT_TH)の頭数を数える
+        front_n = 0
+        for e in card.entries:
+            if e.umaban is None:
+                continue
+            if F.senkou_power(E.past_runs_to_records(e)) >= FRONT_TH:
+                front_n += 1
+        if args.bias == "pace":
+            # 前が多い=ハイペースで前崩れ→差し、そうでなければ前残り
+            bias = "sashi" if front_n >= PACE_FRONT_CROWD else "front"
+        else:
+            bias = args.bias
         # オッズ未開放の先のレースは確定タイムが無く足切りしない(その3と一致)→ target_time=None
         picks = pn.zubu_ana_picks(
             card, jockeys, target_time=None, jockey_rates=jrates,
-            pop_min=args.pop_min, bias="front", baba=args.baba,
+            pop_min=args.pop_min, bias=bias, baba=args.baba,
             v2_stats=v2_stats, v2_weights=pn.ZUBU_V2_WEIGHTS)
+        # 差し展開: v2ランキングに脚質補正を乗せて差し馬を繰り上げる(前崩れ前提)。
+        # v2素点はそのまま表示し、並び順だけ展開で組み替える(透明性のため別管理)。
+        if bias == "sashi" and picks:
+            def _adj(item):
+                e, v2, _t = item
+                return v2 - PACE_SASHI_K * F.senkou_power(E.past_runs_to_records(e))
+            picks = sorted(picks, key=_adj, reverse=True)
         dist_label = f"{card.surface}{card.distance}"
-        collected.append((rno, dist_label, picks))
+        collected.append((rno, dist_label, picks, bias, front_n))
 
     # 当日の最多軸騎手(本命の主因騎手で最頻)を太字対象にする
     from collections import Counter
     jc = Counter()
-    for _rno, _d, picks in collected:
+    for _rno, _d, picks, _b, _f in collected:
         if picks:
             jk = jockey_from_tags(picks[0][2])
             if jk:
                 jc[jk] += 1
     top_jockey, top_jockey_n = (jc.most_common(1)[0] if jc else (None, 0))
 
+    pace_on = args.bias == "pace"
     lines = []
     lines.append(f"## {int(ymd[4:6])}/{int(ymd[6:8])} {args.place} ズブ穴候補"
-                 f"（{pn.BABA_FULL[args.baba]}想定・{args.from_r}R以降）")
+                 f"（{pn.BABA_FULL[args.baba]}想定・{args.from_r}R以降"
+                 f"{'・展開オート' if pace_on else ''}）")
     lines.append("")
-    lines.append("| R | 距離 | 本命 | v2 | 主因 | 2番手 |")
-    lines.append("|---|---|---|---|---|---|")
+    head_cols = "| R | 距離 | " + ("展開 | " if pace_on else "") + "本命 | v2 | 主因 | 2番手 |"
+    sep = "|---|---|" + ("---|" if pace_on else "") + "---|---|---|---|"
+    lines.append(head_cols)
+    lines.append(sep)
 
     headline = []  # (rno, honmei_str, v2)
-    for rno, dist, picks in collected:
+    for rno, dist, picks, bias, front_n in collected:
+        pace_cell = (f"差し(前{front_n})" if bias == "sashi" else f"前残り(前{front_n})") \
+            if pace_on else None
+        pc = f"{pace_cell} | " if pace_on else ""
         if not picks:
-            lines.append(f"| {rno}R | {dist} | 該当なし | — | — | — |")
+            lines.append(f"| {rno}R | {dist} | {pc}該当なし | — | — | — |")
             continue
         e1, v1, t1 = picks[0]
         jk1 = jockey_from_tags(t1)
@@ -156,7 +193,8 @@ def main() -> None:
             second = f"{circ(e2.umaban)}{e2.horse_name}({v2:+.2f})"
         else:
             second = "—"
-        lines.append(f"| {rno}R | {dist} | {honmei_disp} | {v1_disp} | {cause_disp} | {second} |")
+        lines.append(f"| {rno}R | {dist} | {pc}{honmei_disp} | {v1_disp} "
+                     f"| {cause_disp} | {second} |")
         headline.append((rno, honmei, v1))
 
     # ★高評価: v2上位の本命と、最多軸騎手の本数
@@ -172,7 +210,7 @@ def main() -> None:
     if tier:
         lines.append("- " + " ／ ".join(f"{r}R {n}（{v:+.2f}）" for r, n, v in tier))
     if top_jockey and top_jockey_n >= 2:
-        axis_rs = [f"{rno}R" for rno, _d, picks in collected
+        axis_rs = [f"{rno}R" for rno, _d, picks, _b, _f in collected
                    if picks and jockey_from_tags(picks[0][2]) == top_jockey]
         lines.append(f"- {top_jockey}の軸が{top_jockey_n}本（{'・'.join(axis_rs)}）"
                      f"＝陣営本気サイン濃厚")
