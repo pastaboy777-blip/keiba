@@ -21,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from nankeiba.scraping.race_id import day_index_race_id, NANKAN_CODES
+from nankeiba.scraping.race_id import day_index_race_id, NANKAN_CODES, ALL_CODES
 from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping import parser as P
 from nankeiba.scraping import enrich as E
@@ -500,7 +500,7 @@ def zubu_ana_picks(card, jockeys, *, pop_min: int = 6, target_time=None,
 def main() -> None:
     ap = argparse.ArgumentParser(description="楽天競馬 南関 1レース予想(走らせる観点)")
     ap.add_argument("--date", required=True, help="YYYY-MM-DD")
-    ap.add_argument("--place", choices=list(NANKAN_CODES), required=True)
+    ap.add_argument("--place", choices=list(ALL_CODES), required=True)
     ap.add_argument("--race", type=int, required=True)
     ap.add_argument("--baba", choices=list(BABA_FULL), default="良", help="想定馬場 良/稍/重/不")
     ap.add_argument("--mode", choices=["normal", "shomousen", "zenzan"], default="normal",
@@ -554,7 +554,7 @@ def main() -> None:
     ymd = args.date.replace("-", "")
     client = PoliteClient()
     idx = client.get(CARD_URL.format(race_id=day_index_race_id(ymd, args.place)))
-    races = dict(P.parse_race_links(idx, date_yyyymmdd=ymd, jyo_code=NANKAN_CODES[args.place]))
+    races = dict(P.parse_race_links(idx, date_yyyymmdd=ymd, jyo_code=ALL_CODES[args.place]))
     if args.race not in races:
         raise SystemExit(f"{args.date} {args.place} {args.race}R が見つかりません。あるR: {sorted(races)}")
     rid = races[args.race]
