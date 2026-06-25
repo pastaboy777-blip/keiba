@@ -37,8 +37,12 @@ CARD_URL = "https://keiba.rakuten.co.jp/race_card/list/RACEID/{race_id}"
 RESULT_URL = "https://keiba.rakuten.co.jp/race_performance/list/RACEID/{race_id}"
 
 
-def _race_to_record(race: P.ParsedRace, trio_odds, trifecta_odds) -> dict:
+def _race_to_record(race: P.ParsedRace, trio_odds, trifecta_odds,
+                    win_odds=None, place_odds=None, wide_odds=None) -> dict:
     """ParsedRace + オッズ を dataset.py の JSONL レコードへ。"""
+    win_odds = win_odds or {}
+    place_odds = place_odds or {}
+    wide_odds = wide_odds or {}
     return {
         "race_id": race.race_id,
         "date": race.date,
@@ -62,6 +66,10 @@ def _race_to_record(race: P.ParsedRace, trio_odds, trifecta_odds) -> dict:
         ],
         "trio_odds": {"-".join(map(str, k)): v for k, v in trio_odds.items()},
         "trifecta_odds": {"-".join(map(str, k)): v for k, v in trifecta_odds.items()},
+        # 単勝/複勝は {馬番: オッズ}、ワイドは {"a-b": オッズ}。複勝/ワイドはレンジ下限。
+        "win_odds": {str(k): v for k, v in win_odds.items()},
+        "place_odds": {str(k): v for k, v in place_odds.items()},
+        "wide_odds": {"-".join(map(str, k)): v for k, v in wide_odds.items()},
     }
 
 
@@ -101,16 +109,22 @@ def collect(start: date, end: date, place: str, *,
                     continue
 
                 trio_odds, trifecta_odds = {}, {}
+                win_odds, place_odds, wide_odds = {}, {}, {}
                 if with_odds:
                     try:
                         trio_odds = O.parse_odds_html(
                             client.get(O.odds_url(rid, "trio")), bet_type="trio")
                         trifecta_odds = O.parse_odds_html(
                             client.get(O.odds_url(rid, "trifecta")), bet_type="trifecta")
+                        tf = O.parse_tanfuku_html(client.get(O.odds_url(rid, "tanfuku")))
+                        win_odds, place_odds = tf["win"], tf["place"]
+                        wide_odds = O.parse_wide_html(client.get(O.odds_url(rid, "wide")))
                     except Exception:  # noqa: BLE001
                         pass
 
-                rec = _race_to_record(race, trio_odds, trifecta_odds)
+                rec = _race_to_record(race, trio_odds, trifecta_odds,
+                                      win_odds=win_odds, place_odds=place_odds,
+                                      wide_odds=wide_odds)
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 n += 1
     print(f"done: {n} races -> {out_path}")
