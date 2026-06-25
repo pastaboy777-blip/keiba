@@ -8,6 +8,8 @@ venv/
 data/cache/
 data/*.jsonl
 !data/samples/*.jsonl
+# 収集途中の生データ(完了後に data/samples へ確定コミット)
+data/odds/
 data/*.parquet
 data/*.csv
 data/*.sqlite
