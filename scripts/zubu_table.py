@@ -173,6 +173,7 @@ def main() -> None:
     lines.append(f"## {int(ymd[4:6])}/{int(ymd[6:8])} {args.place} ズブ穴候補"
                  f"（{pn.BABA_FULL[args.baba]}想定・{args.from_r}R以降"
                  f"{'・展開オート' if pace_on else ''}"
+                 f"{'・差し優先' if args.bias == 'sashi' else ''}"
                  f"{'・内〜中枠' if args.draw == 'inner' else ''}）")
     lines.append("")
     head_cols = "| R | 距離 | " + ("展開 | " if pace_on else "") + "本命 | v2 | 主因 | 2番手 |"
