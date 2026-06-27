@@ -134,6 +134,45 @@ def parse_result(html: str) -> list[dict]:
     return out
 
 
+def parse_payoffs(html: str) -> dict:
+    """結果ページの払戻テーブルから 単勝/複勝/ワイド/三連複 を取り出す(円・100円あたり)。
+
+    返り値: {"win": {馬番: 円}, "place": {馬番: 円},
+            "wide": {(a,b)昇順: 円}, "trio": {(a,b,c)昇順: 円}}
+    """
+    if BeautifulSoup is None:
+        raise ImportError("beautifulsoup4 が必要です")
+    soup = BeautifulSoup(html, "html.parser")
+    out = {"win": {}, "place": {}, "wide": {}, "trio": {}}
+
+    def yens(td):
+        return [int(x.replace(",", "")) for x in re.findall(r"[\d,]+", td.decode_contents())]
+
+    def combos(td):
+        # "4-14|8-14" や "14|4|8" を br 区切りで分解 → 各々の馬番リスト
+        raw = re.sub(r"<br/?>", "|", td.decode_contents())
+        return [[int(x) for x in re.findall(r"\d+", part)] for part in raw.split("|") if part.strip()]
+
+    for table in soup.find_all("table", class_=re.compile("pay_table")):
+        for tr in table.find_all("tr"):
+            th = tr.find("th")
+            tds = tr.find_all("td")
+            if not th or len(tds) < 2:
+                continue
+            kind = th.get_text(strip=True)
+            cs, ps = combos(tds[0]), yens(tds[1])
+            for combo, pay in zip(cs, ps):
+                if kind == "単勝" and combo:
+                    out["win"][combo[0]] = pay
+                elif kind == "複勝" and combo:
+                    out["place"][combo[0]] = pay
+                elif kind == "ワイド" and len(combo) == 2:
+                    out["wide"][tuple(sorted(combo))] = pay
+                elif kind == "三連複" and len(combo) == 3:
+                    out["trio"][tuple(sorted(combo))] = pay
+    return out
+
+
 def parse_laps(html: str) -> list[float]:
     """ラップタイム[秒]のリスト(全ハロン)。中央は全レース掲載。無ければ []。"""
     m = re.search(r"\d{1,2}\.\d(?:\s*-\s*\d{1,2}\.\d){3,}", html)
