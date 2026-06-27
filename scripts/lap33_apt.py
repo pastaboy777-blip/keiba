@@ -75,8 +75,9 @@ def main():
         typ = "瞬発" if r["apt"] >= 1.0 else "持久" if r["apt"] <= -1.0 else "中間"
         match = f"{abs(r['apt']-cv):.1f}" if cv is not None else "—"
         fit = "◎" if cv is not None and abs(r["apt"]-cv) <= 1.0 else ""
+        ng = f"{r['n_good']}/{r['n']}"
         print(f"{r['um']:>4} {r['horse'][:12]:<13}{r['jockey'][:4]:<5}"
-              f"{r['apt']:>+7.1f}{typ:>8}{match:>7}{f\"{r['n_good']}/{r['n']}\":>9} {fit}")
+              f"{r['apt']:>+7.1f}{typ:>8}{match:>7}{ng:>9} {fit}")
     print("\n※適性=過去好走時の33ラップ平均。コース値に近い馬ほど質が合う(◎=差1.0以内)。"
           "\n※33ラップ適性マッチの的中寄与は未バックテスト。理論ベースの参考。")
 
