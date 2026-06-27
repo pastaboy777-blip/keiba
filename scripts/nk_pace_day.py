@@ -58,15 +58,17 @@ def main() -> None:
     print(f"{'場':>4}{'R':>3} {'勝T':>8} {'上3F':>5} {'脚質':<5}{'前3F':>5} {'ラップ展開':<16}人気/勝ち馬")
     for rid in rids:
         try:
-            html = client.get(N.RESULT_URL.format(race_id=rid))
-            res = N.parse_result(html)
+            html = client.get(N.RESULT_LIVE_URL.format(race_id=rid))
+            res = N.parse_result_live(html)
         except Exception:  # noqa: BLE001
             continue
         if not res:
             continue
         win = res[0]
         field = len(res)
-        st = style_from_pos(win["last_corner_pos"], field)
+        order = N.last_corner_order_live(html)
+        last_pos = (order.index(win["umaban"]) + 1) if win["umaban"] in order else None
+        st = style_from_pos(last_pos, field)
         styles[st] = styles.get(st, 0) + 1
         laps = N.parse_laps(html)
         if len(laps) >= 6:
@@ -82,7 +84,7 @@ def main() -> None:
         elif lab == "平均":
             pace_counts["平均"] += 1
         ag = f"{win['agari']:.1f}" if win["agari"] else "—"
-        print(f"{N.place_of(rid):>4}{int(rid[10:12]):>3} {(win['time'] or '—'):>8} "
+        print(f"{N.place_of(rid):>4}{int(rid[10:12]):>3} {(win.get('time') or '—'):>8} "
               f"{ag:>5} {st:<5}{f3s:>5} {lab:<16}{win['popularity']}番人気 {win['horse']}")
 
     classified = sum(v for k, v in styles.items() if k != "?")

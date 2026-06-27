@@ -32,6 +32,8 @@ JRA_PLACE = {
 }
 
 RESULT_URL = "https://db.netkeiba.com/race/{race_id}/"
+# 直近(数日内)の結果は db に未反映。ライブ結果は race.netkeiba 側にある。
+RESULT_LIVE_URL = "https://race.netkeiba.com/race/result.html?race_id={race_id}"
 SHUTUBA_URL = "https://race.netkeiba.com/race/shutuba.html?race_id={race_id}"
 RACE_LIST_SUB = "https://race.netkeiba.com/top/race_list_sub.html?kaisai_date={ymd}"
 CALENDAR_URL = "https://race.netkeiba.com/top/calendar.html?year={y}&month={m}"
@@ -132,6 +134,76 @@ def parse_result(html: str) -> list[dict]:
         })
     out.sort(key=lambda r: r["finish_pos"])
     return out
+
+
+def parse_result_live(html: str) -> list[dict]:
+    """直近結果(race.netkeiba/result.html)を着順行に正規化する。
+
+    列: 着順/枠/馬番/馬名/性齢/斤量/騎手/タイム/着差/人気/単勝オッズ/後3F/...
+    通過は行内に無く、別セクション(コーナー通過順位)にあるため last_corner_order_live で取る。
+    """
+    if BeautifulSoup is None:
+        raise ImportError("beautifulsoup4 が必要です")
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table", class_=re.compile(r"RaceTable01"))
+    if table is None:
+        return []
+    rows = table.find_all("tr")
+    if len(rows) < 2:
+        return []
+    head = [c.get_text(strip=True) for c in rows[0].find_all(["th", "td"])]
+
+    def col(name):
+        for i, h in enumerate(head):
+            if h.startswith(name):
+                return i
+        return None
+
+    ci = {k: col(k) for k in ("着順", "馬番", "枠", "馬名", "騎手", "人気", "後3F", "単勝")}
+    out = []
+    for tr in rows[1:]:
+        tds = tr.find_all(["td", "th"])
+        if not tds or ci["着順"] is None:
+            continue
+        fp = _to_int(tds[ci["着順"]].get_text(strip=True))
+        if fp is None:
+            continue
+
+        def cell(key):
+            j = ci.get(key)
+            return tds[j].get_text(strip=True) if j is not None and j < len(tds) else ""
+
+        out.append({
+            "finish_pos": fp,
+            "umaban": _to_int(cell("馬番")),
+            "waku": _to_int(cell("枠")),
+            "horse": cell("馬名"),
+            "jockey": cell("騎手"),
+            "popularity": _to_int(cell("人気")),
+            "agari": _to_float(cell("後3F")),
+            "win_odds": _to_float(cell("単勝")),
+        })
+    out.sort(key=lambda r: r["finish_pos"])
+    return out
+
+
+def last_corner_order_live(html: str) -> list[int]:
+    """コーナー通過順位セクションの最終コーナー並び(馬番・前→後)を返す。
+
+    例 '1(2,12)(3,7)14(5,6)10(4,11)(8,13)9' → [1,2,12,3,7,14,5,6,10,4,11,8,13,9]。
+    """
+    i = html.find("コーナー通過順位")
+    if i < 0:
+        return []
+    seg = html[i:i + 1500]
+    pairs = re.findall(r"<th[^>]*>(.*?)</th>\s*<td[^>]*>(.*?)</td>", seg, re.S)
+    last = ""
+    for k, v in pairs:
+        if re.search(r"コーナー", re.sub("<[^>]+>", "", k)):
+            txt = re.sub("<[^>]+>", "", v).strip()
+            if re.search(r"\d", txt):
+                last = txt
+    return [int(x) for x in re.findall(r"\d+", last)]
 
 
 def parse_payoffs(html: str) -> dict:
