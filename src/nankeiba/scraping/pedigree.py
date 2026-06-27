@@ -52,7 +52,7 @@ def parse_pedigree(html: str) -> dict:
             path = "".join("S" if b == "0" else "D" for b in bits)
             a = td.find("a", href=re.compile(r"/horse/\d"))
             name = a.get_text(strip=True) if a else td.get_text(" ", strip=True)[:20]
-            hm = re.search(r"/horse/(\d+)", a["href"]) if a else None
+            hm = re.search(r"/horse/([0-9a-z]+)", a["href"]) if a else None
             ym = re.search(r"(19|20)\d{2}", td.get_text())
             anc[path] = {"name": name, "year": int(ym.group()) if ym else None,
                          "id": hm.group(1) if hm else None,
