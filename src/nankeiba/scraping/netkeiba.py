@@ -42,6 +42,27 @@ CALENDAR_URL = "https://race.netkeiba.com/top/calendar.html?year={y}&month={m}"
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
 
+ODDS_API = ("https://race.netkeiba.com/api/api_get_jra_odds.html"
+            "?race_id={race_id}&type=1&action=update")
+
+
+def win_pop(client: PoliteClient, race_id: str) -> dict:
+    """単勝オッズAPIから {馬番: (単勝オッズ, 人気)} を返す。発売前/失敗時は {}。"""
+    import json
+    try:
+        d = json.loads(client.get(ODDS_API.format(race_id=race_id), use_cache=False))
+        tan = d.get("data", {}).get("odds", {}).get("1", {})
+    except Exception:  # noqa: BLE001
+        return {}
+    out = {}
+    for k, v in tan.items():
+        try:
+            out[int(k)] = (float(v[0]), int(v[2]))
+        except (ValueError, IndexError):
+            continue
+    return out
+
+
 def make_client(*, use_cache: bool = True) -> PoliteClient:
     """netkeiba 用 PoliteClient(ブラウザUA・1.5秒間隔)。文字コードはページ毎に自動判定。"""
     return PoliteClient(user_agent=_UA, use_cache=use_cache, min_interval=1.5)

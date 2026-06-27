@@ -124,6 +124,8 @@ def main() -> None:
                     help="front=前残り日(前で運べる馬) / sashi=差し日(差し馬)。既定sashi")
     ap.add_argument("--draw", choices=["all", "inner"], default="all",
                     help="inner=内〜中枠(馬番が頭数の約6割以内)のみ")
+    ap.add_argument("--pop-min", type=int, default=None,
+                    help="人気薄しきい値(この人気以下のみ。単勝オッズAPIから人気取得)")
     ap.add_argument("--no-cache", action="store_true")
     args = ap.parse_args()
 
@@ -145,19 +147,25 @@ def main() -> None:
             continue
         field = len(horses)
         thr = round(field * 0.6)
+        pops = N.win_pop(client, rid) if args.pop_min else {}
         cands = horses
         if args.draw == "inner":
             cands = [h for h in cands if h["umaban"] <= thr]
+        if args.pop_min and pops:
+            cands = [h for h in cands if pops.get(h["umaban"], (0, 99))[1] >= args.pop_min]
         # 差し日=senkou昇順(差し優先) / 前残り日=senkou降順(前優先)
         cands = sorted(cands, key=lambda h: h["senkou"], reverse=(args.bias == "front"))
         tag = "差し優先" if args.bias == "sashi" else "前残り優先"
         dtag = "・内〜中枠" if args.draw == "inner" else ""
-        print(f"\n=== {N.place_of(rid)} {int(rid[10:12])}R ズブ穴({tag}{dtag}) {field}頭 ===")
+        ptag = f"・{args.pop_min}番人気↓" if args.pop_min else ""
+        print(f"\n=== {N.place_of(rid)} {int(rid[10:12])}R ズブ穴({tag}{dtag}{ptag}) {field}頭 ===")
         for h in cands[:5]:
             style = ("逃げ" if h["senkou"] >= 0.35 else "先行" if h["senkou"] >= 0.1
                      else "差し" if h["senkou"] <= -0.1 else "中団")
+            po = pops.get(h["umaban"])
+            ptxt = f" {po[1]}人気({po[0]})" if po else ""
             print(f"  {circ(h['umaban'])}枠{h['waku']} {h['horse'][:10]:<10} "
-                  f"{h['jockey'][:4]:<4} 脚質{h['senkou']:+.2f}({style}) 近{h['n_runs']}走")
+                  f"{h['jockey'][:4]:<4} 脚質{h['senkou']:+.2f}({style}){ptxt} 近{h['n_runs']}走")
 
 
 if __name__ == "__main__":
