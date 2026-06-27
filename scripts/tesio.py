@@ -85,6 +85,16 @@ def main() -> None:
     else:
         print("  算出不可(母系の生年欠落)")
 
+    inb = res.get("inbreeding") or []
+    print("\n[インブリード(クロス)/ 影響度順・若い世代ほど強]")
+    if not inb:
+        print("  クロスなし(アウトブリード)")
+    for c in inb[:6]:
+        acts = "/".join(str(a) if a is not None else "—" for a in c["activities"])
+        print(f"  {c['name'][:22]:<22} {c['cross']}  影響度{c['strength']:.3f}  活性[{acts}]")
+    if inb:
+        print("  ※クロス=悪ではない(活性で強弱・良悪は別)。影響度は世代が近いほど大。")
+
 
 if __name__ == "__main__":
     main()

@@ -52,8 +52,10 @@ def parse_pedigree(html: str) -> dict:
             path = "".join("S" if b == "0" else "D" for b in bits)
             a = td.find("a", href=re.compile(r"/horse/\d"))
             name = a.get_text(strip=True) if a else td.get_text(" ", strip=True)[:20]
+            hm = re.search(r"/horse/(\d+)", a["href"]) if a else None
             ym = re.search(r"(19|20)\d{2}", td.get_text())
             anc[path] = {"name": name, "year": int(ym.group()) if ym else None,
+                         "id": hm.group(1) if hm else None,
                          "male": path.endswith("S")}  # 末尾S=その代の父=牡
             col += 1
     return anc
@@ -64,6 +66,42 @@ def activity(birth_year: int | None, foal_year: int | None):
     if not birth_year or not foal_year:
         return None
     return ((foal_year - birth_year - 2) % 8) + 1
+
+
+def inbreeding(anc: dict, act: dict) -> list[dict]:
+    """クロス(同一先祖の重複)を検出し、影響度を算出する(自分流テシオ)。
+
+    ルール: 若い世代のクロスほど影響大・古いほど小(0活性廃止=1世代では消えない)。
+    影響度 = Σ_ペア (1/2)^(g_i+g_j-1) (Wright流。世代が近いほど指数的に大)。
+    クロス=悪とはせず、各出現の活性値も併記(活性で強弱・良悪は別の話)。
+    同一馬判定は horse_id 優先(無ければ馬名)。
+    """
+    groups: dict = {}
+    for path, a in anc.items():
+        if not path or not a.get("name"):
+            continue
+        key = a["name"].strip()          # 馬名で同一馬判定(同名セルは完全一致)
+        groups.setdefault(key, []).append(path)
+    out = []
+    for key, paths in groups.items():
+        if len(paths) < 2:
+            continue
+        gens = sorted(len(p) for p in paths)
+        strength = 0.0
+        for i in range(len(gens)):
+            for j in range(i + 1, len(gens)):
+                strength += 0.5 ** (gens[i] + gens[j] - 1)
+        acts = [act.get(p) for p in paths]
+        out.append({
+            "name": anc[paths[0]]["name"],
+            "gens": gens,                       # 例 [4,5] = 4×5
+            "cross": "×".join(map(str, gens)),
+            "strength": round(strength, 4),
+            "activities": acts,
+            "paths": paths,
+        })
+    out.sort(key=lambda x: -x["strength"])
+    return out
 
 
 def analyze(anc: dict, subject_year: int) -> dict:
@@ -109,4 +147,4 @@ def analyze(anc: dict, subject_year: int) -> dict:
 
     return {"activity": act, "kiso_tairyoku": kiso, "dam_acts": dam_acts,
             "yusen_sosen": yusen, "father_act": a_father,
-            "best_maternal": best_mat}
+            "best_maternal": best_mat, "inbreeding": inbreeding(anc, act)}
