@@ -79,26 +79,33 @@ def analyze(anc: dict, subject_year: int) -> dict:
     vals = [v for _, v in dam_acts if v is not None]
     kiso = round(sum(vals) / 32 * 100, 1) if len(vals) == 4 else None
 
-    # 優先祖先: 父(S)の活性値 A, 母方の牡(最強)の活性値 B
+    # 優先祖先: 父(S)の活性値 A vs 母系サイアーライン(母父DS・母母父DDS…)の最強 B。
+    # ※母方“最強種牡馬”は母系の底辺サイアー(D*k+S)に限定する(記事の例で確認:
+    #   ディープ=Busted(DDS,5)を採用しCrepello(DDSS,8)は除外 → 優先祖先Haloに一致)。
     a_father = act.get("S")
-    mat_stallions = [(p, act[p]) for p, a in anc.items()
-                     if p.startswith("D") and a["male"] and act.get(p) is not None]
-    best_mat = max(mat_stallions, key=lambda x: (x[1], -len(x[0]))) if mat_stallions else None
+    bottom_sires = []
+    for k in range(1, 5):                    # DS, DDS, DDDS, DDDDS
+        p = "D" * k + "S"
+        if p in anc and act.get(p) is not None:
+            bottom_sires.append((p, act[p]))
+    # 同活性は若い世代(短いパス=近い)を優位
+    best_mat = max(bottom_sires, key=lambda x: (x[1], -len(x[0]))) if bottom_sires else None
 
     yusen = None
     if a_father is not None and best_mat is not None:
         b_path, b_act = best_mat
         diff = abs(a_father - b_act)
         if a_father >= b_act:
-            # 父系を diff 世代遡る (父=1世代目)。diff=0なら父。
+            # 父優勢: 父系を diff 世代遡る(父=1世代目)。diff<=1は父。
             p = "S" * max(1, diff)
             while p and p not in anc:
-                p = p[:-1]  # 深すぎる場合は手前に丸める
+                p = p[:-1]
             yusen = {"path": p, "name": anc.get(p, {}).get("name"),
                      "activity": act.get(p), "side": "父系", "diff": diff}
         else:
+            # 母優勢: 母系サイアーラインの最強種牡馬を優先祖先とする
             yusen = {"path": b_path, "name": anc[b_path]["name"],
-                     "activity": b_act, "side": "母系(最強種牡馬)", "diff": diff}
+                     "activity": b_act, "side": "母系サイアーライン", "diff": diff}
 
     return {"activity": act, "kiso_tairyoku": kiso, "dam_acts": dam_acts,
             "yusen_sosen": yusen, "father_act": a_father,
