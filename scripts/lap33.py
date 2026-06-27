@@ -50,8 +50,8 @@ def label(v):
 
 
 def get_result_html(client, rid):
-    """直近はライブ、古い日はdb。ラップが取れる方を返す。"""
-    for url in (N.RESULT_LIVE_URL, N.RESULT_URL):
+    """ラップが取れる結果ページを返す。過去走(古い)はdbにラップ有り→db優先。"""
+    for url in (N.RESULT_URL, N.RESULT_LIVE_URL):
         try:
             h = client.get(url.format(race_id=rid))
             if N.parse_laps(h):
