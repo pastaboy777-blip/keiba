@@ -63,14 +63,19 @@ def get_result_html(client, rid):
 
 def main():
     ap = argparse.ArgumentParser(description="33ラップ計算(中央)")
-    ap.add_argument("--date", required=True)
+    ap.add_argument("--date", required=True, help="YYYY-MM-DD(複数はカンマ区切り)")
     ap.add_argument("--place", default=None)
     ap.add_argument("--course", action="store_true", help="コース別平均33ラップを集計")
+    ap.add_argument("--min-n", type=int, default=1, help="コース表で最低R数(既定1)")
     args = ap.parse_args()
 
     client = N.make_client(use_cache=True)
-    rids = [r for r in N.race_ids_for_date(client, args.date.replace("-", ""))
-            if not args.place or N.place_of(r) == args.place]
+    dates = [d.strip() for d in args.date.split(",") if d.strip()]
+    rids = []
+    for d in dates:
+        for r in N.race_ids_for_date(client, d.replace("-", "")):
+            if not args.place or N.place_of(r) == args.place:
+                rids.append(r)
 
     rows = []
     for rid in rids:
@@ -88,10 +93,12 @@ def main():
         for pl, rno, sf, dist, v in rows:
             if v is not None and sf and dist:
                 agg[(pl, sf, dist)].append(v)
-        print(f"\n=== {args.date} コース別 平均33ラップ ===")
+        print(f"\n=== コース別 平均33ラップ ({len(dates)}日集計) ===")
         print(f"{'コース':<16}{'平均33ラップ':>12}{'質':>10}{'R数':>5}")
         for key in sorted(agg):
             vs = agg[key]
+            if len(vs) < args.min_n:
+                continue
             m = sum(vs) / len(vs)
             print(f"{key[0]+key[1]+str(key[2]):<16}{m:>+12.2f}{label(m):>10}{len(vs):>5}")
     else:
