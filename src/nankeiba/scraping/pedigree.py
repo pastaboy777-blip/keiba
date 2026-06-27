@@ -86,19 +86,31 @@ def inbreeding(anc: dict, act: dict) -> list[dict]:
     for key, paths in groups.items():
         if len(paths) < 2:
             continue
-        gens = sorted(len(p) for p in paths)
-        strength = 0.0
-        for i in range(len(gens)):
-            for j in range(i + 1, len(gens)):
-                strength += 0.5 ** (gens[i] + gens[j] - 1)
-        acts = [act.get(p) for p in paths]
+        # 各出現の重み: (1/2)^(世代-1) × (活性/8)。
+        #   世代が近い=大(既定ルール)、活性が高い=子孫に強く伝わる(自分流ルール)。
+        #   活性欠落は中庸4/8で扱う。
+        occ = []
+        for p in paths:
+            g = len(p)
+            a = act.get(p)
+            af = (a if a is not None else 4) / 8.0
+            occ.append({"path": p, "gen": g, "act": a,
+                        "w": (0.5 ** (g - 1)) * af})
+        occ.sort(key=lambda o: o["gen"])
+        gens = [o["gen"] for o in occ]
+        # 世代距離のみ(参考)と 活性加重(本指標)の2つ
+        strength_gen = sum(0.5 ** (gens[i] + gens[j] - 1)
+                           for i in range(len(gens)) for j in range(i + 1, len(gens)))
+        strength = sum(occ[i]["w"] * occ[j]["w"] * 4
+                       for i in range(len(occ)) for j in range(i + 1, len(occ)))
         out.append({
             "name": anc[paths[0]]["name"],
             "gens": gens,                       # 例 [4,5] = 4×5
             "cross": "×".join(map(str, gens)),
-            "strength": round(strength, 4),
-            "activities": acts,
-            "paths": paths,
+            "strength": round(strength, 4),         # 活性加重(本指標)
+            "strength_gen": round(strength_gen, 4), # 世代距離のみ(参考)
+            "activities": [o["act"] for o in occ],
+            "paths": [o["path"] for o in occ],
         })
     out.sort(key=lambda x: -x["strength"])
     return out

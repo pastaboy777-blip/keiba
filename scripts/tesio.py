@@ -86,14 +86,16 @@ def main() -> None:
         print("  算出不可(母系の生年欠落)")
 
     inb = res.get("inbreeding") or []
-    print("\n[インブリード(クロス)/ 影響度順・若い世代ほど強]")
+    print("\n[インブリード(クロス)/ 影響度=活性加重・順]")
     if not inb:
         print("  クロスなし(アウトブリード)")
     for c in inb[:6]:
         acts = "/".join(str(a) if a is not None else "—" for a in c["activities"])
-        print(f"  {c['name'][:22]:<22} {c['cross']}  影響度{c['strength']:.3f}  活性[{acts}]")
+        hot = " ★高活性クロス" if any(a == 8 for a in c["activities"] if a) and max(c["gens"]) <= 4 else ""
+        print(f"  {c['name'][:22]:<22} {c['cross']}  影響度{c['strength']:.3f}"
+              f"(世代のみ{c['strength_gen']:.3f})  活性[{acts}]{hot}")
     if inb:
-        print("  ※クロス=悪ではない(活性で強弱・良悪は別)。影響度は世代が近いほど大。")
+        print("  ※影響度=世代の近さ×活性(高活性ほど子孫に強く伝わる)。クロス=悪ではない(良悪は別)。")
 
 
 if __name__ == "__main__":
