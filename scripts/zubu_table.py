@@ -135,8 +135,14 @@ def main() -> None:
             if F.senkou_power(E.past_runs_to_records(e)) >= FRONT_TH:
                 front_n += 1
         if args.bias == "pace":
-            # 前が多い=ハイペースで前崩れ→差し、そうでなければ前残り
-            bias = "sashi" if front_n >= PACE_FRONT_CROWD else "front"
+            # 前が多い=ハイペースで前崩れ→差し。短距離は2頭でも崩れやすいので感度UP。
+            # 多頭数(実力拮抗で前が競る)もハイペース要因として閾値を下げる。
+            crowd = PACE_FRONT_CROWD
+            if card.distance and card.distance <= 1300:
+                crowd = 2                       # 短距離(1200等)=前2頭でも前崩壊
+            elif card.field_size and card.field_size >= 14:
+                crowd = max(2, PACE_FRONT_CROWD - 1)   # 多頭数=拮抗で前が競る
+            bias = "sashi" if front_n >= crowd else "front"
         else:
             bias = args.bias
         # オッズ未開放の先のレースは確定タイムが無く足切りしない(その3と一致)→ target_time=None
