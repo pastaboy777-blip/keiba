@@ -73,16 +73,21 @@ def main():
         if gain >= field * 0.4:
             trip += 0.3
 
-        # 次走スタンス
-        if hit and trip <= -0.8:
-            stance = "▲次危険(恵まれ好走)"
-        elif not hit and trip >= 0.8:
-            stance = "◎次狙い(不利で凡走)"
-        elif hit and trip >= 0.8:
-            stance = "◎◎真に強い(不利でも好走)"
+        # v2: 人気(市場の期待)を組み込み、着順vs人気のギャップがトリップで説明できる馬だけ拾う
+        pop = r.get("popularity")
+        bad = r["finish_pos"] >= max(6, field * 0.4)       # 明確に着外
+        believed = pop is not None and pop <= field * 0.5  # 市場が期待していた(人気側)
+        beat_market = pop is not None and (pop - r["finish_pos"]) >= 2  # 人気以上に走った
+
+        if hit and trip >= 0.8 and (beat_market or (pop and pop >= 6)):
+            stance = "◎◎真に強い(不利を覆し人気以上)"     # サムハンター型(最重要)
+        elif bad and trip >= 0.8 and believed:
+            stance = "◎次狙い(人気馬がトリップで凡走)"     # 次は人気薄化=妙味
+        elif hit and trip <= -0.8 and not beat_market:
+            stance = "▲次危険(流れ恵まれの好走)"
         else:
             stance = "中立"
-        out.append((r["finish_pos"], r["umaban"], r.get("waku"), r.get("popularity"),
+        out.append((r["finish_pos"], r["umaban"], r.get("waku"), pop,
                     r["horse"], style, round(trip, 2), stance))
 
     for fp, um, wk, pop, nm, style, trip, stance in out:
