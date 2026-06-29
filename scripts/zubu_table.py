@@ -34,6 +34,10 @@ import predict_nankan as pn
 FRONT_TH = 0.2
 # 前で運びたい馬がこの数以上いると、ハイペースで前崩れ→差し有利と判定する。
 PACE_FRONT_CROWD = 3
+# 場prior(place_profile.pyで実測): 構造的に前残りが強い場は差し判定の閾値を上げて前残りに倒す。
+# 値=crowdに加算する頭数。大井=前86%・穴の75%が逃げ先行(6日71R)→差しは滅多に出さない。
+# ※当日4Rの実測(鉄則7)で上書き前提。これは朝の初期前提。
+PLACE_FRONT_PRIOR = {"大井": 3}
 # 差し展開のとき v2 に乗せる脚質補正の強さ(差し馬=senkou負を加点・前馬を減点)。
 PACE_SASHI_K = 1.5
 # 持続戦しきい値: 当日前半のラスト失速(ラスト1F−区間ベスト)の平均がこれ以上なら持続戦の日。
@@ -190,6 +194,7 @@ def main() -> None:
                 crowd = 2                       # 短距離(1200等)=前2頭でも前崩壊
             elif card.field_size and card.field_size >= 14:
                 crowd = max(2, PACE_FRONT_CROWD - 1)   # 多頭数=拮抗で前が競る
+            crowd += PLACE_FRONT_PRIOR.get(args.place, 0)   # 場prior: 前残りの強い場は差しを出にくく
             bias = "sashi" if front_n >= crowd else "front"
         else:
             bias = args.bias
