@@ -39,6 +39,12 @@ PACE_SASHI_K = 1.5
 # 持続戦しきい値: 当日前半のラスト失速(ラスト1F−区間ベスト)の平均がこれ以上なら持続戦の日。
 # 持続戦=瞬発(キレ)が使えない→差し判定でも後方一気は割引し好位寄せに補正(鉄則8)。
 SUSTAIN_FADE = 0.8
+# 持続戦の好位寄せ強度=差し繰り上げ係数に掛ける割引率(小さいほど後方を消し好位を残す)。
+# 距離で可変(鉄則8精緻化・船橋6/28で学習): 短距離はコーナーがきつく後方は届かない→強く好位寄せ。
+# 中距離は直線/コーナーに余裕があり持続戦でも後方一気が差し込む→割引を弱め後方を残す。
+SUSTAIN_K_SPRINT = 0.3   # 〜1300m
+SUSTAIN_K_MILE = 0.7     # 1400m〜
+SUSTAIN_DIST_TH = 1400
 PERF_URL = "https://keiba.rakuten.co.jp/race_performance/list/RACEID/"
 
 CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
@@ -188,10 +194,11 @@ def main() -> None:
         else:
             bias = args.bias
         # 持続戦補正(鉄則8): 差し判定でも持続戦の日は後方一気が届かない→好位寄せ。
-        # 差し繰り上げ(PACE_SASHI_K)を弱め、好位の持続型を残す。
+        # 差し繰り上げ(PACE_SASHI_K)を弱め、好位の持続型を残す。割引率は距離で可変。
         sashi_k = PACE_SASHI_K
         if bias == "sashi" and sustained:
-            sashi_k = PACE_SASHI_K * 0.3        # 後方一気の繰り上げを大幅に抑制=好位寄せ
+            short = card.distance and card.distance < SUSTAIN_DIST_TH
+            sashi_k = PACE_SASHI_K * (SUSTAIN_K_SPRINT if short else SUSTAIN_K_MILE)
         # オッズ未開放の先のレースは確定タイムが無く足切りしない(その3と一致)→ target_time=None
         picks = pn.zubu_ana_picks(
             card, jockeys, target_time=None, jockey_rates=jrates,
