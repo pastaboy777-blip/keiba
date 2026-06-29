@@ -36,6 +36,10 @@ FRONT_TH = 0.2
 PACE_FRONT_CROWD = 3
 # 差し展開のとき v2 に乗せる脚質補正の強さ(差し馬=senkou負を加点・前馬を減点)。
 PACE_SASHI_K = 1.5
+# 持続戦しきい値: 当日前半のラスト失速(ラスト1F−区間ベスト)の平均がこれ以上なら持続戦の日。
+# 持続戦=瞬発(キレ)が使えない→差し判定でも後方一気は割引し好位寄せに補正(鉄則8)。
+SUSTAIN_FADE = 0.8
+PERF_URL = "https://keiba.rakuten.co.jp/race_performance/list/RACEID/"
 
 CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
 
@@ -85,6 +89,29 @@ def emph(jockey: str | None, top_jockey: str | None) -> bool:
     return bool(jockey and top_jockey and jockey == top_jockey)
 
 
+def measure_sustained(client, races, through: int):
+    """当日の前半(through Rまで)の完了レースのラップから持続戦かを実測する。
+
+    ラスト失速 = ラスト1F − 残り800m以降の区間ベスト1F。平均が SUSTAIN_FADE 以上なら
+    『持続戦の日』(瞬発が使えない)。戻り値 (平均ラスト失速 or None, 判定本数)。
+    """
+    import pace_day as PD                      # 遅延import(楽天ラップ取得)
+    fades = []
+    for rno in sorted(races):
+        if rno > through:
+            break
+        try:
+            html = client.get(PERF_URL + races[rno])
+            laps = PD.parse_laps(html)
+        except Exception:  # noqa: BLE001
+            continue
+        if len(laps) >= 4:
+            fades.append(round(laps[-1] - min(laps[-4:]), 2))
+    if not fades:
+        return None, 0
+    return round(sum(fades) / len(fades), 2), len(fades)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="南関 1日分 ズブ穴 統一表(Markdown)")
     ap.add_argument("--date", required=True, help="YYYY-MM-DD")
@@ -103,6 +130,11 @@ def main() -> None:
     ap.add_argument("--draw", choices=["all", "inner"], default="all",
                     help="all=枠不問 / inner=内〜中枠のみ(馬番<=頭数の約6割)。"
                          "笠松等のタイト前残り馬場で内が残る傾向に合わせる")
+    ap.add_argument("--sustained", choices=["auto", "on", "off"], default="auto",
+                    help="持続戦補正(鉄則8): on/auto=差し判定でも後方一気を割引し好位寄せ。"
+                         "auto=当日前半ラップのラスト失速平均で自動実測(>=0.8でON)")
+    ap.add_argument("--sustained-through", type=int, default=4,
+                    help="持続戦のauto実測に使う前半R数(既定4)")
     ap.add_argument("--out", default=None, help="出力先Markdownパス(未指定なら標準出力)")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-02.jsonl", "data/samples/nankan_2026-03.jsonl",
@@ -120,6 +152,16 @@ def main() -> None:
     jrates = pn.jockey_top3_from_samples(args.samples)
     trainers = pn.trainer_stats_from_samples(args.samples)
     v2_stats = pn.zubu_v2_stats_from_samples(args.samples, pop_min=args.pop_min)
+
+    # 持続戦の判定(鉄則8)。auto=当日前半ラップで実測 / on=強制 / off=無効。
+    sustain_fade, sustain_n = (None, 0)
+    if args.sustained == "off":
+        sustained = False
+    elif args.sustained == "on":
+        sustained = True
+    else:  # auto
+        sustain_fade, sustain_n = measure_sustained(client, races, args.sustained_through)
+        sustained = sustain_fade is not None and sustain_fade >= SUSTAIN_FADE
 
     collected = []  # (rno, dist_label, picks, bias, front_n)
     for rno in sorted(races):
@@ -145,6 +187,11 @@ def main() -> None:
             bias = "sashi" if front_n >= crowd else "front"
         else:
             bias = args.bias
+        # 持続戦補正(鉄則8): 差し判定でも持続戦の日は後方一気が届かない→好位寄せ。
+        # 差し繰り上げ(PACE_SASHI_K)を弱め、好位の持続型を残す。
+        sashi_k = PACE_SASHI_K
+        if bias == "sashi" and sustained:
+            sashi_k = PACE_SASHI_K * 0.3        # 後方一気の繰り上げを大幅に抑制=好位寄せ
         # オッズ未開放の先のレースは確定タイムが無く足切りしない(その3と一致)→ target_time=None
         picks = pn.zubu_ana_picks(
             card, jockeys, target_time=None, jockey_rates=jrates,
@@ -153,9 +200,9 @@ def main() -> None:
         # 差し展開: v2ランキングに脚質補正を乗せて差し馬を繰り上げる(前崩れ前提)。
         # v2素点はそのまま表示し、並び順だけ展開で組み替える(透明性のため別管理)。
         if bias == "sashi" and picks:
-            def _adj(item):
+            def _adj(item, _k=sashi_k):
                 e, v2, _t = item
-                return v2 - PACE_SASHI_K * F.senkou_power(E.past_runs_to_records(e))
+                return v2 - _k * F.senkou_power(E.past_runs_to_records(e))
             picks = sorted(picks, key=_adj, reverse=True)
         # 内〜中枠フィルタ: 馬番が頭数の約6割以内の馬だけ残す(タイト前残り馬場向け)
         if args.draw == "inner" and card.field_size:
@@ -180,7 +227,14 @@ def main() -> None:
                  f"（{pn.BABA_FULL[args.baba]}想定・{args.from_r}R以降"
                  f"{'・展開オート' if pace_on else ''}"
                  f"{'・差し優先' if args.bias == 'sashi' else ''}"
+                 f"{'・持続戦→好位寄せ' if sustained else ''}"
                  f"{'・内〜中枠' if args.draw == 'inner' else ''}）")
+    if sustained:
+        meas = (f"前半{sustain_n}R平均ラスト失速 {sustain_fade:+.2f}秒"
+                if sustain_fade is not None else "手動指定")
+        lines.append("")
+        lines.append(f"> ★持続戦の日({meas})＝瞬発が使えない。"
+                     f"差し判定でも後方一気を割引し**好位の持続型**を厚くしています(鉄則8)。")
     lines.append("")
     head_cols = "| R | 距離 | " + ("展開 | " if pace_on else "") + "本命 | v2 | 主因 | 2番手 |"
     sep = "|---|---|" + ("---|" if pace_on else "") + "---|---|---|---|"
@@ -189,8 +243,13 @@ def main() -> None:
 
     headline = []  # (rno, honmei_str, v2)
     for rno, dist, picks, bias, front_n in collected:
-        pace_cell = (f"差し(前{front_n})" if bias == "sashi" else f"前残り(前{front_n})") \
-            if pace_on else None
+        if pace_on:
+            if bias == "sashi":
+                pace_cell = f"差し→好位(前{front_n})" if sustained else f"差し(前{front_n})"
+            else:
+                pace_cell = f"前残り(前{front_n})"
+        else:
+            pace_cell = None
         pc = f"{pace_cell} | " if pace_on else ""
         if not picks:
             lines.append(f"| {rno}R | {dist} | {pc}該当なし | — | — | — |")
