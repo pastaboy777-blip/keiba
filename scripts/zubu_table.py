@@ -40,6 +40,8 @@ PACE_FRONT_CROWD = 3
 PLACE_FRONT_PRIOR = {"大井": 3}
 # 差し展開のとき v2 に乗せる脚質補正の強さ(差し馬=senkou負を加点・前馬を減点)。
 PACE_SASHI_K = 1.5
+# ヒモ(2-3着付け)抽出時に差し・中団を引き上げる強さ(鉄則10)。前残り日でも頭は前・ヒモは差し中団。
+HIMO_SASHI_K = 1.5
 # 持続戦しきい値: 当日前半のラスト失速(ラスト1F−区間ベスト)の平均がこれ以上なら持続戦の日。
 # 持続戦=瞬発(キレ)が使えない→差し判定でも後方一気は割引し好位寄せに補正(鉄則8)。
 SUSTAIN_FADE = 0.8
@@ -99,6 +101,23 @@ def emph(jockey: str | None, top_jockey: str | None) -> bool:
     return bool(jockey and top_jockey and jockey == top_jockey)
 
 
+def style_label(e) -> str:
+    """脚質ラベル(逃先/先行/中団/後方)を senkou_power から付ける。"""
+    s = F.senkou_power(E.past_runs_to_records(e))
+    return "逃先" if s >= 0.35 else "先行" if s >= 0.2 else "中団" if s >= 0.0 else "後方"
+
+
+def himo_candidates(picks, *, honmei_umaban=None, top=2):
+    """ヒモ(2-3着付け)候補=差し・中団の人気薄を引き上げて返す(鉄則10)。
+    picks=[(entry, v2, tags)]。本命(頭)は除外。前(先行)寄りの馬は後ろへ落とす。"""
+    pool = [p for p in picks if p[0].umaban != honmei_umaban]
+    ranked = sorted(
+        pool,
+        key=lambda it: it[1] - HIMO_SASHI_K * F.senkou_power(E.past_runs_to_records(it[0])),
+        reverse=True)
+    return ranked[:top]
+
+
 def measure_sustained(client, races, through: int):
     """当日の前半(through Rまで)の完了レースのラップから持続戦かを実測する。
 
@@ -140,6 +159,8 @@ def main() -> None:
     ap.add_argument("--draw", choices=["all", "inner"], default="all",
                     help="all=枠不問 / inner=内〜中枠のみ(馬番<=頭数の約6割)。"
                          "笠松等のタイト前残り馬場で内が残る傾向に合わせる")
+    ap.add_argument("--himo", action="store_true",
+                    help="ヒモ列を追加(鉄則10): 前残り日でも2-3着付けは差し・中団の人気薄を別枠で出す")
     ap.add_argument("--sustained", choices=["auto", "on", "off"], default="auto",
                     help="持続戦補正(鉄則8): on/auto=差し判定でも後方一気を割引し好位寄せ。"
                          "auto=当日前半ラップのラスト失速平均で自動実測(>=0.8でON)")
@@ -248,8 +269,11 @@ def main() -> None:
         lines.append(f"> ★持続戦の日({meas})＝瞬発が使えない。"
                      f"差し判定でも後方一気を割引し**好位の持続型**を厚くしています(鉄則8)。")
     lines.append("")
-    head_cols = "| R | 距離 | " + ("展開 | " if pace_on else "") + "本命 | v2 | 主因 | 2番手 |"
-    sep = "|---|---|" + ("---|" if pace_on else "") + "---|---|---|---|"
+    himo_on = args.himo
+    head_cols = ("| R | 距離 | " + ("展開 | " if pace_on else "") + "本命 | v2 | 主因 | 2番手 |"
+                 + (" ヒモ(差/中) |" if himo_on else ""))
+    sep = ("|---|---|" + ("---|" if pace_on else "") + "---|---|---|---|"
+           + ("---|" if himo_on else ""))
     lines.append(head_cols)
     lines.append(sep)
 
@@ -263,8 +287,14 @@ def main() -> None:
         else:
             pace_cell = None
         pc = f"{pace_cell} | " if pace_on else ""
+        himo_cell = ""
+        if himo_on:
+            hc = himo_candidates(picks, honmei_umaban=picks[0][0].umaban if picks else None)
+            himo_cell = "・".join(
+                f"{circ(e.umaban)}{e.horse_name}({style_label(e)})" for e, _v, _t in hc) or "—"
         if not picks:
-            lines.append(f"| {rno}R | {dist} | {pc}該当なし | — | — | — |")
+            lines.append(f"| {rno}R | {dist} | {pc}該当なし | — | — | — |"
+                         + (" — |" if himo_on else ""))
             continue
         e1, v1, t1 = picks[0]
         jk1 = jockey_from_tags(t1)
@@ -280,7 +310,8 @@ def main() -> None:
         else:
             second = "—"
         lines.append(f"| {rno}R | {dist} | {pc}{honmei_disp} | {v1_disp} "
-                     f"| {cause_disp} | {second} |")
+                     f"| {cause_disp} | {second} |"
+                     + (f" {himo_cell} |" if himo_on else ""))
         headline.append((rno, honmei, v1))
 
     # ★高評価: v2上位の本命と、最多軸騎手の本数
