@@ -30,7 +30,44 @@ from nankeiba.core import probability as pb
 
 CARD_URL = "https://keiba.rakuten.co.jp/race_card/list/RACEID/{race_id}"
 RESULT_URL = "https://keiba.rakuten.co.jp/race_performance/list/RACEID/{race_id}"
+ODDS_URL = "https://keiba.rakuten.co.jp/odds/tanfuku/RACEID/{race_id}"
 BABA_FULL = {"良": "良", "稍": "稍重", "重": "重", "不": "不良"}
+
+
+def live_win_odds(client, race_id):
+    """楽天のオッズ(単複)ページから確定ライブオッズを取る(netkeiba地方はProxyで403のため)。
+    戻り値: {馬番: {"win": 単勝float, "pop": 人気int, "place": "複勝下-上", "weight": 連対時馬体重}}。
+    出馬表段階のexp_oddsは想定値でズレるため、確定値はこちらを使う。
+    """
+    import re as _re
+    from bs4 import BeautifulSoup as _BS
+    out = {}
+    try:
+        html = client.get(ODDS_URL.format(race_id=race_id))
+    except Exception:  # noqa: BLE001
+        return out
+    soup = _BS(html, "html.parser")
+    for t in soup.find_all("table"):
+        heads = [th.get_text(strip=True) for th in t.find_all("th")]
+        if "単勝オッズ" not in heads or "人気" not in heads:
+            continue
+        for tr in t.find_all("tr")[1:]:
+            tds = [td.get_text(" ", strip=True) for td in tr.find_all("td")]
+            if len(tds) < 11:
+                continue
+            mnum = _re.match(r"\d+", tds[0])
+            if not mnum:
+                continue
+            um = int(mnum.group())
+            try:
+                win = float(tds[7])
+            except ValueError:
+                win = None
+            pm = _re.search(r"(\d+)番人気", tds[9])
+            out[um] = {"win": win, "pop": int(pm.group(1)) if pm else None,
+                       "place": tds[8].replace(" ", ""), "weight": tds[5]}
+        break
+    return out
 
 
 def _t2s(t):
