@@ -50,8 +50,9 @@ def band(d):
     return "1700+"
 
 
-def load(places=None):
-    files = sorted(glob.glob("data/samples/nankan_20*.jsonl"))
+def load(places=None, files=None):
+    if not files:
+        files = sorted(glob.glob("data/samples/nankan_20*.jsonl"))
     out = []
     for f in files:
         for line in open(f, encoding="utf-8"):
@@ -80,10 +81,19 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--place", default=None)
     ap.add_argument("--threshold", type=int, default=20000)
+    ap.add_argument("--files", default=None,
+                    help="カンマ区切りのjsonl(高知等)。既定は南関サンプル")
+    ap.add_argument("--glob", default=None,
+                    help="サンプルのglob(例: data/samples/kochi_20*.jsonl)")
     args = ap.parse_args()
     TH = args.threshold
     places = {args.place} if args.place else None
-    races = load(places)
+    files = None
+    if args.files:
+        files = args.files.split(",")
+    elif args.glob:
+        files = sorted(glob.glob(args.glob))
+    races = load(places, files)
     if not races:
         print("データなし")
         return
