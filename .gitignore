@@ -8,7 +8,6 @@ venv/
 data/cache/
 data/*.jsonl
 !data/samples/*.jsonl
-# 収集途中の生データ(完了後に data/samples へ確定コミット)
 data/odds/
 data/*.parquet
 data/*.csv
@@ -25,6 +24,4 @@ data/*.db
 fonts/
 uploads/
 
-# 一時: 2025収集中の作業物（完了後に data 行を外してフルコミット）
 logs/
-data/samples/nankan_2025-*.jsonl

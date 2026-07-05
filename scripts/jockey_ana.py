@@ -84,7 +84,7 @@ def main():
     if args.files:
         files = args.files.split(",")
     else:
-        files = sorted(glob.glob("data/samples/nankan_2026-0*.jsonl"))
+        files = sorted(glob.glob("data/samples/nankan_20*.jsonl"))
         files += ["data/samples/urawa_2025-06_2026-05.jsonl"]
 
     places = {args.place} if args.place else NANKAN
