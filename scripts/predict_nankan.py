@@ -651,7 +651,9 @@ def main() -> None:
     if args.ana:
         tt = args.target_time
         note = "手動指定"
-        if tt is None:
+        if args.final:
+            tt, note = None, "ファイナル=タイム足切りOFF"   # 荒れる最終Rは時計が当てにならない
+        elif tt is None:
             tt, note = day_target_time(client, list(races.items()), card.distance)
         jrates = jockey_top3_from_samples(args.samples)
         # 重馬場の穴特徴量(厩舎道悪穴率+血統)は --wet-ana 指定時のみ有効。
