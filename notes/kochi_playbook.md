@@ -70,7 +70,13 @@
   多少の先行力(senkou+)がプラス。
 - `predict_nankan.ZUBU_V2_WEIGHTS_KOCHI_FINAL` に格納。ファイナル(最終R)でのみ使う。
 
+## 配線済み（使い方）
+- **全レース表**：`python3 scripts/zubu_table.py --date YYYY-MM-DD --place 高知 --bias sashi --samples data/samples/kochi_*.jsonl`
+  → **最終R(ファイナル)は自動で専用重み**を適用（ヘッダに🏁注記）。
+- **単レース**：`python3 scripts/predict_nankan.py --date … --place 高知 --race <最終R> --ana --final --bias sashi --samples data/samples/kochi_*.jsonl`
+  → `--final` で専用重み。
+
 ## TODO（次セッション）
-- ZUBU_V2_WEIGHTS_KOCHI_FINAL を予想パイプラインの--place高知×最終Rで自動適用する配線。
+- ファイナル穴騎手×距離のクロス、v2の高知全レース版重み(非ファイナル)も検討。
 - ファイナル穴騎手×距離(1300/1400)のクロス、枠×脚質の詳細。
 - ナイター・季節（夏休み8月は2日のみ）の開催パターン反映。

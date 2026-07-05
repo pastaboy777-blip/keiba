@@ -576,6 +576,9 @@ def main() -> None:
     ap.add_argument("--attrition-meet", action="store_true",
                     help="時計超過の特別開催プリセット(今開催の川崎用)。"
                          "keep-slow + no-jockey + time-margin2.0 を一括適用する一時レジーム")
+    ap.add_argument("--final", action="store_true",
+                    help="高知ファイナル専用の再学習重み(実績を捨て騎手重視・差し寄り)を使う。"
+                         "最終Rで指定。検証で本線3着内 16→20%")
     ap.add_argument("--samples", nargs="*", default=[
         "data/samples/nankan_2026-02.jsonl", "data/samples/nankan_2026-03.jsonl",
         "data/samples/nankan_2026-04.jsonl", "data/samples/nankan_2026-05.jsonl",
@@ -666,8 +669,11 @@ def main() -> None:
         v2_stats = None if args.legacy_ana else zubu_v2_stats_from_samples(
             args.samples, pop_min=args.pop_min)
         v2_weights = ZUBU_V2_WEIGHTS
+        if args.final:
+            v2_weights = ZUBU_V2_WEIGHTS_KOCHI_FINAL
+            print("  (🏁高知ファイナル専用重み: 実績を捨て騎手重視・差し寄り。検証で本線3着内16→20%)")
         if args.no_jockey:
-            v2_weights = {k: v for k, v in ZUBU_V2_WEIGHTS.items() if k != "jockey"}
+            v2_weights = {k: v for k, v in v2_weights.items() if k != "jockey"}
             print("  (騎手ファクターOFF: 地力+先行+持続で評価=精度低下に注意)")
         if args.keep_slow or args.time_margin != 0.8:
             print(f"  (タイム足切り緩和: margin={args.time_margin}"

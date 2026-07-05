@@ -197,10 +197,14 @@ def main() -> None:
         sustain_fade, sustain_n = measure_sustained(client, races, args.sustained_through)
         sustained = sustain_fade is not None and sustain_fade >= SUSTAIN_FADE
 
+    # 高知の最終R(ファイナル)は専用の再学習重み(実績を捨て騎手で買う型)を自動適用。
+    final_rno = max(races) if races else None
     collected = []  # (rno, dist_label, picks, bias, front_n)
     for rno in sorted(races):
         if rno < args.from_r or rno > args.to_r:
             continue
+        is_kochi_final = args.place == "高知" and rno == final_rno
+        v2w = pn.ZUBU_V2_WEIGHTS_KOCHI_FINAL if is_kochi_final else pn.ZUBU_V2_WEIGHTS
         card = P.parse_card_page(client.get(pn.CARD_URL.format(race_id=races[rno])), races[rno])
         jockeys = E.jockey_stats_from_card(card)
         # 展開判定: 前で運びたい馬(senkou>=FRONT_TH)の頭数を数える
@@ -232,7 +236,7 @@ def main() -> None:
         picks = pn.zubu_ana_picks(
             card, jockeys, target_time=None, jockey_rates=jrates,
             pop_min=args.pop_min, bias=bias, baba=args.baba,
-            v2_stats=v2_stats, v2_weights=pn.ZUBU_V2_WEIGHTS)
+            v2_stats=v2_stats, v2_weights=v2w)
         # 差し展開: v2ランキングに脚質補正を乗せて差し馬を繰り上げる(前崩れ前提)。
         # v2素点はそのまま表示し、並び順だけ展開で組み替える(透明性のため別管理)。
         if bias == "sashi" and picks:
@@ -271,6 +275,10 @@ def main() -> None:
         lines.append("")
         lines.append(f"> ★持続戦の日({meas})＝瞬発が使えない。"
                      f"差し判定でも後方一気を割引し**好位の持続型**を厚くしています(鉄則8)。")
+    if args.place == "高知" and final_rno is not None and args.from_r <= final_rno <= args.to_r:
+        lines.append("")
+        lines.append(f"> 🏁 {final_rno}R=高知ファイナル：**実績を捨て騎手重視**の再学習専用重みを自動適用"
+                     f"（地力ほぼ無効・差し寄り。検証で本線3着内 16→20%）。")
     lines.append("")
     himo_on = args.himo
     head_cols = ("| R | 距離 | " + ("展開 | " if pace_on else "") + "本命 | v2 | 主因 | 2番手 |"
