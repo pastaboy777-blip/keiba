@@ -24,3 +24,7 @@ data/*.db
 
 fonts/
 uploads/
+
+# 一時: 2025収集中の作業物（完了後に data 行を外してフルコミット）
+logs/
+data/samples/nankan_2025-*.jsonl
