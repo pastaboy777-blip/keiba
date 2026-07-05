@@ -276,6 +276,10 @@ def wet_ana_stats_from_samples(paths, *, pop_min: int = 6) -> dict:
 # 重みは learn_zubu.py のロジスティック回帰で学習した係数(標準化後)に準拠。
 # jockey(騎手の質)と ability(地力)が二大ドライバー、senkou/agari は僅少。
 ZUBU_V2_WEIGHTS = {"jockey": 0.38, "ability": 0.29, "senkou": 0.02, "agari": -0.02}
+# 高知ファイナル専用(learn_zubu_kochi.pyで再学習)。地力(ability)がほぼ無効化し騎手が
+# 支配的、senkouは前寄りに僅増、agariは差し寄り。検証(リーク無)で本線3着内 16.0%→20.0%。
+# 「実績を捨て、騎手で買う」型。ファイナル(最終R)でのみ使う。
+ZUBU_V2_WEIGHTS_KOCHI_FINAL = {"jockey": 0.43, "ability": -0.01, "senkou": 0.12, "agari": -0.06}
 
 
 def zubu_v2_stats_from_samples(paths, *, pop_min: int = 6) -> dict:
