@@ -68,6 +68,48 @@ def styl(s):
     return "逃先" if s >= 0.35 else ("先行" if s >= 0.2 else ("中団" if s >= 0.0 else "後方"))
 
 
+def agari_target(dist):
+    """川崎の距離別"勝ち圏"上がりの上限(loose)。距離が延びるほど緩む。"""
+    if dist <= 1000:
+        return 38.7
+    if dist <= 1300:
+        return 39.3
+    if dist <= 1400:
+        return 40.0
+    if dist <= 1600:
+        return 40.5
+    return 41.2
+
+
+def reproduce_399(e, dist):
+    """4フィルターで「今日の399を再現できる」候補か判定。
+    ①川崎の上がり ②同距離帯(±200m)で勝ち圏の上がり ③後方/中団から出した(位置取り込み)。
+    返り値: (該当走数, 例(日付,距離,上がり))。④展開(前傾か)は当日判断のため未自動化。"""
+    cnt = 0
+    ex = None
+    for rr in (e.recent_runs or []):
+        if getattr(rr, "place", None) != "川崎":
+            continue
+        a = getattr(rr, "agari", None)
+        d = getattr(rr, "distance", None)
+        c = getattr(rr, "corner", None)
+        fs = getattr(rr, "field_size", None)
+        if not (a and d and a > 0):
+            continue
+        if abs(d - dist) > 200:                 # ②距離を揃える
+            continue
+        if a > agari_target(dist):              # ②その距離の勝ち圏の上がり
+            continue
+        if c and fs:                            # ③位置取り込み: 早い角で中団/後方
+            p0 = c[0] if isinstance(c, (list, tuple)) and c else None
+            if p0 and p0 / fs < 0.4:
+                continue
+        cnt += 1
+        if ex is None:
+            ex = (str(getattr(rr, "date", ""))[5:], d, a)
+    return cnt, ex
+
+
 def kk_agari(e):
     ags = [getattr(rr, "agari", None) for rr in (e.recent_runs or [])
            if getattr(rr, "place", None) == "川崎" and getattr(rr, "agari", None)
@@ -128,6 +170,11 @@ def main():
             if wet and "ダイワメジャー" in s:
                 pts += 1
                 tags.append("道悪ダイワメジャー")
+            n9, ex9 = reproduce_399(e, card.distance)   # 4フィルターの①②③
+            if n9:
+                pts += 2                                # 399再現は重み高め(本命の芯)
+                exs = f"例{ex9[0]}/{ex9[1]}m/{ex9[2]}" if ex9 else ""
+                tags.append(f"🎯399再現{n9}回[{exs}]")
             if med:
                 tags.append(f"川崎上り中{med:.1f}/最{best:.1f}")
             else:
@@ -139,7 +186,9 @@ def main():
             ana = "穴" if (e.exp_pop and e.exp_pop >= args.pop_min) else "  "
             print(f" {ana}{e.umaban:>2} {e.horse_name[:11]:<12}{(e.jockey or '')[:4]:<5}"
                   f"{styl(sp):<4} {e.exp_pop}人 {star:<3} {' / '.join(tags)}")
-    print("\n※ ★が多い＝鉄則15ファクター保有。ズブ穴本命が僅差の時の一押し／道悪の穴拾いに。")
+    print("\n※ ★=鉄則15ファクター（血統lift/大型480+/道悪ダイワメジャー）＋🎯399再現(★★重み)。")
+    print("  🎯399再現＝①川崎の上がり②同距離帯で勝ち圏(距離別target)③後方/中団から出した、を満たす直近走の数。")
+    print("  ④展開(前傾か)は当日4Rで判断。上がり勝負の馬場(稍重×前傾×差し)と確認できた日に発動。")
 
 
 if __name__ == "__main__":
