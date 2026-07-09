@@ -45,7 +45,11 @@ ls data/samples/                   # nankan_2025-*.jsonl(3,303R) / kochi_2024-07
 
 ## 4. データ取得の作法
 - 楽天は `PoliteClient`（min_interval 1.5s、`data/cache/` にキャッシュ）。JRAは curl のブラウザUA。**netkeiba NAR はブロック**。
-- 結果パース：三連単 A-B-C = 1-2-3着順。単勝/複勝/馬体重(cells[5] "451+6")/上がり(cell `^\d{2}\.\d$`, 33-44)。
+- **⚠️ 結果検証は必ず `use_cache=False` で新規取得する**（例：`c.get(RESULT_URL, use_cache=False)`）。
+  発走前(未確定)にアクセスした結果ページが `data/cache/` に残ると、確定後も古い空データを掴んで**着順・人気・上がりが欠落**する。★2026-07-09に1R-4R・10-12Rの人気/着順を取りこぼした反省。
+- 結果ページの列：着/枠/馬番/馬名/性齢/斤量/馬体重/騎手/タイム/着差/**推定上がり(col10)**/調教師/**人気(col12)**。
+  上がりは cell `^(3[3-9]|4[0-5])\.\d$` で抽出（斤量56.0を誤検出しないよう33-45に限定）。人気は結果ページに入る日と"-"の日がある→無ければ本人に聞く/オッズページ。
+- 結果パース：三連単 A-B-C = 1-2-3着順。単勝/複勝/馬体重(cells[5] "451+6")。前走上がり＝カード `entry.recent_runs[0].agari`。
 
 ## 5. 画像レンダリング（インフォグラフ）
 - Playwright chromium：`/opt/pw-browsers/chromium-1194/chrome-linux/chrome`、`device_scale_factor=2`。
