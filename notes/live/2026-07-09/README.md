@@ -3,11 +3,13 @@
 手法＝鉄則16の二段構え：**網＝レース上り（距離・クラス・時間帯で可変）／ 物差し＝399の下地（過去川崎上がり最速）＋パワー（大型・道悪血統）**。
 ※オッズ未発表で予想（人気反映は当日）。数字は過去川崎上がり最速＝399の下地。
 
-## ファイル
-- `kawasaki_6-12_nidankamae.png/.html` … 6R以降の予想ボード（本体）
-- `kawasaki_1R_nidankamae.png` … 1R再予想（網41・物差し399下地）。馬券圏①⑧⑤②を◎○☆で網羅と実証
-- `kawasaki_0708_12R_kensho.png` … 昨日7/8最終12R検証（遅い網＝大型×道悪血統のパワー物差し。◎⑬-○②-○⑤で三連複的中）
+## ファイル（PNGは`.gitignore`のためHTMLソースを保存。`templates/render.py`で再生成可）
+- `kawasaki_6-12_nidankamae.html` … 6R以降の予想ボード（本体）
+- `kawasaki_1R_nidankamae.html` … 1R再予想（網41・物差し399下地）。馬券圏①⑧⑤②を◎○☆で網羅と実証
+- `kawasaki_0708_12R_kensho.html` … 昨日7/8最終12R検証（遅い網＝大型×道悪血統のパワー物差し。◎⑬-○②-○⑤で三連複的中）
 - `kk_factor_6-12_sha.txt` … kk_factor（稍重）の生出力（各馬の川崎上がり・399再現・血統）
+
+再生成：`python3 notes/live/templates/render.py <html> <出力.png> 1170`
 
 ## 6R以降 印（◎○▲）と網
 | R | 距離/クラス | 網 | ◎ | ○ | ▲ | 結果 |
