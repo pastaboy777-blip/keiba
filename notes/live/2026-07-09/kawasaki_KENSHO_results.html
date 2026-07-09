@@ -1,0 +1,82 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'WenQuanYi Zen Hei',sans-serif; }
+  body { background:#08131f; padding:24px; }
+  .card { width:1100px; background:#0f1f33; border-radius:22px; overflow:hidden;
+          box-shadow:0 18px 50px rgba(0,0,0,.5); }
+  .brand { background:linear-gradient(90deg,#7ee0a0,#ffd54a,#ff5e7a); color:#0f1f33;
+           font-weight:900; font-size:20px; letter-spacing:1px; padding:11px 28px; }
+  .head { padding:15px 30px 4px; }
+  .title { color:#ffd54a; font-size:29px; font-weight:900; }
+  .sub { color:#9db4cf; font-size:15px; margin-top:4px; }
+
+  .kpis { display:flex; gap:12px; margin:12px 30px 0; }
+  .kpi { flex:1; background:#13263d; border-radius:12px; padding:12px 16px; text-align:center; }
+  .kpi .v { font-size:30px; font-weight:900; } .kpi .l { color:#9db4cf; font-size:13px; margin-top:3px; }
+  .kpi.a .v{color:#7ee0a0;} .kpi.b .v{color:#ffd54a;} .kpi.c .v{color:#ff8a8a;}
+
+  table { width:calc(100% - 60px); margin:12px 30px 0; border-collapse:collapse; }
+  th { color:#7f97b3; font-size:13px; text-align:left; padding:7px 10px; border-bottom:1px solid #24384f; }
+  td { padding:9px 10px; border-bottom:1px solid #1c2c40; font-size:14.5px; color:#e8f0fa; vertical-align:middle; }
+  .r { font-weight:900; color:#e8f0fa; width:46px; }
+  .honmei { font-weight:800; }
+  .res { color:#cfe0ee; }
+  .win .b { color:#ffd54a; font-weight:800; }
+  .hit { font-weight:900; font-size:13px; padding:2px 9px; border-radius:6px; white-space:nowrap; }
+  .h-o { background:#7ee0a0; color:#0f1f33; } .h-x { background:#ff8a8a; color:#0f1f33; } .h-d { background:#ffd54a; color:#0f1f33; }
+  .rowhit td { background:rgba(126,224,160,.07); } .rowmiss td { background:rgba(255,138,138,.06); }
+
+  .lesson { margin:14px 30px 0; background:#2a1c22; border:1px solid #5a2a34; border-radius:12px; padding:14px 20px; }
+  .lesson .hd { color:#ff8a8a; font-weight:900; font-size:16px; }
+  .lesson .b { color:#e8d0d4; font-size:14px; line-height:1.6; margin-top:6px; }
+  .lesson b { color:#ffd54a; } .lesson .g{color:#7ee0a0;}
+  .good { margin:10px 30px 0; background:#132a20; border:1px solid #2a5a3a; border-radius:12px; padding:12px 20px; }
+  .good .hd { color:#7ee0a0; font-weight:900; font-size:15px; } .good .b{color:#cfe0d4;font-size:13.5px;line-height:1.55;margin-top:5px;} .good b{color:#ffd54a;}
+  .foot { display:flex; justify-content:space-between; align-items:center;
+          margin-top:14px; padding:11px 30px; background:#0a1626; color:#5f7590; font-size:13px; }
+  .foot b { color:#9db4cf; }
+</style></head><body>
+<div class="card">
+  <div class="brand">変態か、変態以外か。 ── 7/9 川崎 結果検証（正直第一）</div>
+  <div class="head">
+    <div class="title">川崎 7/9 二段構え予想 検証（6R〜11R確定・12R未確定）</div>
+    <div class="sub">◎の頭・三連複の的中を正直に集計。数字はネットで取得した確定着順。</div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi a"><div class="v">4 / 6</div><div class="l">三連複 的中（印でカバー）</div></div>
+    <div class="kpi b"><div class="v">3 / 6</div><div class="l">◎が1着</div></div>
+    <div class="kpi a"><div class="v">4 / 6</div><div class="l">◎が3着内(複勝圏)</div></div>
+    <div class="kpi c"><div class="v">2 / 6</div><div class="l">◎が馬券外（10R11R）</div></div>
+  </div>
+
+  <table>
+    <tr><th style="width:50px">R</th><th style="width:150px">私の◎</th><th>結果 1-2-3着</th><th style="width:120px">判定</th></tr>
+    <tr class="rowhit"><td class="r">6R</td><td class="honmei">◎⑤ライヴバフィ</td><td class="res win"><span class="b">①着⑤(2人)</span> ②着③ ③着⑥</td><td><span class="hit h-o">◎1着・三連複的中</span></td></tr>
+    <tr class="rowhit"><td class="r">7R</td><td class="honmei">◎③アムリタ</td><td class="res win"><span class="b">①着③(3人)</span> ②着① ③着②</td><td><span class="hit h-o">◎1着・三連複的中</span></td></tr>
+    <tr class="rowhit"><td class="r">8R</td><td class="honmei">◎⑩アタゴテンジン</td><td class="res win">①着②(4人) ②着⑥ <span class="b">③着⑩</span></td><td><span class="hit h-d">◎3着・三連複的中</span></td></tr>
+    <tr class="rowhit"><td class="r">9R</td><td class="honmei">◎③ダテオトコ</td><td class="res win"><span class="b">①着③(1人)</span> ②着①(警戒) ③着⑤</td><td><span class="hit h-o">◎1着・三連複的中</span></td></tr>
+    <tr class="rowmiss"><td class="r">10R</td><td class="honmei">◎⑩ナリノエンブレム</td><td class="res">①着⑦ ②着③ ③着⑤ <span style="color:#ff8a8a">（◎⑩着外）</span></td><td><span class="hit h-x">◎飛び・軸崩れ</span></td></tr>
+    <tr class="rowmiss"><td class="r">11R</td><td class="honmei">◎⑬⇔対抗⑥</td><td class="res"><span class="b">①着⑥(対抗)</span> ②着① ③着⑤ <span style="color:#ff8a8a">（◎⑬着外）</span></td><td><span class="hit h-d">対抗的中・本命⑬飛び</span></td></tr>
+    <tr><td class="r">12R</td><td class="honmei">◎①⇔③</td><td class="res" style="color:#7f97b3">結果未確定（発走前/反映前）</td><td><span class="hit" style="background:#284a5a;color:#bfe6f0">保留</span></td></tr>
+  </table>
+
+  <div class="lesson">
+    <div class="hd">⚠️ 反省：10R・11Rで「道悪主導の頭取り」を外した</div>
+    <div class="b">
+    ・<b>10R</b>：◎⑩(道悪+0.42・下地40.3=網際外)を頭にしたが着外。勝ったのは<b>私が▲に落とした後方の速い下地 ⑦ラムテリオス(399×3・38.9)・③ボニー(下地最速37.4)</b>が1-2着。
+    <b>上級稍重の差し戦は「道悪スコア」より「後方の速い下地(399)」が上</b>だった＝道悪主導が過剰。<br>
+    ・<b>11R</b>：◎⑬(下地最速37.5だが<b>タフ0.23</b>)が着外。勝ったのは対抗の<span class="g">⑥ベアバッキューン(道悪+0.60・タフ0.65)</span>＝
+    「渋れば⑥が上・⑬はタフ低で垂れる」の警告どおり。<b>タフ0.23の下地最速馬より、道悪タフ馬を◎に取るべきだった</b>。<br>
+    → <b>教訓</b>：稍重の上級・長距離は「後方の速い下地＋タフネス」を頭に。純下地最速でもタフが低ければ本命にしない。鉄則16に追記する。
+    </div>
+  </div>
+
+  <div class="good">
+    <div class="hd">✔ 効いたところ</div>
+    <div class="b">6R〜9Rは<b>三連複4連続的中</b>。特に<b>9Rは道悪の"警戒枠"に置いた①が2着に激走</b>＝「稍重は道悪巧者が網外から台頭」の読みで拾えた。
+    8Rは◎⑩が3着に垂れつつ②⑥⑩を印でカバー。二段構えの網＋警戒枠が下位人気の3着を拾う形は機能した。</div>
+  </div>
+
+  <div class="foot"><span>川崎 7/9 検証 ／ 三連複4/6・◎頭3/6・道悪主導は上級で過剰（鉄則16更新）</span><span><b>By Claude AI</b></span></div>
+</div>
+</body></html>
