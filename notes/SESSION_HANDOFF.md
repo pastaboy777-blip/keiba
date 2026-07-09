@@ -1,7 +1,7 @@
 # セッション引き継ぎメモ（次セッションはまずこれを読む）
 
 最終更新：2026-07-08。前セッションで精度・満足度ともに高かった運用をそのまま引き継ぐための1枚。
-詳細ルールは `notes/playbook.md`（鉄則1〜16）と `notes/kochi_playbook.md`。
+詳細ルールは `notes/playbook.md`（鉄則1〜17）と `notes/kochi_playbook.md`。
 
 ---
 
