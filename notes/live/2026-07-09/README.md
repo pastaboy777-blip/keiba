@@ -8,7 +8,9 @@
 ※オッズ未発表で予想（人気反映は当日）。数字は過去川崎上がり最速＝399の下地。
 
 ## ファイル（PNGは`.gitignore`のためHTMLソースを保存。`templates/render.py`で再生成可）
-- `kawasaki_6-12_nidankamae.html` … 6R以降の予想ボード（本体）
+- **`kawasaki_6-12_TOITSU_canonical.html` … ★これが今日の正（v2×399下地で1本化）。下の純399ボードを置き換え。**
+  - 変更点：7R◎③→⑤／8R相手①⑨→⑦⑥(前)／10R◎⑦→⑩(道悪)／12R◎⑨→①(道悪)。6R⑤/9R③/11R⑬は両一致で不変。
+- `kawasaki_6-12_nidankamae.html` … 6R以降の予想ボード（純399・先出し。参考。canonicalに置換済）
 - `kawasaki_1R_nidankamae.html` … 1R再予想（網41・物差し399下地）。馬券圏①⑧⑤②を◎○☆で網羅と実証
 - `kawasaki_0708_12R_kensho.html` … 昨日7/8最終12R検証（遅い網＝大型×道悪血統のパワー物差し。◎⑬-○②-○⑤で三連複的中）
 - `kk_factor_6-12_sha.txt` … kk_factor（稍重）の生出力（各馬の川崎上がり・399再現・血統）
