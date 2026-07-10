@@ -36,12 +36,31 @@ def _get(path: str, use_cookie: bool = True) -> str:
         return r.read().decode("utf-8", "replace")
 
 
+_PLACES = ("浦和", "川崎", "船橋", "大井", "金沢", "佐賀", "園田", "名古屋",
+           "笠松", "高知", "門別", "盛岡", "水沢")
+
+
 def race_ids_for_date(yyyymmdd: str) -> list[dict]:
-    """nittei ページから当日の全レース id を返す。[{id, jyo_code, race_no}]。"""
+    """nittei ページから当日の全レース id を会場付きで返す。[{id, race_no, place}]。
+    ★id[8:10] は会場でなく開催インデックス（同一コードに複数会場が混在し得る）。
+      会場は日程ページの会場ブロック（祖先要素のテキスト）から判定する。"""
     html = _get(f"/chihou/nittei/{yyyymmdd}")
-    # syutuba リンクのみ＝当日の実レース（cyokyo/db等の他日クロス参照を除外）
-    ids = sorted(set(re.findall(r"/chihou/syutuba/(\d{16})", html)))
-    return [{"id": i, "jyo_code": i[8:10], "race_no": int(i[10:12])} for i in ids]
+    s = BeautifulSoup(html, "html.parser")
+    out, seen = [], set()
+    for a in s.find_all("a", href=re.compile(r"/chihou/syutuba/\d{16}")):
+        rid = re.search(r"(\d{16})", a["href"]).group(1)
+        if rid in seen:
+            continue
+        place = None
+        for anc in a.parents:  # 最も近い「会場が1つだけ」の祖先を採用
+            t = anc.get_text(" ", strip=True) if anc else ""
+            found = [p for p in _PLACES if p in t]
+            if len(found) == 1 and len(t) < 4000:
+                place = found[0]
+                break
+        seen.add(rid)
+        out.append({"id": rid, "race_no": int(rid[10:12]), "place": place})
+    return out
 
 
 def field(raceid: str) -> list[dict]:

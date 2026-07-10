@@ -39,6 +39,7 @@ def main() -> None:
     ap.add_argument("--to", dest="d_to", required=True, help="YYYYMMDD")
     ap.add_argument("--places", nargs="*", default=None, help="場名フィルタ（例: 川崎 浦和 船橋 大井）")
     ap.add_argument("--out-dir", default="data/samples")
+    ap.add_argument("--tag", default=None, help="出力ファイル名の接頭辞（例: urawa → keibabook_chokyo_urawa_YYYYMMDD.jsonl。会場別に分けて衝突回避）")
     ap.add_argument("--sleep", type=float, default=1.8, help="fetch間隔秒(既定1.8)")
     ap.add_argument("--max-races", type=int, default=None, help="1日の最大レース数(動作確認用)")
     ap.add_argument("--overwrite", action="store_true", help="既存の日ファイルも取り直す")
@@ -51,7 +52,8 @@ def main() -> None:
     total_races = total_horses = 0
 
     for ymd in daterange(args.d_from, args.d_to):
-        out = os.path.join(args.out_dir, f"keibabook_chokyo_{ymd}.jsonl")
+        pref = f"{args.tag}_" if args.tag else ""
+        out = os.path.join(args.out_dir, f"keibabook_chokyo_{pref}{ymd}.jsonl")
         if os.path.exists(out) and not args.overwrite:
             print(f"[{ymd}] スキップ(既存)"); continue
         try:
@@ -61,24 +63,11 @@ def main() -> None:
         if not races:
             print(f"[{ymd}] 開催なし"); continue
 
-        # 場コード→場名 を各コードの先頭1Rで学習（--places フィルタ用）
-        by_code = defaultdict(list)
-        for r in races:
-            by_code[r["jyo_code"]].append(r)
-        keep_ids = []
-        for code, rs in by_code.items():
-            rs.sort(key=lambda x: x["race_no"])
-            place = None
-            if args.places:
-                try:
-                    place = kb.chokyo_race(rs[0]["id"]).get("place")
-                except Exception:
-                    place = None
-                time.sleep(args.sleep)
-                if place not in args.places:
-                    continue
-            keep_ids.extend(rs)
-        keep_ids.sort(key=lambda x: (x["jyo_code"], x["race_no"]))
+        # 会場フィルタ（id[8:10]は会場でなく開催indexなので、nitteiの会場名で判定）
+        keep_ids = [r for r in races if (not args.places) or (r.get("place") in args.places)]
+        keep_ids.sort(key=lambda x: (x.get("place") or "", x["race_no"]))
+        if not keep_ids:
+            print(f"[{ymd}] 対象会場なし"); continue
         if args.max_races:
             keep_ids = keep_ids[:args.max_races]
 
