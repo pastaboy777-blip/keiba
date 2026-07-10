@@ -115,7 +115,8 @@ def _parse_horses(s: BeautifulSoup) -> list[dict]:
             if nm and len(vals) >= 3 and any(v.isdigit() for v in vals[:2]):
                 nums = [v for v in vals if v.isdigit()]
                 soubyou = next((c for c in vals if not c.isdigit() and c != nm and len(c) >= 3), "")
-                cur = {"馬番": int(nums[-1]) if nums else None, "馬名": nm,
+                umacd = a.get("umacd") if a else None  # 馬固有コード＝個体キー(改名しても不変)
+                cur = {"馬番": int(nums[-1]) if nums else None, "馬名": nm, "umacd": umacd,
                        "総評": soubyou, "追切": []}
                 horses.append(cur)
                 continue
