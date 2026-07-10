@@ -30,3 +30,4 @@ logs/
 data/samples/keibabook_chokyo_*.jsonl
 data/samples/chokyo_tidy_*.jsonl
 data/samples/chokyo_byhorse_*.json
+data/samples/chokyo_joined_*.jsonl
