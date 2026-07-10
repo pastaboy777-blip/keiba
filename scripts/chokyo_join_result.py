@@ -25,13 +25,12 @@ def parse_result(html: str) -> dict:
     """馬番 → {着, 厩舎, 人気} を返す。"""
     s = BeautifulSoup(html, "html.parser")
     out = {}
+    # 楽天結果列: 着(0)/馬番(1)/馬名(2)/性齢/斤量/馬体重/騎手/タイム/着差/上がり(9)/調教師(10)/人気(11)
     for tr in s.select("table tr"):
         c = [td.get_text(" ", strip=True) for td in tr.find_all("td")]
-        if len(c) >= 13 and re.fullmatch(r"\d+", c[0]) and re.fullmatch(r"\d+", c[2]):
-            chaku = int(c[0]); umaban = int(c[2])
-            trainer = c[11] if len(c) > 11 else ""
-            pop = int(c[12]) if len(c) > 12 and c[12].isdigit() else None
-            out[umaban] = {"着順": chaku, "厩舎": trainer, "人気": pop}
+        if len(c) >= 12 and re.fullmatch(r"\d+", c[0]) and re.fullmatch(r"\d+", c[1]):
+            out[int(c[1])] = {"着順": int(c[0]), "厩舎": c[10].strip(),
+                              "人気": int(c[11]) if c[11].isdigit() else None}
     return out
 
 
