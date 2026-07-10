@@ -45,6 +45,11 @@ ls data/samples/                   # nankan_2025-*.jsonl(3,303R) / kochi_2024-07
 
 ## 4. データ取得の作法
 - 楽天は `PoliteClient`（min_interval 1.5s、`data/cache/` にキャッシュ）。JRAは curl のブラウザUA。**netkeiba NAR はブロック**。
+- **★調教タイム＝競馬ブック地方 `p.keibabook.co.jp`**（★2026-07-10にユーザーが環境許可リストに追加して開通）。`scripts/keibabook_chokyo.py`：
+  - `--date YYYYMMDD` で当日 raceid 一覧（nittei）／`--raceid <16桁> --field` で全馬(umaban/馬名/umacd)＝楽天マッピング／`--raceid <16桁>` で調教(コース/馬場/5F-4F-3F/脚色/短評/総評)＋`shiagari_score`。
+  - id体系＝`{YYYY}{開催4}{場2}{R2}{MMDD}`。場コード：川崎05・園田06・笠松03 等（nittei/表題で確定）。
+  - ⚠️ **全馬は有料ログインの内側**。非会員は各レース"先頭馬のみ"無料（`/cyokyo/N/0/`は常に1頭目へ302）。全馬取得は環境変数 `KEIBABOOK_COOKIE`（会員セッションCookie）を設定。
+  - 仕上がりスコア＝最終追いの脚色(一杯>強め>馬なり)×終い時計×本数×総評ワード。人気薄×終い一杯×好時計＝上昇度の穴に使う。
 - **⚠️ 結果検証は必ず `use_cache=False` で新規取得する**（例：`c.get(RESULT_URL, use_cache=False)`）。
   発走前(未確定)にアクセスした結果ページが `data/cache/` に残ると、確定後も古い空データを掴んで**着順・人気・上がりが欠落**する。★2026-07-09に1R-4R・10-12Rの人気/着順を取りこぼした反省。
 - 結果ページの列：着/枠/馬番/馬名/性齢/斤量/馬体重/騎手/タイム/着差/**推定上がり(col10)**/調教師/**人気(col12)**。
