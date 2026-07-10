@@ -203,7 +203,8 @@ def shiagari_score(rec: dict) -> float:
     kyaku = _KYAKU_W.get(last.get("脚色", ""), 0.5)
     # 終い(最後の時計=ラスト1F/3F想定)が速いほど良い。相対基準が無いので簡易正規化。
     t = [float(x) for x in last.get("時計", []) if re.fullmatch(r"\d{2,3}\.\d", x)]
-    last3f = min(t) if t else 40.0
+    cand = [x for x in t if 35.0 <= x <= 45.0]  # 終い3F帯(1Fの11-14sを誤採用しない)
+    last3f = min(cand) if cand else (min(t) if t else 40.0)
     fast = max(0.0, min(1.0, (41.0 - last3f) / 4.0))  # 37→1.0, 41→0.0 目安
     n = min(len(runs), 5) / 5.0
     txt = (rec.get("総評", "") + " " + " ".join(r.get("短評", "") for r in runs))
