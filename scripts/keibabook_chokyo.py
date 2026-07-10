@@ -89,6 +89,72 @@ def _parse_workouts(soup: BeautifulSoup) -> list[dict]:
     return runs
 
 
+def race_meta(html: str) -> dict:
+    """ページ<title>から {place, date, race_no} を抽出。例: '調教 | 2026年7月10日川崎1R | …'"""
+    m = re.search(r"(\d{4})年(\d{1,2})月(\d{1,2})日([^\d|]+?)(\d{1,2})R", html)
+    if not m:
+        return {}
+    return {"date": f"{m.group(1)}{int(m.group(2)):02d}{int(m.group(3)):02d}",
+            "place": m.group(4).strip(), "race_no": int(m.group(5))}
+
+
+def _parse_horses(s: BeautifulSoup) -> list[dict]:
+    horses: list[dict] = []
+    cur: dict | None = None
+    for tr in s.find_all("tr"):
+        cells = [re.sub(r"\s+", " ", td.get_text(" ", strip=True)) for td in tr.find_all("td")]
+        vals = [c for c in cells if c]
+        # 馬ヘッダ: umabanクラス＋馬名(カナ)＋総評
+        if tr.find(class_="umaban") and not tr.find("th"):
+            nm = ""
+            a = tr.find(class_="umalink_click")
+            if a:
+                nm = a.get_text(strip=True)
+            else:
+                nm = next((c for c in vals if re.fullmatch(r"[ァ-ヶー]{3,}", c)), "")
+            if nm and len(vals) >= 3 and any(v.isdigit() for v in vals[:2]):
+                nums = [v for v in vals if v.isdigit()]
+                soubyou = next((c for c in vals if not c.isdigit() and c != nm and len(c) >= 3), "")
+                cur = {"馬番": int(nums[-1]) if nums else None, "馬名": nm,
+                       "総評": soubyou, "追切": []}
+                horses.append(cur)
+                continue
+        # 調教明細
+        joined = " ".join(cells)
+        if cur is not None and any(k in joined for k in ("一杯", "馬なり", "強め")):
+            if any(w in joined for w in ("騎乗者", "回り", "位置", "動 画", "短評")):
+                continue
+            kyaku = next((c for c in cells if c in _KYAKU_W and c), "")
+            times = [c for c in cells if re.fullmatch(r"\d{2,3}\.\d", c)]
+            if not kyaku or len(times) > 4:
+                continue
+            course = next((c for c in cells if ("調教場" in c or c.endswith("本") or "坂" in c)), "")
+            baba = next((c for c in cells if c in ("良", "稍", "重", "不")), "")
+            try:
+                ki = cells.index(kyaku)
+                tan = next((c for c in cells[ki + 1:] if c and c not in ("良", "稍", "重", "不")), "")
+            except ValueError:
+                tan = ""
+            cur["追切"].append({"コース": course, "馬場": baba, "時計": times,
+                               "脚色": kyaku, "短評": tan})
+    for h in horses:
+        h["仕上がり"] = shiagari_score(h)
+    return horses
+
+
+def cyokyo_all(raceid: str) -> list[dict]:
+    """会員(Cookie)ログイン時、1ページに全馬の調教が入る。全馬を返す。
+    非会員は先頭馬のみ（＝Cookie未設定/失効の検出に使える）。"""
+    return _parse_horses(BeautifulSoup(_get(f"/chihou/cyokyo/1/0/{raceid}"), "html.parser"))
+
+
+def chokyo_race(raceid: str) -> dict:
+    """1フェッチで {race_id, meta(place/date/race_no), horses[]} を返す（コレクター用）。"""
+    html = _get(f"/chihou/cyokyo/1/0/{raceid}")
+    s = BeautifulSoup(html, "html.parser")
+    return {"race_id": raceid, **race_meta(html), "horses": _parse_horses(s)}
+
+
 def cyokyo(raceid: str, umaban: int = 1) -> dict:
     """1頭ぶんの調教。{馬名, 総評, 追切:[...]}。全馬は KEIBABOOK_COOKIE 必須。"""
     html = _get(f"/chihou/cyokyo/{umaban}/0/{raceid}")

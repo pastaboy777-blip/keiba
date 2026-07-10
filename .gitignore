@@ -25,3 +25,6 @@ fonts/
 uploads/
 
 logs/
+
+# 競馬ブック調教(有料会員コンテンツ)はコミットしない
+data/samples/keibabook_chokyo_*.jsonl
