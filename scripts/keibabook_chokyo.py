@@ -150,12 +150,19 @@ def _parse_horses(s: BeautifulSoup) -> list[dict]:
                 continue
             course = next((c for c in cells if ("調教場" in c or c.endswith("本") or "坂" in c)), "")
             baba = next((c for c in cells if c in ("良", "稍", "重", "不")), "")
+            # 追い切り日付: "6/20(土)" 形式のセル → "MM/DD"
+            oidate = ""
+            for c in cells:
+                md = re.match(r"^(\d{1,2})/(\d{1,2})", c)
+                if md:
+                    oidate = f"{int(md.group(1)):02d}/{int(md.group(2)):02d}"
+                    break
             try:
                 ki = cells.index(kyaku)
                 tan = next((c for c in cells[ki + 1:] if c and c not in ("良", "稍", "重", "不")), "")
             except ValueError:
                 tan = ""
-            cur["追切"].append({"コース": course, "馬場": baba, "時計": times,
+            cur["追切"].append({"追日": oidate, "コース": course, "馬場": baba, "時計": times,
                                "脚色": kyaku, "短評": tan})
     for h in horses:
         h["仕上がり"] = shiagari_score(h)

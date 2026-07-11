@@ -20,6 +20,21 @@ def _num(xs):
     return [float(x) for x in xs if re.fullmatch(r"\d{2,3}\.\d", x)]
 
 
+def _oi_gap(race_ymd: str, md: str):
+    """レース日(YYYYMMDD)と追い日(MM/DD)から日数差。年跨ぎ/欠損はNone。"""
+    if not race_ymd or not md or "/" not in md:
+        return None
+    try:
+        from datetime import date
+        ry, rm, rd = int(race_ymd[:4]), int(race_ymd[4:6]), int(race_ymd[6:8])
+        wm, wd = int(md.split("/")[0]), int(md.split("/")[1])
+        wy = ry if wm <= rm else ry - 1  # 追いは同年か前年12月
+        g = (date(ry, rm, rd) - date(wy, wm, wd)).days
+        return g if 0 <= g <= 60 else None
+    except Exception:
+        return None
+
+
 def flatten_horse(rec: dict, h: dict) -> dict:
     oi = h.get("追切") or []
     last = oi[-1] if oi else {}
@@ -27,6 +42,10 @@ def flatten_horse(rec: dict, h: dict) -> dict:
     txt = (h.get("総評", "") + " " + " ".join(w.get("短評", "") for w in oi))
     pos = sum(1 for w in _POS if w in txt)
     neg = sum(1 for w in _NEG if w in txt)
+    # 最終追いが何日前か / 追い日リスト
+    oidays = [_oi_gap(rec.get("date"), w.get("追日", "")) for w in oi]
+    oidays = [g for g in oidays if g is not None]
+    last_gap = min(oidays) if oidays else None  # レースに一番近い追い＝最終追い
     return {
         "date": rec.get("date"), "place": rec.get("place"), "race_no": rec.get("race_no"),
         "race_id": rec.get("race_id"), "umaban": h.get("馬番"), "umacd": h.get("umacd"),
@@ -40,6 +59,8 @@ def flatten_horse(rec: dict, h: dict) -> dict:
         "脚色列": [w.get("脚色", "") for w in oi],
         "総評符号": pos - neg,
         "追切無": len(oi) == 0,
+        "最終追い何日前": last_gap,
+        "追日リスト": [w.get("追日", "") for w in oi],
         "仕上がり": h.get("仕上がり"),
     }
 
