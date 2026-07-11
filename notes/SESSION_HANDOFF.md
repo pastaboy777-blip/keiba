@@ -43,6 +43,10 @@ ls data/samples/                   # nankan_2025-*.jsonl(3,303R) / kochi_2024-07
 - `scripts/collect_local.py` … 地方全場collector（ALL_CODES）。
 - `scripts/learn_zubu_kochi.py` … 高知ファイナル再学習（logistic, SPLIT=2026-04-01）。
 
+## 3.5 中央(JRA)調教読み ★2026-07-11追加
+- 競馬ブック中央 `/cyuou/`（Cookie同じ）。調教=`/cyuou/cyokyo/1/0/{raceid}`(6F-1F全ラップ)・結果=`/cyuou/seiseki/`・馬ページ=`/db/uma/{umacd}`(過去走raceid+着順)。詳細は `notes/jra_chokyo_playbook.md`。
+- **JRA調教4層診断（ユーザー指定で記憶）**：①今週の生タイム ②個体比(好走再現度=好走時の最速1Fと今回を照合・最重要) ③レース別勝ち型(過去3年好走馬の調教集計) ④ラップ内部(瞬発/持続/加速度の罠・中央限定)。4層で高評価=断然軸。
+
 ## 4. データ取得の作法
 - 楽天は `PoliteClient`（min_interval 1.5s、`data/cache/` にキャッシュ）。JRAは curl のブラウザUA。**netkeiba NAR はブロック**。
 - **★調教タイム＝競馬ブック地方 `p.keibabook.co.jp`**（★2026-07-10にユーザーが環境許可リストに追加して開通）。`scripts/keibabook_chokyo.py`：
