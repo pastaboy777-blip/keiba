@@ -25,11 +25,12 @@ class LgbmScorer:
     jockeys: ConnStats | None = None
     trainers: ConnStats | None = None
     interval_prior: dict | None = None
+    tatakii_table: dict | None = None
 
     def __call__(self, past: list, ctx: RaceContext) -> float:
         feat = horse_features(
             past, ctx, jockeys=self.jockeys, trainers=self.trainers,
-            interval_prior=self.interval_prior,
+            interval_prior=self.interval_prior, tatakii_table=self.tatakii_table,
         )
         x = [[feat[f] for f in FEATURE_NAMES]]
         return float(self.model.predict(x)[0])
@@ -45,6 +46,7 @@ def train_lgbm_scorer(
     jockeys: ConnStats | None = None,
     trainers: ConnStats | None = None,
     interval_prior: dict | None = None,
+    tatakii_table: dict | None = None,
     min_history: int = 4,
     num_boost_round: int = 200,
     params: dict | None = None,
@@ -56,7 +58,8 @@ def train_lgbm_scorer(
     import lightgbm as lgb  # 遅延 import(未導入環境でも learn.py は動く)
 
     samples = build_training_rows(
-        races, jockeys=jockeys, trainers=trainers, interval_prior=interval_prior
+        races, jockeys=jockeys, trainers=trainers,
+        interval_prior=interval_prior, tatakii_table=tatakii_table,
     )
 
     X: list[list[float]] = []
@@ -90,5 +93,6 @@ def train_lgbm_scorer(
         default_params.update(params)
     booster = lgb.train(default_params, dataset, num_boost_round=num_boost_round)
     return LgbmScorer(
-        model=booster, jockeys=jockeys, trainers=trainers, interval_prior=interval_prior
+        model=booster, jockeys=jockeys, trainers=trainers,
+        interval_prior=interval_prior, tatakii_table=tatakii_table,
     )

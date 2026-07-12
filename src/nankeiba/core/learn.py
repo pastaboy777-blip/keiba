@@ -43,6 +43,7 @@ def build_training_rows(
     jockeys: ConnStats | None = None,
     trainers: ConnStats | None = None,
     interval_prior: dict[str, float] | None = None,
+    tatakii_table: dict[int, float] | None = None,
 ) -> list[list[_Row]]:
     """時系列順に過去走だけから特徴量を作る。レースごとの行リストを返す。"""
     history: dict[object, list[iv.RunRecord]] = {}
@@ -58,7 +59,8 @@ def build_training_rows(
                 field_size=race.field_size, jockey=e.jockey, trainer=e.trainer,
             )
             feat = horse_features(
-                past, ctx, jockeys=jockeys, trainers=trainers, interval_prior=interval_prior
+                past, ctx, jockeys=jockeys, trainers=trainers,
+                interval_prior=interval_prior, tatakii_table=tatakii_table,
             )
             rows.append(_Row(feat=feat, pos=pos_of.get(e.num(), race.field_size),
                              n_hist=len(past)))
@@ -183,11 +185,12 @@ class LearnedScorer:
     jockeys: ConnStats | None = None
     trainers: ConnStats | None = None
     interval_prior: dict[str, float] | None = None
+    tatakii_table: dict[int, float] | None = None
 
     def __call__(self, past: list, ctx: RaceContext) -> float:
         feat = horse_features(
             past, ctx, jockeys=self.jockeys, trainers=self.trainers,
-            interval_prior=self.interval_prior,
+            interval_prior=self.interval_prior, tatakii_table=self.tatakii_table,
         )
         x = _standardize(feat, self.means, self.stds)
         return sum(self.weights[f] * x[f] for f in FEATURE_NAMES)
@@ -203,16 +206,19 @@ def train_scorer(
     jockeys: ConnStats | None = None,
     trainers: ConnStats | None = None,
     interval_prior: dict[str, float] | None = None,
+    tatakii_table: dict[int, float] | None = None,
     min_history: int = 4,
     **fit_kwargs,
 ) -> LearnedScorer:
     """レース列から LearnedScorer を学習して返す(ワンストップ)。"""
     samples = build_training_rows(
-        races, jockeys=jockeys, trainers=trainers, interval_prior=interval_prior
+        races, jockeys=jockeys, trainers=trainers,
+        interval_prior=interval_prior, tatakii_table=tatakii_table,
     )
     means, stds = compute_stats(samples, min_history=min_history)
     weights = fit_plackett_luce(samples, means, stds, min_history=min_history, **fit_kwargs)
     return LearnedScorer(
         weights=weights, means=means, stds=stds,
-        jockeys=jockeys, trainers=trainers, interval_prior=interval_prior,
+        jockeys=jockeys, trainers=trainers,
+        interval_prior=interval_prior, tatakii_table=tatakii_table,
     )

@@ -285,6 +285,84 @@ class TestLearn(unittest.TestCase):
         self.assertGreater(res.spent, 0)
 
 
+class TestLearnedPriors(unittest.TestCase):
+    def test_interval_prior_shape(self):
+        from nankeiba.core.priors import learn_interval_prior
+        races, _, _ = synth.generate_season(n_races=800, seed=7)
+        prior = learn_interval_prior(races)
+        # 全バケットのキーがそろい、値は有限
+        for b in ("rento", "naka1", "normal", "aki", "kyumei", "long_kyuyo", "unknown"):
+            self.assertIn(b, prior)
+            self.assertTrue(isfinite(prior[b]))
+        self.assertEqual(prior["unknown"], 0.0)
+        # 南関の全体傾向: 短間隔ほど有利(連闘 > 休み明け)
+        self.assertGreater(prior["rento"], prior["kyumei"])
+
+    def test_tatakii_bonus_learns_and_overrides(self):
+        from nankeiba.core.priors import learn_tatakii_bonus
+        from nankeiba.core.features import tatakii_bonus
+        races, _, _ = synth.generate_season(n_races=800, seed=7)
+        table = learn_tatakii_bonus(races, max_n=6)
+        self.assertTrue(all(isinstance(k, int) and isfinite(v) for k, v in table.items()))
+        # 休み明け(1走目)より叩き3走目のほうが高い(叩き良化)
+        self.assertGreater(table.get(3, 0.0), table.get(1, 0.0))
+        # table を渡すと features.tatakii_bonus の値が上書きされる
+        self.assertEqual(tatakii_bonus(3, table), table[3])
+        # max_n を超える走番は最大キーにクランプ
+        self.assertEqual(tatakii_bonus(99, table), table[max(table)])
+
+    def test_learned_prior_flows_through_features(self):
+        from nankeiba.core.priors import learn_priors
+        races, _, _ = synth.generate_season(n_races=400, seed=2)
+        ip, tt = learn_priors(races)
+        runs = [iv.RunRecord("2024-02-20", "大井", 1400, 12, 3)]
+        ctx = RaceContext("2024-03-01", "大井", 1400, 12, jockey="J01")  # 間隔10日=連闘
+        f_prior = horse_features(runs, ctx, interval_prior=ip, tatakii_table=tt)
+        f_hand = horse_features(runs, ctx)
+        # プライアを差し替えると interval_fit / tatakii が変わりうる(キーは不変)
+        self.assertEqual(set(f_prior), set(f_hand))
+
+
+class TestConnEstimation(unittest.TestCase):
+    def test_place_rate_metric(self):
+        from nankeiba.core import dataset as ds
+        races, _, _ = synth.generate_season(n_races=300, seed=5)
+        jw, _ = ds.derive_conn_stats(races, metric="win")
+        jp, _ = ds.derive_conn_stats(races, metric="place", place_k=3)
+        # 好走率(3着内)は勝率より高い水準になる
+        self.assertGreater(jp.default, jw.default)
+        self.assertTrue(all(0.0 <= v <= 1.0 for v in jp.rates.values()))
+
+    def test_uplift_centered_and_leak_safe(self):
+        from nankeiba.core import dataset as ds
+        races, _, _ = synth.generate_season(n_races=300, seed=5)
+        ju, tu = ds.derive_conn_uplift(races)
+        # 上積みは 0 中心(default=0)、値は有限で妥当な幅
+        self.assertEqual(ju.default, 0.0)
+        self.assertEqual(tu.default, 0.0)
+        self.assertTrue(all(isfinite(v) and -1.0 < v < 1.0 for v in ju.rates.values()))
+        # jockey_power 特徴量 = get(name) - default にそのまま上積みが乗る
+        from nankeiba.core.features import ConnStats
+        self.assertIsInstance(ju, ConnStats)
+
+
+class TestLgbmOptional(unittest.TestCase):
+    def test_lgbm_scorer_if_available(self):
+        try:
+            import lightgbm  # noqa: F401
+        except ImportError:
+            self.skipTest("lightgbm 未導入(任意依存)")
+        from nankeiba.core.learn_lgbm import train_lgbm_scorer
+        races, jockeys, trainers = synth.generate_season(n_races=400, seed=3)
+        scorer = train_lgbm_scorer(races, jockeys=jockeys, trainers=trainers,
+                                   min_history=4, num_boost_round=30)
+        ctx = RaceContext("2024-06-01", "大井", 1400, 10, jockey="J01")
+        s = scorer([iv.RunRecord("2024-05-20", "大井", 1400, 10, 2)], ctx)
+        self.assertTrue(isfinite(s))
+        res = run_backtest(races, score_fn=scorer, bet_type="trio", min_history=4)
+        self.assertGreaterEqual(res.spent, 0)
+
+
 class TestPastedIngest(unittest.TestCase):
     SAMPLE = (
         "1\t4\t4\tミラクルミッキー\t牡4\t56.0\t525kg\t＋2\t笹川翼\t稲益貴弘\t1:15.4\t-\t38.4\t4-4-4\t2\n"

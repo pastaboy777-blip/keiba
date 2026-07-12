@@ -129,6 +129,8 @@ def run_backtest(
     max_bets: int = 8,
     temperature: float = 1.0,
     min_history: int = 3,
+    interval_prior: dict[str, float] | None = None,
+    tatakii_table: dict[int, float] | None = None,
     kelly: bool = False,
     bankroll: float = 100000.0,
     kelly_fraction: float = 0.25,
@@ -176,7 +178,8 @@ def run_backtest(
                 scores[e.num()] = score_fn(past, ctx)
             else:
                 scores[e.num()] = horse_score(
-                    past, ctx, jockeys=jockeys, trainers=trainers, weights=weights
+                    past, ctx, jockeys=jockeys, trainers=trainers, weights=weights,
+                    interval_prior=interval_prior, tatakii_table=tatakii_table,
                 )
             if len(past) < min_history:
                 enough = False

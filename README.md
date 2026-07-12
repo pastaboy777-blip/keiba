@@ -131,8 +131,9 @@ res = run_backtest(test_races, score_fn=scorer, bet_type="trio")  # 学習重み
 ## 重み・閾値のチューニング
 
 - `core/features.py` の `ScoreWeights` で各観点の重みを手調整。
-- `core/interval.py` の `INTERVAL_PRIOR` は南関の全体傾向プライア。
-  リアルデータで間隔バケット別の実成績を集計し、学習値で上書きするのが望ましい。
+- `core/interval.py` の `INTERVAL_PRIOR`・`features.py` の `TATAKII_PRIOR` は
+  南関の全体傾向プライア。`priors.learn_priors(train_races)` で実成績から学習し、
+  `interval_prior=` / `tatakii_table=` として上書きするのが望ましい。
 - `core/betting.py` の `ev_threshold` を上げると点数は減るが過信への保険になる。
 - 検証は必ず**時系列分割**で(`backtest.run_backtest` は過去走のみ使用=リーク無し)。
 
@@ -161,12 +162,59 @@ print(res.final_bankroll, res.growth, res.max_drawdown, res.ruined)
 
 `scripts/demo.py` が 10% / 25% / 50% ケリーの成長率と最大DDを並べて比較する。
 
+## 観点プライアと関係者成績をデータから学習する
+
+手設定のプライア(間隔・叩き)や関係者の代理指標も、実レースの着順があれば
+**データから直接推定**できる。いずれも `finish_strength=(頭数−着順)/(頭数−1)` を
+レース内相対(平均0.5)で測り、少サンプルは0へ縮約(スムージング)する。
+リーク防止のため、渡すのは **学習区間のレースだけ**。
+
+```python
+from nankeiba.core.priors import learn_priors
+from nankeiba.core.dataset import derive_conn_stats, derive_conn_uplift
+
+# 1) 間隔バケット別・叩き走目別の実成績からプライアを学習
+interval_prior, tatakii_table = learn_priors(train_races)
+#   → run_backtest(..., interval_prior=interval_prior, tatakii_table=tatakii_table)
+#     や horse_features/horse_score/train_scorer にそのまま渡せる
+
+# 2) 騎手=追える力 / 厩舎=仕上げ手腕 を「好走率(3着内)」で推定
+jockeys, trainers = derive_conn_stats(train_races, metric="place", place_k=3)
+
+# 2') より直接的な「上積み力」= 馬を自身の過去平均より走らせた度合い
+j_up, t_up = derive_conn_uplift(train_races)   # ConnStats(default=0, rates=上積み)
+```
+
+- `learn_interval_prior` は連闘ほど有利・休み明けほど不利、という南関の傾向を
+  データから復元する(手設定 `INTERVAL_PRIOR` と同じ形が出れば整合)。
+- `learn_tatakii_bonus` は「休み明け1走目は低く、叩き2〜3走目がピーク」を推定。
+- `derive_conn_stats(metric="place")` は単勝より安定した好走率で追える/仕上げを捉える。
+- `derive_conn_uplift` は「良い馬に乗るだけ」で上がる好走率と違い、**その馬の
+  水準をどれだけ超えて走らせたか**を測る(0中心)。
+
+## モデル比較(ヒューリスティック vs 線形学習 vs LightGBM)
+
+同じ特徴量・確率モデル・期待値ロジックのまま、**強さスコアの出し方だけ**を
+差し替えて回収率を比較できる。
+
+```bash
+python3 scripts/compare_models.py     # 時系列分割で 3 モデルの ROI を比較
+```
+
+1. 既定ヒューリスティック(手設定の重み・プライア)
+2. 線形学習(Plackett-Luce)+ 学習プライア + 上積みConnStats
+3. LightGBM(lambdarank)… 非線形。`lightgbm/numpy` 未導入なら自動スキップ
+
+> LightGBM 版(`core/learn_lgbm.py`)は `LearnedScorer` と同じ `score_fn` 互換なので
+> 差し替えるだけ。`pip install lightgbm numpy` で有効化(ネット遮断の本環境では未検証)。
+
 ## 次の拡張候補
 
-- 間隔バケット別・叩き走目別の実成績から `INTERVAL_PRIOR`/`tatakii_bonus` を学習
-- 騎手・厩舎の「追える力/仕上げ手腕」を実データの好走率から推定
-- LightGBM(lambdarank)等で強さスコアを学習し、ヒューリスティックと比較
-- ✅ ケリー基準(`run_backtest(kelly=True)`)での資金配分シミュレーション(実装済み)
+- ✅ 間隔バケット別・叩き走目別の実成績から `INTERVAL_PRIOR`/`tatakii_bonus` を学習(`core/priors.py`)
+- ✅ 騎手・厩舎の「追える力/仕上げ手腕」を実データの好走率・上積みから推定(`dataset.derive_conn_stats/derive_conn_uplift`)
+- ✅ LightGBM(lambdarank)とヒューリスティックの比較(`scripts/compare_models.py`)
+- ✅ ケリー基準(`run_backtest(kelly=True)`)での資金配分シミュレーション
+- 実データでの各推定値の安定性検証(場・距離・馬場での層別、期間ローリング)
 
 ## ディレクトリ構成
 
@@ -177,11 +225,13 @@ src/nankeiba/
     features.py     「走らせる」総合スコア(重み×特徴量)
     probability.py  Plackett-Luce 確率変換
     betting.py      期待値ベース買い目選定
-    backtest.py     時系列バックテスト(ROI)
+    backtest.py     時系列バックテスト(ROI・ケリー資金配分)
     learn.py        重み学習(Plackett-Luce 尤度最大化・標準ライブラリ)
     learn_lgbm.py   重み学習(LightGBM lambdarank・任意)
+    priors.py       間隔プライア・叩き加点をデータから学習
+    dataset.py      収集JSONL⇔Race・関係者成績(好走率/上積み)推定
     synth.py        検証用 合成データ生成
   scraping/    データ収集(netkeiba 地方・ローカル実行)
-scripts/       demo / train / collect_data
+scripts/       demo / train / compare_models / collect_data
 tests/         単体テスト
 ```
