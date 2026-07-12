@@ -26,6 +26,9 @@ def race(rid):
         s = BeautifulSoup(c.get(RES.format(r=rid), use_cache=False), 'html.parser')
     except Exception:
         return None
+    txt = re.sub(r'\s+', ' ', s.get_text(' ', strip=True))
+    bm = re.search(r'(良|稍重|重|不良)', txt)
+    baba = bm.group(1) if bm else None
     tabs = s.find_all('table')
     if not tabs:
         return None
@@ -57,7 +60,25 @@ def race(rid):
             r['leg'] = '前' if pos <= max(2, round(n * 0.4)) else '後'
         else:
             r['leg'] = None
-    return dict(n=n, rows=sorted(rows, key=lambda x: x['chaku']))
+    return dict(n=n, baba=baba, rows=sorted(rows, key=lambda x: x['chaku']))
+
+
+def card_info(rid):
+    """馬番 -> (種牡馬, 予想人気) を card から。"""
+    try:
+        s = BeautifulSoup(c.get(CARD.format(r=rid), use_cache=False), 'html.parser')
+    except Exception:
+        return {}
+    info = {}
+    for tr in s.find_all('tr'):
+        tds = [re.sub(r'\s+', ' ', x.get_text(' ', strip=True)) for x in tr.find_all('td')]
+        if len(tds) < 3 or not re.fullmatch(r'\d{1,2}', tds[0].strip()) or not any('人気' in t for t in tds):
+            continue
+        kanas = re.findall(r'[ァ-ヶー]{2,}', tds[2])
+        sire = kanas[0] if kanas else None
+        nm = re.search(r'（(\d+)人気）', tds[2])
+        info[tds[0].strip()] = (sire, int(nm.group(1)) if nm else None)
+    return info
 
 
 def main():
@@ -70,7 +91,7 @@ def main():
     if not races:
         print('開催なし'); return
     last = (a.upto - 1) if a.upto else max(races)
-    good = []
+    good = []; babas = []
     print(f'=== {a.date} {a.place} 当日トレンド（{"〜"+str(a.upto)+"R前" if a.upto else "全"+str(max(races))+"R"}）===')
     for R in sorted(races):
         if R > last:
@@ -78,12 +99,21 @@ def main():
         rr = race(races[R])
         if not rr:
             continue
+        if rr.get('baba'):
+            babas.append(rr['baba'])
+        ci = card_info(races[R])
         g = [x for x in rr['rows'] if x['chaku'] <= 3]
+        for x in g:
+            x['sire'], x['ninki'] = ci.get(x['uma'], (None, None))
+            x['R'] = R
         good += g
-        ws = ' / '.join(f"{x['uma']}番{x['name'][:6]}({x['weight']}k,{x['leg']})" for x in g)
+        ws = ' / '.join(f"{x['uma']}番{x['name'][:6]}({x['weight']}k,{x['leg']},{x['ninki']}人)" for x in g)
         print(f'{R}R | {ws}')
     if not good:
         print('好走馬なし'); return
+    if babas:
+        bc = Counter(babas)
+        print(f'\n★ 馬場状態: {dict(bc)}（最多={bc.most_common(1)[0][0]}）')
     legs = Counter(x['leg'] for x in good if x['leg'])
     inr = sum(1 for x in good if x['uma'].isdigit() and int(x['uma']) <= 4)
     out = sum(1 for x in good if x['uma'].isdigit() and int(x['uma']) > 4)
@@ -102,6 +132,26 @@ def main():
     if ag:
         print(f'  上がり: 平均{round(sum(ag)/len(ag),1)}')
     print('  好走騎手(複数):', {k: v for k, v in jk.most_common() if v >= 2} or '分散')
+    sc = Counter(x['sire'] for x in good if x.get('sire'))
+    print('  種牡馬(複数好走):', {k: v for k, v in sc.most_common() if v >= 2} or '分散')
+
+    # 6番人気以下で絡んだ馬(人気薄好走)の特徴
+    ana = [x for x in good if x.get('ninki') and x['ninki'] >= 6]
+    print(f'\n【6番人気以下で絡んだ馬 {len(ana)}頭の特徴】')
+    if ana:
+        al = Counter(x['leg'] for x in ana if x['leg'])
+        ai = sum(1 for x in ana if x['uma'].isdigit() and int(x['uma']) <= 4)
+        ao = sum(1 for x in ana if x['uma'].isdigit() and int(x['uma']) > 4)
+        aw = [x['weight'] for x in ana if x['weight']]
+        print(f"  脚質 : 前{al.get('前',0)} / 後{al.get('後',0)}")
+        print(f'  枠   : 内{ai} / 外{ao}')
+        if aw:
+            asm = sum(1 for w in aw if w < 460); amd = sum(1 for w in aw if 460 <= w <= 490); abg = sum(1 for w in aw if w > 490)
+            print(f'  馬体重: 小{asm}/中{amd}/大{abg} 平均{round(sum(aw)/len(aw))}kg')
+        print('  騎手 :', {k: v for k, v in Counter(x['jockey'] for x in ana).most_common() if v >= 2} or '分散')
+        print('  種牡馬:', {k: v for k, v in Counter(x['sire'] for x in ana if x.get('sire')).most_common() if v >= 2} or '分散')
+        for x in sorted(ana, key=lambda z: z['ninki'], reverse=True):
+            print(f"    {x['R']}R {x['chaku']}着 {x['uma']}番 {x['name'][:7]} {x['ninki']}人気 {x['weight']}k {x['leg']} 父{x['sire']} {x['jockey']}")
 
 
 if __name__ == '__main__':
