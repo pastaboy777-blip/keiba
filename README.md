@@ -136,12 +136,37 @@ res = run_backtest(test_races, score_fn=scorer, bet_type="trio")  # 学習重み
 - `core/betting.py` の `ev_threshold` を上げると点数は減るが過信への保険になる。
 - 検証は必ず**時系列分割**で(`backtest.run_backtest` は過去走のみ使用=リーク無し)。
 
+## ケリー基準での資金配分シミュレーション
+
+固定額(1点100円)ではなく、**資金の一定割合を各買い目に張る**分数ケリーで
+複利運用したときの資金成長を、時系列バックテストでシミュレートできる。
+
+```python
+res = run_backtest(
+    test_races, bet_type="trio",
+    kelly=True, bankroll=100000.0, kelly_fraction=0.25,  # クォーターケリー
+)
+print(res.summary())          # ROI に加え bankroll 推移・成長率・最大DD を表示
+print(res.final_bankroll, res.growth, res.max_drawdown, res.ruined)
+```
+
+- **複利**: 各レースで「現在資金」に対して張るので、勝てば加速・負ければ減速する。
+- **点数の資金配分**: 分数ケリーの各点を素朴に足すと過剰投下になりうるため、
+  1レースの総投下額を `max_exposure`(既定 資金の50%)で上限クリップ(比例縮小)。
+- **実馬券の単位**: `bet_unit`(既定100円)に切り捨て。1単位に満たない買い目は
+  買わない(資金が細ると自然に賭けが止まる)。
+- **破産**: 資金が0以下になったらそこで打ち切り、`ruined=True`。
+- **トレードオフ**: `kelly_fraction` を上げるほど期待成長は上がるが最大ドローダウン
+  (`max_drawdown`)も増える。フルケリーは分散が大きく実戦では 1/4〜1/2 が無難。
+
+`scripts/demo.py` が 10% / 25% / 50% ケリーの成長率と最大DDを並べて比較する。
+
 ## 次の拡張候補
 
 - 間隔バケット別・叩き走目別の実成績から `INTERVAL_PRIOR`/`tatakii_bonus` を学習
 - 騎手・厩舎の「追える力/仕上げ手腕」を実データの好走率から推定
 - LightGBM(lambdarank)等で強さスコアを学習し、ヒューリスティックと比較
-- ケリー基準(`select_ev_bets(kelly=True)`)での資金配分シミュレーション
+- ✅ ケリー基準(`run_backtest(kelly=True)`)での資金配分シミュレーション(実装済み)
 
 ## ディレクトリ構成
 

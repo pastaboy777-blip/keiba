@@ -92,6 +92,35 @@ class TestBetting(unittest.TestCase):
         self.assertEqual(spent, 100.0)
         self.assertEqual(ret, 1000.0)
 
+    def test_kelly_stake_units_and_edge(self):
+        # エッジが大きいほど張る額が増え、100円単位に丸められる
+        probs = {(1, 2, 3): 0.3}
+        odds = {(1, 2, 3): 10.0}  # f* = (0.3*10-1)/9 = 0.222..., quarter kelly ~5.6%
+        bets = bt.select_ev_bets(probs, odds, ev_threshold=1.0, kelly=True,
+                                 bankroll=100000.0, kelly_fraction=0.25)
+        self.assertEqual(len(bets), 1)
+        self.assertEqual(bets[0].stake % 100, 0.0)          # 100円単位
+        self.assertAlmostEqual(bets[0].stake, 5500.0, delta=100.0)  # ~5.6% of 100k
+
+    def test_kelly_sub_unit_is_dropped(self):
+        # 資金が小さくケリー配分が1単位に満たなければ買わない
+        probs = {(1, 2, 3): 0.3}
+        odds = {(1, 2, 3): 10.0}
+        bets = bt.select_ev_bets(probs, odds, ev_threshold=1.0, kelly=True,
+                                 bankroll=500.0, kelly_fraction=0.25)
+        self.assertEqual(bets, [])
+
+    def test_kelly_exposure_cap(self):
+        # 多点で希望投下額が資金比上限を超えたら比例縮小される
+        probs = {(1, 2, 3): 0.5, (1, 2, 4): 0.5, (1, 3, 4): 0.5}
+        odds = {(1, 2, 3): 5.0, (1, 2, 4): 5.0, (1, 3, 4): 5.0}  # 各 f* 大
+        bets = bt.select_ev_bets(probs, odds, ev_threshold=1.0, kelly=True,
+                                 bankroll=100000.0, kelly_fraction=1.0,
+                                 max_exposure=0.3)
+        total = sum(b.stake for b in bets)
+        # 上限(=30000)を丸め誤差の範囲で超えない
+        self.assertLessEqual(total, 30000.0 + 1e-6)
+
 
 class TestBacktestSmoke(unittest.TestCase):
     def test_runs_and_produces_sane_output(self):
@@ -104,6 +133,36 @@ class TestBacktestSmoke(unittest.TestCase):
         self.assertGreater(res.spent, 0)
         self.assertGreater(res.n_bet_races, 0)
         self.assertTrue(0.2 < res.roi < 5.0, f"ROI out of sane range: {res.roi}")
+
+    def test_kelly_bankroll_evolves(self):
+        # ケリーモード: 資金推移が記録され、複利で spent/returned と整合する。
+        races, jockeys, trainers = synth.generate_season(n_races=300, seed=1)
+        res = run_backtest(races, jockeys=jockeys, trainers=trainers,
+                           bet_type="trio", ev_threshold=1.3, min_history=4,
+                           kelly=True, bankroll=100000.0, kelly_fraction=0.25)
+        self.assertEqual(res.initial_bankroll, 100000.0)
+        # 資金推移の点数 = 賭けたレース数(破産で打ち切られない限り)
+        if not res.ruined:
+            self.assertEqual(len(res.bankroll_history), res.n_bet_races)
+        # 最終資金 = 初期 + 総損益(複利でも損益の合計は一致する)
+        self.assertAlmostEqual(
+            res.final_bankroll, res.initial_bankroll + (res.returned - res.spent),
+            places=4,
+        )
+        # ドローダウンは 0〜1、成長率は非負
+        self.assertTrue(0.0 <= res.max_drawdown <= 1.0)
+        self.assertGreaterEqual(res.growth, 0.0)
+
+    def test_kelly_ruin_stops(self):
+        # 破産を誘発(強気ケリー×高閾値でない緩い設定でも、極端係数で下振れ確認)。
+        # ここでは「破産したら bankroll_history 末尾が 0 以下」の整合だけを検証する。
+        races, jockeys, trainers = synth.generate_season(n_races=300, seed=1)
+        res = run_backtest(races, jockeys=jockeys, trainers=trainers,
+                           bet_type="trifecta", ev_threshold=1.0, min_history=4,
+                           kelly=True, bankroll=1000.0, kelly_fraction=1.0,
+                           max_exposure=1.0)
+        if res.ruined:
+            self.assertLessEqual(res.bankroll_history[-1], 0.0)
 
 
 class TestFeatures(unittest.TestCase):

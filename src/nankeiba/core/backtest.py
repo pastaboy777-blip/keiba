@@ -62,6 +62,10 @@ class BacktestResult:
     spent: float = 0.0
     returned: float = 0.0
     pnl_history: list[float] = field(default_factory=list)
+    # --- ケリー資金配分シミュレーション用(kelly=True のときだけ埋まる)---
+    initial_bankroll: float = 0.0
+    bankroll_history: list[float] = field(default_factory=list)  # 賭けたレース精算後の資金推移
+    ruined: bool = False
 
     @property
     def roi(self) -> float:
@@ -71,14 +75,45 @@ class BacktestResult:
     def hit_rate(self) -> float:
         return self.n_hits / self.n_bets if self.n_bets else 0.0
 
+    @property
+    def final_bankroll(self) -> float:
+        """最終資金(ケリーモード)。賭けが無ければ初期資金。"""
+        return self.bankroll_history[-1] if self.bankroll_history else self.initial_bankroll
+
+    @property
+    def growth(self) -> float:
+        """資金成長率(最終 / 初期)。1.0 が横ばい。"""
+        return self.final_bankroll / self.initial_bankroll if self.initial_bankroll > 0 else 0.0
+
+    @property
+    def max_drawdown(self) -> float:
+        """資金推移のピークからの最大下落率(0〜1)。"""
+        if self.initial_bankroll <= 0:
+            return 0.0
+        peak = self.initial_bankroll
+        mdd = 0.0
+        for b in self.bankroll_history:
+            if b > peak:
+                peak = b
+            if peak > 0:
+                mdd = max(mdd, (peak - b) / peak)
+        return mdd
+
     def summary(self) -> str:
-        return (
+        base = (
             f"races={self.n_races} bet_races={self.n_bet_races} "
             f"bets={self.n_bets} hits={self.n_hits} "
             f"hit_rate={self.hit_rate:.1%} spent={self.spent:.0f} "
             f"returned={self.returned:.0f} ROI={self.roi:.1%} "
             f"pnl={self.returned - self.spent:+.0f}"
         )
+        if self.initial_bankroll > 0:  # ケリーモード
+            base += (
+                f" | bankroll {self.initial_bankroll:.0f}->{self.final_bankroll:.0f} "
+                f"(x{self.growth:.2f}) maxDD={self.max_drawdown:.1%}"
+                + ("  ⚠️破産" if self.ruined else "")
+            )
+        return base
 
 
 def run_backtest(
@@ -94,6 +129,11 @@ def run_backtest(
     max_bets: int = 8,
     temperature: float = 1.0,
     min_history: int = 3,
+    kelly: bool = False,
+    bankroll: float = 100000.0,
+    kelly_fraction: float = 0.25,
+    bet_unit: float = 100.0,
+    max_exposure: float = 0.5,
 ) -> BacktestResult:
     """時系列にバックテストする。
 
@@ -102,9 +142,18 @@ def run_backtest(
 
     score_fn を渡すとスコア計算をそれに委譲する(学習済みスコアラー等)。
     None の場合は weights を使った horse_score を用いる。
+
+    kelly=True のときは分数ケリーで資金配分し、レースごとに資金を複利で
+    更新する(資金配分シミュレーション)。各点は現在資金に対して張るので、
+    連勝で加速し連敗で減速する。資金が購入単位を割ると自然に賭けが止まり、
+    0 以下になれば破産としてそこで打ち切る。ROI とは別に成長率・最大
+    ドローダウンを `BacktestResult` で確認できる。
     """
     history: dict[object, list[iv.RunRecord]] = {}
     res = BacktestResult()
+    if kelly:
+        res.initial_bankroll = bankroll
+    current_bankroll = bankroll
     races = sorted(races, key=lambda r: r.date)
 
     for race in races:
@@ -143,12 +192,24 @@ def run_backtest(
                 odds = race.trifecta_odds
                 result_key = tuple(race.result_order[:3])
 
-            bets = bt.select_ev_bets(
-                probs, odds,
-                ev_threshold=ev_threshold,
-                stake_per_bet=stake_per_bet,
-                max_bets=max_bets,
-            )
+            if kelly:
+                bets = bt.select_ev_bets(
+                    probs, odds,
+                    ev_threshold=ev_threshold,
+                    max_bets=max_bets,
+                    kelly=True,
+                    bankroll=current_bankroll,
+                    kelly_fraction=kelly_fraction,
+                    bet_unit=bet_unit,
+                    max_exposure=max_exposure,
+                )
+            else:
+                bets = bt.select_ev_bets(
+                    probs, odds,
+                    ev_threshold=ev_threshold,
+                    stake_per_bet=stake_per_bet,
+                    max_bets=max_bets,
+                )
             if bets:
                 spent, ret = bt.settle(bets, result_key)  # type: ignore[arg-type]
                 res.n_bet_races += 1
@@ -157,6 +218,12 @@ def run_backtest(
                 res.spent += spent
                 res.returned += ret
                 res.pnl_history.append(res.returned - res.spent)
+                if kelly:
+                    current_bankroll += ret - spent
+                    res.bankroll_history.append(current_bankroll)
+                    if current_bankroll <= 0:
+                        res.ruined = True
+                        break  # 破産したら以降は張れない
 
         # --- 履歴更新(このレースの結果を各馬に追記。着順は馬番→順位)---
         pos_of = {um: i + 1 for i, um in enumerate(race.result_order)}
