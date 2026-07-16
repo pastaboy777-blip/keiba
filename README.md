@@ -136,6 +136,30 @@ res = run_backtest(test_races, score_fn=scorer, bet_type="trio")  # 学習重み
 - `core/betting.py` の `ev_threshold` を上げると点数は減るが過信への保険になる。
 - 検証は必ず**時系列分割**で(`backtest.run_backtest` は過去走のみ使用=リーク無し)。
 
+## 予測結果を X 投稿文に変換する(tweet_gen)
+
+予測パイプラインの出力から、**初速(投稿直後の反応率)が出る X 投稿の下書き**を
+自動生成する。X で再生数が伸び悩む二大原因——「本文に外部リンクを貼って表示が
+絞られる」「1行目が弱く飛ばされる」——を避ける形で組み立てる。
+
+```bash
+python3 scripts/tweet_gen.py                                   # 既定重み
+python3 scripts/tweet_gen.py --interval-weight                 # 短間隔重視(南関方針)
+python3 scripts/tweet_gen.py --link https://twitcasting.tv/xxx --roi 128
+```
+
+生成物(`core/tweet.py`):
+- **逆張り本命の抽出** … モデル評価は上位なのに人気薄な馬(=市場の歪み)を選ぶ
+- **根拠3点の自動抽出** … 特徴量(間隔・叩き・距離替わり等)の寄与が大きい順に言語化
+- **断言の1行目** … 「〜かも」を使わず断言・逆張り・数字で始める
+- **検証予告** … 予告→結果検証をセットにして信用を積む
+- **リンクはリプへ分離** … 外部リンク(netkeiba/note/ツイキャス/LINE)は本文に入れず
+  セルフリプライ側に置く(本文リンクは表示減点の主因)
+
+3スタイル(逆張り断言/違和感・問いかけ/数字フック)を X の文字数制限チェック付きで出力。
+実運用では `scripts/tweet_gen.py` の出馬表を差し替える(または収集データから
+`tweet.HorseEntry` を組む)。
+
 ## 次の拡張候補
 
 - 間隔バケット別・叩き走目別の実成績から `INTERVAL_PRIOR`/`tatakii_bonus` を学習
