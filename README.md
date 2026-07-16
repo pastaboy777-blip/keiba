@@ -143,9 +143,10 @@ res = run_backtest(test_races, score_fn=scorer, bet_type="trio")  # 学習重み
 絞られる」「1行目が弱く飛ばされる」——を避ける形で組み立てる。
 
 ```bash
-python3 scripts/tweet_gen.py                                   # 既定重み
-python3 scripts/tweet_gen.py --interval-weight                 # 短間隔重視(南関方針)
+python3 scripts/tweet_gen.py                                   # 予想: 既定重み
+python3 scripts/tweet_gen.py --interval-weight                 # 予想: 短間隔重視(南関方針)
 python3 scripts/tweet_gen.py --link https://twitcasting.tv/xxx --roi 128
+python3 scripts/tweet_gen.py --mode results --link https://twitcasting.tv/xxx  # 的中実績まとめ
 ```
 
 生成物(`core/tweet.py`):
@@ -159,6 +160,11 @@ python3 scripts/tweet_gen.py --link https://twitcasting.tv/xxx --roi 128
 3スタイル(逆張り断言/違和感・問いかけ/数字フック)を X の文字数制限チェック付きで出力。
 実運用では `scripts/tweet_gen.py` の出馬表を差し替える(または収集データから
 `tweet.HorseEntry` を組む)。
+
+**実績まとめモード** (`--mode results`) は、的中実績(`tweet.ResultItem`)から
+「①実績まとめ/②単発ハイライト/③なぜ当たったか(検証)」の3スタイルを生成する。
+まとめは 280字に収まるようインパクト(オッズ・配当)の大きい順に自動で取捨し、
+溢れた分は「…ほか N 件」と注記する。実運用では `SAMPLE_RESULTS` を毎週差し替える。
 
 ## 次の拡張候補
 

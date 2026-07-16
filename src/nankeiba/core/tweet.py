@@ -309,4 +309,119 @@ STYLE_LABEL = {
     "gyakubari": "A. 逆張り断言(予告)",
     "iwakan": "C. 違和感・問いかけ",
     "suuji": "B. 数字フック",
+    "matome": "① 実績まとめ",
+    "highlight": "② 単発ハイライト",
+    "kensho": "③ なぜ当たったか(検証)",
 }
+
+
+# ---------------------------------------------------------------------------
+# 的中実績 → 実績まとめツイート
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ResultItem:
+    """1件の的中実績。まとめ・ハイライト・検証ツイートの素材になる。"""
+
+    place: str                 # 競馬場('浦和' など)
+    race: str                  # レース番号('5R' など)
+    pick: str                  # 買った対象(馬名 or '3連単' 等)
+    kind: str                  # 券種('単勝'/'複勝'/'3連単'/'3連複'/'ワイド' 等)
+    result: str = "的中"        # 結果('1着'/'3着'/'大本線' 等)
+    odds: float | None = None  # オッズ[倍](単系で使う)
+    payout: float | None = None  # 配当[円](複勝など払戻で見せる時)
+    day: str = ""              # 曜日など('水'/'木')任意
+    reasons: list[str] = field(default_factory=list)  # 検証用の根拠(任意)
+
+    def wow(self) -> float:
+        """インパクトの大きさ(1行目フックや単発の選定に使う)。"""
+        if self.odds is not None:
+            return self.odds
+        if self.payout is not None:
+            return self.payout / 100.0  # 円→倍相当に粗く換算
+        return 0.0
+
+    def bullet(self) -> str:
+        head = f"{self.day} " if self.day else ""
+        if self.odds is not None:
+            num = f"{self.odds:.0f}倍"
+        elif self.payout is not None:
+            num = f"{self.payout:.0f}円"
+        else:
+            num = ""
+        # pick が既に券種名を含むなら重複させない(例: pick='3連単', kind='3連単')
+        kind = "" if self.kind in self.pick else self.kind
+        core = f"{self.pick} {kind}{num}".strip()
+        tail = f"→{self.result}" if self.result and self.result != "的中" else " 的中"
+        return f"{head}{self.place}{self.race} {core}{tail}"
+
+
+_THEORY_REPLY = (
+    "狙いは毎回同じ。「能力より“今日走らせられてるか”」。\n\n"
+    "中1週・叩き2〜3走目・条件替わり——\n"
+    "世間が地味だと切り捨てる馬こそ、南関は走る。\n\n"
+    "派手な人気より地味な条件。これが回収率。"
+)
+
+
+def generate_results(
+    items: Sequence[ResultItem],
+    *,
+    brand: str = "#ズブ穴",
+    week_label: str = "今週",
+    link: str | None = None,
+) -> list[TweetDraft]:
+    """的中実績から、まとめ・単発ハイライト・検証の3スタイルを生成する。"""
+    if not items:
+        return []
+    link_reply = [f"実況・次の狙いはこちら👇\n{link}"] if link else []
+    drafts: list[TweetDraft] = []
+
+    # ① 実績まとめ: 一覧性で見せる。1行目は最大インパクトを匂わせる。
+    #   280字に収まるよう、溢れたら wow 順の上位だけ載せ残数を注記する。
+    header = f"{week_label}の{brand}、爆発しました🔥\n\n"
+    footer = "\n\n全部「ズブい穴」から。人気馬は買ってない。\nなぜ獲れたか、下に👇"
+    ordered = sorted(items, key=lambda it: it.wow(), reverse=True)
+    shown = list(ordered)
+    while shown:
+        extra = len(items) - len(shown)
+        note = f"\n…ほか{extra}件" if extra > 0 else ""
+        bullets = "\n".join(f"▪️{it.bullet()}" for it in shown)
+        body_matome = f"{header}{bullets}{note}{footer}"
+        if not TweetDraft("matome", body_matome).over_limit or len(shown) == 1:
+            break
+        shown.pop()  # 一番インパクトの小さい1件を落として再構成
+    drafts.append(TweetDraft("matome", body_matome, [_THEORY_REPLY, *link_reply]))
+
+    # ② 単発ハイライト: 最もインパクトの大きい1件を単独で
+    top = max(items, key=lambda it: it.wow())
+    num = (f"{top.kind}{top.odds:.0f}倍" if top.odds is not None
+           else f"{top.kind}{top.payout:.0f}円" if top.payout is not None
+           else top.kind)
+    res = top.result if top.result and top.result != "的中" else "的中"
+    body_hl = (
+        f"{num}、獲りました。\n\n"
+        f"{top.place}{top.race} {top.pick}、{res}。\n\n"
+        f"みんなが嫌った人気薄。でも「今日走らせられてる」合図は出てた。\n"
+        f"穴は運じゃない、読むもの。 {brand}"
+    )
+    drafts.append(TweetDraft("highlight", body_hl, list(link_reply)))
+
+    # ③ 検証: 根拠付きの1件があれば「なぜ本線に出来たか」を語る
+    with_reason = [it for it in items if it.reasons]
+    if with_reason:
+        pick = max(with_reason, key=lambda it: it.wow())
+        rl = "\n".join(f"・{r}" for r in pick.reasons[:3])
+        num2 = (f"{pick.kind}{pick.odds:.0f}倍" if pick.odds is not None
+                else f"{pick.kind}{pick.payout:.0f}円" if pick.payout is not None
+                else pick.kind)
+        head = f"{pick.day} ".lstrip() if pick.day else ""
+        body_k = (
+            f"{head}{pick.place}{pick.race}、{num2}が{pick.result}。\n\n"
+            f"自慢じゃない。「なぜ本線に出来たか」が全て。\n\n"
+            f"{rl}\n\n"
+            f"条件を読めば、穴は本線になる。 {brand}"
+        )
+        drafts.append(TweetDraft("kensho", body_k, list(link_reply)))
+
+    return drafts

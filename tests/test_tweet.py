@@ -121,5 +121,69 @@ class GenerateTest(unittest.TestCase):
             self.assertFalse(d.over_limit, f"{d.style} が280超: {d.weighted_len}")
 
 
+class ResultsTest(unittest.TestCase):
+    def _items(self):
+        return [
+            tw.ResultItem(day="水", place="浦和", race="5R", pick="シヴァシン",
+                          kind="単勝", odds=50, result="1着"),
+            tw.ResultItem(day="木", place="浦和", race="8R", pick="3連単",
+                          kind="3連単", odds=173, result="大本線",
+                          reasons=["上位人気が間隔詰めすぎ", "穴馬が叩き3走目",
+                                   "前残りの展開"]),
+            tw.ResultItem(day="木", place="浦和", race="9R", pick="マッドスピード",
+                          kind="複勝", payout=960, result="3着"),
+        ]
+
+    def test_bullet_no_kind_duplication(self):
+        # pick が券種名を含む場合、券種を二重に出さない
+        item = tw.ResultItem(place="浦和", race="8R", pick="3連単",
+                             kind="3連単", odds=173, result="大本線")
+        self.assertEqual(item.bullet().count("3連単"), 1)
+
+    def test_bullet_shows_odds_and_result(self):
+        item = tw.ResultItem(day="水", place="浦和", race="5R", pick="シヴァシン",
+                             kind="単勝", odds=50, result="1着")
+        b = item.bullet()
+        self.assertIn("単勝50倍", b)
+        self.assertIn("シヴァシン", b)
+        self.assertIn("1着", b)
+
+    def test_drafts_generated_and_fit_limit(self):
+        drafts = tw.generate_results(self._items(), link="https://twitcasting.tv/x")
+        styles = {d.style for d in drafts}
+        self.assertEqual(styles, {"matome", "highlight", "kensho"})
+        for d in drafts:
+            self.assertFalse(d.over_limit, f"{d.style} が280超: {d.weighted_len}")
+
+    def test_highlight_picks_biggest(self):
+        drafts = tw.generate_results(self._items())
+        hl = next(d for d in drafts if d.style == "highlight")
+        self.assertIn("173倍", hl.body)  # 最大インパクト(単勝50倍より3連単173倍)
+
+    def test_link_only_in_replies(self):
+        link = "https://twitcasting.tv/x"
+        drafts = tw.generate_results(self._items(), link=link)
+        for d in drafts:
+            self.assertNotIn(link, d.body)
+            self.assertTrue(any(link in r for r in d.replies))
+
+    def test_matome_trims_and_notes_extra(self):
+        # 大量の実績を渡すと280に収めるため一部を落として件数を注記する
+        many = self._items() * 5  # 15件
+        drafts = tw.generate_results(many)
+        matome = next(d for d in drafts if d.style == "matome")
+        self.assertFalse(matome.over_limit)
+        self.assertIn("ほか", matome.body)
+
+    def test_kensho_only_when_reasons(self):
+        no_reason = [tw.ResultItem(place="浦和", race="5R", pick="シヴァシン",
+                                   kind="単勝", odds=50, result="1着")]
+        styles = {d.style for d in tw.generate_results(no_reason)}
+        self.assertNotIn("kensho", styles)
+
+    def test_empty_items(self):
+        self.assertEqual(tw.generate_results([]), [])
+
+
 if __name__ == "__main__":
     unittest.main()

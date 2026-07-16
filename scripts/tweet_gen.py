@@ -29,18 +29,61 @@ from nankeiba.core.features import RaceContext, ScoreWeights
 from predict_example import HORSES, RACE_DATE, PLACE, DISTANCE, BABA, FIELD  # noqa: E402
 
 
+# 的中実績のサンプル(results モード)。実運用ではここを毎週差し替える。
+SAMPLE_RESULTS = [
+    tw.ResultItem(day="水", place="浦和", race="5R", pick="シヴァシン",
+                  kind="単勝", odds=50, result="1着"),
+    tw.ResultItem(day="木", place="浦和", race="8R", pick="3連単",
+                  kind="3連単", odds=173, result="大本線",
+                  reasons=["上位人気が間隔詰めすぎで危険",
+                           "穴馬が叩き3走目で上昇",
+                           "前が残る展開で穴軸が止まらない"]),
+    tw.ResultItem(day="木", place="浦和", race="9R", pick="マッドスピード",
+                  kind="複勝", payout=960, result="3着"),
+    tw.ResultItem(day="木", place="浦和", race="10R", pick="穴軸ワイド(岡村)",
+                  kind="ワイド", result="1着から的中"),
+    tw.ResultItem(day="木", place="浦和", race="11R", pick="3連複",
+                  kind="3連複", odds=26, result="的中"),
+]
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="予測結果から初速の出るツイート下書きを生成")
+    p.add_argument("--mode", choices=["predict", "results"], default="predict",
+                   help="predict=予想ツイート / results=的中実績まとめツイート")
     p.add_argument("--race-label", default="11R", help="レース番号などの表示ラベル(例: 11R)")
     p.add_argument("--link", default=None, help="誘導リンク(セルフリプに置く。本文には入れない)")
     p.add_argument("--roi", type=float, default=None, help="直近の回収率%(数字フック用)")
     p.add_argument("--interval-weight", action="store_true",
                    help="短間隔重視の重みで評価する(南関方針)")
+    p.add_argument("--brand", default="#ズブ穴", help="results モードのブランドタグ")
+    p.add_argument("--week-label", default="今週", help="results モードの期間ラベル")
     return p.parse_args()
+
+
+def run_results(args: argparse.Namespace) -> None:
+    drafts = tw.generate_results(SAMPLE_RESULTS, brand=args.brand,
+                                 week_label=args.week_label, link=args.link)
+    print(f"■ 実績まとめ({len(SAMPLE_RESULTS)}件 / {args.brand})")
+    print("=" * 56)
+    print("実績ツイート下書き(本文にリンクを入れない / リンクはリプへ)")
+    print("=" * 56)
+    for d in drafts:
+        warn = "  ⚠️文字数オーバー" if d.over_limit else ""
+        print(f"\n--- {tw.STYLE_LABEL.get(d.style, d.style)} "
+              f"[{d.weighted_len}/280]{warn} ---")
+        print(d.render())
+    print("\n" + "-" * 56)
+    print("運用: ②単発→数時間後に①まとめ→週末に③検証、の順で投下。")
+    print("      全てリンクはリプ / 的中画面の画像を1枚添付。")
 
 
 def main() -> None:
     args = parse_args()
+
+    if args.mode == "results":
+        run_results(args)
+        return
 
     entries = tw.entries_from_tuples(HORSES)
     ctx = RaceContext(date=RACE_DATE, place=PLACE, distance=DISTANCE,
