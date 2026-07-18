@@ -98,6 +98,11 @@ def edges_for(e, today_dist, small_bias=True, pace=None):
     sire = (e.sire or "")
     if any(s in sire for s in WET_SIRES):
         tags.add("血統湿")
+    # 乗替↑＝前走と別騎手 かつ 今回が勝率の高い騎手＝厩舎の勝負気配（"エッジ無"穴を埋める新factor）
+    jw = getattr(e, "jockey_win_rate", None)
+    prev_j = recs[0].jockey if recs else None
+    if e.jockey and prev_j and e.jockey != prev_j and jw and jw >= 12:
+        tags.add("乗替好騎手")
     return tags, cw
 
 
