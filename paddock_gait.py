@@ -65,17 +65,33 @@ def fetch_video(source, start=None, end=None, workdir="."):
 
 
 # ---------------- 推論 ----------------
-def run_inference(video_path, video_adapt=True):
-    import deeplabcut
-    print(f"[1/3] 骨格推定を実行: {video_path}")
+def downsample_fps(video_path, target_fps):
+    """target_fps に間引いた動画を作って返す（高速化）。ffmpeg 必須。"""
+    if shutil.which("ffmpeg") is None:
+        print("警告: ffmpeg が無いため fps 間引きをスキップ")
+        return video_path
+    out = os.path.splitext(video_path)[0] + f"_fps{int(target_fps)}.mp4"
+    subprocess.run(["ffmpeg", "-y", "-i", video_path, "-r", str(target_fps),
+                    "-an", out], check=True)
+    return out
+
+
+def run_inference(video_path, video_adapt=True, model_name="hrnet_w32",
+                  detector_name="fasterrcnn_resnet50_fpn_v2", scales=None):
+    import deeplabcut, time
+    scale_list = scales if scales is not None else range(200, 600, 50)
+    print(f"[1/3] 骨格推定を実行: {video_path} "
+          f"(pose={model_name}, detector={detector_name})")
+    t0 = time.time()
     deeplabcut.video_inference_superanimal(
         [video_path],
         "superanimal_quadruped",
-        model_name="hrnet_w32",
-        detector_name="fasterrcnn_resnet50_fpn_v2",
+        model_name=model_name,
+        detector_name=detector_name,
         video_adapt=video_adapt,
-        scale_list=range(200, 600, 50),
+        scale_list=scale_list,
     )
+    print(f"    推論所要時間: {time.time() - t0:.1f}s")
     stem = os.path.splitext(os.path.basename(video_path))[0]
     d = os.path.dirname(video_path) or "."
     cands = sorted(glob.glob(os.path.join(d, f"{stem}*superanimal_quadruped*.h5")))
@@ -201,6 +217,11 @@ def main():
     ap.add_argument("--start", help="切り出し開始 (例 00:12) URL/ローカル両対応")
     ap.add_argument("--end", help="切り出し終了 (例 00:20)")
     ap.add_argument("--no-adapt", action="store_true", help="video_adaptを切って高速化")
+    ap.add_argument("--fps", type=float, help="この fps に間引いて高速化 (例 12)。歩様は約1Hzなので10〜15で十分")
+    ap.add_argument("--fast", action="store_true",
+                    help="軽量モデル(mobilenet検出器+rtmpose_s, 単一スケール)で高速化。精度は少し落ちる")
+    ap.add_argument("--model", help="ポーズモデル上書き (hrnet_w32/resnet_50/rtmpose_s)")
+    ap.add_argument("--detector", help="検出器上書き (fasterrcnn_resnet50_fpn_v2/fasterrcnn_mobilenet_v3_large_fpn/ssdlite)")
     ap.add_argument("--selftest", action="store_true", help="解析ロジックのみ検証")
     args = ap.parse_args()
 
@@ -210,9 +231,19 @@ def main():
         ap.error("動画パスまたはURLを指定してください（または --selftest）")
 
     video = fetch_video(args.video, args.start, args.end, workdir=".")
+    if args.fps:
+        src_fps = get_fps(video)
+        if args.fps < src_fps:
+            print(f"[0/3] fpsを{src_fps:.0f}→{args.fps:g}に間引き（高速化）")
+            video = downsample_fps(video, args.fps)
     fps = get_fps(video)
     print(f"FPS: {fps}")
-    h5_path = run_inference(video, video_adapt=not args.no_adapt)
+    model_name = args.model or ("rtmpose_s" if args.fast else "hrnet_w32")
+    detector_name = args.detector or (
+        "fasterrcnn_mobilenet_v3_large_fpn" if args.fast else "fasterrcnn_resnet50_fpn_v2")
+    scales = [400] if args.fast else None
+    h5_path = run_inference(video, video_adapt=not args.no_adapt,
+                            model_name=model_name, detector_name=detector_name, scales=scales)
     print(f"[2/3] 結果読み込み: {h5_path}")
     df = pd.read_hdf(h5_path)
     print(f"[3/3] 歩様指標を算出")
