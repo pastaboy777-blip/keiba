@@ -14,3 +14,10 @@ data/*.db
 .DS_Store
 .idea/
 .vscode/
+
+# paddock gait generated artifacts
+sample_paddock*.mp4
+*_gait_metrics.csv
+*superanimal_quadruped*
+*_trim.mp4
+paddock_dl.*

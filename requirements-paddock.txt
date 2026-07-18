@@ -1,0 +1,10 @@
+# パドック歩様解析に必要なパッケージ
+# GPUがあると推論が速い（無くてもCPUで動くが遅い）
+deeplabcut[modelzoo]
+opencv-python
+scipy
+pandas
+numpy
+tables
+yt-dlp        # 動画URLからのダウンロード用
+# ffmpeg は別途システムにインストール（区間切り出し・URL区間DLに使用）
