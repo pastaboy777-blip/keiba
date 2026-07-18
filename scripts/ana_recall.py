@@ -24,8 +24,47 @@ WET_SIRES = {"パイロ", "サウスヴィグラス", "ヘニーヒューズ", "
              "ドレフォン", "サンダースノー", "コパノリッキー", "ホッコータルマエ", "ゴールドドリーム"}
 
 
-def edges_for(e, today_dist, small_bias=True):
-    """馬のエッジ集合を返す（穴ファクター）。"""
+def closer_grade(e):
+    """終いの決め手の質を判定＝"本物の差し"か。強=位置を上げて好走を反復 / 弱=後方どまり。
+    戻り値: '強' / '弱' / None"""
+    recs = e.recent_runs or []
+    closed = 0        # 後方から前進して好走した回数
+    strong_last = False
+    for i, pr in enumerate(recs[:4]):
+        co = [x for x in (pr.corner or []) if isinstance(x, (int, float))]
+        fs = pr.field_size or 12
+        if not co:
+            continue
+        early, last = co[0], co[-1]
+        gain = early - (pr.finish_pos or last)      # 序盤位置→着順で前進した数
+        back = early > fs * 0.45                     # 序盤は後方
+        good = pr.finish_pos and pr.finish_pos <= max(3, fs * 0.4)
+        if back and gain >= 3 and good:              # 後方から差して好走
+            closed += 1
+            if i == 0 and gain >= 5:
+                strong_last = True
+    if closed >= 2 or strong_last:
+        return "強"
+    if closed >= 1:
+        return "弱"
+    return None
+
+
+def field_pace(entries):
+    """出走各馬の脚質から当日ペースを推定。前に行く馬が多い＝ハイ＝差し有利。"""
+    n = len([e for e in entries if e.umaban]) or 1
+    front = 0
+    for e in entries:
+        pr = e.recent_runs[0] if e.recent_runs else None
+        co = [x for x in (pr.corner or []) if isinstance(x, (int, float))] if pr else []
+        if co and co[0] <= max(3, round((pr.field_size or n) * 0.35)):
+            front += 1
+    ratio = front / n
+    return "ハイ" if ratio >= 0.4 else ("スロー" if ratio <= 0.22 else "平均"), ratio
+
+
+def edges_for(e, today_dist, small_bias=True, pace=None):
+    """馬のエッジ集合を返す（穴ファクター）。pace='ハイ'なら差し馬に想定加点。"""
     recs = e.recent_runs or []
     tags = set()
     cw = e.horse_weight or (recs[0].horse_weight if recs and recs[0].horse_weight else None)
@@ -44,11 +83,14 @@ def edges_for(e, today_dist, small_bias=True):
     dists = [pr.distance for pr in recs if pr.distance]
     if dists and today_dist and dists[0] and dists[0] > today_dist:
         tags.add("距離短縮")
-    if recs and recs[0].corner:
-        co = [x for x in recs[0].corner if isinstance(x, (int, float))]
-        fs = recs[0].field_size or 12
-        if co and (co[0] > fs * 0.55 or co[-1] > fs * 0.55):
-            tags.add("差し")
+    # 差し＝終いの決め手の質で判定（強差し）＋当日ハイペースなら差し想定を加点
+    grade = closer_grade(e)
+    if grade == "強":
+        tags.add("強差し")
+    elif grade == "弱":
+        tags.add("差し")
+    if pace == "ハイ" and grade:      # 前が飛ぶ想定×差せる馬＝差し穴の本線
+        tags.add("差し想定")
     sire = (e.sire or "")
     if any(s in sire for s in WET_SIRES):
         tags.add("血統湿")
@@ -80,12 +122,13 @@ def main():
             continue
         emap = {e.umaban: e for e in pc.entries}
         dist = getattr(pc, "distance", None)
+        pace, _ = field_pace(pc.entries)
         for row in rr.rows:
             if row.finish_pos and row.finish_pos <= 3 and row.popularity and row.popularity >= a.pop:
                 e = emap.get(row.umaban)
                 if not e:
                     continue
-                tags, cw = edges_for(e, dist)
+                tags, cw = edges_for(e, dist, pace=pace)
                 # 小型バイアス日は「小型」単独でも拾える（①が小型[信頼高]の時）
                 ok = len(tags) >= 2 or (a.small_bias and "小型" in tags)
                 mark = "拾✓" if ok else "見✗"
