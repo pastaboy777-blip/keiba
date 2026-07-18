@@ -101,8 +101,8 @@ def edges_for(e, today_dist, small_bias=True, pace=None):
     # 乗替↑＝前走と別騎手 かつ 今回が勝率の高い騎手＝厩舎の勝負気配（"エッジ無"穴を埋める新factor）
     jw = getattr(e, "jockey_win_rate", None)
     prev_j = recs[0].jockey if recs else None
-    if e.jockey and prev_j and e.jockey != prev_j and jw and jw >= 12:
-        tags.add("乗替好騎手")
+    if e.jockey and prev_j and e.jockey != prev_j and jw and jw >= 18:
+        tags.add("乗替トップ騎手")  # トップ騎手への勝負乗替のみ(発火絞り＝精度シグナル)
     return tags, cw
 
 
