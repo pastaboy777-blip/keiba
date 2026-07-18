@@ -24,6 +24,30 @@ WET_SIRES = {"パイロ", "サウスヴィグラス", "ヘニーヒューズ", "
              "ドレフォン", "サンダースノー", "コパノリッキー", "ホッコータルマエ", "ゴールドドリーム"}
 
 
+import re as _re
+# 持続巡航(Hyperion)型＝垂れ率≈0 × 距離帯で上位の巡航速度。大井5-7月で人気薄複勝lift1.71。
+_BAND_MED = {"短": 58.9, "マ": 56.5, "中": 56.0, "長": 55.4}  # 距離帯別 道中速度中央値(km/h・大井基準)
+_HYPERION_SIRES = {"キンシャサノキセキ", "シルバーステート", "ストロングリターン", "ヘニーヒューズ",
+                   "ダノンレジェンド", "パイロ", "シニスターミニスター", "キズナ"}
+
+
+def _tosec(t):
+    m = _re.match(r'(?:(\d+):)?(\d+)\.(\d+)', str(t or ''))
+    return (int(m.group(1)) if m and m.group(1) else 0) * 60 + int(m.group(2)) + int(m.group(3)) / 10 if m else None
+
+
+def is_hyperion(pr):
+    """前走が持続巡航型か＝垂れ率-1〜+2.5% かつ 道中速度が距離帯中央値以上。"""
+    d, tt, ag = getattr(pr, "distance", None), _tosec(getattr(pr, "time", None)), getattr(pr, "agari", None)
+    if not (d and tt and ag) or tt <= ag or ag <= 0:
+        return False
+    mid = (d - 600) / (tt - ag) * 3.6
+    fin = 600 / ag * 3.6
+    tare = (mid - fin) / mid * 100
+    band = "短" if d <= 1200 else ("マ" if d <= 1600 else ("中" if d <= 1800 else "長"))
+    return (-1.0 <= tare <= 2.5) and mid >= _BAND_MED.get(band, 99)
+
+
 def closer_grade(e):
     """終いの決め手の質を判定＝"本物の差し"か。強=位置を上げて好走を反復 / 弱=後方どまり。
     戻り値: '強' / '弱' / None"""
@@ -95,6 +119,11 @@ def edges_for(e, today_dist, small_bias=True, pace=None):
         tags.add("強差し")               # 質（本物の追い込み）
     if pace == "ハイ" and grade:
         tags.add("差し想定")             # 文脈（前が飛ぶ×差せる）
+    # 持続巡航(Hyperion)型＝垂れない高速巡航＝上がり地味で群衆が見落とす過小評価穴(lift1.71)
+    if recs and is_hyperion(recs[0]):
+        tags.add("持続巡航")
+    if any(s in (e.sire or "") for s in _HYPERION_SIRES):
+        tags.add("持続血統")
     sire = (e.sire or "")
     if any(s in sire for s in WET_SIRES):
         tags.add("血統湿")
