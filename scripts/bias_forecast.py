@@ -124,24 +124,42 @@ def main():
     for dy, agg in per_day:
         z = "/".join(f"{k}{agg['zone'][k]}" for k in ("内", "中", "外"))
         print(f"  {dy}: {agg['n']}R 馬場{dict(agg['baba'])} 枠[{z}] 小{agg['size']['小']}大{agg['size']['大']} 勝小{agg['win_small']}大{agg['win_big']}")
-    zt, zc = dominant(merged["zone"], ["内", "中", "外"])
-    st, sc = dominant(merged["size"], ["小", "大", "中"])
-    yt, yc = dominant(merged["style"], ["前", "差", "中"])
-    print("\n--- 予測（加重） ---")
-    print(f"  枠   : {zt}有利 (確度{zc:.0%})" + ("  ※日替わり反転が多い開催は初日R1-3で要再判定" if zc < 0.45 else ""))
-    print(f"  体型 : {st}型有利 (確度{sc:.0%})")
-    print(f"  脚質 : {yt}有利 (確度{yc:.0%})")
+    # 軸ごとの"日々の一貫性"で信頼度を判定（日替わりする軸は低信頼にする）
+    def reliability(axis, keys):
+        per = [dominant(agg[axis], keys)[0] for _, agg in per_day]
+        top = max(set(per), key=per.count)
+        agree = per.count(top) / len(per)
+        rank = "高" if agree >= 0.99 else ("中" if agree >= 0.6 else "低(日替わり)")
+        return top, agree, rank, per
+
+    zt, za, zr, zper = reliability("zone", ["内", "中", "外"])
+    yt, ya, yr, yper = reliability("style", ["前", "差", "中"])
+    # 体型は"1着の体型"で判定（上位3着全部だと2-3着の大型に引っ張られる）
+    sper = ["小" if agg["win_small"] >= agg["win_big"] else "大" for _, agg in per_day]
+    st = max(set(sper), key=sper.count)
+    sa = sper.count(st) / len(sper)
+    sr = "高" if sa >= 0.99 else ("中" if sa >= 0.6 else "低(日替わり)")
+    print("\n--- 予測（軸ごとに信頼度＝日々の一貫性で判定）---")
+    print(f"  体型 : {st}型有利  [信頼{sr}] 日別{'/'.join(sper)}")
+    print(f"  枠   : {zt}有利    [信頼{zr}] 日別{'/'.join(zper)}" + ("  ← 単一視せず当日R1-3で確定" if zr.startswith("低") else ""))
+    print(f"  脚質 : {yt}有利    [信頼{yr}] 日別{'/'.join(yper)}" + ("  ← proxyが先行過大。当日ペースで再判定" if yr.startswith("低") or yt == "前" else ""))
+    # 高信頼軸だけを"確定の狙い"に、低信頼軸は当日判定に回す
+    solid = [f"{st}型" for r in [sr] if r == "高"]
+    sc = sa
     lastbaba = max(per_day[0][1]["baba"], key=per_day[0][1]["baba"].get)
     print(f"  馬場 : 前日ベース={lastbaba}（当日変化があれば勝ち時計で速い/遅いを再判定＝§5f）")
     print("\n--- 初日から狙う穴型（仮説）---")
-    tag = []
-    if st == "小":
-        tag.append("軽量小型(≤458)")
-    if st == "大":
-        tag.append("大型パワー(≥478)")
-    tag.append(f"{zt}枠")
-    tag.append("差し" if yt == "差" else ("前・先行" if yt == "前" else "自在"))
-    print("  狙い＝" + " × ".join(tag) + " の人気薄。R1から適用し、朝の結果で微修正。")
+    fixed, day_of = [], []
+    # 高信頼軸＝R1から確定で狙う／低信頼軸＝当日R1-3で確定
+    if sr == "高":
+        fixed.append("軽量小型(≤458)" if st == "小" else ("大型パワー(≥478)" if st == "大" else "体型中立"))
+    else:
+        day_of.append(f"体型({st}型寄りだが要確認)")
+    (fixed if zr == "高" else day_of).append(f"{zt}枠")
+    (fixed if yr == "高" else day_of).append("差し" if yt == "差" else ("前・先行" if yt == "前" else "自在"))
+    print("  R1から確定で狙う＝" + (" × ".join(fixed) if fixed else "（高信頼軸なし）") + " の人気薄")
+    if day_of:
+        print("  当日R1-3で確定＝" + " / ".join(day_of) + "（日替わりする軸）")
 
 
 if __name__ == "__main__":
