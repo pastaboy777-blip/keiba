@@ -14,3 +14,8 @@ data/*.db
 .DS_Store
 .idea/
 .vscode/
+
+# 穴馬発掘ツール(scripts/ana) ── cookie とスクレイピングキャッシュは除外
+scripts/ana/kb.conf
+scripts/ana/arc/
+scripts/ana/*.html
