@@ -29,8 +29,10 @@ def edges_for(e, today_dist, small_bias=True):
     recs = e.recent_runs or []
     tags = set()
     cw = e.horse_weight or (recs[0].horse_weight if recs and recs[0].horse_weight else None)
-    if small_bias and cw and cw <= 458:
+    if cw and cw <= 458:
         tags.add("小型")
+    elif cw and cw <= 466:
+        tags.add("準小型")  # 459-466＝境界。小型バイアス日は拾う
     run = good = 0
     for pr in recs:
         if any(x in (pr.baba or "") for x in BAD):
@@ -58,6 +60,8 @@ def main():
     ap.add_argument("--date", required=True)
     ap.add_argument("--place", required=True)
     ap.add_argument("--pop", type=int, default=6, help="この人気以下を穴とする")
+    ap.add_argument("--small-bias", action="store_true",
+                    help="小型有利が確定した日用＝小型1つで拾える(bias_forecastが小型[信頼高]の時に付ける)")
     a = ap.parse_args()
     c = PoliteClient()
     ymd = a.date.replace("-", "")
@@ -82,7 +86,8 @@ def main():
                 if not e:
                     continue
                 tags, cw = edges_for(e, dist)
-                ok = len(tags) >= 2
+                # 小型バイアス日は「小型」単独でも拾える（①が小型[信頼高]の時）
+                ok = len(tags) >= 2 or (a.small_bias and "小型" in tags)
                 mark = "拾✓" if ok else "見✗"
                 if ok:
                     caught += 1

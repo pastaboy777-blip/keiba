@@ -20,7 +20,7 @@ CARD = "https://keiba.rakuten.co.jp/race_card/list/RACEID/{r}"
 # 南関ダートで"道悪(渋った馬場)巧者"を出しやすい主な種牡馬（経験薄馬の代替判断用・随時追記）
 WET_SIRES = {"パイロ", "サウスヴィグラス", "ヘニーヒューズ", "クロフネ", "ゴールドアリュール",
              "エスポワールシチー", "シニスターミニスター", "マジェスティックウォリアー",
-             "ドレフォン", "サンダースノー", "コパノリッキー", "ホッコータルマエ"}
+             "ドレフォン", "サンダースノー", "コパノリッキー", "ホッコータルマエ", "ゴールドドリーム"}
 BAD = ("稍", "重", "不")
 
 
@@ -96,7 +96,7 @@ def main():
             elif ws[-1] - ws[0] >= 8:
                 tags.append(f"馬体減{ws[-1]-ws[0]}")
         cw = e.horse_weight or (ws[0] if ws else None)
-        size = "★小" if (cw and cw <= 458) else ("大" if (cw and cw >= 478) else "")
+        size = "★小" if (cw and cw <= 458) else ("準小" if (cw and cw <= 466) else ("大" if (cw and cw >= 478) else ""))
         print(f"  {e.umaban:>2} {(e.horse_name or '')[:10]:10s} {('体'+str(cw)+size) if cw else '体?':8s} | " + " ".join(tags))
 
 
