@@ -98,11 +98,27 @@ def get_fps(video_path, default=30.0):
 
 
 # ---------------- 解析 ----------------
+def pick_best_individual(df):
+    """DLC 3.0のマルチ個体出力から、最も高信頼で検出された個体を1頭選ぶ。
+    未検出個体は likelihood=-1 のプレースホルダなので除外される。"""
+    lik = df.xs("likelihood", axis=1, level="coords")  # (scorer, individuals) or (individuals)
+    lik = lik.where(lik >= 0)  # -1 プレースホルダを無視
+    score = lik.mean().groupby(level="individuals").mean()
+    return score.idxmax()
+
+
 def analyze_h5(df, fps):
     if df.columns.nlevels == 4:
-        df = df.droplevel([0, 1], axis=1)
+        # scorer, individuals, bodyparts, coords → 最良個体を選んで individuals を畳む
+        best = pick_best_individual(df)
+        df = df.xs(best, axis=1, level="individuals").droplevel(0, axis=1)
     elif df.columns.nlevels == 3:
-        df = df.droplevel(0, axis=1)
+        # scorer, bodyparts, coords か individuals, bodyparts, coords
+        if "individuals" in (df.columns.names or []):
+            best = pick_best_individual(df)
+            df = df.xs(best, axis=1, level="individuals")
+        else:
+            df = df.droplevel(0, axis=1)
 
     def lik_mean(bp):
         return df[(bp, "likelihood")].mean()
