@@ -83,14 +83,18 @@ def edges_for(e, today_dist, small_bias=True, pace=None):
     dists = [pr.distance for pr in recs if pr.distance]
     if dists and today_dist and dists[0] and dists[0] > today_dist:
         tags.add("距離短縮")
-    # 差し＝終いの決め手の質で判定（強差し）＋当日ハイペースなら差し想定を加点
+    # 差し＝(網)前走後方の緩タグは残しつつ、(質)強差し と (文脈)当日ハイペース想定を上乗せ。
+    # 強差し×差し想定 が揃う馬＝差し穴の本線＝◎格上げ候補（精度用の高信頼シグナル）。
+    if recs and recs[0].corner:
+        co = [x for x in recs[0].corner if isinstance(x, (int, float))]
+        fs = recs[0].field_size or 12
+        if co and (co[0] > fs * 0.55 or co[-1] > fs * 0.55):
+            tags.add("差し")            # 網（従来どおり・recallの下支え）
     grade = closer_grade(e)
     if grade == "強":
-        tags.add("強差し")
-    elif grade == "弱":
-        tags.add("差し")
-    if pace == "ハイ" and grade:      # 前が飛ぶ想定×差せる馬＝差し穴の本線
-        tags.add("差し想定")
+        tags.add("強差し")               # 質（本物の追い込み）
+    if pace == "ハイ" and grade:
+        tags.add("差し想定")             # 文脈（前が飛ぶ×差せる）
     sire = (e.sire or "")
     if any(s in sire for s in WET_SIRES):
         tags.add("血統湿")
