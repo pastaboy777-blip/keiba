@@ -98,6 +98,11 @@ def edges_for(e, today_dist, small_bias=True, pace=None):
     sire = (e.sire or "")
     if any(s in sire for s in WET_SIRES):
         tags.add("血統湿")
+    # 斤量減＝別定の恩恵(降級/未勝利継続/セ化/アローワンス)で軽くなった馬＝群衆が過小評価(大井lift1.43)
+    wc = getattr(e, "weight_carried", None)
+    pwc = recs[0].weight_carried if recs else None
+    if wc and pwc and wc - pwc <= -1:
+        tags.add("斤量減")
     # 乗替↑＝前走と別騎手 かつ 今回が勝率の高い騎手＝厩舎の勝負気配（"エッジ無"穴を埋める新factor）
     jw = getattr(e, "jockey_win_rate", None)
     prev_j = recs[0].jockey if recs else None

@@ -88,6 +88,13 @@ def main():
                         tags.append("叩2走目↑")
             except Exception:
                 pass
+        # 斤量減(別定の恩恵で軽くなった＝過小評価穴・大井lift1.43)
+        if e.weight_carried and recs and recs[0].weight_carried:
+            dk = e.weight_carried - recs[0].weight_carried
+            if dk <= -1:
+                tags.append(f"斤量減{dk:.0f}")
+            elif dk >= 2:
+                tags.append(f"斤量増+{dk:.0f}")
         # 馬体重トレンド(直近3走)
         ws = [pr.horse_weight for pr in recs[:3] if pr.horse_weight]
         if len(ws) >= 2:
