@@ -53,17 +53,11 @@ SKELETON = [
 
 
 def _prep_df(df):
-    """マルチ個体h5から最良個体を選び (bodyparts, coords) 2レベルにする。"""
-    import numpy as np
-    names = df.columns.names or []
-    if "individuals" in names:
-        lik = df.xs("likelihood", axis=1, level="coords")
-        lik = lik.where(lik >= 0)
-        best = lik.mean().groupby(level="individuals").mean().idxmax()
-        df = df.xs(best, axis=1, level="individuals")
-    while df.columns.nlevels > 2:
-        df = df.droplevel(0, axis=1)
-    return df
+    """マルチ個体h5から『目的馬』を単一トラックとして抽出し (bodyparts, coords) にする。
+    paddock_gait.extract_target_horse と同じロジックで、毎フレーム最大・手前・連続する
+    馬を選び、別馬への乗り移りフレームを除外する。"""
+    import paddock_gait
+    return paddock_gait.extract_target_horse(df)
 
 
 def render(video, h5, out, pcutoff=PCUTOFF):

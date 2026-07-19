@@ -123,18 +123,74 @@ def pick_best_individual(df):
     return score.idxmax()
 
 
-def analyze_h5(df, fps):
-    if df.columns.nlevels == 4:
-        # scorer, individuals, bodyparts, coords → 最良個体を選んで individuals を畳む
-        best = pick_best_individual(df)
-        df = df.xs(best, axis=1, level="individuals").droplevel(0, axis=1)
-    elif df.columns.nlevels == 3:
-        # scorer, bodyparts, coords か individuals, bodyparts, coords
-        if "individuals" in (df.columns.names or []):
-            best = pick_best_individual(df)
-            df = df.xs(best, axis=1, level="individuals")
-        else:
+def extract_target_horse(df, conf=0.35, min_kpts=6, jump_frac=0.6):
+    """マルチ個体h5から『本命馬』を単一トラックとして抽出し (bodyparts, coords) を返す。
+
+    各フレームで「高信頼キーポイントが多く・体が大きく(=手前)・前フレームに連続する」
+    個体を選ぶ。さらに体中心が大きく飛ぶフレーム(別馬への乗り移り)はNaNで除外する。
+    複数馬・引き馬・写り込みのある地方競馬パドックで、目的馬をロックするための処理。
+    """
+    import numpy as np, pandas as pd
+    names = list(df.columns.names or [])
+    if "individuals" not in names:
+        # 単一個体: scorerを落として (bodyparts, coords) に
+        while df.columns.nlevels > 2:
             df = df.droplevel(0, axis=1)
+        return df
+    while df.columns.nlevels > 3:      # scorerを除去 → (individuals, bodyparts, coords)
+        df = df.droplevel(0, axis=1)
+
+    inds = list(df.columns.get_level_values("individuals").unique())
+    bps = list(df.columns.get_level_values("bodyparts").unique())
+    n = len(df)
+    cols = pd.MultiIndex.from_product([bps, ["x", "y", "likelihood"]],
+                                      names=["bodyparts", "coords"])
+    colidx = {c: j for j, c in enumerate(cols)}
+    out = np.full((n, len(cols)), np.nan)
+    cens = np.full((n, 2), np.nan)
+    spans = np.full(n, np.nan)
+    prev = None
+    for i in range(n):
+        row = df.iloc[i]
+        best = None  # (score, pts, cen, span)
+        for a in inds:
+            xs, ys, pts = [], [], {}
+            for bp in bps:
+                lk = row.get((a, bp, "likelihood"))
+                if lk is not None and lk == lk and lk >= conf:
+                    x = row.get((a, bp, "x")); y = row.get((a, bp, "y"))
+                    if x == x and y == y:
+                        pts[bp] = (x, y, lk); xs.append(x); ys.append(y)
+            if len(pts) < min_kpts:
+                continue
+            span = ((max(xs) - min(xs)) ** 2 + (max(ys) - min(ys)) ** 2) ** 0.5
+            cen = (sum(xs) / len(xs), sum(ys) / len(ys))
+            score = span  # 大きい(手前)ほど本命
+            if prev is not None:  # 前フレームに近いほど加点(連続性)
+                score -= 0.7 * ((cen[0] - prev[0]) ** 2 + (cen[1] - prev[1]) ** 2) ** 0.5
+            if best is None or score > best[0]:
+                best = (score, pts, cen, span)
+        if best is not None:
+            _, pts, cen, span = best
+            for bp, (x, y, lk) in pts.items():
+                out[i, colidx[(bp, "x")]] = x
+                out[i, colidx[(bp, "y")]] = y
+                out[i, colidx[(bp, "likelihood")]] = lk
+            cens[i] = cen; spans[i] = span; prev = cen
+    # 体中心が中央値から大きく外れるフレーム=別馬への乗り移りとみなし除外
+    valid = ~np.isnan(cens[:, 0])
+    if valid.sum() >= 5:
+        med = np.nanmedian(cens[valid], axis=0)
+        thr = max(np.nanmedian(spans[valid]) * jump_frac, 40.0)
+        for i in range(n):
+            if valid[i] and ((cens[i, 0] - med[0]) ** 2 + (cens[i, 1] - med[1]) ** 2) ** 0.5 > thr:
+                out[i, :] = np.nan
+    return pd.DataFrame(out, columns=cols)
+
+
+def analyze_h5(df, fps):
+    # 目的馬ロック: 毎フレーム最大・手前・連続する馬を選び、乗り移りフレームを除外
+    df = extract_target_horse(df)
 
     def lik_mean(bp):
         return df[(bp, "likelihood")].mean()
