@@ -99,12 +99,13 @@ def render(video, h5, out, pcutoff=PCUTOFF):
             if pa and pb:
                 cv2.line(fr, pa, pb, (20, 20, 20), 2, cv2.LINE_AA)
         # ★背骨(トップライン): 最重要。太い緑線で強調描画。
-        # 途中の背中の点が隠れて欠けても、検出できた背骨点を順に繋いで必ず一本にする
-        # (=首の根本 neck_base から尾 tail_base まで途切れさせない)。
+        # 背骨はほぼ直線なので、首の根本(neck_base)と尾(tail_base)を直線1本で結ぶ。
+        # 途中の背中の点はサドル/腹に落ちやすく線を凹ませるため使わない。
         avail = [p for p in (pt(row, bp) for bp in SPINE) if p]
-        for pa, pb in zip(avail, avail[1:]):
-            cv2.line(fr, pa, pb, (255, 255, 255), 8, cv2.LINE_AA)   # 白フチ
-            cv2.line(fr, pa, pb, (60, 220, 30), 4, cv2.LINE_AA)     # 緑本体
+        if len(avail) >= 2:
+            a, b = avail[0], avail[-1]      # 端＝首の根本 と 尾の付け根
+            cv2.line(fr, a, b, (255, 255, 255), 8, cv2.LINE_AA)   # 白フチ
+            cv2.line(fr, a, b, (60, 220, 30), 4, cv2.LINE_AA)     # 緑本体
         # 関節点(色付き)。背骨の関節は大きめに
         for bp in bps:
             p = pt(row, bp)
