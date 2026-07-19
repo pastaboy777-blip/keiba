@@ -29,3 +29,6 @@ bench*.mp4
 
 # paddock segment artifacts
 *_segments.json
+field_gait_compare.csv
+*_compare*.html
+field_compare*.html
