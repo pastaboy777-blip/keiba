@@ -16,8 +16,9 @@ import argparse, glob, os, subprocess, sys
 
 PCUTOFF = 0.6
 
-# 背骨(トップライン): 首の付け根→背中→尾。歩様評価で最重要のため専用に強調描画する
-SPINE = ["neck_end", "neck_base", "back_base", "back_middle", "back_end", "tail_base", "tail_end"]
+# 背骨(トップライン): き甲→背中→尾の付け根。歩様評価で最重要のため専用に強調描画する。
+# ※ tail_end(尾の先)は垂れ下がるので含めない。neck_end(首)も背骨ではないので除く。
+SPINE = ["neck_base", "back_base", "back_middle", "back_end", "tail_base"]
 
 # SuperAnimal-Quadruped(39点)に対する馬の骨格線定義
 SKELETON = [
