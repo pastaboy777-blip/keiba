@@ -7,4 +7,6 @@ pandas
 numpy
 tables
 yt-dlp        # 動画URLからのダウンロード用
+pytesseract   # paddock_segment.py の馬番テロップOCR用
 # ffmpeg は別途システムにインストール（区間切り出し・URL区間DLに使用）
+# tesseract-ocr も別途システムにインストール（paddock_segment.py のOCRエンジン）

@@ -26,3 +26,6 @@ paddock_full*.mp4
 pf_*.mp4
 bench*.mp4
 *_fps[0-9]*.mp4
+
+# paddock segment artifacts
+*_segments.json
