@@ -28,9 +28,10 @@ import argparse, json, os, subprocess, sys
 DEFAULT_ROI = (258, 806, 120, 70)
 
 
-def read_umaban(roi_bgr):
+def read_umaban(roi_bgr, psms=(10, 8, 7, 13)):
     """馬番ボックス画像から数字をOCR。読めなければ None。
-    中抜き(アウトライン)フォントに対応するため穴埋め処理を行う。"""
+    中抜き(アウトライン)フォントに対応するため穴埋め処理を行う。
+    psms を絞ると高速化(位置の自動探索時は単一psmで走査する)。"""
     import cv2, numpy as np, pytesseract
     g = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2GRAY)
     g = cv2.resize(g, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
@@ -44,12 +45,56 @@ def read_umaban(roi_bgr):
     filled = inv | cv2.bitwise_not(ff)          # 数字を白塗り(黒地)
     out = cv2.bitwise_not(filled)               # 黒数字・白地(tesseract向き)
     out = cv2.copyMakeBorder(out, 25, 25, 25, 25, cv2.BORDER_CONSTANT, value=255)
-    for psm in (10, 8, 7, 13):
+    for psm in psms:
         t = pytesseract.image_to_string(
             out, config=f"--psm {psm} -c tessedit_char_whitelist=0123456789").strip()
         if t.isdigit() and 1 <= int(t) <= 18:
             return int(t)
     return None
+
+
+def auto_find_roi(video, n_scan=3):
+    """馬番テロップの位置(ROI)を自動探索する。競馬場・解像度・録画枠が違っても
+    合わせ直す手間を無くすため、画面下部・左寄りを走査し、時間で変化する数字が
+    最もよく読める位置を返す。見つからなければ None。"""
+    import cv2
+    cap = cv2.VideoCapture(video)
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    W = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)); H = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    frames = []
+    for f in (0.2, 0.5, 0.8)[:n_scan]:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, int(total * f) if total else 0)
+        ok, fr = cap.read()
+        if ok:
+            frames.append(fr)
+    cap.release()
+    if not frames:
+        return None
+    g0 = cv2.cvtColor(frames[0], cv2.COLOR_BGR2GRAY)
+    bw = max(44, int(W * 0.065)); bh = max(30, int(H * 0.055))
+    # 馬番テロップは経験上、左下(x≈0.08〜0.24W, y≈0.62〜0.86H)に集中。粗く走査し上限を設ける。
+    xs = list(range(int(W * 0.06), int(W * 0.26), max(14, int(W * 0.035))))
+    ys = list(range(int(H * 0.62), int(H * 0.86), max(12, int(H * 0.04))))
+    cands = []
+    for y in ys:
+        for x in xs:
+            # 事前フィルタ: 馬番ボックスは「明るい地＋濃い数字」で高コントラスト。
+            win = g0[y:y + bh, x:x + bw]
+            if win.size == 0 or win.max() < 180 or (int(win.max()) - int(win.min())) < 90:
+                continue
+            if read_umaban(frames[0][y:y + bh, x:x + bw], psms=(10,)) is not None:
+                cands.append((x, y))
+        if len(cands) >= 12:      # 上限(暴走防止)
+            break
+    best, best_score = None, 0
+    for x, y in cands:
+        reads = [read_umaban(fr[y:y + bh, x:x + bw], psms=(10, 8)) for fr in frames]
+        valid = [r for r in reads if r is not None]
+        if len(valid) >= max(2, len(frames) // 2):
+            score = len(valid) + len(set(valid))
+            if score > best_score:
+                best_score, best = score, (x, y, bw, bh)
+    return best
 
 
 def scan_umaban(video, roi, sample_fps):
@@ -178,9 +223,19 @@ def main():
     if not args.video:
         ap.error("パドック映像のパスを指定してください（または --selftest）")
 
-    roi = tuple(int(v) for v in args.roi.split(",")) if args.roi else DEFAULT_ROI
-    if len(roi) != 4:
-        ap.error("--roi は x,y,w,h の4値で指定してください")
+    if args.roi:
+        roi = tuple(int(v) for v in args.roi.split(","))
+        if len(roi) != 4:
+            ap.error("--roi は x,y,w,h の4値で指定してください")
+    else:
+        # ROI未指定なら自動探索(競馬場・解像度が違っても合わせ直し不要)
+        print("[0/2] 馬番テロップの位置を自動探索中…")
+        roi = auto_find_roi(args.video)
+        if roi:
+            print(f"  → 自動検出したROI: {roi}")
+        else:
+            roi = DEFAULT_ROI
+            print(f"  → 自動検出できず。既定ROI {roi} を使用（合わなければ --roi で指定）")
     process(args.video, roi, args.sample_fps, args.min_seg, args.merge_gap,
             args.cut, args.gait, gait_args)
 
