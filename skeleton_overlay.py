@@ -52,6 +52,25 @@ SKELETON = [
 ]
 
 
+def cog_point(getp):
+    """馬の重心(第12〜13肋骨=肘の後ろ)を推定して座標を返す。
+    き甲(neck_base)から尾根(tail_base)へ約1/3後ろ、トップラインから腹(belly_bottom)へ
+    約55%下、を重心とみなす。必要点が無ければ None。"""
+    nb, tb, bb = getp("neck_base"), getp("tail_base"), getp("belly_bottom")
+    if not (nb and tb):
+        return None
+    f = 0.33                                   # き甲から後方へ1/3(第12〜13肋骨あたり)
+    cx = nb[0] + f * (tb[0] - nb[0])
+    ty = nb[1] + f * (tb[1] - nb[1])           # その位置のトップラインの高さ
+    if bb:
+        by = bb[1]
+    else:                                      # 腹が未検出なら体長の1/3下を腹とみなす
+        L = ((tb[0] - nb[0]) ** 2 + (tb[1] - nb[1]) ** 2) ** 0.5
+        by = ty + 0.33 * L
+    cy = ty + 0.55 * (by - ty)                 # トップラインから腹へ55%下
+    return (int(cx), int(cy))
+
+
 def _prep_df(df):
     """マルチ個体h5から『目的馬』を単一トラックとして抽出し (bodyparts, coords) にする。
     paddock_gait.extract_target_horse と同じロジックで、毎フレーム最大・手前・連続する
@@ -112,6 +131,11 @@ def render(video, h5, out, pcutoff=PCUTOFF):
             if p:
                 r = 9 if bp in SPINE else 6
                 cv2.circle(fr, p, r, cmap[bp], -1, cv2.LINE_AA)
+        # ●馬の重心(第12〜13肋骨・肘の後ろ)を赤い点で表示
+        cog = cog_point(lambda bp: pt(row, bp))
+        if cog:
+            cv2.circle(fr, cog, 13, (255, 255, 255), -1, cv2.LINE_AA)  # 白フチ
+            cv2.circle(fr, cog, 10, (0, 0, 255), -1, cv2.LINE_AA)      # 赤(重心)
         vw.write(fr)
     cap.release(); vw.release()
 
