@@ -53,22 +53,24 @@ SKELETON = [
 
 
 def cog_point(getp):
-    """馬の重心(第12〜13肋骨=肘の後ろ)を推定して座標を返す。
-    き甲(neck_base)から尾根(tail_base)へ約1/3後ろ、トップラインから腹(belly_bottom)へ
-    約55%下、を重心とみなす。必要点が無ければ None。"""
-    nb, tb, bb = getp("neck_base"), getp("tail_base"), getp("belly_bottom")
-    if not (nb and tb):
+    """馬の重心(第12〜13肋骨=ゼッケン下・肘の後ろ)を推定して座標を返す。
+
+    首(neck_base)は頭と動くので使わず、胴の点 back_base→tail_base を基準にする:
+      ・水平: back_base から尾へ約28%(第12〜13肋骨あたり)
+      ・垂直: その点から背骨に垂直に、体長の約22%だけ腹側へ下ろす(=バレル中ほど)
+    胴基準なので斜め向きでも前へずれにくい。必要点が無ければ None。"""
+    front = getp("back_base") or getp("neck_base")
+    rear = getp("tail_base") or getp("back_end") or getp("back_middle")
+    if not (front and rear):
         return None
-    f = 0.33                                   # き甲から後方へ1/3(第12〜13肋骨あたり)
-    cx = nb[0] + f * (tb[0] - nb[0])
-    ty = nb[1] + f * (tb[1] - nb[1])           # その位置のトップラインの高さ
-    if bb:
-        by = bb[1]
-    else:                                      # 腹が未検出なら体長の1/3下を腹とみなす
-        L = ((tb[0] - nb[0]) ** 2 + (tb[1] - nb[1]) ** 2) ** 0.5
-        by = ty + 0.33 * L
-    cy = ty + 0.55 * (by - ty)                 # トップラインから腹へ55%下
-    return (int(cx), int(cy))
+    vx, vy = rear[0] - front[0], rear[1] - front[1]
+    L = (vx * vx + vy * vy) ** 0.5 or 1.0
+    fx, fy = front[0] + 0.52 * vx, front[1] + 0.52 * vy   # 背中の中央〜やや後ろ(重心の上)
+    px, py = -vy, vx                                       # 背骨に垂直
+    if py < 0:                                             # 腹方向(画面下:y+)に向ける
+        px, py = vy, -vx
+    depth = 0.22 * L                                       # バレル中ほどまで下ろす
+    return (int(fx + depth * px / L), int(fy + depth * py / L))
 
 
 def _prep_df(df):
