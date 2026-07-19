@@ -32,3 +32,5 @@ bench*.mp4
 field_gait_compare.csv
 *_compare*.html
 field_compare*.html
+tomwilson*
+*_raw.mp4
