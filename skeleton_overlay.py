@@ -16,6 +16,9 @@ import argparse, glob, os, subprocess, sys
 
 PCUTOFF = 0.6
 
+# 背骨(トップライン): 首の付け根→背中→尾。歩様評価で最重要のため専用に強調描画する
+SPINE = ["neck_end", "neck_base", "back_base", "back_middle", "back_end", "tail_base", "tail_end"]
+
 # SuperAnimal-Quadruped(39点)に対する馬の骨格線定義
 SKELETON = [
     # 顔
@@ -95,16 +98,23 @@ def render(video, h5, out, pcutoff=PCUTOFF):
         if not ok:
             break
         row = df.iloc[i]
-        # 骨格線(黒・やや太)
+        # 骨格線(黒・やや細)
         for a, b in SKELETON:
             pa, pb = pt(row, a), pt(row, b)
             if pa and pb:
                 cv2.line(fr, pa, pb, (20, 20, 20), 2, cv2.LINE_AA)
-        # 関節点(色付き)
+        # ★背骨(トップライン): 最重要。太い緑線で強調描画
+        spine_pts = [pt(row, bp) for bp in SPINE]
+        for pa, pb in zip(spine_pts, spine_pts[1:]):
+            if pa and pb:
+                cv2.line(fr, pa, pb, (255, 255, 255), 8, cv2.LINE_AA)   # 白フチ
+                cv2.line(fr, pa, pb, (60, 220, 30), 4, cv2.LINE_AA)     # 緑本体
+        # 関節点(色付き)。背骨の関節は大きめに
         for bp in bps:
             p = pt(row, bp)
             if p:
-                cv2.circle(fr, p, 6, cmap[bp], -1, cv2.LINE_AA)
+                r = 9 if bp in SPINE else 6
+                cv2.circle(fr, p, r, cmap[bp], -1, cv2.LINE_AA)
         vw.write(fr)
     cap.release(); vw.release()
 
