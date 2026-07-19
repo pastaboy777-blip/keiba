@@ -34,3 +34,6 @@ field_gait_compare.csv
 field_compare*.html
 tomwilson*
 *_raw.mp4
+kochi2*
+*.h5
+*labeled*.mp4
