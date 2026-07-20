@@ -52,6 +52,22 @@ SKELETON = [
 ]
 
 
+# 斜対(diagonal)ペア: 後肢 → 対角の前肢。この対角線を運動エネルギーが通り、
+# その中点付近に重心があるのが理想(エネルギーが重心を通る＝最小の力で最大の出力)。
+DIAGONALS = [("back_left_paw", "front_right_paw"), ("back_right_paw", "front_left_paw")]
+
+
+def _seg_dist(p, a, b):
+    """点p から線分ab への最短距離。"""
+    ax, ay = a; bx, by = b; px, py = p
+    dx, dy = bx - ax, by - ay
+    if dx == 0 and dy == 0:
+        return ((px - ax) ** 2 + (py - ay) ** 2) ** 0.5
+    t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)))
+    cx, cy = ax + t * dx, ay + t * dy
+    return ((px - cx) ** 2 + (py - cy) ** 2) ** 0.5
+
+
 def cog_point(getp):
     """馬の重心(第12〜13肋骨=ゼッケン下・肘の後ろ)を推定して座標を返す。
 
@@ -81,7 +97,7 @@ def _prep_df(df):
     return paddock_gait.extract_target_horse(df)
 
 
-def render(video, h5, out, pcutoff=PCUTOFF):
+def render(video, h5, out, pcutoff=PCUTOFF, draw_diag=True):
     import cv2, numpy as np, pandas as pd
     df = _prep_df(pd.read_hdf(h5))
     bps = list(df.columns.get_level_values(0).unique())
@@ -109,6 +125,7 @@ def render(video, h5, out, pcutoff=PCUTOFF):
         return (int(x), int(y))
 
     n = min(len(df), int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or len(df)))
+    diag_hits = diag_total = 0
     for i in range(n):
         ok, fr = cap.read()
         if not ok:
@@ -133,13 +150,44 @@ def render(video, h5, out, pcutoff=PCUTOFF):
             if p:
                 r = 9 if bp in SPINE else 6
                 cv2.circle(fr, p, r, cmap[bp], -1, cv2.LINE_AA)
-        # ●馬の重心(第12〜13肋骨・肘の後ろ)を赤い点で表示
+        # ●馬の重心(第12〜13肋骨・肘の後ろ)
         cog = cog_point(lambda bp: pt(row, bp))
+        # ◇斜対の対角線(後肢→対角前肢)を描き、その中点の真上に重心があるか判定。
+        #   理論: 支持対角線の中間点に重心 → エネルギーが重心を通る(緑=乗る/橙=ずれ)。
+        if cog and draw_diag:
+            nb, tb = pt(row, "neck_base"), pt(row, "tail_base")
+            L = (((tb[0]-nb[0])**2+(tb[1]-nb[1])**2)**0.5) if (nb and tb) else W*0.3
+            thr = 0.10 * (L or 1)
+            best = None   # (水平ずれ, 中点, 乗るか)
+            for a_bp, b_bp in DIAGONALS:
+                a, b = pt(row, a_bp), pt(row, b_bp)
+                if a and b:
+                    mid = ((a[0]+b[0])//2, (a[1]+b[1])//2)
+                    dx = abs(cog[0] - mid[0])          # 重心と中点の水平ずれ
+                    on = dx <= thr
+                    col = (60, 220, 30) if on else (0, 170, 255)
+                    cv2.line(fr, a, b, (255, 255, 255), 5, cv2.LINE_AA)
+                    cv2.line(fr, a, b, col, 2, cv2.LINE_AA)
+                    if best is None or dx < best[0]:
+                        best = (dx, mid, on)
+            if best is not None:
+                # 支持対角線(重心に一番近い方)の中点へ、重心から垂線を引く
+                col = (60, 220, 30) if best[2] else (0, 170, 255)
+                cv2.line(fr, cog, best[1], (255, 255, 255), 4, cv2.LINE_AA)
+                cv2.line(fr, cog, best[1], col, 2, cv2.LINE_AA)
+                diag_total += 1
+                diag_hits += 1 if best[2] else 0
         if cog:
             cv2.circle(fr, cog, 13, (255, 255, 255), -1, cv2.LINE_AA)  # 白フチ
             cv2.circle(fr, cog, 10, (0, 0, 255), -1, cv2.LINE_AA)      # 赤(重心)
         vw.write(fr)
     cap.release(); vw.release()
+
+    if draw_diag and diag_total:
+        pct = 100 * diag_hits / diag_total
+        print(f"斜対の対角線が重心を通過: {pct:.0f}%  "
+              f"（{diag_hits}/{diag_total}本・緑=貫く/橙=ずれ）"
+              + ("  ← エネルギーが重心を通る良い動き" if pct >= 60 else ""))
 
     # H.264へ変換(どこでも再生可)
     subprocess.run(["ffmpeg", "-y", "-i", tmp, "-c:v", "libx264", "-pix_fmt", "yuv420p",
@@ -179,6 +227,7 @@ def main():
     ap.add_argument("--h5", help="推論結果h5(省略時は自動検出)")
     ap.add_argument("--out", help="出力mp4(省略時は <video>_skeleton.mp4)")
     ap.add_argument("--pcutoff", type=float, default=PCUTOFF)
+    ap.add_argument("--no-diagonal", action="store_true", help="斜対の対角線(重心貫通)描画を切る")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
     if args.selftest:
@@ -189,7 +238,7 @@ def main():
     if not h5 or not os.path.exists(h5):
         ap.error("推論結果h5が見つかりません。--h5 で指定してください")
     out = args.out or (os.path.splitext(args.video)[0] + "_skeleton.mp4")
-    render(args.video, h5, out, args.pcutoff)
+    render(args.video, h5, out, args.pcutoff, draw_diag=not args.no_diagonal)
 
 
 if __name__ == "__main__":
