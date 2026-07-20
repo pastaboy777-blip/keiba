@@ -32,3 +32,6 @@ data/samples/chokyo_tidy_*.jsonl
 data/samples/chokyo_byhorse_*.json
 data/samples/chokyo_joined_*.jsonl
 data/samples/chokyo_horse_*.json
+
+# 一時作業用（カードHTML/PNG・cookie等）— コミットしない
+scratchpad/
