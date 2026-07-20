@@ -5,11 +5,13 @@
 import re, os, sys
 import monogatari as M
 
-def corners(rid):
-    h = open(os.path.join(M.ARC, f"sei_{rid}.html"), encoding="utf-8", errors="replace").read()
+def corners(rid, path=None):
+    p = path or os.path.join(M.ARC, f"sei_{rid}.html")
+    h = open(p, encoding="utf-8", errors="replace").read()
     out = {}
-    for m in re.finditer(r"<th>([１２３４])角</th>\s*<td>([^<]+)</td>", h):
-        cn = "１２３４".index(m.group(1)) + 1
+    # 地方(１角) と 中央(３　角 全角スペース) 両対応
+    for m in re.finditer(r"<th>([１２３４1234])[\s　]*角</th>\s*<td>([^<]+)</td>", h):
+        cn = "１２３４1234".index(m.group(1)) % 4 + 1
         out[cn] = m.group(2).strip()
     return out
 
@@ -18,7 +20,7 @@ def parse_line(s):
     # トークン: (..)=併走群 / 単独数字。区切り , - = は群の前後
     res = []
     grank = 0
-    for tok in re.findall(r"\((?:[^)]*)\)|\d+", s):
+    for tok in re.findall(r"\([^)]*\)|\d+", s):   # 併走群 or 単独馬（区切りは , . - どれでも）
         grank += 1
         members = [int(x) for x in re.findall(r"\d+", tok)]
         for lane, ub in enumerate(members):   # ( )内は内→外
