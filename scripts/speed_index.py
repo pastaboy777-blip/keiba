@@ -23,9 +23,16 @@ from bs4 import BeautifulSoup
 PERF = "https://keiba.rakuten.co.jp/race_performance/list/RACEID/{r}"
 CARD = "https://keiba.rakuten.co.jp/race_card/list/RACEID/{r}"
 
-# (A)で紙面から逆算した大井の基準タイム(指数0の標準時計・秒)と距離係数(点/秒)
-BASE = {1200: 76.0, 1400: 90.2, 1500: 97.0, 1600: 104.2, 1650: 107.5, 1700: 111.0, 2000: 132.0}
-KDIST = {1200: 10.0, 1400: 9.0, 1500: 8.5, 1600: 8.0, 1650: 7.8, 1700: 7.6, 2000: 7.0}
+# 検証で確定した構造(並行解析・3回+実測で完全に割れた 2026-07-20):
+#   指数 = -10 * (タイム - 実測基準タイム)   ※係数10は距離不問
+#   標準基準 = 二次パー(距離d[m]の関数)     ※距離正規化は係数でなく基準側(長距離外挿の破綻防止)
+#   実測基準 = 二次パー + 当日馬場差         ※馬場差は当日実測・符号一貫・一箇所で1回だけ反映
+#     (固定馬場差はMAE9.7で外れる/当日実測でMAE2.5。符号一貫が生命線)
+K = 10.0  # 距離不問
+
+def PAR(d):
+    """二次パー(標準基準タイム・秒)。d=距離[m]。"""
+    return 2.02e-6 * d * d + 0.0667 * d - 6.96
 
 
 def _tosec(t):
@@ -33,10 +40,6 @@ def _tosec(t):
     if not m:
         return None
     return (int(m.group(1)) if m.group(1) else 0) * 60 + int(m.group(2)) + int(m.group(3)) / 10
-
-
-def _nearest(dist, table):
-    return table.get(dist) or table[min(table, key=lambda d: abs(d - dist))]
 
 
 def race_time_dist(c, rid):
@@ -65,34 +68,26 @@ def main():
     ymd = a.date.replace("-", "")
     idx = c.get(CARD.format(r=day_index_race_id(ymd, a.place)), use_cache=True)
     races = dict(P.parse_race_links(idx, date_yyyymmdd=ymd, jyo_code=ALL_CODES[a.place]))
-    # 当日馬場差＝距離別「勝ちタイム − 基準」の中央値（全レースから）
-    diffs = {}
+    # 当日馬場差＝「実測タイム − 二次パー」の中央値。符号一貫で"一箇所で1回だけ"算出。
+    # 全馬(当日全レースの全着) から取る＝母数を増やして誤差を潰す(検証で確定)。
+    diffs = []          # 全馬ぶんの (実測タイム − PAR(dist))
     winlog = {}
     for R, rid in races.items():
         dist, win, rows = race_time_dist(c, rid)
-        if dist and win:
-            base = _nearest(dist, BASE)
-            diffs.setdefault(dist, []).append(win - base)
+        if dist and rows:
+            for _, t, _ in rows:
+                diffs.append(t - PAR(dist))
             winlog[R] = (dist, win, rows)
-    baba = {d: statistics.median(v) for d, v in diffs.items()}
-    # 全距離の平均馬場差（データ無い距離の代替）
-    gmean = statistics.median([x for v in diffs.values() for x in v]) if diffs else 0.0
-    print(f"=== {a.date} {a.place} スピード指数（当日馬場差込み）===")
-    print("  当日馬場差(距離別・勝ち時計−基準): " +
-          " ".join(f"{d}:{baba[d]:+.1f}s" for d in sorted(baba)) + f" / 全体{gmean:+.1f}s")
+    baba = statistics.median(diffs) if diffs else 0.0   # 当日馬場差(秒・全馬中央値・1回算出)
+    print(f"=== {a.date} {a.place} スピード指数（k=10固定・二次パー・当日馬場差{baba:+.2f}s）===")
     Rs = [a.race] if a.race else sorted(winlog)
     for R in Rs:
         if R not in winlog:
             continue
         dist, win, rows = winlog[R]
-        base = _nearest(dist, BASE)
-        k = _nearest(dist, KDIST)
-        bd = baba.get(dist, gmean)
-        print(f"\n {R:>2}R ダ{dist} 基準{base}s 係数{k}pt/s 馬場差{bd:+.1f}s")
-        out = []
-        for ub, t, fin in rows:
-            si = -k * (t - base - bd)   # 馬場差で当日補正した相対スピード指数
-            out.append((si, ub, t, fin))
+        base = PAR(dist) + baba            # 実測基準タイム = 二次パー + 当日馬場差
+        print(f"\n {R:>2}R ダ{dist} 二次パー{PAR(dist):.1f}s 実測基準{base:.1f}s")
+        out = [(-K * (t - base), ub, t, fin) for ub, t, fin in rows]  # 指数=-10*(タイム-実測基準)
         for si, ub, t, fin in sorted(out, reverse=True):
             print(f"   {fin:>2}着 {ub:>2}番 時{t:5.1f}s 指数{si:+5.1f}")
 
