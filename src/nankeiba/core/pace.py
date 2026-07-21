@@ -118,14 +118,21 @@ class PaceGrid:
         n = (0 if c1.overflow else len(c1.umaban)) + (0 if c2.overflow else len(c2.umaban))
         return n
 
-    def pace_read(self) -> str:
-        """前half の手薄さから簡易ペース読みを返す。"""
+    def pace_read(self, going: str | None = None) -> str:
+        """前half の手薄さから簡易ペース読みを返す。
+
+        going に今回の馬場('重'/'不'等)を渡すと、渋った馬場は時計が速く前が
+        止まりにくいため「前残り」寄りに補正する(前頭数のしきい値を上げる)。
+        """
         n = self.front_count()
-        if n <= 2:
-            return "前少・前残り想定(人気薄の逃げ先行も一発警戒)"
-        if n <= 4:
-            return "前やや少・平均〜前残り"
-        return "前多数・ハイペース〜差し有利想定"
+        wet = (going or "")[:1] in ("重", "不")
+        bias = 2 if wet else 0            # 重・不良は前残り側にシフト
+        tag = "(重・不良=前残り強化)" if wet else ""
+        if n <= 2 + bias:
+            return "前少・前残り想定(人気薄の逃げ先行も一発警戒)" + tag
+        if n <= 4 + bias:
+            return "前やや少・平均〜前残り" + tag
+        return "前多数・ハイペース〜差し有利想定" + tag
 
 
 def build_pace_grid(

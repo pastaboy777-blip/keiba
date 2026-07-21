@@ -33,6 +33,8 @@ def main():
     ap.add_argument("--race-id", help="楽天 race_id を直接指定(18桁)")
     ap.add_argument("--out", default="out/rakuten.html")
     ap.add_argument("--text", action="store_true")
+    ap.add_argument("--baba", choices=["良", "稍", "重", "不"],
+                    help="今回の想定馬場。重・不良で展開を前残り寄りに補正し馬場適性を表示")
     ap.add_argument("--base", type=float, default=0.0, help="指数の基準値オフセット")
     ap.add_argument("--no-cache", action="store_true")
     args = ap.parse_args()
@@ -76,7 +78,7 @@ def main():
         distance=hd.get("distance") or 0,
         date=date,
         race_no=hd.get("race_no") or args.race,
-        baba=None,
+        baba=args.baba,
         post_time=hd.get("post_time"),
         race_name=hd.get("race_name"),
     )

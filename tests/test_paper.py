@@ -134,6 +134,32 @@ class TestSummary(unittest.TestCase):
         self.assertEqual([r.umaban for r in rows], [1])   # 1200 は±200外で除外
 
 
+class TestGoingMode(unittest.TestCase):
+    def test_pace_read_wet_shift(self):
+        # 同じ前頭数でも重・不良は前残り寄りの表現に変わる
+        grid = pace.build_pace_grid([
+            (1, [rec(finish_pos=1, corner_pos=[1, 1, 1, 1])]),
+            (2, [rec(finish_pos=2, corner_pos=[2, 2, 3, 3])]),
+            (3, [rec(finish_pos=3, corner_pos=[2, 2, 2, 3])]),
+        ])
+        dry = grid.pace_read("良")
+        wet = grid.pace_read("重")
+        self.assertNotEqual(dry, wet)
+        self.assertIn("前残り", wet)
+
+    def test_going_aptitude_group(self):
+        m = hindex.SpeedIndexModel()
+        e = [
+            (1, [rec(baba="重", time_sec=100.0, finish_pos=1),
+                 rec(baba="良", time_sec=99.0, finish_pos=1)]),
+            (2, [rec(baba="良", time_sec=99.0, finish_pos=1)]),
+        ]
+        apt = summary.going_aptitude(e, m, "重")   # 重系 = {稍,重,不}
+        self.assertEqual(apt[1].n, 1)              # 馬1は重の1走のみ該当
+        self.assertEqual(apt[2].n, 0)              # 馬2は良のみ→該当なし
+        self.assertEqual(apt[1].in3_rate, 1.0)
+
+
 class TestRender(unittest.TestCase):
     def _card(self):
         m = hindex.SpeedIndexModel()

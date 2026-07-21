@@ -16,7 +16,55 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from .interval import RunRecord
-from .hindex import SpeedIndexModel, estimate_first3f
+from .hindex import SpeedIndexModel, estimate_first3f, normalize_going
+
+
+# 今回の馬場に対して「同系統」とみなす馬場(渋った馬場はまとめて評価)
+GOING_GROUP = {
+    "良": {"良"},
+    "稍": {"稍", "重"},
+    "重": {"稍", "重", "不"},
+    "不": {"重", "不"},
+}
+
+
+@dataclass
+class GoingAptitude:
+    umaban: int
+    n: int                       # 同系統馬場での該当走数
+    best_index: float | None     # そのうち最高指数
+    avg_finish: float | None     # 平均着順
+    in3_rate: float | None       # 複勝率(3着以内)
+
+
+def going_aptitude(
+    entries: Sequence[tuple[int, Sequence[RunRecord]]],
+    model: SpeedIndexModel,
+    today_going: str,
+    *,
+    lookback: int = 10,
+) -> dict[int, GoingAptitude]:
+    """今回の馬場と同系統の馬場での各馬の適性(最高指数・平均着順・複勝率)。"""
+    group = GOING_GROUP.get(normalize_going(today_going) or "", set())
+    out: dict[int, GoingAptitude] = {}
+    for umaban, runs in entries:
+        idxs: list[float] = []
+        finishes: list[int] = []
+        for rec in list(runs)[:lookback]:
+            if normalize_going(rec.baba) not in group:
+                continue
+            finishes.append(rec.finish_pos)
+            idx = model.index(rec)
+            if idx is not None:
+                idxs.append(idx)
+        n = len(finishes)
+        out[umaban] = GoingAptitude(
+            umaban=umaban, n=n,
+            best_index=max(idxs) if idxs else None,
+            avg_finish=round(sum(finishes) / n, 1) if n else None,
+            in3_rate=round(sum(1 for f in finishes if f <= 3) / n, 2) if n else None,
+        )
+    return out
 
 
 @dataclass

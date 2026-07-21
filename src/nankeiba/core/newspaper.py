@@ -83,6 +83,7 @@ class RaceCard:
     same_track: list[sm.IndexRow]
     first3f: list[sm.First3FRow]
     model: SpeedIndexModel
+    going_apt: dict[int, sm.GoingAptitude] = field(default_factory=dict)
 
 
 def build_card(
@@ -97,6 +98,7 @@ def build_card(
     top10 = sm.top_index_last10(hist, model, lookback=10)
     same_track = sm.same_track_index_top(hist, model, header.place, lookback=10)
     first3f = sm.first3f_top(hist, header.distance, lookback=5)
+    going_apt = sm.going_aptitude(hist, model, header.baba) if header.baba else {}
 
     views = [
         HorseView(
@@ -117,6 +119,7 @@ def build_card(
     return RaceCard(
         header=header, horses=views, grid=grid,
         top10=top10, same_track=same_track, first3f=first3f, model=model,
+        going_apt=going_apt,
     )
 
 
@@ -146,7 +149,7 @@ def render_text(card: RaceCard) -> str:
 
     # 展開予想グリッド
     L.append("【展開予想 — 3走以内の通過順】")
-    L.append(f"  ペース読み: {card.grid.pace_read()}  (左2マス={card.grid.front_count()}頭)")
+    L.append(f"  ペース読み: {card.grid.pace_read(h.baba)}  (左2マス={card.grid.front_count()}頭)")
     L.append("  ┌─ 5着以内 ────────────────────────┬─ 6着以降 ──┐")
     hdr = ["逃げ", "3・4角3内", "4角3内", "4角4外", "逃げ", "3・4角3内"]
     for (key, label, in5), name in zip(pc.BUCKETS, hdr):
@@ -162,6 +165,16 @@ def render_text(card: RaceCard) -> str:
             f"{r.place} {r.distance} {r.baba or ''} {r.date}"
         )
     L.append("")
+
+    # 馬場適性(今回の馬場が渋っているときに表示)
+    if card.going_apt and h.baba and h.baba[:1] in ("稍", "重", "不"):
+        apt = [a for a in card.going_apt.values() if a.n > 0]
+        apt.sort(key=lambda a: (a.best_index if a.best_index is not None else -99), reverse=True)
+        L.append(f"【馬場適性({h.baba}系)】(馬番 最高指数 複勝率 該当走数)")
+        for a in apt[:10]:
+            bi = f"{a.best_index:+.0f}" if a.best_index is not None else "  -"
+            L.append(f"  {a.umaban:>2}  {bi}  複{a.in3_rate:.0%}  ({a.n}走)")
+        L.append("")
 
     # 同競馬場 指数上位
     if card.same_track:
@@ -266,6 +279,20 @@ def render_html(card: RaceCard, *, title: str | None = None,
     same_track = " ".join(
         f"<span class='chip'>{r.umaban}<b>{r.index:+.0f}</b></span>" for r in card.same_track[:12]
     ) or "―"
+    wet_today = bool(h.baba and h.baba[:1] in ("稍", "重", "不"))
+    going_block = ""
+    if wet_today and card.going_apt:
+        apt = [a for a in card.going_apt.values() if a.n > 0]
+        apt.sort(key=lambda a: (a.best_index if a.best_index is not None else -99), reverse=True)
+        chips = " ".join(
+            f"<span class='chip'>{a.umaban}<b>{a.best_index:+.0f}</b>"
+            f"<span class='sub2'>複{a.in3_rate:.0%}</span></span>"
+            for a in apt[:12]
+        ) or "―"
+        going_block = (
+            f"<div class='stitle' style='margin-top:12px;border-color:#0b57d0'>"
+            f"馬場適性（{esc(h.baba)}系・最高指数/複勝率）</div><div>{chips}</div>"
+        )
     first3f = " ".join(
         f"<span class='chip'>{r.umaban}<b>{r.first3f:.1f}</b></span>" for r in card.first3f
     ) or "―"
@@ -329,6 +356,7 @@ table.sum td.sd {{ color:var(--sub); }}
 .chip {{ display:inline-block; border:1px solid #ccc; border-radius:12px; padding:1px 8px;
   margin:2px 2px; background:#fafafa; }}
 .chip b {{ color:var(--blue); margin-left:3px; }}
+.chip .sub2 {{ color:var(--sub); margin-left:4px; font-size:11px; }}
 /* 馬柱 */
 .uma {{ overflow-x:auto; }}
 table.bacho {{ border-collapse:collapse; width:100%; }}
@@ -370,7 +398,7 @@ thead td {{ background:#333; color:#fff; text-align:center; font-weight:700; }}
   <h2>展開予想 — 3走以内の通過順</h2>
   <div class="section">
     {f'<div class="note-box">{esc(pace_note)}</div>' if pace_note else ''}
-    <div class="pace-read">ペース読み：{esc(card.grid.pace_read())}
+    <div class="pace-read">ペース読み：{esc(card.grid.pace_read(h.baba))}
       <span class="fc">（左2マス＝{card.grid.front_count()}頭）</span></div>
     <div class="grid-wrap">
       <div class="grp in5"><div class="cap">5着以内だった走</div><div class="row">{grid_in5}</div></div>
@@ -395,6 +423,7 @@ thead td {{ background:#333; color:#fff; text-align:center; font-weight:700; }}
         <div>{same_track}</div>
         <div class="stitle" style="margin-top:12px">前3Fタイム上位（{h.distance}m±200m・概算）</div>
         <div>{first3f}</div>
+        {going_block}
       </div>
     </div>
   </div>
