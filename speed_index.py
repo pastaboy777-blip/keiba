@@ -24,6 +24,17 @@ speed_index.py — スピード指数を「作る」＆新聞の指数式を「�
 """
 import argparse, csv
 
+# (A)で逆算した紙面指数の係数プリセット: place → {距離: (距離指数k[点/秒], 基準タイム[秒])}
+# 指数 = -k × (走破タイム − 基準タイム − 馬場差)。紙面値と一致（大井1200 76.1→-1 等）。
+PRESETS = {
+    "大井": {1200: (10.0, 76.0), 1400: (9.0, 90.2), 1600: (8.0, 104.2)},
+}
+
+
+def preset(place, dist):
+    """place・距離から (距離指数, 基準タイム) を返す。無ければ None。"""
+    return PRESETS.get(place, {}).get(int(dist))
+
 
 def to_sec(t):
     """'1:15.8' でも '75.8' でも秒(float)に。"""
@@ -34,9 +45,11 @@ def to_sec(t):
     return float(t)
 
 
-def speed_index(time_sec, base_time, dist_coef, track_adj=0.0, base=0.0):
-    """スピード指数を計算。走破タイムが基準より速いほど高い。"""
-    return (base_time - time_sec) * dist_coef + track_adj + base
+def speed_index(time_sec, base_time, dist_coef, track_diff=0.0):
+    """紙面互換のスピード指数。指数 = -k×(走破タイム − 基準タイム − 馬場差)。
+    馬場差(track_diff): 負=速い日(基準より速い時計が出る日)。走破タイムが基準・馬場を
+    考慮して速いほど指数が高い。"""
+    return -dist_coef * (time_sec - base_time - track_diff)
 
 
 def fit(samples):
@@ -64,10 +77,19 @@ def fit(samples):
 
 
 def cmd_calc(args):
-    idx = speed_index(to_sec(args.time), to_sec(args.base_time),
-                      args.dist_coef, args.track_adj, args.base)
-    print(f"走破タイム {args.time}（{to_sec(args.time):.1f}s） / 基準 {args.base_time} / "
-          f"距離指数 {args.dist_coef} → 指数 = {idx:.1f}")
+    # place＋距離のプリセットがあれば係数を自動適用（(A)で復元した紙面互換係数）
+    if args.place and args.dist and preset(args.place, args.dist):
+        k, base_time = preset(args.place, args.dist)
+        src = f"{args.place}{int(args.dist)}m プリセット"
+    else:
+        if args.dist_coef is None or args.base_time is None:
+            raise SystemExit("--place/--dist のプリセットが無い場合は --dist-coef と --base-time を指定してください")
+        k, base_time = args.dist_coef, to_sec(args.base_time)
+        src = "手動指定"
+    idx = speed_index(to_sec(args.time), base_time, k, args.track_diff)
+    md = f" 馬場差{args.track_diff:+.1f}s" if args.track_diff else ""
+    print(f"[{src}] 距離指数k={k} 基準{base_time:.1f}s{md}")
+    print(f"走破タイム {args.time}（{to_sec(args.time):.1f}s） → 指数 = {idx:.1f}")
 
 
 def cmd_fit(args):
@@ -102,11 +124,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--selftest", action="store_true")
     sub = ap.add_subparsers(dest="cmd")
-    pc = sub.add_parser("calc", help="指数を計算する")
-    pc.add_argument("--time", required=True); pc.add_argument("--base-time", required=True)
-    pc.add_argument("--dist-coef", type=float, required=True)
-    pc.add_argument("--track-adj", type=float, default=0.0)
-    pc.add_argument("--base", type=float, default=0.0)
+    pc = sub.add_parser("calc", help="指数を計算する（大井はプリセット自動適用）")
+    pc.add_argument("--time", required=True, help="走破タイム（1:16.1 でも 76.1 でも可）")
+    pc.add_argument("--place", help="競馬場（例: 大井）プリセット適用")
+    pc.add_argument("--dist", type=int, help="距離m（例: 1200）プリセット適用")
+    pc.add_argument("--track-diff", type=float, default=0.0, help="馬場差(秒・負=速い日)")
+    pc.add_argument("--base-time", help="基準タイム（プリセット外の手動指定用）")
+    pc.add_argument("--dist-coef", type=float, help="距離指数（プリセット外の手動指定用）")
     pf = sub.add_parser("fit", help="新聞の(time,index)から式を逆算")
     pf.add_argument("data", help="CSV: time,index の2列（同一距離）")
     args = ap.parse_args()
