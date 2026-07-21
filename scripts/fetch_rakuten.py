@@ -56,6 +56,11 @@ def main():
     card = rk.parse_card(html)
     hd = card["header"]
     entries = card["entries"]
+    if not entries:
+        print(f"⚠️ 出馬表がまだ発表されていないようです({hd.get('place')} "
+              f"{hd.get('race_no')}R)。楽天競馬は前日発表のため、開催前日以降に再取得してください。",
+              file=sys.stderr)
+        sys.exit(2)
     print(f"      {hd.get('place')} {hd.get('race_no')}R {hd.get('distance')}m / {len(entries)}頭")
     for e in entries:
         n_corner = sum(1 for r in e["history"] if r.corner_pos)
