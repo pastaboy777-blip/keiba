@@ -216,3 +216,30 @@ def parse_card(html: str) -> dict:
         })
     entries.sort(key=lambda e: e["umaban"])
     return {"header": header, "entries": entries}
+
+
+def parse_result(html: str) -> list[dict]:
+    """競走成績(race_performance)ページの着順表を返す。
+
+    return: [{"finish","umaban","name","popularity"}, ...] 着順昇順。
+    """
+    mt = re.search(r'class="dataTable".*?</table>', html, re.S)
+    if not mt:
+        return []
+    out = []
+    for r in re.findall(r"<tr[^>]*>(.*?)</tr>", mt.group(0), re.S):
+        # 着順=<td class="order">, 枠=<th>, 馬番=<td class="number"> の順。th も拾う。
+        c = [_clean(x) for x in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.S)]
+        if len(c) < 4 or not c[0].isdigit():
+            continue
+        try:
+            finish = int(c[0]); umaban = int(c[2])
+        except ValueError:
+            continue
+        pop = None
+        for x in reversed(c):
+            if x.isdigit() and 1 <= int(x) <= 18:
+                pop = int(x); break
+        out.append({"finish": finish, "umaban": umaban, "name": c[3], "popularity": pop})
+    out.sort(key=lambda x: x["finish"])
+    return out
