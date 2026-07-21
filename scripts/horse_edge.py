@@ -16,7 +16,7 @@ from nankeiba.scraping.race_id import day_index_race_id, ALL_CODES
 from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping import parser as P
 sys.path.insert(0,'scripts')
-from ana_recall import is_hyperion, _HYPERION_SIRES
+from ana_recall import is_hyperion, _HYPERION_SIRES, pace_aptitude
 
 CARD = "https://keiba.rakuten.co.jp/race_card/list/RACEID/{r}"
 # 南関ダートで"道悪(渋った馬場)巧者"を出しやすい主な種牡馬（経験薄馬の代替判断用・随時追記）
@@ -45,6 +45,11 @@ def main():
             continue
         recs = e.recent_runs or []
         tags = []
+        # --- ペース適性 S/H/F/U (TARGET指数の分類をデータ再現・持続巡航の速度分解より) ---
+        _apt = pace_aptitude(e)
+        if _apt != "U":
+            _lab = {"S": "瞬発S(スロー向)", "H": "持続H(ハイ向)", "F": "自在F"}[_apt]
+            tags.append(f"ペース{_lab}")
         # --- 道悪適性(馬場程度別) ---
         lv = {"稍": [0, 0], "重": [0, 0], "不": [0, 0]}
         for pr in recs:

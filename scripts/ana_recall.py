@@ -48,6 +48,34 @@ def is_hyperion(pr):
     return (-1.0 <= tare <= 2.5) and mid >= _BAND_MED.get(band, 99)
 
 
+def pace_aptitude(e):
+    """ペース適性 S/H/F/U を過去走の速度分解(垂れ率)から算出。TARGET指数の分類をデータ再現。
+    S=瞬発力(スロー向き・終い大幅加速) / H=持続力(ハイ向き・垂れず高速巡航=持続巡航) /
+    F=自在(両方の走りができる) / U=判別不能(データ不足)。
+    運用：field_pace(§rule8)が「ハイ」ならH型、「スロー」ならS型が噛み合う＝加点。"""
+    recs = e.recent_runs or []
+    s = h = 0
+    for pr in recs[:5]:
+        d = getattr(pr, "distance", None)
+        tt = _tosec(getattr(pr, "time", None))
+        ag = getattr(pr, "agari", None)
+        if not (d and tt and ag) or tt <= ag or ag <= 0:
+            continue
+        mid = (d - 600) / (tt - ag) * 3.6      # 道中速度 km/h
+        fin = 600 / ag * 3.6                    # 終い速度 km/h
+        tare = (mid - fin) / mid * 100          # 垂れ率(%)：負=終い加速/正=失速
+        band = "短" if d <= 1200 else ("マ" if d <= 1600 else ("中" if d <= 1800 else "長"))
+        if tare <= -3.0:                        # 終いを大きく加速＝瞬発(スロー向き)
+            s += 1
+        elif -1.0 <= tare <= 2.5 and mid >= _BAND_MED.get(band, 99):  # 垂れず高速巡航＝持続(ハイ向き)
+            h += 1
+    if s == 0 and h == 0:
+        return "U"
+    if s >= 1 and h >= 1 and abs(s - h) <= 1:
+        return "F"
+    return "H" if h >= s else "S"
+
+
 def closer_grade(e):
     """終いの決め手の質を判定＝"本物の差し"か。強=位置を上げて好走を反復 / 弱=後方どまり。
     戻り値: '強' / '弱' / None"""
