@@ -83,32 +83,41 @@ class TestIndex(unittest.TestCase):
         slow = m.index(rec(time_sec=103.0))
         self.assertGreater(fast, slow)
 
-    def test_slope_1600_about_4(self):
-        # 距離係数: 1600m で 4.0 点/秒 (逆解析アンカー)
+    def test_slope_k10(self):
+        # エンジンB: k=10固定(距離不問)。1秒差=10点。
         m = hindex.SpeedIndexModel()
         a = m.index(rec(time_sec=100.0))
         b = m.index(rec(time_sec=101.0))
-        self.assertAlmostEqual(a - b, 4.0, delta=0.5)
+        self.assertAlmostEqual(a - b, 10.0, delta=0.5)
 
-    def test_shorter_distance_steeper(self):
+    def test_slope_k10_any_distance(self):
+        # 距離を変えても1秒=10点(係数は距離不問)
         m = hindex.SpeedIndexModel()
-        self.assertGreater(m.coef(1200), m.coef(1600))
+        a = m.index(rec(distance=1200, time_sec=73.0))
+        b = m.index(rec(distance=1200, time_sec=74.0))
+        self.assertAlmostEqual(a - b, 10.0, delta=0.5)
 
-    def test_going_penalty(self):
-        # 同タイムなら濡れた馬場ほど指数が低い(基準が速い)
-        m = hindex.SpeedIndexModel()
-        ryo = m.index(rec(baba="良", time_sec=101.0))
-        omo = m.index(rec(baba="重", time_sec=101.0))
-        self.assertGreater(ryo, omo)
+    def test_par_quadratic_monotonic(self):
+        # 基準パーは距離に対して単調増加
+        self.assertLess(hindex.par_time(1200), hindex.par_time(1600))
+        self.assertLess(hindex.par_time(1600), hindex.par_time(2000))
+
+    def test_day_variant_shifts(self):
+        # 同タイムでも、その日が速い(B大)ほど指数は低くなる(基準が速い)
+        slow_day = hindex.SpeedIndexModel(global_variant=0.0)
+        fast_day = hindex.SpeedIndexModel(global_variant=1.0)  # par+1秒=遅い基準→高指数
+        r = rec(time_sec=101.0)
+        self.assertGreater(fast_day.index(r), slow_day.index(r))
 
     def test_no_time_none(self):
         self.assertIsNone(hindex.SpeedIndexModel().index(rec(time_sec=None)))
 
-    def test_fit_learns_standard(self):
-        runs = [rec(place="大井", distance=1600, baba="良", time_sec=100.0 + i * 0.1)
-                for i in range(20)]
+    def test_fit_learns_variant(self):
+        # 同日・同場に十分な母数があれば day_variant を実測する
+        runs = [rec(date="2026-06-01", place="大井", distance=1600, time_sec=100.0 + i * 0.1)
+                for i in range(10)]
         m = hindex.SpeedIndexModel.fit(runs, min_samples=5)
-        self.assertIn(1600, m.standard["大井"])
+        self.assertIn(("2026-06-01", "大井"), m.day_variant)
 
 
 class TestSummary(unittest.TestCase):
