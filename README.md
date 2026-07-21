@@ -180,10 +180,28 @@ tests/         単体テスト
 python3 scripts/paper_demo.py            # 合成データ→ out/paper_demo.html
 python3 scripts/paper_demo.py --text     # テキストも表示
 
-# 実データ(明日の大井など)から作る:
+# ★実データ(明日の大井など)から作る — 楽天競馬から自動取得(推奨・無料・Cookie不要)
+python3 scripts/fetch_rakuten.py --date 20260722 --place 大井 --race 11 \
+    --out out/oi11.html --text
+
+# 手元の JSON から作る:
 python3 scripts/build_paper.py data/sample_entries.json --out out/oi.html --text
-python3 scripts/build_paper.py entries.json --corpus data/results.jsonl  # 指数校正を強化
 ```
+
+### データ取得(実データで新聞を作る)
+
+| 取得元 | スクリプト | 指数(タイム) | 展開(通過順) | 備考 |
+|--------|-----------|:---:|:---:|------|
+| **楽天競馬** | `scripts/fetch_rakuten.py` | ✅ | ✅ | **推奨**。無料・ログイン不要。出馬表の馬柱にタイムも通過順もインラインで入っており、**1レース1取得で指数＆展開の両方**が作れる |
+| 競馬ブック | `scripts/fetch_keibabook.py` | ✅ | ⚠️非公開 | 会員 Cookie 必要(`data/.keibabook_cookie`)。プランにより通過順・前半3Fが `****` でマスクされる場合あり |
+| 手入力 JSON | `scripts/build_paper.py` | ✅ | ✅ | `data/sample_entries.json` を雛形に自分で用意 |
+
+楽天版の仕組み(`scraping/rakuten.py`):
+`race_card` ページの各馬の1過去走セル
+`9 良 9頭 … 船橋 25.08.27 … 1800左ダ … 1:57.2 (6.1) 40.4 526k 4番 6-6-8-9 …`
+を正規表現で分解し、着順・馬場・頭数・競馬場・距離・**走破タイム**・上り3F・**通過順**を
+`RunRecord` 化する(芝走はダート指数のため除外)。競馬場・レース番号は
+`find_race_id(date, place, race_no)` が日付ページから解決する。
 
 ### 指数の正体 = スピード指数(西田式ベース)
 
