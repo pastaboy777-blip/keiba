@@ -11,6 +11,9 @@ data/*.csv
 data/*.sqlite
 data/*.db
 
+# 生成物(新聞HTML など)
+out/
+
 .DS_Store
 .idea/
 .vscode/

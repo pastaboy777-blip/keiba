@@ -94,6 +94,9 @@ class RunRecord:
         corner_pos:  各コーナー通過順位(前→後)。例 [10,8,6]。脚質判定に使う
         agari_rank:  上がり3F順位(1=最速)。末脚の鋭さに使う
         days_since_last: 前走からの間隔[日]。None なら build_profile が日付列から補完。
+        time_sec:    走破タイム[秒]。指数(スピード指数)の算出に使う。
+        first3f_sec: 前半3F[秒](概算)。展開・先行力の把握に使う。
+        last3f_sec:  上がり3F[秒]。末脚・詰脚の評価に使う。
     """
 
     date: str
@@ -108,6 +111,9 @@ class RunRecord:
     corner_pos: list[int] = field(default_factory=list)
     agari_rank: int | None = None
     days_since_last: int | None = None
+    time_sec: float | None = None
+    first3f_sec: float | None = None
+    last3f_sec: float | None = None
 
     def finish_strength(self) -> float:
         """着順ベースの強さ。1着=1.0、最下位=~0.0。"""

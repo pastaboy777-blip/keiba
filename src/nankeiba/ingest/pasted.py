@@ -22,6 +22,20 @@ def _to_float(s: str) -> float | None:
         return None
 
 
+def _parse_time(s: str) -> float | None:
+    """走破タイム文字列を秒に変換する。'1:23.4' → 83.4、'83.4' → 83.4。"""
+    s = (s or "").strip()
+    if not s:
+        return None
+    if ":" in s:
+        try:
+            m, rest = s.split(":", 1)
+            return int(m) * 60 + float(rest)
+        except ValueError:
+            return None
+    return _to_float(s)
+
+
 def parse_result_table(
     text: str,
     *,
@@ -49,13 +63,14 @@ def parse_result_table(
         name = cols[3].strip()
         jockey = cols[8].strip()
         trainer = cols[9].strip()
+        time_sec = _parse_time(cols[10]) if len(cols) > 10 else None
         agari = _to_float(cols[12])
         corner = [int(x) for x in cols[13].split("-") if x.strip().isdigit()]
         pop = int(cols[14]) if len(cols) > 14 and cols[14].strip().isdigit() else None
         rows.append({
             "finish_pos": finish, "umaban": umaban, "name": name,
-            "jockey": jockey, "trainer": trainer, "agari": agari,
-            "corner": corner, "popularity": pop,
+            "jockey": jockey, "trainer": trainer, "time_sec": time_sec,
+            "agari": agari, "corner": corner, "popularity": pop,
         })
 
     # 上がり3F順位(レース内でタイムの速い順、データ欠損は末尾扱い)
@@ -77,6 +92,7 @@ def parse_result_table(
             "baba": baba,
             "corner_pos": r["corner"],
             "agari_rank": rank_of.get(id(r)),
+            "time_sec": r["time_sec"],
         })
 
     return {

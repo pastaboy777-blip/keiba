@@ -1,0 +1,413 @@
+"""新聞風の「指数＆展開予想」ビューを組み立ててレンダリングする。
+
+実物の南関競馬新聞のうち、本パイプラインで再現する中核=
+  ・展開予想「3走以内の通過順」6マスグリッド (pace.py)
+  ・スピード指数と、その一覧サマリー (hindex.py / summary.py)
+  ・指数つき簡易馬柱(過去5走: 日付/場/距離/馬場/着順/タイム/通過順/指数)
+をまとめ、テキスト or HTML に出力する。
+
+依存ライブラリなし(標準ライブラリのみ)。
+"""
+
+from __future__ import annotations
+
+import html
+from dataclasses import dataclass, field
+from typing import Sequence
+
+from .interval import RunRecord
+from .hindex import SpeedIndexModel, normalize_going
+from . import pace as pc
+from . import summary as sm
+
+
+# ---------------------------------------------------------------------------
+# 入力データ構造
+# ---------------------------------------------------------------------------
+
+@dataclass
+class PaperEntry:
+    """新聞に載せる1頭分。"""
+    umaban: int
+    name: str
+    history: list[RunRecord] = field(default_factory=list)   # 新しい順
+    sex_age: str | None = None       # 例 "牝3"
+    jockey: str | None = None
+    trainer: str | None = None
+    waku: int | None = None
+
+
+@dataclass
+class RaceHeader:
+    place: str
+    distance: int
+    date: str
+    race_no: int | None = None
+    baba: str | None = None
+    post_time: str | None = None
+    race_name: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# 指数印(新聞の◎○▲△など): 場内の相対順位で付与
+# ---------------------------------------------------------------------------
+
+MARKS = ["◎", "○", "▲", "△", "△"]
+
+
+def _best_index(runs: Sequence[RunRecord], model: SpeedIndexModel, lookback: int):
+    best = None
+    for rec in list(runs)[:lookback]:
+        idx = model.index(rec)
+        if idx is None:
+            continue
+        if best is None or idx > best:
+            best = idx
+    return best
+
+
+@dataclass
+class HorseView:
+    entry: PaperEntry
+    idx_best2: float | None       # 近2走以内の最高指数(上段)
+    idx_best5: float | None       # 近5走以内の最高指数(下段)
+    mark: str = ""                # 場内順位に基づく印
+
+
+@dataclass
+class RaceCard:
+    header: RaceHeader
+    horses: list[HorseView]
+    grid: pc.PaceGrid
+    top10: list[sm.IndexRow]
+    same_track: list[sm.IndexRow]
+    first3f: list[sm.First3FRow]
+    model: SpeedIndexModel
+
+
+def build_card(
+    header: RaceHeader,
+    entries: Sequence[PaperEntry],
+    model: SpeedIndexModel,
+) -> RaceCard:
+    """出走馬と指数モデルから新聞1レース分のカードを組み立てる。"""
+    hist = [(e.umaban, e.history) for e in entries]
+
+    grid = pc.build_pace_grid(hist)
+    top10 = sm.top_index_last10(hist, model, lookback=10)
+    same_track = sm.same_track_index_top(hist, model, header.place, lookback=10)
+    first3f = sm.first3f_top(hist, header.distance, lookback=5)
+
+    views = [
+        HorseView(
+            entry=e,
+            idx_best2=_best_index(e.history, model, 2),
+            idx_best5=_best_index(e.history, model, 5),
+        )
+        for e in entries
+    ]
+    # 印: 近5走最高指数の場内順位上位から ◎○▲△△
+    ranked = sorted(
+        [v for v in views if v.idx_best5 is not None],
+        key=lambda v: v.idx_best5, reverse=True,
+    )
+    for i, v in enumerate(ranked[:len(MARKS)]):
+        v.mark = MARKS[i]
+
+    return RaceCard(
+        header=header, horses=views, grid=grid,
+        top10=top10, same_track=same_track, first3f=first3f, model=model,
+    )
+
+
+# ---------------------------------------------------------------------------
+# テキスト出力
+# ---------------------------------------------------------------------------
+
+def _fmt_idx(x: float | None) -> str:
+    if x is None:
+        return "  -"
+    return f"{x:+.0f}"
+
+
+def render_text(card: RaceCard) -> str:
+    h = card.header
+    L: list[str] = []
+    title = f"{h.place} {h.race_no or ''}R {h.distance}m"
+    if h.baba:
+        title += f" {h.baba}"
+    title += f"  {h.date}"
+    if h.post_time:
+        title += f" {h.post_time}"
+    L.append(title)
+    if h.race_name:
+        L.append(h.race_name)
+    L.append("=" * 56)
+
+    # 展開予想グリッド
+    L.append("【展開予想 — 3走以内の通過順】")
+    L.append(f"  ペース読み: {card.grid.pace_read()}  (左2マス={card.grid.front_count()}頭)")
+    L.append("  ┌─ 5着以内 ────────────────────────┬─ 6着以降 ──┐")
+    hdr = ["逃げ", "3・4角3内", "4角3内", "4角4外", "逃げ", "3・4角3内"]
+    for (key, label, in5), name in zip(pc.BUCKETS, hdr):
+        cell = card.grid.cell(key)
+        L.append(f"  [{name:<8}] {cell.display()}")
+    L.append("")
+
+    # 10走以内 指数上位
+    L.append("【10走以内 指数上位】(馬番 指数 / 何走前 場 距離 馬場 日付)")
+    for r in card.top10[:12]:
+        L.append(
+            f"  {r.umaban:>2}  {r.index:+.0f}  /{r.runs_ago}走前 "
+            f"{r.place} {r.distance} {r.baba or ''} {r.date}"
+        )
+    L.append("")
+
+    # 同競馬場 指数上位
+    if card.same_track:
+        L.append(f"【同競馬場({h.place})指数上位】")
+        L.append("  " + "  ".join(f"{r.umaban}({r.index:+.0f})" for r in card.same_track[:10]))
+        L.append("")
+
+    # 前3F上位
+    if card.first3f:
+        L.append(f"【前3Fタイム上位】(今回{h.distance}m ±200m・概算)")
+        L.append("  " + "  ".join(f"{r.umaban}({r.first3f:.1f})" for r in card.first3f))
+        L.append("")
+
+    # 簡易馬柱(指数つき)
+    L.append("【出走各馬 指数】(印 馬番 馬名  上=近2走max 下=近5走max)")
+    for v in card.horses:
+        e = v.entry
+        L.append(
+            f"  {v.mark or '  '} {e.umaban:>2} {e.name:<12} "
+            f"近2:{_fmt_idx(v.idx_best2)}  近5:{_fmt_idx(v.idx_best5)}"
+        )
+    return "\n".join(L)
+
+
+# ---------------------------------------------------------------------------
+# HTML 出力(新聞レイアウト再現)
+# ---------------------------------------------------------------------------
+
+def _going_class(baba: str | None) -> str:
+    g = normalize_going(baba)
+    return {"良": "b-ryo", "稍": "b-yaya", "重": "b-omo", "不": "b-fu"}.get(g or "", "")
+
+
+def _corner_str(cp) -> str:
+    return "-".join(str(c) for c in (cp or []) if c)
+
+
+def render_html(card: RaceCard, *, title: str | None = None) -> str:
+    h = card.header
+    esc = html.escape
+    doc_title = title or f"{h.place}{h.race_no or ''}R {h.distance}m 指数＆展開予想"
+
+    # --- 各馬の簡易馬柱行 ---
+    def horse_row(v: HorseView) -> str:
+        e = v.entry
+        cells = []
+        for rec in e.history[:5]:
+            idx = card.model.index(rec)
+            idx_txt = f"{idx:+.0f}" if idx is not None else "―"
+            t = f"{rec.time_sec:.1f}" if rec.time_sec is not None else "―"
+            dline = (f"{esc(rec.date[5:])} {esc(rec.place)} {rec.distance}"
+                     f"<span class='baba {_going_class(rec.baba)}'>{esc(rec.baba or '')}</span>")
+            cells.append(
+                f"<td class='run'>"
+                f"<div class='rl1'>{dline}</div>"
+                f"<div class='rl2'>{rec.finish_pos}着 <b>{t}</b> "
+                f"<span class='corner'>{_corner_str(rec.corner_pos)}</span></div>"
+                f"<div class='ridx'>{idx_txt}</div>"
+                f"</td>"
+            )
+        while len(cells) < 5:
+            cells.append("<td class='run empty'></td>")
+        mark = v.mark or ""
+        return (
+            f"<tr>"
+            f"<td class='um um{((e.umaban - 1) % 8) + 1}'>{e.umaban}</td>"
+            f"<td class='horse'>"
+            f"<div class='mark'>{mark}</div>"
+            f"<div class='hn'>{esc(v.entry.name)}</div>"
+            f"<div class='meta'>{esc(v.entry.sex_age or '')} {esc(v.entry.jockey or '')}</div>"
+            f"</td>"
+            f"<td class='idx'>"
+            f"<div class='i2'>{_fmt_idx(v.idx_best2)}</div>"
+            f"<div class='i5'>{_fmt_idx(v.idx_best5)}</div>"
+            f"</td>"
+            + "".join(cells) +
+            f"</tr>"
+        )
+
+    horse_rows = "\n".join(horse_row(v) for v in card.horses)
+
+    # --- 展開グリッド ---
+    def grid_cell(key: str) -> str:
+        cell = card.grid.cell(key)
+        if cell.overflow:
+            body = "<span class='over'>―(10頭超)</span>"
+        else:
+            body = "".join(f"<span class='pnum'>{u}</span>" for u in cell.umaban) or "<span class='none'>―</span>"
+        return f"<div class='gcell'><div class='glabel'>{esc(cell.label)}</div><div class='gbody'>{body}</div></div>"
+
+    grid_in5 = "".join(grid_cell(k) for k in pc.IN5_KEYS)
+    grid_out = "".join(grid_cell(k) for k in pc.OUT_KEYS)
+
+    # --- サマリー ---
+    top10_rows = "".join(
+        f"<tr><td class='sn'>{r.umaban}</td><td class='si'>{r.index:+.0f}</td>"
+        f"<td>{r.runs_ago}走前</td><td>{esc(r.place)}</td><td>{r.distance}</td>"
+        f"<td>{esc(r.baba or '')}</td><td class='sd'>{esc(r.date)}</td></tr>"
+        for r in card.top10[:14]
+    )
+    same_track = " ".join(
+        f"<span class='chip'>{r.umaban}<b>{r.index:+.0f}</b></span>" for r in card.same_track[:12]
+    ) or "―"
+    first3f = " ".join(
+        f"<span class='chip'>{r.umaban}<b>{r.first3f:.1f}</b></span>" for r in card.first3f
+    ) or "―"
+
+    baba_txt = f" ({esc(h.baba)})" if h.baba else ""
+    subttl = f"{esc(h.date)}　{esc(h.post_time or '')}"
+
+    return f"""<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{esc(doc_title)}</title>
+<style>
+:root {{
+  --line:#222; --bg:#fff; --ink:#111; --sub:#666;
+  --pink:#ffe0ea; --blue:#0b57d0; --orange:#ff7a00; --grid:#e6e6e6;
+}}
+* {{ box-sizing:border-box; }}
+body {{ margin:0; background:#f3f2ee; color:var(--ink);
+  font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+  font-size:13px; -webkit-text-size-adjust:100%; }}
+.paper {{ max-width:1080px; margin:14px auto; background:var(--bg);
+  border:2px solid var(--line); }}
+.masthead {{ display:flex; align-items:center; gap:12px; padding:8px 12px;
+  border-bottom:3px solid var(--line); background:#111; color:#fff; }}
+.masthead .rno {{ font-size:22px; font-weight:900; background:#fff; color:#111;
+  border-radius:4px; padding:1px 9px; }}
+.masthead .place {{ font-size:22px; font-weight:900; letter-spacing:2px; }}
+.masthead .dist {{ font-size:26px; font-weight:900; }}
+.masthead .sub {{ margin-left:auto; font-size:12px; color:#ddd; text-align:right; }}
+h2 {{ font-size:14px; margin:0; padding:6px 12px; background:#111; color:#fff;
+  letter-spacing:1px; }}
+.section {{ padding:10px 12px; border-bottom:1px solid var(--line); }}
+/* 展開グリッド */
+.pace-read {{ font-weight:700; margin-bottom:6px; }}
+.pace-read .fc {{ color:var(--blue); }}
+.grid-wrap {{ display:flex; gap:8px; align-items:stretch; }}
+.grp {{ border:2px solid var(--line); }}
+.grp .cap {{ background:#333; color:#fff; text-align:center; font-weight:700;
+  padding:2px; font-size:12px; }}
+.grp .row {{ display:flex; }}
+.gcell {{ width:150px; border-right:1px solid var(--grid); }}
+.gcell:last-child {{ border-right:none; }}
+.grp.out .gcell {{ width:130px; }}
+.glabel {{ background:#f0efe9; border-bottom:1px solid var(--grid); text-align:center;
+  font-weight:700; padding:3px; font-size:12px; }}
+.gbody {{ min-height:64px; padding:6px; display:flex; flex-wrap:wrap; gap:5px 6px;
+  align-content:flex-start; }}
+.pnum {{ display:inline-flex; align-items:center; justify-content:center; min-width:22px;
+  height:22px; border:1px solid #333; border-radius:3px; font-weight:700; background:#fff; }}
+.none,.over {{ color:var(--sub); }}
+/* サマリー */
+.cols {{ display:flex; gap:14px; flex-wrap:wrap; }}
+.col {{ flex:1; min-width:280px; }}
+.stitle {{ font-weight:800; border-left:5px solid var(--orange); padding-left:6px;
+  margin-bottom:5px; }}
+table.sum {{ border-collapse:collapse; width:100%; font-size:12px; }}
+table.sum td {{ border:1px solid var(--grid); padding:1px 5px; text-align:center; }}
+table.sum td.sn {{ font-weight:800; background:#f6f5f1; }}
+table.sum td.si {{ font-weight:800; color:var(--blue); }}
+table.sum td.sd {{ color:var(--sub); }}
+.chip {{ display:inline-block; border:1px solid #ccc; border-radius:12px; padding:1px 8px;
+  margin:2px 2px; background:#fafafa; }}
+.chip b {{ color:var(--blue); margin-left:3px; }}
+/* 馬柱 */
+.uma {{ overflow-x:auto; }}
+table.bacho {{ border-collapse:collapse; width:100%; }}
+table.bacho td {{ border:1px solid #d8d8d8; vertical-align:top; }}
+td.um {{ width:26px; text-align:center; font-weight:900; color:#fff; font-size:15px; }}
+.um1{{background:#111}}.um2{{background:#111}}.um3{{background:#d23}}.um4{{background:#1a63c4}}
+.um5{{background:#f5c518;color:#111}}.um6{{background:#1a9e3b}}.um7{{background:#f60;}}.um8{{background:#d23}}
+td.horse {{ width:118px; padding:3px 5px; }}
+td.horse .mark {{ float:right; font-size:18px; font-weight:900; }}
+td.horse .hn {{ font-weight:800; font-size:14px; }}
+td.horse .meta {{ color:var(--sub); font-size:11px; }}
+td.idx {{ width:44px; text-align:center; }}
+td.idx .i2 {{ font-weight:900; font-size:16px; }}
+td.idx .i5 {{ color:var(--sub); border-top:1px dashed #ccc; }}
+td.run {{ width:104px; padding:2px 4px; position:relative; }}
+td.run.empty {{ background:#faf9f6; }}
+.rl1 {{ font-size:11px; color:#333; }}
+.rl2 {{ font-size:12px; }}
+.rl2 b {{ font-size:13px; }}
+.corner {{ color:var(--blue); }}
+.ridx {{ position:absolute; right:3px; bottom:2px; font-weight:900;
+  border:1px solid #333; border-radius:3px; padding:0 4px; background:#fff; font-size:12px; }}
+.baba {{ font-weight:700; padding:0 2px; border-radius:2px; }}
+.b-yaya{{background:#eef}}.b-omo{{background:#ccd; }}.b-fu{{background:#111;color:#fff}}
+thead td {{ background:#333; color:#fff; text-align:center; font-weight:700; }}
+.foot {{ padding:8px 12px; color:var(--sub); font-size:11px; }}
+</style></head>
+<body>
+<div class="paper">
+  <div class="masthead">
+    <span class="rno">{h.race_no or ''}</span>
+    <span class="place">{esc(h.place)}</span>
+    <span class="dist">{h.distance}m{baba_txt}</span>
+    <span class="sub">{subttl}<br>{esc(h.race_name or '')}</span>
+  </div>
+
+  <h2>展開予想 — 3走以内の通過順</h2>
+  <div class="section">
+    <div class="pace-read">ペース読み：{esc(card.grid.pace_read())}
+      <span class="fc">（左2マス＝{card.grid.front_count()}頭）</span></div>
+    <div class="grid-wrap">
+      <div class="grp in5"><div class="cap">5着以内だった走</div><div class="row">{grid_in5}</div></div>
+      <div class="grp out"><div class="cap">6着以降だった走</div><div class="row">{grid_out}</div></div>
+    </div>
+    <div class="foot">同じマスの人気馬に注意（能力上位馬に潰される他馬）。相手は別マスから。
+      左2マスが手薄なら前残り＝人気薄の逃げ・先行にも警戒。</div>
+  </div>
+
+  <h2>指数サマリー</h2>
+  <div class="section">
+    <div class="cols">
+      <div class="col">
+        <div class="stitle">10走以内 指数上位</div>
+        <table class="sum">
+          <thead><tr><td>馬番</td><td>指数</td><td>何走前</td><td>場</td><td>距離</td><td>馬場</td><td>日付</td></tr></thead>
+          {top10_rows}
+        </table>
+      </div>
+      <div class="col">
+        <div class="stitle">同競馬場（{esc(h.place)}）指数上位</div>
+        <div>{same_track}</div>
+        <div class="stitle" style="margin-top:12px">前3Fタイム上位（{h.distance}m±200m・概算）</div>
+        <div>{first3f}</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>指数つき馬柱（過去5走：左＝前走）</h2>
+  <div class="section uma">
+    <table class="bacho">
+      <thead><tr><td>番</td><td>馬名／騎手</td><td>指数<br>2/5</td>
+        <td>前走</td><td>2走前</td><td>3走前</td><td>4走前</td><td>5走前</td></tr></thead>
+      {horse_rows}
+    </table>
+  </div>
+
+  <div class="foot">
+    指数＝スピード指数（(基準タイム−走破タイム)×距離係数＋馬場差＋基準値）。
+    基準タイム・馬場差はデータから自己校正。上段＝近2走以内の最高指数、下段＝近5走以内の最高指数。
+    ※本紙は実物新聞のロジックを再現した独自実装（合成／取得データ用）。
+  </div>
+</div>
+</body></html>"""
