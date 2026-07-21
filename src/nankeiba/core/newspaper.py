@@ -199,7 +199,8 @@ def _corner_str(cp) -> str:
     return "-".join(str(c) for c in (cp or []) if c)
 
 
-def render_html(card: RaceCard, *, title: str | None = None) -> str:
+def render_html(card: RaceCard, *, title: str | None = None,
+                pace_note: str | None = None) -> str:
     h = card.header
     esc = html.escape
     doc_title = title or f"{h.place}{h.race_no or ''}R {h.distance}m 指数＆展開予想"
@@ -354,6 +355,8 @@ td.run.empty {{ background:#faf9f6; }}
 .b-yaya{{background:#eef}}.b-omo{{background:#ccd; }}.b-fu{{background:#111;color:#fff}}
 thead td {{ background:#333; color:#fff; text-align:center; font-weight:700; }}
 .foot {{ padding:8px 12px; color:var(--sub); font-size:11px; }}
+.note-box {{ background:#fff7e6; border:1px solid #f0c36d; border-radius:4px;
+  padding:6px 9px; margin-bottom:8px; font-size:12px; color:#8a5a00; }}
 </style></head>
 <body>
 <div class="paper">
@@ -366,6 +369,7 @@ thead td {{ background:#333; color:#fff; text-align:center; font-weight:700; }}
 
   <h2>展開予想 — 3走以内の通過順</h2>
   <div class="section">
+    {f'<div class="note-box">{esc(pace_note)}</div>' if pace_note else ''}
     <div class="pace-read">ペース読み：{esc(card.grid.pace_read())}
       <span class="fc">（左2マス＝{card.grid.front_count()}頭）</span></div>
     <div class="grid-wrap">

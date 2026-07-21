@@ -17,3 +17,8 @@ out/
 .DS_Store
 .idea/
 .vscode/
+
+# keibabook cookie(認証情報・コミット禁止)
+data/.keibabook_cookie
+.keibabook_cookie
+*.cookie
