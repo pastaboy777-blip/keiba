@@ -20,6 +20,7 @@ from .hindex import SpeedIndexModel, normalize_going
 from . import pace as pc
 from . import summary as sm
 from . import composite as cp
+from . import pace_aptitude as pa
 
 
 # ---------------------------------------------------------------------------
@@ -74,6 +75,7 @@ class HorseView:
     idx_best5: float | None       # 近5走以内の最高指数(下段)
     mark: str = ""                # 印(総合指数の場内順位)
     comp: "cp.Composite | None" = None   # 総合指数(素+展開±馬場)
+    pace_apt: str = "U"           # ペース適性 S/H/F/U(+激)
 
 
 @dataclass
@@ -112,6 +114,7 @@ def build_card(
             idx_best2=_best_index(e.history, model, 2),
             idx_best5=b5,
             comp=comp,
+            pace_apt=pa.pace_aptitude_mark(e.history),
         ))
     # 印: 総合指数の場内順位上位から ◎○▲△△(総合が無い馬は素指数で代替)
     def _rank_key(v: HorseView):
@@ -198,7 +201,7 @@ def render_text(card: RaceCard) -> str:
         L.append("")
 
     # 出走各馬 総合指数(印は総合順)
-    L.append("【出走各馬 総合指数】(印 馬番 馬名  総合 = 素指数 展開 馬場 / 脚質)")
+    L.append("【出走各馬 総合指数】(印 馬番 馬名  総合 = 素指数 展開 馬場 / 脚質 / ペース適性)")
     order = sorted(card.horses,
                    key=lambda v: (v.comp.total if v.comp and v.comp.total is not None else -1e9),
                    reverse=True)
@@ -210,7 +213,7 @@ def render_text(card: RaceCard) -> str:
         style = (c.style if c and c.style else "―")
         L.append(
             f"  {v.mark or '  '} {e.umaban:>2} {e.name:<12} "
-            f"総合{total:>4}  ({brk})  {style}"
+            f"総合{total:>4}  ({brk})  {style}  ペース{v.pace_apt}"
         )
     return "\n".join(L)
 
@@ -266,7 +269,8 @@ def render_html(card: RaceCard, *, title: str | None = None,
             f"<td class='idx'>"
             f"<div class='i2'>{_fmt_idx(v.comp.total if v.comp else v.idx_best5)}</div>"
             f"<div class='i5'>{esc(v.comp.breakdown() if v.comp else '')}</div>"
-            f"<div class='style'>{esc(v.comp.style if (v.comp and v.comp.style) else '')}</div>"
+            f"<div class='style'>{esc(v.comp.style if (v.comp and v.comp.style) else '')}"
+            f"<span class='pace'>{esc(v.pace_apt)}</span></div>"
             f"</td>"
             + "".join(cells) +
             f"</tr>"
@@ -390,6 +394,8 @@ td.idx .i2 {{ font-weight:900; font-size:17px; }}
 td.idx .i5 {{ color:var(--sub); border-top:1px dashed #ccc; font-size:10px; line-height:1.3; }}
 td.idx .style {{ font-size:10px; color:#fff; background:#666; border-radius:8px;
   display:inline-block; padding:0 6px; margin-top:2px; }}
+td.idx .pace {{ margin-left:3px; color:#fff; background:#0b57d0; border-radius:8px;
+  padding:0 5px; font-weight:700; }}
 td.run {{ width:104px; padding:2px 4px; position:relative; }}
 td.run.empty {{ background:#faf9f6; }}
 .rl1 {{ font-size:11px; color:#333; }}
