@@ -19,6 +19,7 @@ from .interval import RunRecord
 from .hindex import SpeedIndexModel, normalize_going
 from . import pace as pc
 from . import summary as sm
+from . import composite as cp
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +72,8 @@ class HorseView:
     entry: PaperEntry
     idx_best2: float | None       # 近2走以内の最高指数(上段)
     idx_best5: float | None       # 近5走以内の最高指数(下段)
-    mark: str = ""                # 場内順位に基づく印
+    mark: str = ""                # 印(総合指数の場内順位)
+    comp: "cp.Composite | None" = None   # 総合指数(素+展開±馬場)
 
 
 @dataclass
@@ -100,18 +102,25 @@ def build_card(
     first3f = sm.first3f_top(hist, header.distance, lookback=5)
     going_apt = sm.going_aptitude(hist, model, header.baba) if header.baba else {}
 
-    views = [
-        HorseView(
+    ctx = cp.PaceContext.from_grid(grid, header.baba)
+    views = []
+    for e in entries:
+        b5 = _best_index(e.history, model, 5)
+        comp = cp.composite_index(b5, e.history, ctx, going_apt.get(e.umaban))
+        views.append(HorseView(
             entry=e,
             idx_best2=_best_index(e.history, model, 2),
-            idx_best5=_best_index(e.history, model, 5),
-        )
-        for e in entries
-    ]
-    # 印: 近5走最高指数の場内順位上位から ◎○▲△△
+            idx_best5=b5,
+            comp=comp,
+        ))
+    # 印: 総合指数の場内順位上位から ◎○▲△△(総合が無い馬は素指数で代替)
+    def _rank_key(v: HorseView):
+        if v.comp and v.comp.total is not None:
+            return v.comp.total
+        return v.idx_best5 if v.idx_best5 is not None else -1e9
     ranked = sorted(
-        [v for v in views if v.idx_best5 is not None],
-        key=lambda v: v.idx_best5, reverse=True,
+        [v for v in views if (v.comp and v.comp.total is not None) or v.idx_best5 is not None],
+        key=_rank_key, reverse=True,
     )
     for i, v in enumerate(ranked[:len(MARKS)]):
         v.mark = MARKS[i]
@@ -188,13 +197,20 @@ def render_text(card: RaceCard) -> str:
         L.append("  " + "  ".join(f"{r.umaban}({r.first3f:.1f})" for r in card.first3f))
         L.append("")
 
-    # 簡易馬柱(指数つき)
-    L.append("【出走各馬 指数】(印 馬番 馬名  上=近2走max 下=近5走max)")
-    for v in card.horses:
+    # 出走各馬 総合指数(印は総合順)
+    L.append("【出走各馬 総合指数】(印 馬番 馬名  総合 = 素指数 展開 馬場 / 脚質)")
+    order = sorted(card.horses,
+                   key=lambda v: (v.comp.total if v.comp and v.comp.total is not None else -1e9),
+                   reverse=True)
+    for v in order:
         e = v.entry
+        c = v.comp
+        total = _fmt_idx(c.total if c else None)
+        brk = c.breakdown() if c else "-"
+        style = (c.style if c and c.style else "―")
         L.append(
             f"  {v.mark or '  '} {e.umaban:>2} {e.name:<12} "
-            f"近2:{_fmt_idx(v.idx_best2)}  近5:{_fmt_idx(v.idx_best5)}"
+            f"総合{total:>4}  ({brk})  {style}"
         )
     return "\n".join(L)
 
@@ -248,8 +264,9 @@ def render_html(card: RaceCard, *, title: str | None = None,
             f"<div class='meta'>{esc(v.entry.sex_age or '')} {esc(v.entry.jockey or '')}</div>"
             f"</td>"
             f"<td class='idx'>"
-            f"<div class='i2'>{_fmt_idx(v.idx_best2)}</div>"
-            f"<div class='i5'>{_fmt_idx(v.idx_best5)}</div>"
+            f"<div class='i2'>{_fmt_idx(v.comp.total if v.comp else v.idx_best5)}</div>"
+            f"<div class='i5'>{esc(v.comp.breakdown() if v.comp else '')}</div>"
+            f"<div class='style'>{esc(v.comp.style if (v.comp and v.comp.style) else '')}</div>"
             f"</td>"
             + "".join(cells) +
             f"</tr>"
@@ -368,9 +385,11 @@ td.horse {{ width:118px; padding:3px 5px; }}
 td.horse .mark {{ float:right; font-size:18px; font-weight:900; }}
 td.horse .hn {{ font-weight:800; font-size:14px; }}
 td.horse .meta {{ color:var(--sub); font-size:11px; }}
-td.idx {{ width:44px; text-align:center; }}
-td.idx .i2 {{ font-weight:900; font-size:16px; }}
-td.idx .i5 {{ color:var(--sub); border-top:1px dashed #ccc; }}
+td.idx {{ width:66px; text-align:center; }}
+td.idx .i2 {{ font-weight:900; font-size:17px; }}
+td.idx .i5 {{ color:var(--sub); border-top:1px dashed #ccc; font-size:10px; line-height:1.3; }}
+td.idx .style {{ font-size:10px; color:#fff; background:#666; border-radius:8px;
+  display:inline-block; padding:0 6px; margin-top:2px; }}
 td.run {{ width:104px; padding:2px 4px; position:relative; }}
 td.run.empty {{ background:#faf9f6; }}
 .rl1 {{ font-size:11px; color:#333; }}
@@ -431,16 +450,16 @@ thead td {{ background:#333; color:#fff; text-align:center; font-weight:700; }}
   <h2>指数つき馬柱（過去5走：左＝前走）</h2>
   <div class="section uma">
     <table class="bacho">
-      <thead><tr><td>番</td><td>馬名／騎手</td><td>指数<br>2/5</td>
+      <thead><tr><td>番</td><td>馬名／騎手</td><td>総合<br>指数</td>
         <td>前走</td><td>2走前</td><td>3走前</td><td>4走前</td><td>5走前</td></tr></thead>
       {horse_rows}
     </table>
   </div>
 
   <div class="foot">
-    指数＝スピード指数（(基準タイム−走破タイム)×距離係数＋馬場差＋基準値）。
-    基準タイム・馬場差はデータから自己校正。上段＝近2走以内の最高指数、下段＝近5走以内の最高指数。
-    ※本紙は実物新聞のロジックを再現した独自実装（合成／取得データ用）。
+    総合指数＝スピード指数（素）＋展開補正＋馬場補正。素指数＝(基準タイム−走破タイム)×距離係数＋馬場差。
+    展開補正＝脚質×その日のペース（前残り/差し有利）。馬場補正＝今回の馬場での複勝実績（渋った馬場時のみ）。
+    印◎○▲△は総合指数の場内上位順。※本紙は実物新聞のロジックを参考にした独自実装。
   </div>
 </div>
 </body></html>"""
