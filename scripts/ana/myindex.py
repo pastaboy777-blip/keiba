@@ -10,18 +10,11 @@ par は大井のキャッシュ実測（勝ちタイム中央値, scripts/ana pa
 """
 import re, os, sys
 import monogatari as M
+import speed_index as SI
 
-# ── 大井：距離×馬場 基準タイム(秒)＝勝ちタイム中央値（キャッシュ377R実測） ──
-#   ※1200良/稍重は紙面の実指数から逆算校正（キャッシュ中央値は短距離の格上げ混在で速すぎた）。
-#     校正点: 1600良 par102.8→紙-15と一致 / 1200良 par75.4, 稍重73.7 で紙-16/-26/-22/-37に整合。
-PAR_OOI = {
-    1200: {"良": 75.4, "稍重": 73.7, "重": 72.7, "不良": 74.2},
-    1400: {"良": 87.6, "稍重": 87.3, "重": 88.0, "不良": 87.9},
-    1600: {"良": 102.8, "稍重": 103.0, "重": 102.7, "不良": 102.8},
-    1800: {"良": 114.0, "稍重": 113.6, "重": 114.0, "不良": 116.4},
-    2000: {"良": 128.0, "稍重": 129.2, "重": 128.0, "不良": 128.0},
-}
-SEC_PER_PT = 0.20   # 1pt≈0.2秒（紙は1200mで約0.19〜0.25。序列用途なので固定でよい/要現場校正）
+# 過去走の馬場差は「その日の実測基準」が理想だが、他日の全馬時計は毎回は引けないので、
+# 標準二次パー(SI.par_std)に大井キャッシュ実測の馬場ティア差を1回だけ乗せる（方向のみ担保）。
+BABA_OFF = {"良": 0.0, "稍重": -0.6, "重": -1.2, "不良": 0.0}   # 稍重/重は勝ちタイムが速い＝基準を速める
 NEAR = 400          # 距離±400mまで同一距離群として評価
 
 def _sec(t):
@@ -29,23 +22,14 @@ def _sec(t):
     return int(m.group(1)) * 60 + int(m.group(2)) + int(m.group(3)) / 10 if m else None
 
 def par(dist, baba):
-    """基準タイム。完全一致が無ければ同距離の良→距離線形補間でフォールバック。"""
-    baba = baba if baba in ("良", "稍重", "重", "不良") else "良"
-    if dist in PAR_OOI:
-        return PAR_OOI[dist].get(baba, PAR_OOI[dist]["良"])
-    ds = sorted(PAR_OOI)
-    lo = max([d for d in ds if d <= dist], default=ds[0])
-    hi = min([d for d in ds if d >= dist], default=ds[-1])
-    if lo == hi:
-        return PAR_OOI[lo].get(baba, PAR_OOI[lo]["良"])
-    a, b = PAR_OOI[lo].get(baba, PAR_OOI[lo]["良"]), PAR_OOI[hi].get(baba, PAR_OOI[hi]["良"])
-    return a + (b - a) * (dist - lo) / (hi - lo)
+    """基準タイム＝標準二次パー＋馬場ティア差（過去走評価用のフォールバック）。"""
+    return SI.par_std(dist) + BABA_OFF.get(baba, 0.0)
 
 def race_index(dist, baba, own_sec):
-    """1レース分の自前指数（intポイント）。速い(par比)ほど＋。"""
+    """1レース分の自前指数（確定版 k=10）。速い(基準比)ほど＋。"""
     if own_sec is None or dist is None:
         return None
-    return round((par(dist, baba) - own_sec) / SEC_PER_PT)
+    return SI.index(own_sec, par(dist, baba))
 
 def parse_ooi_history(cd):
     """DBページ→ 大井の過去走 [(y,m,d, dist, baba, own_sec, chaku, ninki, ago)]。新しい順。
