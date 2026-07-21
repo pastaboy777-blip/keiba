@@ -114,6 +114,7 @@ class RunRecord:
     time_sec: float | None = None
     first3f_sec: float | None = None
     last3f_sec: float | None = None
+    surface: str | None = None          # '芝'/'ダ'(中央の指数で芝ダを分離するのに使う)
 
     def finish_strength(self) -> float:
         """着順ベースの強さ。1着=1.0、最下位=~0.0。"""

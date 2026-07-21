@@ -253,8 +253,12 @@ def parse_entries(html: str) -> list[dict]:
 # DB成績 → RunRecord(過去走・新しい順)
 # ---------------------------------------------------------------------------
 
-def parse_history(html: str, *, limit: int = 12) -> list[RunRecord]:
-    """/db/uma/{umacd}/seiseki の成績テーブルを RunRecord 列に変換。"""
+def parse_history(html: str, *, limit: int = 12,
+                  drop_turf: bool = True) -> list[RunRecord]:
+    """/db/uma/{umacd}/seiseki の成績テーブルを RunRecord 列に変換。
+
+    drop_turf=True(既定・南関向け)は芝走を除外。中央の指数では False にして
+    surface('芝'/'ダ')を保持する。"""
     tbl = None
     for m in re.finditer(r"<table[^>]*>.*?</table>", html, re.S):
         if "タイム" in m.group(0) and ("通過" in m.group(0) or "距離" in m.group(0)):
@@ -272,8 +276,8 @@ def parse_history(html: str, *, limit: int = 12) -> list[RunRecord]:
         if not re.match(r"20\d\d/\d\d?/\d\d?", ymd):
             continue
         dist, surf = parse_distance(c[12])
-        if surf == "芝":
-            continue                       # ダート指数のため芝走は除外
+        if drop_turf and surf == "芝":
+            continue                       # ダート指数のため芝走は除外(南関)
         t = parse_time(c[13])
         try:
             field_size = int(re.sub(r"\D", "", c[5]) or 0)
@@ -302,7 +306,84 @@ def parse_history(html: str, *, limit: int = 12) -> list[RunRecord]:
             corner_pos=[],                 # このプランでは通過順が非公開(****)
             last3f_sec=last3f,
             time_sec=t,
+            surface=surf,
         ))
         if len(runs) >= limit:
             break
     return runs
+
+
+# ---------------------------------------------------------------------------
+# 中央(JRA)対応: 開催検索・結果取得(/cyuou/)
+# ---------------------------------------------------------------------------
+
+_JRA_PLACES = ["札幌", "函館", "福島", "新潟", "東京", "中山", "中京", "京都", "阪神", "小倉"]
+
+
+def _meetings_cyuou(html: str) -> dict[str, str]:
+    """中央 nittei から {競馬場: 開催prefix(10桁)} を作る。
+
+    競馬場名の出現位置と syutuba リンク位置を突き合わせ、各リンクを最寄りの
+    (直前の)場名に割り当て、場ごとに最頻の開催prefixを採る。
+    """
+    import bisect
+    from collections import Counter
+    names = [(m.start(), m.group(1))
+             for m in re.finditer("(" + "|".join(_JRA_PLACES) + ")", html)]
+    npos = [p for p, _ in names]
+    links = [(m.start(), m.group(1))
+             for m in re.finditer(r"/cyuou/syutuba/(\d{12})", html)]
+    buckets: dict[str, Counter] = {}
+    for lp, rid in links:
+        i = bisect.bisect_left(npos, lp) - 1
+        if i < 0:
+            continue
+        buckets.setdefault(names[i][1], Counter())[rid[:-2]] += 1
+    return {pl: cnt.most_common(1)[0][0] for pl, cnt in buckets.items()}
+
+
+def find_meeting_cyuou(client: KeibabookClient, date: str, place: str) -> list[str]:
+    """中央の place の当該開催の race_id 12レースを返す(/cyuou/)。"""
+    meetings = _meetings_cyuou(client.get(f"/cyuou/nittei/{date}"))
+    if place not in meetings:
+        raise RuntimeError(f"{date} の {place}(中央) が見つからない。開催: {list(meetings)}")
+    prefix = meetings[place]
+    return [f"{prefix}{n:02d}" for n in range(1, 13)]
+
+
+def parse_result_cyuou(html: str) -> list[dict]:
+    """中央の競走成績(/cyuou/seiseki)から着順表を返す(馬名ベース)。
+
+    列がずれやすい(My印/本紙/着差の空セル)ため、着順と馬名で拾い、馬番は
+    呼び出し側で出馬表の馬名→馬番で突合する。人気はオッズ直前の整数から推定。
+
+    return: [{"finish","name","popularity"}, ...] 着順昇順。
+    """
+    mt = None
+    for m in re.finditer(r"<table[^>]*>.*?</table>", html, re.S):
+        hdr = "".join(re.findall(r"<th[^>]*>(.*?)</th>", m.group(0), re.S))
+        if "着" in hdr and "タイム" in hdr and "馬名" in hdr:
+            mt = m
+            break
+    if not mt:
+        return []
+    out = []
+    for r in re.findall(r"<tr[^>]*>(.*?)</tr>", mt.group(0), re.S):
+        c = [_text(x) for x in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.S)]
+        if len(c) < 5 or not c[0].isdigit():
+            continue
+        finish = int(c[0])
+        name = next((x for x in c if re.fullmatch(r"[ァ-ヶ][ァ-ヶーヴ]{1,}", x)), None)
+        if not name:
+            continue
+        # 人気: オッズ(小数)の直前の整数
+        pop = None
+        for i, x in enumerate(c):
+            if re.fullmatch(r"\d{1,3}\.\d", x) and i > 0 and c[i - 1].isdigit():
+                v = int(c[i - 1])
+                if 1 <= v <= 18:
+                    pop = v
+                    break
+        out.append({"finish": finish, "name": name, "popularity": pop})
+    out.sort(key=lambda x: x["finish"])
+    return out
