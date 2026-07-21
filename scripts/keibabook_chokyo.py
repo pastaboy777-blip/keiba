@@ -213,14 +213,15 @@ def shiagari_score(rec: dict) -> float:
     cand = [x for x in t if 35.0 <= x <= 45.0]  # 終い3F帯(1Fの11-14sを誤採用しない)
     last3f = min(cand) if cand else (min(t) if t else 40.0)
     fast = max(0.0, min(1.0, (41.0 - last3f) / 4.0))  # 37→1.0, 41→0.0 目安
-    accel = accel_lap(last.get("時計", []))  # 加速ラップ度(終いに向けて加速=好調・§加速ラップ調教)
+    # ※加速ラップ(accel_lap)は7/20-21南関で検証→効かず(複勝lift0.59・勝ち馬も低加速)＝
+    #   南関地方の追い切り時計は計測がバラバラで加速判定がnoise。統合は撤回(rule4)。
+    #   accel_lap関数は残置(中央用＋データ蓄積後の再検証用)。
     n = min(len(runs), 5) / 5.0
     txt = (rec.get("総評", "") + " " + " ".join(r.get("短評", "") for r in runs))
     pos = sum(1 for w in _POS if w in txt)
     neg = sum(1 for w in _NEG if w in txt)
     word = max(-1.0, min(1.0, (pos - neg) / 2.0))
-    return round(0.40 * kyaku + 0.22 * fast + 0.17 * accel + 0.08 * n
-                 + 0.13 * (word + 1) / 2, 3)
+    return round(0.45 * kyaku + 0.30 * fast + 0.10 * n + 0.15 * (word + 1) / 2, 3)
 
 
 def accel_lap(times) -> float:
