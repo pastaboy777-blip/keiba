@@ -202,7 +202,7 @@ def cyokyo(raceid: str, umaban: int = 1) -> dict:
 
 
 def shiagari_score(rec: dict) -> float:
-    """仕上がりスコア(0〜1目安)。最終追いの脚色×終い時計×本数×総評ワード。"""
+    """仕上がりスコア(0〜1目安)。最終追いの脚色×終い時計×加速ラップ×本数×総評ワード。"""
     runs = rec.get("追切") or []
     if not runs:
         return 0.0
@@ -213,12 +213,45 @@ def shiagari_score(rec: dict) -> float:
     cand = [x for x in t if 35.0 <= x <= 45.0]  # 終い3F帯(1Fの11-14sを誤採用しない)
     last3f = min(cand) if cand else (min(t) if t else 40.0)
     fast = max(0.0, min(1.0, (41.0 - last3f) / 4.0))  # 37→1.0, 41→0.0 目安
+    accel = accel_lap(last.get("時計", []))  # 加速ラップ度(終いに向けて加速=好調・§加速ラップ調教)
     n = min(len(runs), 5) / 5.0
     txt = (rec.get("総評", "") + " " + " ".join(r.get("短評", "") for r in runs))
     pos = sum(1 for w in _POS if w in txt)
     neg = sum(1 for w in _NEG if w in txt)
     word = max(-1.0, min(1.0, (pos - neg) / 2.0))
-    return round(0.45 * kyaku + 0.30 * fast + 0.10 * n + 0.15 * (word + 1) / 2, 3)
+    return round(0.40 * kyaku + 0.22 * fast + 0.17 * accel + 0.08 * n
+                 + 0.13 * (word + 1) / 2, 3)
+
+
+def accel_lap(times) -> float:
+    """加速ラップ度(0〜1)。追い切りの累積時計から"終いに向けてハロンが加速しているか"を判定。
+    高中晶敏「加速ラップ調教」(競馬の天才!)＝各ハロンが段々速い・終い最速＝好調・勝負気配。
+    keibabook地方の累積時計[5F,4F,3F(,1F)]から 道中1F平均 − 終い1F平均 を"加速度"として合成。"""
+    t = sorted([float(x) for x in times if re.fullmatch(r"\d{2,3}\.\d", str(x))], reverse=True)
+    if len(t) < 2:
+        return 0.0
+    last3f = next((x for x in t if 34.0 <= x <= 42.0), None)  # 終い3F帯
+    if last3f is None:
+        return 0.0
+    span = t[0] - last3f            # 道中(先頭〜終い3F手前)の所要
+    if span <= 1.0:
+        return 0.0
+    nf = max(1, round(span / 13.5))  # 道中のハロン数推定(1F≒13.5s)
+    mid_pf = span / nf               # 道中1F平均
+    fin_pf = last3f / 3.0            # 終い1F平均
+    accel = mid_pf - fin_pf          # 正＝終いが道中より速い＝加速
+    a = max(0.0, min(1.0, accel / 3.0))            # 3秒差で満点
+    f = max(0.0, min(1.0, (12.8 - fin_pf) / 1.3))  # 終い1F 12.8→0 / 11.5→1(絶対的な速さ)
+    return round(0.6 * a + 0.4 * f, 3)
+
+
+def junsei_3f(l2f: float, l1f: float) -> float:
+    """純正3ハロン＝ラスト2F目 + (ラスト1F × 2)。久保和功「京大式純正3ハロン」。
+    上がり3Fのラスト1Fを2倍に重み付け＝道中惰性を除いた真の終い脚(小さいほど優秀)。
+    ※レース馬別は楽天が上がり3F(600m)のみで L2F/L1F 個別が取れず算出不可＝
+      持続巡航(§11)が馬別の終い脚を既にカバー。本関数はL2F/L1Fが取れる場面(レースの
+      ハロンタイム=先頭基準、または個別ハロンを持つ調教/中央データ)で用いる。"""
+    return round(l2f + l1f * 2, 2)
 
 
 def main() -> None:
