@@ -124,15 +124,29 @@ class Composite:
         return " ".join(parts)
 
 
+# 展開補正の既定の重み。実データ検証(大井7/21＋浦和先週=72R)で、展開補正を
+# 加えるほど◎的中が悪化した(0が最良)。そのため既定は 0 = ランキングに効かせない。
+# 脚質・展開グリッドは「表示」として活かし、指数の上書きはしない。
+DEFAULT_PACE_WEIGHT = 0.0
+DEFAULT_GOING_WEIGHT = 1.0     # 馬場補正は渋馬場のみ発火。良では0なので実質無害。
+
+
 def composite_index(
     base_index: float | None,
     runs: Sequence[RunRecord],
     ctx: PaceContext,
     apt: sm.GoingAptitude | None,
+    *,
+    pace_weight: float = DEFAULT_PACE_WEIGHT,
+    going_weight: float = DEFAULT_GOING_WEIGHT,
 ) -> Composite:
-    """1頭分の総合指数を計算する。"""
+    """1頭分の総合指数を計算する。
+
+    total = 素指数 + pace_weight×展開補正 + going_weight×馬場補正。
+    既定では pace_weight=0(検証で展開補正は害)。脚質は表示用に必ず返す。
+    """
     style = dominant_style(runs)
-    pb = pace_bonus(style, ctx)
-    gb = going_bonus(apt, ctx.going)
+    pb = round(pace_bonus(style, ctx) * pace_weight, 1)
+    gb = round(going_bonus(apt, ctx.going) * going_weight, 1)
     total = None if base_index is None else round(base_index + pb + gb, 0)
     return Composite(base=base_index, style=style, pace=pb, going=gb, total=total)

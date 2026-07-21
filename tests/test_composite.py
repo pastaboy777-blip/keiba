@@ -75,7 +75,10 @@ class TestComposite(unittest.TestCase):
     def test_total_sums(self):
         ctx = cp.PaceContext(front_bias=-1, going="良")
         runs = [rec(corner_pos=[7, 7, 6, 5], field_size=12)]   # 差し(c3=6/12=0.5)
-        c = cp.composite_index(0.0, runs, ctx, None)
+        # 既定は pace_weight=0(展開はランキングに効かせない)
+        self.assertEqual(cp.composite_index(0.0, runs, ctx, None).total, 0)
+        # 明示的に重みを与えれば加点される
+        c = cp.composite_index(0.0, runs, ctx, None, pace_weight=1.0)
         self.assertEqual(c.style, "差し")
         self.assertGreater(c.total, 0)                    # 差し有利で加点
 
