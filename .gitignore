@@ -22,3 +22,6 @@ out/
 data/.keibabook_cookie
 .keibabook_cookie
 *.cookie
+
+# 学習済みモデル(生成物)
+data/spark_model.json
