@@ -1,12 +1,13 @@
-"""自前スピード指数（マキシマム競馬新聞の指数を逆算して再現）。
-指数 = (基準タイム − 走破タイム) / SEC_PER_PT   ※基準タイム＝その距離×馬場の標準勝ちタイム。
-・馬場は良/稍重/重/不良でティア別に基準を持つ（＝トラックバリアント補正。稍重の速い時計を過大評価しない）。
-・距離±400m内の過去走のみ対象（凡例「±500m内で算出」に準拠）。
-・代表値：近2走最高(=上段)／近5走最高(=下段)。上段無印×下段有印相当＝近走で落ちた地力馬＝条件替わり妙味。
-展開が主役、これは"能力上限の客観確認"の補助レイヤー。比重は上げない。
+"""自前スピード指数のデータ取得層（マキシマム競馬新聞の指数を逆算・再現）。
+指数計算の本体は speed_index.py（確定版 k=10・二次パー・実測基準の符号一貫）。ここは
+DBページから各馬の過去走(タイム/距離/馬場)を拾い、speed_index に渡して指数化する配管。
+・過去走の馬場差は当日実測が理想だが毎回は引けないので、過去走評価には二次パー＋BABA_OFFで代替。
+・距離±400m内の過去走のみ対象（凡例「±500m内で算出」に準拠）、venue で評価会場を指定。
+・代表値：近2走最高(=上段)／近5走最高(=下段)。上段無印×下段有印相当＝条件替わりの巻返し妙味。
+・展開が主役、これは"能力上限の客観確認"の補助レイヤー。比重は上げない。
 
-par は大井のキャッシュ実測（勝ちタイム中央値, scripts/ana partime集計）から。他場は要拡張。
-自前指数なので紙と絶対値は一致しなくてよい（序列が合えば能力上限の判定に使える）。
+検証：良馬場ではほぼ完璧、外れは道悪に集中（前開催大井60Rで3着内95%・外れ3件は全て重/不良）。
+→ 道悪精度は speed_index の「当日実測基準」を過去走にも効かせれば更に上がる（次の一手）。
 """
 import re, os, sys
 import monogatari as M
@@ -31,8 +32,8 @@ def race_index(dist, baba, own_sec):
         return None
     return SI.index(own_sec, par(dist, baba))
 
-def parse_ooi_history(cd):
-    """DBページ→ 大井の過去走 [(y,m,d, dist, baba, own_sec, chaku, ninki, ago)]。新しい順。
+def parse_ooi_history(cd, venue="大井"):
+    """DBページ→ 指定会場の過去走 [(y,m,d, dist, baba, own_sec, chaku, ninki, ago)]。新しい順。
     own_sec は掲載タイム(上位6頭)から着順で取得。6着以下(未掲載)は None でスキップ。"""
     f = os.path.join(M.ARC, f"umaNEW_{cd}.html")
     if not os.path.exists(f):
@@ -43,7 +44,7 @@ def parse_ooi_history(cd):
     for r in re.findall(r"<tr[^>]*>(.*?)</tr>", h, re.S):
         if 'class="tuka"' not in r: continue
         txt = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r)).strip()
-        if "大井" not in txt: continue
+        if venue not in txt: continue
         d = re.search(r"(\d{4})年(\d+)月(\d+)日", txt)
         dist = re.search(r"(\d+)m", txt)
         baba = re.search(r"[・(](良|稍重|重|不良)", txt)
@@ -59,11 +60,11 @@ def parse_ooi_history(cd):
     out.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
     return [row + (i + 1,) for i, row in enumerate(out)]   # ago = 何走前
 
-def horse_index(cd, cur_dist, before=None):
+def horse_index(cd, cur_dist, before=None, venue="大井"):
     """馬の自前指数プロファイル。
     戻り: dict(best2, best5, best10, list, makuri) — list は [(ago,y,m,d,dist,baba,idx,chaku,nk)]。
-    before=(y,m,d) を渡すとその日より前の走のみ（当日リーク防止）。"""
-    hist = parse_ooi_history(cd)
+    before=(y,m,d) を渡すとその日より前の走のみ（当日リーク防止）。venue で評価会場を指定。"""
+    hist = parse_ooi_history(cd, venue)
     if before:
         hist = [r for r in hist if (r[0], r[1], r[2]) < before]
         hist = [r[:8] + (i + 1,) for i, r in enumerate(hist)]
