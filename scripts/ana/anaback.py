@@ -12,6 +12,7 @@ import tenkai_ooi as T
 import hidden as H
 import cyokyo_ana as C
 import myindex as IX
+import pace_apt as PA
 
 WET = ("稍重", "重", "不良")
 
@@ -89,9 +90,14 @@ def run(rid, baba):
                 p = IX.horse_index(cd, dist, before)
                 midx, makuri = p["best5"], p["makuri"]
             except Exception: pass
+        # ペース適性（今日の想定ペースと噛み合うか）
+        pa = {"tag": "-", "kind": "U"}
+        if cd:
+            try: pa = PA.apt(cd)
+            except Exception: pass
         nk = rank.get(ub, 99); w = wk.get(ub)
         rows.append({"ub": ub, "name": h["name"], "best": best, "avg1": avg1, "n": n, "nk": nk,
-                     "waku": w, "lane": lane(w), "midx": midx, "makuri": makuri})
+                     "waku": w, "lane": lane(w), "midx": midx, "makuri": makuri, "apt": pa})
     # 想定上がり = 馬場一致ベスト上がりの上位3頭の中央値目安
     bests = sorted([r["best"] for r in rows if r["best"]])
     band = bests[:3]
@@ -107,6 +113,8 @@ def run(rid, baba):
         if r["midx"] is not None and imed is not None and r["midx"] >= imed:
             t += f" [指数{r['midx']:+d}≧中央{imed:+d}=地力妙味]"
         if r["makuri"]: t += " [近5走>近2走=巻返し妙味]"
+        mk, note = PA.match(r["apt"].get("kind", "U"), pace)
+        if mk in ("◎", "○", "✖"): t += f" [適性{r['apt']['tag']}{mk}{note}]"
         return t
     print("穴候補（単5番人気以下）★内ロス指数つき:")
     if mode == "sashi":
