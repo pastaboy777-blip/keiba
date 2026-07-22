@@ -72,7 +72,7 @@ def main():
     model = SpeedIndexModel.fit(all_runs, base=args.base)
 
     paper_entries = [
-        nb.PaperEntry(umaban=e["umaban"], name=e["name"], history=e["history"])
+        nb.PaperEntry(umaban=e["umaban"], name=e["name"], history=e["history"], sire=e.get("sire"), bms=e.get("bms"))
         for e in entries
     ]
     date = args.date or (race_id[:4] + "-" + race_id[4:6] + "-" + race_id[6:8])

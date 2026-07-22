@@ -26,7 +26,7 @@ def build_one(client, race_id, date, place, race_no):
         return None
     runs = [r for e in entries for r in e["history"]]
     model = SpeedIndexModel.fit(runs)
-    pe = [nb.PaperEntry(umaban=e["umaban"], name=e["name"], history=e["history"])
+    pe = [nb.PaperEntry(umaban=e["umaban"], name=e["name"], history=e["history"], sire=e.get("sire"), bms=e.get("bms"))
           for e in entries]
     header = nb.RaceHeader(
         place=hd.get("place") or place, distance=hd.get("distance") or 0,

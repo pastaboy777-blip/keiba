@@ -207,15 +207,38 @@ def parse_card(html: str) -> dict:
                 break
         if umaban is None:
             continue
+        name = _clean(hm.group(2))
+        sire, bms = _parse_pedigree(cells, name)
         runs = [r for c in cells if (r := _parse_run(c)) is not None]
         entries.append({
             "umaban": umaban,
-            "name": _clean(hm.group(2)),
+            "name": name,
             "horseid": hm.group(1),
+            "sire": sire,
+            "bms": bms,
             "history": runs,
         })
     entries.sort(key=lambda e: e["umaban"])
     return {"header": header, "entries": entries}
+
+
+def _parse_pedigree(cells: list[str], name: str) -> tuple[str | None, str | None]:
+    """馬情報セル「父名 馬名 母名 (母父名) …」から (父, 母父) を取り出す。"""
+    for c in cells:
+        if name and name in c and "(" in c or (name in c and "（" in c):
+            # 父 = 馬名の直前トークン
+            before = c.split(name, 1)[0].strip()
+            sire = before.split()[-1] if before.split() else None
+            # 母父 = 名前より後で最初の括弧（人気/株/生 は除外）
+            after = c.split(name, 1)[1]
+            bms = None
+            for mm in re.finditer(r"[（(]([^）)]+)[）)]", after):
+                g = mm.group(1).strip()
+                if not any(x in g for x in ("人気", "株", "生", "有")) and len(g) >= 2:
+                    bms = g
+                    break
+            return sire, bms
+    return None, None
 
 
 def parse_result(html: str) -> list[dict]:

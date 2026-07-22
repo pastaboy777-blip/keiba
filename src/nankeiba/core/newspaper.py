@@ -22,6 +22,7 @@ from . import summary as sm
 from . import composite as cp
 from . import pace_aptitude as pa
 from . import smart as sma
+from . import pedigree as ped
 
 
 # ---------------------------------------------------------------------------
@@ -38,6 +39,8 @@ class PaperEntry:
     jockey: str | None = None
     trainer: str | None = None
     waku: int | None = None
+    sire: str | None = None          # 父(種牡馬)
+    bms: str | None = None           # 母父(BMS)
 
 
 @dataclass
@@ -91,6 +94,8 @@ class RaceCard:
     going_apt: dict[int, sm.GoingAptitude] = field(default_factory=dict)
     smart: dict[int, "sma.SmartRow"] = field(default_factory=dict)
     agari_top: list[tuple[int, float]] = field(default_factory=list)
+    ped_tags: dict[int, "ped.PedTag"] = field(default_factory=dict)
+    ped_bias: "ped.PedBias | None" = None
 
 
 def build_card(
@@ -108,6 +113,8 @@ def build_card(
     going_apt = sm.going_aptitude(hist, model, header.baba) if header.baba else {}
     smart = sma.smart_table(hist, header.distance)
     agari_top = sma.agari_t_top(hist)
+    ped_tags = ped.tag_entries([(e.umaban, e.sire, e.bms) for e in entries])
+    ped_bias = ped.bias_of(ped_tags)
 
     ctx = cp.PaceContext.from_grid(grid, header.baba)
     views = []
@@ -137,6 +144,7 @@ def build_card(
         header=header, horses=views, grid=grid,
         top10=top10, same_track=same_track, first3f=first3f, model=model,
         going_apt=going_apt, smart=smart, agari_top=agari_top,
+        ped_tags=ped_tags, ped_bias=ped_bias,
     )
 
 
@@ -215,6 +223,15 @@ def render_text(card: RaceCard) -> str:
         L.append("  " + "  ".join(cells))
         L.append("")
 
+    # 大系統(血統ビーム)バイアス
+    if card.ped_bias and card.ped_bias.total:
+        b = card.ped_bias
+        L.append("【大系統バイアス(血統ビーム)】")
+        L.append("  父の大系統: " + " ".join(
+            f"{ped.system_name(k)}{v}" for k, v in b.top_systems(5)))
+        L.append(f"  父or母父サンデー系: {b.sunday_line}/{b.total}  →  {b.track_read('ダ')}")
+        L.append("")
+
     # 出走各馬 総合指数(印は総合順)
     L.append("【出走各馬 総合指数】(印 馬番 馬名  総合 = 素指数 展開 馬場 / 脚質 / ペース適性)")
     order = sorted(card.horses,
@@ -228,9 +245,11 @@ def render_text(card: RaceCard) -> str:
         style = (c.style if c and c.style else "―")
         sr = card.smart.get(e.umaban)
         smart_s = f"  {sr.fmt()}" if sr else ""
+        pt = card.ped_tags.get(e.umaban)
+        ped_s = f"  血統[{ped.system_name(pt.sire_sys)}]" if pt and pt.sire_sys else ""
         L.append(
             f"  {v.mark or '  '} {e.umaban:>2} {e.name:<12} "
-            f"総合{total:>4}  ({brk})  {style}  ペース{v.pace_apt}{smart_s}"
+            f"総合{total:>4}  ({brk})  {style}  ペース{v.pace_apt}{smart_s}{ped_s}"
         )
     return "\n".join(L)
 
@@ -246,6 +265,18 @@ def _going_class(baba: str | None) -> str:
 
 def _corner_str(cp) -> str:
     return "-".join(str(c) for c in (cp or []) if c)
+
+
+def _ped_badge(pt) -> str:
+    """父の大系統を色付きバッジで。母父サンデー系は小印を付す。"""
+    if pt is None or not pt.sire_sys:
+        return ""
+    col = ped.system_color(pt.sire_sys)
+    nm = ped.system_name(pt.sire_sys)
+    bms = ""
+    if pt.bms_sys:
+        bms = f"<span class='bms' title='母父{ped.system_name(pt.bms_sys)}'>母父{ped.short_name(pt.bms_sys)}</span>"
+    return (f"<div class='ped'><span class='pedtag' style='background:{col}'>{nm}</span>{bms}</div>")
 
 
 def render_html(card: RaceCard, *, title: str | None = None,
@@ -283,6 +314,7 @@ def render_html(card: RaceCard, *, title: str | None = None,
             f"<div class='hn'>{esc(v.entry.name)}</div>"
             f"<div class='meta'>{esc(v.entry.sex_age or '')} {esc(v.entry.jockey or '')}</div>"
             f"<div class='smart'>{esc(card.smart[e.umaban].fmt()) if e.umaban in card.smart else ''}</div>"
+            f"{_ped_badge(card.ped_tags.get(e.umaban))}"
             f"</td>"
             f"<td class='idx'>"
             f"<div class='i2'>{_fmt_idx(v.comp.total if v.comp else v.idx_best5)}</div>"
@@ -331,6 +363,23 @@ def render_html(card: RaceCard, *, title: str | None = None,
         going_block = (
             f"<div class='stitle' style='margin-top:12px;border-color:#0b57d0'>"
             f"馬場適性（{esc(h.baba)}系・最高指数/複勝率）</div><div>{chips}</div>"
+        )
+
+    # 大系統バイアス(血統ビーム)
+    ped_block = ""
+    if card.ped_bias and card.ped_bias.total:
+        b = card.ped_bias
+        chips = " ".join(
+            f"<span class='chip' style='border-color:{ped.system_color(k)}'>"
+            f"<span class='pd' style='background:{ped.system_color(k)}'></span>"
+            f"{esc(ped.system_name(k))}<b>{v}</b></span>"
+            for k, v in b.top_systems(6)
+        )
+        ped_block = (
+            f"<div class='stitle' style='margin-top:12px;border-color:#e5007f'>大系統バイアス（血統ビーム）</div>"
+            f"<div>{chips}</div>"
+            f"<div class='note-ped'>父or母父サンデー系 {b.sunday_line}/{b.total}"
+            f" → {esc(b.track_read('ダ'))}</div>"
         )
     first3f = " ".join(
         f"<span class='chip'>{r.umaban}<b>{r.first3f:.1f}</b></span>" for r in card.first3f
@@ -413,6 +462,13 @@ td.horse .mark {{ float:right; font-size:18px; font-weight:900; }}
 td.horse .hn {{ font-weight:800; font-size:14px; }}
 td.horse .meta {{ color:var(--sub); font-size:11px; }}
 td.horse .smart {{ color:#1a6b2f; font-size:10px; margin-top:1px; }}
+td.horse .ped {{ margin-top:2px; }}
+td.horse .ped .pedtag {{ color:#fff; font-size:10px; font-weight:700; border-radius:3px;
+  padding:0 5px; }}
+td.horse .ped .bms {{ color:var(--sub); font-size:10px; margin-left:3px; }}
+.chip .pd {{ display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:4px;
+  vertical-align:middle; }}
+.note-ped {{ margin-top:5px; font-size:12px; color:#8a1a5a; font-weight:600; }}
 td.idx {{ width:66px; text-align:center; }}
 td.idx .i2 {{ font-weight:900; font-size:17px; }}
 td.idx .i5 {{ color:var(--sub); border-top:1px dashed #ccc; font-size:10px; line-height:1.3; }}
@@ -475,6 +531,7 @@ thead td {{ background:#333; color:#fff; text-align:center; font-weight:700; }}
         <div class="stitle" style="margin-top:12px;border-color:#1a9e3b">上がりT上位（近3走最速・差し決着で狙い／ローテ付）</div>
         <div>{agari_top}</div>
         {going_block}
+        {ped_block}
       </div>
     </div>
   </div>
