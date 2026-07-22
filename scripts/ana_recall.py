@@ -115,8 +115,35 @@ def field_pace(entries):
     return "ハイ" if ratio >= 0.4 else ("スロー" if ratio <= 0.22 else "平均"), ratio
 
 
-def edges_for(e, today_dist, small_bias=True, pace=None):
-    """馬のエッジ集合を返す（穴ファクター）。pace='ハイ'なら差し馬に想定加点。"""
+def agari_best(e, n=5):
+    """近走の最速上がり3F(秒)。上がり3Fは600m固定区間なので距離補正不要。
+    小さいほど終い優秀＝亀谷式「上がりT(上がり持ちタイム)」相当。"""
+    vals = [getattr(pr, "agari", None) for pr in (e.recent_runs or [])[:n]]
+    vals = [v for v in vals if v and v > 0]
+    return min(vals) if vals else None
+
+
+def agari_pattern(entries):
+    """出走各馬の上がりP(=当日出走馬内での終い順位を0〜100で正規化)を返す {馬番: pct}。
+    亀谷「スマート出馬表」の上がりP(距離帯内で終い順位をパターン化)をデータ再現。
+    値が小さいほど終い上位(=高速上がり実績馬)。上がり3Fは固定区間なので距離補正不要。"""
+    best = {}
+    for e in entries:
+        if not e.umaban:
+            continue
+        b = agari_best(e)
+        if b:
+            best[e.umaban] = b
+    if not best:
+        return {}
+    order = sorted(best, key=lambda k: best[k])          # 終いが速い順
+    n = len(order)
+    return {um: round(i / max(1, n - 1) * 100) for i, um in enumerate(order)}
+
+
+def edges_for(e, today_dist, small_bias=True, pace=None, agari_pct=None):
+    """馬のエッジ集合を返す（穴ファクター）。pace='ハイ'なら差し馬に想定加点。
+    agari_pct=当日出走馬内の上がりP(0〜100・小さいほど終い上位)。"""
     recs = e.recent_runs or []
     tags = set()
     cw = e.horse_weight or (recs[0].horse_weight if recs and recs[0].horse_weight else None)
@@ -135,6 +162,13 @@ def edges_for(e, today_dist, small_bias=True, pace=None):
     dists = [pr.distance for pr in recs if pr.distance]
     if dists and today_dist and dists[0] and dists[0] > today_dist:
         tags.add("距離短縮")
+    # 上がりP上位＝当日出走馬内で終い上位(高速上がり実績)。亀谷「上がりP」のデータ再現。
+    if agari_pct is not None and agari_pct <= 40:
+        tags.add("上がりP上位")
+    # 亀谷式・差し穴フィルター＝「上がりP50以内 × 短縮」で人気薄の差し穴を炙る(2024雲雀S型)。
+    # ※中央・芝のキレ決着で強い型。南関では"差し決着日(field_paceハイ・全体上がり速)"限定で有効。
+    if agari_pct is not None and agari_pct <= 50 and "距離短縮" in tags:
+        tags.add("上がりP×短縮")  # 差し決着日の○絞り込みシグナル
     # 差し＝(網)前走後方の緩タグは残しつつ、(質)強差し と (文脈)当日ハイペース想定を上乗せ。
     # 強差し×差し想定 が揃う馬＝差し穴の本線＝◎格上げ候補（精度用の高信頼シグナル）。
     if recs and recs[0].corner:
@@ -194,12 +228,13 @@ def main():
         emap = {e.umaban: e for e in pc.entries}
         dist = getattr(pc, "distance", None)
         pace, _ = field_pace(pc.entries)
+        apct = agari_pattern(pc.entries)
         for row in rr.rows:
             if row.finish_pos and row.finish_pos <= 3 and row.popularity and row.popularity >= a.pop:
                 e = emap.get(row.umaban)
                 if not e:
                     continue
-                tags, cw = edges_for(e, dist, pace=pace)
+                tags, cw = edges_for(e, dist, pace=pace, agari_pct=apct.get(row.umaban))
                 # 小型バイアス日は「小型」単独でも拾える（①が小型[信頼高]の時）
                 ok = len(tags) >= 2 or (a.small_bias and "小型" in tags)
                 mark = "拾✓" if ok else "見✗"

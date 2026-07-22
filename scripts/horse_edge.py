@@ -16,7 +16,7 @@ from nankeiba.scraping.race_id import day_index_race_id, ALL_CODES
 from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping import parser as P
 sys.path.insert(0,'scripts')
-from ana_recall import is_hyperion, _HYPERION_SIRES, pace_aptitude
+from ana_recall import is_hyperion, _HYPERION_SIRES, pace_aptitude, agari_pattern
 
 CARD = "https://keiba.rakuten.co.jp/race_card/list/RACEID/{r}"
 # 南関ダートで"道悪(渋った馬場)巧者"を出しやすい主な種牡馬（経験薄馬の代替判断用・随時追記）
@@ -39,6 +39,7 @@ def main():
     races = dict(P.parse_race_links(idx, date_yyyymmdd=ymd, jyo_code=ALL_CODES[a.place]))
     pc = P.parse_card_page(c.get(CARD.format(r=races[a.race]), use_cache=True), races[a.race])
     dist = getattr(pc, "distance", None)
+    apct = agari_pattern(pc.entries)  # 上がりP(当日出走馬内の終い順位0〜100・小さいほど上位)
     print(f"=== {a.date} {a.place} {a.race}R (ダ{dist}m) 馬ごとエッジ検出 ===")
     for e in sorted(pc.entries, key=lambda x: x.umaban or 99):
         if not e.umaban:
@@ -50,6 +51,14 @@ def main():
         if _apt != "U":
             _lab = {"S": "瞬発S(スロー向)", "H": "持続H(ハイ向)", "F": "自在F"}[_apt]
             tags.append(f"ペース{_lab}")
+        # --- 上がりP(亀谷式・当日出走馬内の終い順位) ＋ 差し穴フィルター ---
+        _ap = apct.get(e.umaban)
+        _dists = [pr.distance for pr in recs if pr.distance]
+        _tan = bool(_dists and dist and _dists[0] and _dists[0] > dist)  # 短縮
+        if _ap is not None and _ap <= 40:
+            tags.append(f"上P上位{_ap}" + ("×短縮◎差穴" if (_ap <= 50 and _tan) else ""))
+        elif _ap is not None and _ap <= 50 and _tan:
+            tags.append(f"上P{_ap}×短縮◎差穴")
         # --- 道悪適性(馬場程度別) ---
         lv = {"稍": [0, 0], "重": [0, 0], "不": [0, 0]}
         for pr in recs:
