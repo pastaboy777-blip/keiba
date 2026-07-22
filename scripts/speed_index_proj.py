@@ -84,11 +84,18 @@ class BabaBook:
         return self.cache[key]
 
 
-def proj_index(e, book, agg="best", raw=False):
+def proj_index(e, book, agg="best", raw=False, target_dist=None, dist_tol=400):
     """1頭の投影指数。過去走ごとに B正規化した指数を集計。取れた指数リストも返す。
-    raw=True なら馬場差B正規化を省く(高速・外れ値に弱い)。"""
+    raw=True なら馬場差B正規化を省く(高速・外れ値に弱い)。
+    target_dist指定時は|過去距離−目標|<=dist_tol の走のみ採用(距離違いの外れ値を排除)。
+    条件を満たす走が2未満なら全走にフォールバック。"""
+    runs = list((e.recent_runs or [])[:5])
+    if target_dist:
+        near = [pr for pr in runs if getattr(pr, "distance", None) and abs(pr.distance - target_dist) <= dist_tol]
+        if len(near) >= 2:
+            runs = near
     vals = []
-    for pr in (e.recent_runs or [])[:5]:
+    for pr in runs:
         d = getattr(pr, "distance", None)
         t = _tosec(getattr(pr, "time", None))
         if not (d and t):
@@ -136,12 +143,13 @@ def main():
         for e in pc.entries:
             if not e.umaban:
                 continue
-            si, _ = proj_index(e, book, a.agg, raw=a.raw)
+            si, _ = proj_index(e, book, a.agg, raw=a.raw, target_dist=dist)
             if si is not None:
                 proj.append((si, e.umaban, (e.horse_name or "")[:8]))
         proj.sort(reverse=True)
         top5 = proj[:5]
-        print(f"\n {R:>2}R ダ{dist} 持ちタイム指数top5({a.agg}・馬場差B正規化)")
+        _norm = "生指数(B無)" if a.raw else "馬場差B正規化"
+        print(f"\n {R:>2}R ダ{dist} 持ちタイム指数top5({a.agg}・{_norm}・距離±400)")
         for rank, (si, um, nm) in enumerate(top5, 1):
             f = fin.get(um)
             ftag = f" {f}着" if f else ""
