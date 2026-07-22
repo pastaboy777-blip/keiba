@@ -25,3 +25,6 @@ data/.keibabook_cookie
 
 # 学習済みモデル(生成物)
 data/spark_model.json
+
+# 大系統測定(生成物・既定値はped_stats.pyに埋め込み)
+data/pedigree_stats.json

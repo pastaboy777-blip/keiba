@@ -23,6 +23,7 @@ from . import composite as cp
 from . import pace_aptitude as pa
 from . import smart as sma
 from . import pedigree as ped
+from . import ped_stats as pst
 
 
 # ---------------------------------------------------------------------------
@@ -246,7 +247,10 @@ def render_text(card: RaceCard) -> str:
         sr = card.smart.get(e.umaban)
         smart_s = f"  {sr.fmt()}" if sr else ""
         pt = card.ped_tags.get(e.umaban)
-        ped_s = f"  血統[{ped.system_name(pt.sire_sys)}]" if pt and pt.sire_sys else ""
+        ped_s = ""
+        if pt and pt.sire_sys:
+            fm = pst.fit(pt.sire_sys, h.distance)
+            ped_s = f"  血統[{ped.system_name(pt.sire_sys)}{fm}]"
         L.append(
             f"  {v.mark or '  '} {e.umaban:>2} {e.name:<12} "
             f"総合{total:>4}  ({brk})  {style}  ペース{v.pace_apt}{smart_s}{ped_s}"
@@ -267,16 +271,18 @@ def _corner_str(cp) -> str:
     return "-".join(str(c) for c in (cp or []) if c)
 
 
-def _ped_badge(pt) -> str:
-    """父の大系統を色付きバッジで。母父サンデー系は小印を付す。"""
+def _ped_badge(pt, distance: int = 0) -> str:
+    """父の大系統を色付きバッジで。母父サンデー系は小印、距離帯フィットは○/▽。"""
     if pt is None or not pt.sire_sys:
         return ""
     col = ped.system_color(pt.sire_sys)
     nm = ped.system_name(pt.sire_sys)
+    fitmark = pst.fit(pt.sire_sys, distance) if distance else ""
+    fit = f"<span class='pedfit'>{fitmark}</span>" if fitmark else ""
     bms = ""
     if pt.bms_sys:
         bms = f"<span class='bms' title='母父{ped.system_name(pt.bms_sys)}'>母父{ped.short_name(pt.bms_sys)}</span>"
-    return (f"<div class='ped'><span class='pedtag' style='background:{col}'>{nm}</span>{bms}</div>")
+    return (f"<div class='ped'><span class='pedtag' style='background:{col}'>{nm}</span>{fit}{bms}</div>")
 
 
 def render_html(card: RaceCard, *, title: str | None = None,
@@ -314,7 +320,7 @@ def render_html(card: RaceCard, *, title: str | None = None,
             f"<div class='hn'>{esc(v.entry.name)}</div>"
             f"<div class='meta'>{esc(v.entry.sex_age or '')} {esc(v.entry.jockey or '')}</div>"
             f"<div class='smart'>{esc(card.smart[e.umaban].fmt()) if e.umaban in card.smart else ''}</div>"
-            f"{_ped_badge(card.ped_tags.get(e.umaban))}"
+            f"{_ped_badge(card.ped_tags.get(e.umaban), h.distance)}"
             f"</td>"
             f"<td class='idx'>"
             f"<div class='i2'>{_fmt_idx(v.comp.total if v.comp else v.idx_best5)}</div>"
@@ -466,6 +472,7 @@ td.horse .ped {{ margin-top:2px; }}
 td.horse .ped .pedtag {{ color:#fff; font-size:10px; font-weight:700; border-radius:3px;
   padding:0 5px; }}
 td.horse .ped .bms {{ color:var(--sub); font-size:10px; margin-left:3px; }}
+td.horse .ped .pedfit {{ font-weight:900; margin-left:3px; color:#c0007a; }}
 .chip .pd {{ display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:4px;
   vertical-align:middle; }}
 .note-ped {{ margin-top:5px; font-size:12px; color:#8a1a5a; font-weight:600; }}
