@@ -1,0 +1,60 @@
+# 南関予想 デイリー運用 引き継ぎ（明日そのまま再開用）
+
+最終更新：2026-07-22（水）大井の運用で確立。明日以降このノート通りに回す。
+
+## 0. 全体像（ハイブリッド）
+**軸＝マキシマム新聞の指数（Engine B, 自前逆算）× 味付け＝TARGET流（展開・血統・枠）**
+- 指数の出どころ詳細＝`notes/live/engine_provenance.md`（k=10/par二次式/観測B）
+- 今日の検証＝`notes/live/kensho_0722_shisu.md`（指数①位1着4/12=33%, 複勝67%）
+
+## 1. レースID形式（大井）
+`2026111003` + `RR(2桁)` + `MMDD(4桁)`。例：7/23の11R＝`2026111003110723`。
+※10桁prefixは開催期間で固定っぽい。日付はMMDDで変わる。距離は前日出馬表だとパース不良で1600固定になりがち→**距離は手で確認して渡す**。
+
+## 2. 使うエンジン（すべて scripts/ana/）
+- `speed_index.py`：Engine B本体（k=10固定, par_std二次式, measured_base）。
+- `myindex.py`：各馬の自前指数プロファイル。`horse_index(cd, cur_dist, before=(y,m,d))` → best2/best5/best10/makuri。**before で当日リーク防止**。大井過去走ベース（※他会場は未評価＝弱点、下記TODO）。
+- `daikei.py`：種牡馬→大系統＋パワー軸。`classify(父,父父)` / `power(父)`→パ(中山型)/ス(短距離)/軽(切れ)/中。`read_baba(好走馬)`で馬場読み。
+- `tenkai_ooi.py`：`analyze(rid)`→隊列・ペース（逃げ争い頭数→超ハイ/ハイ/ミドル/スロー/ドスロー）。
+- `tenkai_pow.py`：展開×血統パワーの統合ビュー。
+- `pedigree_line.py`：`sires(rid)`→{umacd:{name,sire,gsire}}。
+- `monogatari.py`：`race_danwa(rid)`→{umacd:{umaban,name}}、`_get(url,path)`フェッチ。
+
+## 3. デイリー手順（明日やること）
+### A. 明日の指数トップ5画像（自前計算を優先）
+1. 距離を手で確認し `scripts/daily/gen_tomorrow.py` の `DIST` を編集、`MMDD`/`BEF`も明日の日付に。
+2. `python3 scripts/daily/gen_tomorrow.py` → `tomorrow_full.json`（名前/指数/脚質/血統/軸の堅さ①②差）。
+3. `python3 scripts/daily/gen_html.py` → `r_tomorrow.html`。
+4. Chromiumで画像化（下記 §5 の描画パイプ）。
+- 軸の堅さ：①②差 ≥15断トツ / ≥8堅い / ≥4やや堅 / ≤3混戦。混戦は頭固定せず展開・血統・枠で補強。
+
+### B. 結果検証＆傾向まとめ（レース後）
+- 全結果：`chihou/seiseki/{rid}` を12R分。1-3着＋馬番＋騎手(td[8], /db/kisyu/)を集計。
+- 指数成績：①位が1着/3着内、荒れ(①位圏外1着)を数える（`gen_summary.py`が結果まとめ画像）。
+- 枠バイアス：1-3着の rel=(馬番-1)/(頭数-1)で 内<0.34/中<0.67/外 を集計。
+- note用傾向カード：`scripts/daily/template_note_keiko.html` を land。**指数の話は出さない**（購入者向け）。馬場・枠・展開を主役、好調騎手はサポート。
+
+## 4. 確立したルール（今日の学び）
+- **ズブ穴の定義**＝「指数トップ5一覧の各レース◎○」。展開カードでは"展開の下"に本命と別枠で明記（7R④⑪, 8R⑩②のように）。
+- **枠バイアス**：7/22は外枠死亡(1-3着で外19%)・内〜中有利、後半は中枠席巻(12R中枠1-2-3)。→ 買いは外消し・内中厚め。**次は枠フィルターを指数に実装（外減点/内中加点）**。
+- **騎手筋の声**：笹川翼「内が重い」＝内ラチ沿いは脚上がる。内べったり回避・中を通す立ち回り有利。
+- **反省（やめる）**：①「消」の断定（6R⑤1着・7R⑩3着で裏目）→消は減らす。②単騎逃げの軽視（12R⑦を血統で消し→勝たれ）→明確な単騎逃げは尊重。③2着に無印を連発→**ズブ穴を2着固め**に厚く。
+- **指数の性格**：①位は複勝軸(67%)として強い/勝ち切り33%＝頭はブレる。荒れ4Rは指数だけで獲れない。
+
+## 5. 画像描画パイプ（Chromium headless）
+```
+CHROME=/opt/pw-browsers/chromium-1194/chrome-linux/chrome
+$CHROME --headless --disable-gpu --no-sandbox --hide-scrollbars --force-device-scale-factor=2 \
+  --window-size=<W>,<余裕高> --screenshot=raw.png "file://$PWD/card.html"
+# PILで下の余白をクロップ（背景色 or 白行を検出）。numpyは無いのでpure PIL。
+```
+- カードのCSS雛形：light＝クリーム地(#fbf6ef→#f1e6d6)＋黒hero＋橙アクセント(#e0692b)。dark一覧＝#1a1a1a header＋#1f2d4a th。ブランドチップ「変態か、変態以外か。」。
+- 既存見本：`scripts/daily/example_index_top5.html`（指数トップ5）、`scripts/daily/template_note_keiko.html`（note傾向カード）。
+
+## 6. TODO（伸びしろ）
+1. **枠フィルターを指数に組込み**（外減点・内中加点）＝今日のデータの最適解。
+2. **myindexを全会場評価に拡張**（今は大井のみ→⑥ハデスキーパー型を過小評価する較正ギャップ）。紙の指数が取れる時はそれで基準/馬場差Bを較正。
+3. 追い切り(cyokyo)・談話(monogatari)を指数に薄く重ねる。
+
+## 7. コミット時の注意
+`git config user.email noreply@anthropic.com && git config user.name Claude` を先に。ブランチ＝`claude/nankan-keiba-yosoku-6-3cprjz`。
