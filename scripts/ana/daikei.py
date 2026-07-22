@@ -50,6 +50,27 @@ _LOOK = {}
 for ko,(dai,lean,sl) in SYSTEMS.items():
     for s in sl: _LOOK[s.replace("　","").replace(" ","")] = (dai,ko,lean)
 
+# パワー軸: 中山型(力・スタミナ・持続)か短距離スピード型か。lean(ダ/芝)とは別軸。
+# パ=中山型パワー / ス=短距離スピード / 軽=切れ味 / 中=中間
+_POWER_KO = {
+ "ロベルト系":"パ","Tサンデー系":"パ","キングマンボ系":"パ","マイナー系":"パ","ヘロド系":"パ",
+ "セントサイモン系":"パ","サドラーズウェルズ系":"パ","エーピーインディ系":"パ","ダンチヒ系":"パ",
+ "フォーティナイナー系":"ス","プリンスリーギフト系":"ス","小系統ターントゥ系":"ス","ストームバード系":"ス",
+ "ディープ系":"軽","Pサンデー系":"軽","ヌレイエフ系":"軽","リファール系":"軽","ニジンスキー系":"軽",
+}
+# 個別上書き(小系統だけでは割り切れない中山巧者製造血統など)
+_POWER_SIRE = {"ネオユニヴァース":"パ","スズカマンボ":"パ","カレンブラックヒル":"パ","ヴィクトワールピサ":"パ",
+ "キズナ":"中","ハーツクライ":"パ","スワーヴリチャード":"パ","キタサンブラック":"パ"}
+
+def power(sire, gsire=None):
+    for cand in (sire, gsire):
+        if not cand: continue
+        c=cand.replace("　","").replace(" ","")
+        for k,v in _POWER_SIRE.items():
+            if k in c or c in k: return v
+    r=classify(sire,gsire)
+    return _POWER_KO.get(r["ko"],"中")
+
 def classify(sire, gsire=None):
     for cand in (sire, gsire):
         if not cand: continue
@@ -62,12 +83,17 @@ def classify(sire, gsire=None):
     return {"sire":sire,"dai":"?","ko":"?","lean":"?","via":None}
 
 def read_baba(placed):
-    """placed=[(sire,gsire)...] → 好走馬のlean分布で馬場を読む。"""
+    """placed=[(sire,gsire)...] → 好走馬のlean分布(ダ/芝)＋パワー軸(パ/ス/軽)で馬場を読む。"""
     from collections import Counter
     c = Counter(classify(s,g)["lean"] for s,g in placed)
-    da,shiba,un = c.get("ダ",0)+c.get("中",0)*0.5, c.get("芝",0)+c.get("中",0)*0.5, c.get("?",0)
-    verdict = "通常ダート(前・スピード主流)" if da>=shiba*1.5 else "特殊ダート(芝寄り台頭=差し・非主流)" if shiba>da else "標準〜やや差し"
-    return {"ダ":c.get("ダ",0),"芝":c.get("芝",0),"中":c.get("中",0),"?":un,"verdict":verdict}
+    p = Counter(power(s,g) for s,g in placed)
+    da,shiba = c.get("ダ",0)+c.get("中",0)*0.5, c.get("芝",0)+c.get("中",0)*0.5
+    lean_v = "通常ダート(前・スピード主流)" if da>=shiba*1.5 else "特殊ダート(芝寄り台頭=非主流)" if shiba>da else "標準"
+    pa,su = p.get("パ",0), p.get("ス",0)
+    pow_v = "タフ・パワー馬場(中山型/スタミナ有利)" if pa>su and pa>=p.get("軽",0) else "軽い・スピード馬場(短距離/切れ有利)" if su>pa else "標準"
+    return {"lean":{"ダ":c.get("ダ",0),"芝":c.get("芝",0),"中":c.get("中",0),"?":c.get("?",0)},
+            "power":{"パ":pa,"ス":su,"軽":p.get("軽",0),"中":p.get("中",0)},
+            "verdict_lean":lean_v,"verdict_power":pow_v}
 
 if __name__ == "__main__":
     import sys
