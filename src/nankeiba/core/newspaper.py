@@ -21,6 +21,7 @@ from . import pace as pc
 from . import summary as sm
 from . import composite as cp
 from . import pace_aptitude as pa
+from . import smart as sma
 
 
 # ---------------------------------------------------------------------------
@@ -88,6 +89,8 @@ class RaceCard:
     first3f: list[sm.First3FRow]
     model: SpeedIndexModel
     going_apt: dict[int, sm.GoingAptitude] = field(default_factory=dict)
+    smart: dict[int, "sma.SmartRow"] = field(default_factory=dict)
+    agari_top: list[tuple[int, float]] = field(default_factory=list)
 
 
 def build_card(
@@ -103,6 +106,8 @@ def build_card(
     same_track = sm.same_track_index_top(hist, model, header.place, lookback=10)
     first3f = sm.first3f_top(hist, header.distance, lookback=5)
     going_apt = sm.going_aptitude(hist, model, header.baba) if header.baba else {}
+    smart = sma.smart_table(hist, header.distance)
+    agari_top = sma.agari_t_top(hist)
 
     ctx = cp.PaceContext.from_grid(grid, header.baba)
     views = []
@@ -131,7 +136,7 @@ def build_card(
     return RaceCard(
         header=header, horses=views, grid=grid,
         top10=top10, same_track=same_track, first3f=first3f, model=model,
-        going_apt=going_apt,
+        going_apt=going_apt, smart=smart, agari_top=agari_top,
     )
 
 
@@ -200,6 +205,16 @@ def render_text(card: RaceCard) -> str:
         L.append("  " + "  ".join(f"{r.umaban}({r.first3f:.1f})" for r in card.first3f))
         L.append("")
 
+    # 上がりT上位(スマート出馬表・亀谷式) + ローテ
+    if card.agari_top:
+        L.append("【上がりT上位】(馬番 上がり最速/近3走・ローテ) ※差し決着で狙い")
+        cells = []
+        for um, at in card.agari_top:
+            rot = card.smart[um].rot if um in card.smart else ""
+            cells.append(f"{um}({at:.1f}{rot})")
+        L.append("  " + "  ".join(cells))
+        L.append("")
+
     # 出走各馬 総合指数(印は総合順)
     L.append("【出走各馬 総合指数】(印 馬番 馬名  総合 = 素指数 展開 馬場 / 脚質 / ペース適性)")
     order = sorted(card.horses,
@@ -211,9 +226,11 @@ def render_text(card: RaceCard) -> str:
         total = _fmt_idx(c.total if c else None)
         brk = c.breakdown() if c else "-"
         style = (c.style if c and c.style else "―")
+        sr = card.smart.get(e.umaban)
+        smart_s = f"  {sr.fmt()}" if sr else ""
         L.append(
             f"  {v.mark or '  '} {e.umaban:>2} {e.name:<12} "
-            f"総合{total:>4}  ({brk})  {style}  ペース{v.pace_apt}"
+            f"総合{total:>4}  ({brk})  {style}  ペース{v.pace_apt}{smart_s}"
         )
     return "\n".join(L)
 
@@ -265,6 +282,7 @@ def render_html(card: RaceCard, *, title: str | None = None,
             f"<div class='mark'>{mark}</div>"
             f"<div class='hn'>{esc(v.entry.name)}</div>"
             f"<div class='meta'>{esc(v.entry.sex_age or '')} {esc(v.entry.jockey or '')}</div>"
+            f"<div class='smart'>{esc(card.smart[e.umaban].fmt()) if e.umaban in card.smart else ''}</div>"
             f"</td>"
             f"<td class='idx'>"
             f"<div class='i2'>{_fmt_idx(v.comp.total if v.comp else v.idx_best5)}</div>"
@@ -316,6 +334,11 @@ def render_html(card: RaceCard, *, title: str | None = None,
         )
     first3f = " ".join(
         f"<span class='chip'>{r.umaban}<b>{r.first3f:.1f}</b></span>" for r in card.first3f
+    ) or "―"
+    agari_top = " ".join(
+        f"<span class='chip'>{um}<b>{at:.1f}</b>"
+        f"<span class='sub2'>{esc(card.smart[um].rot) if um in card.smart else ''}</span></span>"
+        for um, at in card.agari_top
     ) or "―"
 
     baba_txt = f" ({esc(h.baba)})" if h.baba else ""
@@ -389,6 +412,7 @@ td.horse {{ width:118px; padding:3px 5px; }}
 td.horse .mark {{ float:right; font-size:18px; font-weight:900; }}
 td.horse .hn {{ font-weight:800; font-size:14px; }}
 td.horse .meta {{ color:var(--sub); font-size:11px; }}
+td.horse .smart {{ color:#1a6b2f; font-size:10px; margin-top:1px; }}
 td.idx {{ width:66px; text-align:center; }}
 td.idx .i2 {{ font-weight:900; font-size:17px; }}
 td.idx .i5 {{ color:var(--sub); border-top:1px dashed #ccc; font-size:10px; line-height:1.3; }}
@@ -448,6 +472,8 @@ thead td {{ background:#333; color:#fff; text-align:center; font-weight:700; }}
         <div>{same_track}</div>
         <div class="stitle" style="margin-top:12px">前3Fタイム上位（{h.distance}m±200m・概算）</div>
         <div>{first3f}</div>
+        <div class="stitle" style="margin-top:12px;border-color:#1a9e3b">上がりT上位（近3走最速・差し決着で狙い／ローテ付）</div>
+        <div>{agari_top}</div>
         {going_block}
       </div>
     </div>
