@@ -102,6 +102,18 @@ class RaceCard:
     ped_tags: dict[int, "ped.PedTag"] = field(default_factory=dict)
     ped_bias: "ped.PedBias | None" = None
 
+    def grip_holes(self) -> list[HorseView]:
+        """グリップ血統 × 指数不人気（印なし＝人気薄想定）の穴ヒモ候補。
+
+        「荒れは事前に狙い撃てない」が実測の結論（先行頭数・指数差とも荒れを
+        予測できず）。なので“荒れ予報”はせず、「もし荒れたらこの穴」を挙げる。
+        夏の大井・園田ダートで、実測上 穴の複勝が非該当の約3倍だった層。
+        """
+        holes = [v for v in self.horses if v.grip and not v.mark]
+        holes.sort(key=lambda v: -(v.comp.total if v.comp and v.comp.total is not None
+                                   else (v.idx_best5 or -1e9)))
+        return holes
+
 
 def build_card(
     header: RaceHeader,
