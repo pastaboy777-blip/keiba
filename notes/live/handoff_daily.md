@@ -58,3 +58,10 @@ $CHROME --headless --disable-gpu --no-sandbox --hide-scrollbars --force-device-s
 
 ## 7. コミット時の注意
 `git config user.email noreply@anthropic.com && git config user.name Claude` を先に。ブランチ＝`claude/nankan-keiba-yosoku-6-3cprjz`。
+
+## 8. ラップ分析（毎レース・常設タスク）※ユーザー要望 2026-07-23
+結果が出たら毎レース**ラップ／ペースも分析**する。
+- 南関(keibabook)成績ページで取れるのは：**走破タイム・通過順位・平均ハロン**（例1R=12.93）。**前後半3F/フルラップは非掲載のことが多い**。
+- できる範囲の読み：平均ハロンでペース水準、ハナ馬の粘り/沈みと1着の脚質差で「前残り/差し/フラット」を判定。上位の走破タイム差で決め手を推定。
+- フルラップが要る時はJRA(`lap.py`)や別ソース。南関は近似ペース読みで代替。
+- 出力に「ラップ/ペース」の一言を必ず添える。
