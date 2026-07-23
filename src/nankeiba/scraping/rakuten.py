@@ -307,3 +307,23 @@ def parse_lap(html: str) -> dict | None:
     if not furlongs and agari3 is None:
         return None
     return {"furlongs": furlongs, "agari4f": agari4, "agari3f": agari3, "corners": corners}
+
+
+def parse_payout(html: str) -> dict | None:
+    """結果ページ本文から主要払戻を抽出。三連単は本命の穴指標に使う。
+
+    return: {"trifecta":(combo,円), "trio":(..), "exacta":(..), "win":(..)} 取れたものだけ。
+    """
+    txt = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", html)))
+    out: dict = {}
+    pats = {
+        "trifecta": r"三連単\s*([\d\-]+)\s*([\d,]+)\s*円",
+        "trio":     r"三連複\s*([\d\-]+)\s*([\d,]+)\s*円",
+        "exacta":   r"馬単\s*([\d\-]+)\s*([\d,]+)\s*円",
+        "win":      r"単勝\s*(\d+)\s*([\d,]+)\s*円",
+    }
+    for key, pat in pats.items():
+        m = re.search(pat, txt)
+        if m:
+            out[key] = (m.group(1), int(m.group(2).replace(",", "")))
+    return out or None

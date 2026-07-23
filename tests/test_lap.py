@@ -89,3 +89,12 @@ class TestResultFields(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPayout(unittest.TestCase):
+    def test_trifecta(self):
+        from nankeiba.scraping.rakuten import parse_payout
+        html = "<div>三連単 2-4-7 384,140 円 272番人気 馬単 2-4 40,400 円</div>"
+        p = parse_payout(html)
+        self.assertEqual(p["trifecta"], ("2-4-7", 384140))
+        self.assertEqual(p["exacta"], ("2-4", 40400))

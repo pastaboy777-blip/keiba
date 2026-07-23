@@ -22,6 +22,7 @@ from . import summary as sm
 from . import composite as cp
 from . import pace_aptitude as pa
 from . import mirage as mir
+from . import grip as grp
 from . import smart as sma
 from . import pedigree as ped
 from . import ped_stats as pst
@@ -83,6 +84,7 @@ class HorseView:
     comp: "cp.Composite | None" = None   # 総合指数(素+展開±馬場)
     pace_apt: str = "U"           # ペース適性 S/H/F/U(+激)
     mirage: "mir.Mirage | None" = None   # 見かけ倒し指数の警告
+    grip: "grp.GripTag | None" = None    # グリップ血統(夏NAR大波乱の穴ヒモ)
 
 
 @dataclass
@@ -125,6 +127,7 @@ def build_card(
         b5 = _best_index(e.history, model, 5)
         comp = cp.composite_index(b5, e.history, ctx, going_apt.get(e.umaban))
         mrg = mir.detect(e.history, model, header.place, header.distance)
+        gtag = grp.grip_of(e.sire, e.bms)
         views.append(HorseView(
             entry=e,
             idx_best2=_best_index(e.history, model, 2),
@@ -132,6 +135,7 @@ def build_card(
             comp=comp,
             pace_apt=pa.pace_aptitude_mark(e.history),
             mirage=mrg if mrg else None,
+            grip=gtag if gtag else None,
         ))
     # 印: 総合指数の場内順位上位から ◎○▲△△(総合が無い馬は素指数で代替)
     def _rank_key(v: HorseView):
