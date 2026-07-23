@@ -241,17 +241,28 @@ def _parse_pedigree(cells: list[str], name: str) -> tuple[str | None, str | None
     return None, None
 
 
+def _res_time_to_sec(s: str) -> float | None:
+    """結果表用: '1:43.4'(タイム) と '39.7'(上がり) の両形式を秒に。"""
+    s = s.strip()
+    m = re.match(r"(?:(\d+):)?(\d+)\.(\d)$", s)
+    if not m:
+        return None
+    mm = int(m.group(1)) if m.group(1) else 0
+    return round(mm * 60 + int(m.group(2)) + int(m.group(3)) / 10.0, 1)
+
+
 def parse_result(html: str) -> list[dict]:
     """競走成績(race_performance)ページの着順表を返す。
 
-    return: [{"finish","umaban","name","popularity"}, ...] 着順昇順。
+    return: [{"finish","umaban","name","popularity","time_sec","agari"}, ...] 着順昇順。
+      time_sec … 走破タイム(秒)  agari … 推定上がり3F(秒)  ※取得不可なら None
     """
     mt = re.search(r'class="dataTable".*?</table>', html, re.S)
     if not mt:
         return []
     out = []
     for r in re.findall(r"<tr[^>]*>(.*?)</tr>", mt.group(0), re.S):
-        # 着順=<td class="order">, 枠=<th>, 馬番=<td class="number"> の順。th も拾う。
+        # 列: 着順 枠 馬番 馬名 性齢 負担重量 馬体重 騎手 タイム 着差 推定上がり 調教師 人気
         c = [_clean(x) for x in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.S)]
         if len(c) < 4 or not c[0].isdigit():
             continue
@@ -263,6 +274,15 @@ def parse_result(html: str) -> list[dict]:
         for x in reversed(c):
             if x.isdigit() and 1 <= int(x) <= 18:
                 pop = int(x); break
-        out.append({"finish": finish, "umaban": umaban, "name": c[3], "popularity": pop})
+        # タイム(m:ss.s)を探し、その2つ後を推定上がりとみなす
+        time_sec = agari = None
+        for i, x in enumerate(c):
+            if re.match(r"\d+:\d\d\.\d$", x):
+                time_sec = _res_time_to_sec(x)
+                if i + 2 < len(c):
+                    agari = _res_time_to_sec(c[i + 2])
+                break
+        out.append({"finish": finish, "umaban": umaban, "name": c[3],
+                    "popularity": pop, "time_sec": time_sec, "agari": agari})
     out.sort(key=lambda x: x["finish"])
     return out
