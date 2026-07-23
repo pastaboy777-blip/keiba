@@ -29,6 +29,13 @@ class TestGrip(unittest.TestCase):
         self.assertTrue(g.bms)
         self.assertEqual(g.mark, "🔩母父")
 
+
+    def test_no_substring_false_positive(self):
+        # 「キセキ」(父ルーラーシップ系)が「フジキセキ」に化けない
+        self.assertFalse(grip.is_grip("キセキ"))
+        self.assertTrue(grip.is_grip("フジキセキ"))
+        self.assertTrue(grip.is_grip("キンシャサノキセキ"))
+
     def test_none(self):
         g = grip.grip_of("ディープインパクト", "クロフネ")
         self.assertFalse(bool(g))

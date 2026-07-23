@@ -37,13 +37,17 @@ GRIP_SIRES = {_normalize(s) for s in GRIP_SIRES_RAW}
 
 
 def is_grip(name: str | None) -> bool:
-    """種牡馬名がグリップ血統リストに該当するか（部分一致）。"""
+    """種牡馬名がグリップ血統リストに該当するか。
+
+    完全一致か「登録名が対象名に丸ごと含まれる(g in n)」のみ許可。
+    逆向き(n in g)は許さない — 「キセキ」が「フジキセキ」に化ける等の誤検出を防ぐ。
+    """
     n = _normalize(name)
     if not n:
         return False
     if n in GRIP_SIRES:
         return True
-    return any(g in n or n in g for g in GRIP_SIRES)
+    return any(g in n for g in GRIP_SIRES)
 
 
 @dataclass
