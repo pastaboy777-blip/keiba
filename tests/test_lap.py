@@ -6,7 +6,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from nankeiba.core import lap
-from nankeiba.scraping.rakuten import _res_time_to_sec, parse_result
+from nankeiba.scraping.rakuten import _res_time_to_sec, parse_result, parse_lap
 
 
 class TestTimeParse(unittest.TestCase):
@@ -47,6 +47,32 @@ class TestAnalyze(unittest.TestCase):
     def test_empty(self):
         a = lap.analyze([], 1600)
         self.assertEqual(a.pace, "?")
+
+    def test_real_furlongs_high(self):
+        # 2R実測: テン35.5 vs 上がり38.7 → 前傾3.2 → ハイ
+        r = self._res([(1, 7, 74.2, None)])
+        laps = {"furlongs": [12.6, 11.3, 11.6, 12.6, 12.5, 13.6],
+                "agari4f": 50.3, "agari3f": 38.7, "corners": None}
+        a = lap.analyze(r, 1200, laps)
+        self.assertEqual(a.source, "実測ラップ")
+        self.assertEqual(a.pace, "H")
+        self.assertAlmostEqual(a.ten3f, 35.5)
+        self.assertAlmostEqual(a.last3f, 38.7)
+
+
+class TestParseLap(unittest.TestCase):
+    def test_extract(self):
+        html = ("<div>ハロンタイム 12.9-12.3-13.4-12.5-12.6-13.2-13.1-13.4 "
+                "上がり 4F 52.3 - 3F 39.7 ■ コーナー通過順位 １角 (3,7),(2,4,11) </div>")
+        d = parse_lap(html)
+        self.assertEqual(len(d["furlongs"]), 8)
+        self.assertAlmostEqual(d["furlongs"][0], 12.9)
+        self.assertAlmostEqual(d["agari3f"], 39.7)
+        self.assertAlmostEqual(d["agari4f"], 52.3)
+        self.assertIn("3,7", d["corners"])
+
+    def test_none(self):
+        self.assertIsNone(parse_lap("<div>ラップ情報なし</div>"))
 
 
 class TestResultFields(unittest.TestCase):

@@ -286,3 +286,24 @@ def parse_result(html: str) -> list[dict]:
                     "popularity": pop, "time_sec": time_sec, "agari": agari})
     out.sort(key=lambda x: x["finish"])
     return out
+
+
+def parse_lap(html: str) -> dict | None:
+    """結果ページ本文の「ハロンタイム …」「上がり 4F..-3F..」「コーナー通過順位」を抽出。
+
+    return: {"furlongs":[12.9,...], "agari4f":52.3, "agari3f":39.7, "corners":"..."}
+      取得できなければ None。furlongs は1ハロン(200m)ごとの実測ラップ(秒)。
+    """
+    txt = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", html)))
+    furlongs: list[float] = []
+    m = re.search(r"ハロンタイム\s*([\d.\-\s]+?)(?:上がり|■|コーナー|$)", txt)
+    if m:
+        furlongs = [float(x) for x in re.findall(r"\d+\.\d", m.group(1))]
+    a = re.search(r"上がり\s*4F\s*([\d.]+)\s*-\s*3F\s*([\d.]+)", txt)
+    agari4 = float(a.group(1)) if a else None
+    agari3 = float(a.group(2)) if a else None
+    cm = re.search(r"コーナー通過順位\s*(.+?)(?:払戻|レース|<|$)", txt)
+    corners = cm.group(1).strip()[:200] if cm else None
+    if not furlongs and agari3 is None:
+        return None
+    return {"furlongs": furlongs, "agari4f": agari4, "agari3f": agari3, "corners": corners}
