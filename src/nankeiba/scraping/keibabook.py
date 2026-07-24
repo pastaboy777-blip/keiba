@@ -294,6 +294,8 @@ def parse_history(html: str, *, limit: int = 12,
             pop = int(re.sub(r"\D", "", c[7]) or 0) or None
         except ValueError:
             pop = None
+        # 通過順(中央は公開・'4 5'や'7 6 6'形式。南関は**でマスクされ空になる)
+        corner = [int(x) for x in re.findall(r"\d+", c[15])] if len(c) > 15 else []
         runs.append(RunRecord(
             date=ymd.replace("/", "-"),
             place=normalize_place(c[1]),
@@ -303,7 +305,7 @@ def parse_history(html: str, *, limit: int = 12,
             jockey=c[11] or None,
             popularity=pop,
             baba=normalize_baba(c[2]),
-            corner_pos=[],                 # このプランでは通過順が非公開(****)
+            corner_pos=corner,
             last3f_sec=last3f,
             time_sec=t,
             surface=surf,
@@ -349,6 +351,47 @@ def find_meeting_cyuou(client: KeibabookClient, date: str, place: str) -> list[s
         raise RuntimeError(f"{date} の {place}(中央) が見つからない。開催: {list(meetings)}")
     prefix = meetings[place]
     return [f"{prefix}{n:02d}" for n in range(1, 13)]
+
+
+def parse_race_header_cyuou(html: str) -> dict:
+    """中央 syutuba ページから距離・馬場種・レース名・クラスを返す。
+
+    return: {"distance":int|None, "surface":'芝'/'ダ'/'障'|None,
+             "race_name":str|None, "race_no":int|None}
+    """
+    txt = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", html)))
+    # 条件は "ダ・1200m" 等(中黒/回り記号あり)。全角数字も許容し 'm' 必須で馬柱誤検出を避ける
+    m = re.search(r"(芝|ダート|ダ|障)[・\s右左内外]{0,3}([\d０-９]{3,4})\s*[mメ]", txt)
+    surface = None
+    distance = None
+    if m:
+        surface = "ダ" if m.group(1).startswith("ダ") else ("障" if m.group(1) == "障" else "芝")
+        distance = int(m.group(2).translate({c: c - 0xFEE0 for c in range(0xFF10, 0xFF1A)}))
+    title = (re.search(r"<title>(.*?)</title>", html) or [None, ""])[1]
+    rno = re.search(r"(\d{1,2})R", title)
+    # <h2> のクラス見出し(例 ３歳以上１勝クラス)を race_name に
+    heads = [unescape(re.sub(r"<[^>]+>", "", x)).strip()
+             for x in re.findall(r"<h[12][^>]*>(.*?)</h[12]>", html, re.S)]
+    race_name = next((h for h in heads if ("クラス" in h or "賞" in h or "ステークス" in h
+                                            or "特別" in h or "勝" in h)), None)
+    return {"distance": distance, "surface": surface,
+            "race_name": race_name, "race_no": int(rno.group(1)) if rno else None}
+
+
+def parse_pedigree_cyuou(html: str) -> tuple[str | None, str | None]:
+    """中央 馬DBトップ /db/uma/{umacd}/ から (父, 母父) を返す。
+
+    父 = 血統欄の先頭 uma リンク(カタカナ名)、母父 = 「母父 XXX」表記。
+    """
+    # 父: <th>父</th> 直後の最初の uma リンク名
+    sire = None
+    sm = re.search(r"父\s*</th>.*?<a[^>]*>\s*([ァ-ヶー・]{2,16})\s*</a>", html, re.S)
+    if sm:
+        sire = sm.group(1).replace("・", "")
+    txt = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", html)))
+    bm = re.search(r"母父\s*([ァ-ヶー・]{2,16})", txt)
+    bms = bm.group(1).replace("・", "") if bm else None
+    return sire, bms
 
 
 def parse_result_cyuou(html: str) -> list[dict]:
