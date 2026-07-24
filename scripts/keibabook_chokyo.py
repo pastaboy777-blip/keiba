@@ -79,6 +79,35 @@ def field(raceid: str) -> list[dict]:
     return out
 
 
+def _sire_name(cell_text: str) -> str:
+    """血統セル "アイルハヴアナザーUSA I'll Have Another 栗毛 2009 …" から先頭の種牡馬名を抽出。"""
+    m = re.match(r'\s*([ァ-ヶ・ーＡ-ＺA-Za-z’\'\.\s]+?)(?:USA|GB|IRE|FR|GER|JPN|AUS|CAN|[A-Z]{2,3}\b|\s{2,}|[栗鹿青芦黒白]毛|\d{4})',
+                 cell_text)
+    if m:
+        nm = re.match(r'([ァ-ヶ・ー]+)', m.group(1).strip())
+        if nm:
+            return nm.group(1)
+    nm = re.match(r'\s*([ァ-ヶ・ー]+)', cell_text)
+    return nm.group(1) if nm else cell_text.strip()[:12]
+
+
+def sires(raceid: str) -> dict:
+    """kettouページから {馬番: 父名} を返す（確実に取れる父のみ）。
+    class="kettou" セルは先頭N個(=出走頭数)が父を umaban順で列挙(後半N個は同一の重複)。
+    ★母父はkettouクラスに無く(=父の2回列挙のみ)、per-horse血統ツリーの無印セルにある。
+      多単語名の分割と母の位置特定が絡み堅牢抽出が困難＝TODO(母父パイプは要ground-truth検証の別実装)。"""
+    horses = field(raceid)                      # umaban順の出走馬
+    n = len(horses)
+    s = BeautifulSoup(_get(f"/chihou/kettou/{raceid}"), "html.parser")
+    ket = [_sire_name(k.get_text(" ", strip=True)) for k in s.find_all(class_="kettou")]
+    out = {}
+    if n and len(ket) >= n:
+        for i, h in enumerate(horses):
+            if h["umaban"]:
+                out[h["umaban"]] = ket[i]
+    return out
+
+
 def _parse_workouts(soup: BeautifulSoup) -> list[dict]:
     """cyokyo ページの調教明細(16列固定)を [{日付?,コース,馬場,時計[],脚色,短評}] で返す。"""
     runs = []
