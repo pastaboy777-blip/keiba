@@ -10,8 +10,9 @@
 
 出力: 来た穴ごとに持っていたエッジと 拾/見落とし、開催の recall%、見落とし穴の特徴。
 """
-import sys, argparse
+import sys, argparse, datetime
 sys.path.insert(0, "src")
+sys.path.insert(0, "scripts")
 from nankeiba.scraping.race_id import day_index_race_id, ALL_CODES
 from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping import parser as P
@@ -148,9 +149,32 @@ def agari_pattern(entries):
     return {um: round(i / max(1, n - 1) * 100) for i, um in enumerate(order)}
 
 
-def edges_for(e, today_dist, small_bias=True, pace=None, agari_pct=None):
+_REST_DAYS = 60  # 休み明けとみなす間隔(日)
+
+
+def tataki_n(e, today):
+    """今日が叩き何戦目か(§20検証済)。休み明け(60日+ギャップ)が無ければ0。
+    復帰戦=1／その次=2…。人気薄で叩き1=lift0.54,叩き2=0.00(罠),叩き3以降=lift2.02(夏穴)。"""
+    dates = []
+    for pr in (e.recent_runs or []):
+        try:
+            if pr.date:
+                dates.append(datetime.date.fromisoformat(pr.date))
+        except Exception:
+            pass
+    if not dates or not today:
+        return 0
+    if (today - dates[0]).days >= _REST_DAYS:     # 今日とdates[0]の間が休み明け→今日=復帰戦
+        return 1
+    for i in range(len(dates) - 1):               # dates[i]が復帰戦→今日は(i+2)戦目
+        if (dates[i] - dates[i + 1]).days >= _REST_DAYS:
+            return i + 2
+    return 0                                       # 連続出走で休み明けが射程外
+
+
+def edges_for(e, today_dist, small_bias=True, pace=None, agari_pct=None, today=None):
     """馬のエッジ集合を返す（穴ファクター）。pace='ハイ'なら差し馬に想定加点。
-    agari_pct=当日出走馬内の上がりP(0〜100・小さいほど終い上位)。"""
+    agari_pct=当日出走馬内の上がりP(0〜100・小さいほど終い上位)。today=当日(叩き判定用)。"""
     recs = e.recent_runs or []
     tags = set()
     cw = e.horse_weight or (recs[0].horse_weight if recs and recs[0].horse_weight else None)
@@ -210,6 +234,12 @@ def edges_for(e, today_dist, small_bias=True, pace=None, agari_pct=None):
     prev_j = recs[0].jockey if recs else None
     if e.jockey and prev_j and e.jockey != prev_j and jw and jw >= 18:
         tags.add("乗替トップ騎手")  # トップ騎手への勝負乗替のみ(発火絞り＝精度シグナル)
+    # 叩き3戦目以降＝夏バテ期に疲れが抜けて上向く人気薄の穴(§20・大井7月lift2.02)。
+    # 復帰戦(叩き1)は消し(lift0.54)、叩き2戦目は罠(0/11)なので穴タグに入れない。
+    if today is not None:
+        _tn = tataki_n(e, today)
+        if isinstance(_tn, int) and _tn >= 3:
+            tags.add("叩き3戦目穴")
     return tags, cw
 
 
@@ -223,6 +253,7 @@ def main():
     a = ap.parse_args()
     c = PoliteClient()
     ymd = a.date.replace("-", "")
+    today = datetime.date.fromisoformat(a.date)
     idx = c.get(CARD.format(r=day_index_race_id(ymd, a.place)), use_cache=True)
     races = dict(P.parse_race_links(idx, date_yyyymmdd=ymd, jyo_code=ALL_CODES[a.place]))
     caught = missed = 0
@@ -251,7 +282,7 @@ def main():
                 e = emap.get(row.umaban)
                 if not e:
                     continue
-                tags, cw = edges_for(e, dist, pace=pace, agari_pct=apct.get(row.umaban))
+                tags, cw = edges_for(e, dist, pace=pace, agari_pct=apct.get(row.umaban), today=today)
                 # 小型バイアス日は「小型」単独でも拾える（①が小型[信頼高]の時）
                 ok = len(tags) >= 2 or (a.small_bias and "小型" in tags)
                 mark = "拾✓" if ok else "見✗"

@@ -8,31 +8,10 @@ sys.path.insert(0, "src"); sys.path.insert(0, "scripts")
 from nankeiba.scraping.race_id import day_index_race_id, ALL_CODES
 from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping import parser as P
+from ana_recall import tataki_n, _REST_DAYS as REST  # 判定ロジックは本体に集約(§20)
 
 CARD = "https://keiba.rakuten.co.jp/race_card/list/RACEID/{r}"
 PERF = "https://keiba.rakuten.co.jp/race_performance/list/RACEID/{r}"
-REST = 60  # 休み明けとみなす日数
-
-
-def tataki_n(e, today):
-    """今日が叩き何戦目か。休み明け(60日+ギャップ)が無ければ0。復帰戦=1,その次=2..."""
-    recs = e.recent_runs or []
-    dates = []
-    for pr in recs:
-        try:
-            dates.append(datetime.date.fromisoformat(pr.date)) if pr.date else None
-        except Exception:
-            pass
-    if not dates:
-        return 0
-    # today直前=dates[0]。今日とdates[0]の間が休み明けなら今日=復帰戦(=1)
-    if (today - dates[0]).days >= REST:
-        return 1
-    # dates[i]とdates[i+1]の間に休み明け → dates[i]が復帰戦。今日はそこから (i+2)戦目
-    for i in range(len(dates) - 1):
-        if (dates[i] - dates[i + 1]).days >= REST:
-            return i + 2
-    return 0  # 連続出走で休み明けが射程外(=叩き何戦目か不明)
 
 
 def rate(cell):

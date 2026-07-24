@@ -16,8 +16,7 @@ from nankeiba.scraping.race_id import day_index_race_id, ALL_CODES
 from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping import parser as P
 sys.path.insert(0,'scripts')
-from ana_recall import is_hyperion, _HYPERION_SIRES, _GRIP_SIRES, pace_aptitude, agari_pattern
-from tataki_val import tataki_n
+from ana_recall import is_hyperion, _HYPERION_SIRES, _GRIP_SIRES, pace_aptitude, agari_pattern, tataki_n
 
 CARD = "https://keiba.rakuten.co.jp/race_card/list/RACEID/{r}"
 # 南関ダートで"道悪(渋った馬場)巧者"を出しやすい主な種牡馬（経験薄馬の代替判断用・随時追記）
