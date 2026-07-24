@@ -17,6 +17,7 @@ from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping import parser as P
 sys.path.insert(0,'scripts')
 from ana_recall import is_hyperion, _HYPERION_SIRES, _GRIP_SIRES, pace_aptitude, agari_pattern
+from tataki_val import tataki_n
 
 CARD = "https://keiba.rakuten.co.jp/race_card/list/RACEID/{r}"
 # 南関ダートで"道悪(渋った馬場)巧者"を出しやすい主な種牡馬（経験薄馬の代替判断用・随時追記）
@@ -100,19 +101,20 @@ def main():
             tags.append("延長")
         if places and a.place not in places:
             tags.append("初コース/転入")
-        # 休み明け / 叩き2走目
+        # 休み明け / 叩きN戦目(§20検証済:人気薄で叩き1=lift0.54,叩き2=0.00の罠,叩き3以降=lift2.02の穴)
         if recs and recs[0].date:
             try:
                 d1 = datetime.date.fromisoformat(recs[0].date)
                 gap1 = (today - d1).days
                 if gap1 >= 60:
-                    tags.append(f"休明({gap1}日)")
-                elif len(recs) >= 2 and recs[1].date:
-                    d2 = datetime.date.fromisoformat(recs[1].date)
-                    if (d1 - d2).days >= 60:
-                        tags.append("叩2走目↑")
+                    tags.append(f"休明({gap1}日)✗薄")   # 復帰戦は人気薄で危険(lift0.54)
             except Exception:
                 pass
+        _tn = tataki_n(e, today)
+        if isinstance(_tn, int) and _tn >= 3:
+            tags.append(f"★叩き{_tn}戦目(夏穴lift2.0)")  # 疲れ抜けた3戦目以降=夏の人気薄穴
+        elif _tn == 2:
+            tags.append("叩き2戦目✗(罠0/11)")           # 2戦目は上乗せ無し=消し材料
         # 斤量減(別定の恩恵で軽くなった＝過小評価穴・大井lift1.43)
         if e.weight_carried and recs and recs[0].weight_carried:
             dk = e.weight_carried - recs[0].weight_carried
