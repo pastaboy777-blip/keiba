@@ -84,11 +84,18 @@ class BabaBook:
         return self.cache[key]
 
 
-def proj_index(e, book, agg="best", raw=False, target_dist=None, dist_tol=400):
+_BAND_MED = {"短": 58.9, "マ": 56.5, "中": 56.0, "長": 55.4}  # 距離帯別 道中速度中央値(大井)
+
+
+def proj_index(e, book, agg="best", raw=False, target_dist=None, dist_tol=400, wk=0.0, pk=0.0):
     """1頭の投影指数。過去走ごとに B正規化した指数を集計。取れた指数リストも返す。
     raw=True なら馬場差B正規化を省く(高速・外れ値に弱い)。
     target_dist指定時は|過去距離−目標|<=dist_tol の走のみ採用(距離違いの外れ値を排除)。
-    条件を満たす走が2未満なら全走にフォールバック。"""
+    条件を満たす走が2未満なら全走にフォールバック。
+    ★Ragozin/Thoro-Graph流の上位補正(オプション・既定OFF)：
+      wk=斤量補正(点/kg・基準56kg)／pk=ペース補正(点/(km/h)・道中速度が距離帯中央値超で加点)。
+    ※今開催3日で検証：斤量補正は複勝率53%→50%で"悪化"(南関は別定中心＝斤量が能力と相関し二重計上)＝既定0で不採用。
+      ペース補正は中立(誤差範囲)＝保留・既定0。効くと確認できるまで軸に入れない(rule4)。"""
     runs = list((e.recent_runs or [])[:5])
     if target_dist:
         near = [pr for pr in runs if getattr(pr, "distance", None) and abs(pr.distance - target_dist) <= dist_tol]
@@ -102,7 +109,17 @@ def proj_index(e, book, agg="best", raw=False, target_dist=None, dist_tol=400):
             continue
         b = None if raw else book.get(getattr(pr, "date", None), getattr(pr, "place", None))
         base = PAR(d) + (b if b is not None else 0.0)   # Bが取れない過去走は生パー(近似)
-        vals.append(-K * (t - base))
+        val = -K * (t - base)
+        # --- 上位補正(オプション・既定OFF・要lift検証) ---
+        wc = getattr(pr, "weight_carried", None)
+        if wk and wc:
+            val += wk * (wc - 56.0)                        # 斤量補正(南関では悪化＝既定OFF)
+        ag = getattr(pr, "agari", None)
+        if pk and ag and t > ag and ag > 0:
+            band = "短" if d <= 1200 else ("マ" if d <= 1600 else ("中" if d <= 1800 else "長"))
+            mid = (d - 600) / (t - ag) * 3.6               # 道中速度(km/h)
+            val += pk * (mid - _BAND_MED.get(band, mid))   # ペース補正(中立＝既定OFF)
+        vals.append(val)
     if not vals:
         return None, []
     if agg == "avg3":
