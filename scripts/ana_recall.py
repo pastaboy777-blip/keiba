@@ -233,7 +233,13 @@ def main():
             rr = P.parse_result_page(c.get(PERF.format(r=races[R]), use_cache=True), races[R])
             if not rr.rows or not rr.rows[0].finish_pos:
                 continue
-            pc = P.parse_card_page(c.get(CARD.format(r=races[R]), use_cache=True), races[R])
+            _chtml = c.get(CARD.format(r=races[R]), use_cache=True)
+            pc = P.parse_card_page(_chtml, races[R])
+            try:
+                from rakuten_ped import attach as _attach_ped
+                _attach_ped(_chtml, pc.entries)   # 母父をインライン付与(グリップ/中山型が母父込みで発火)
+            except Exception:
+                pass
         except Exception:
             continue
         emap = {e.umaban: e for e in pc.entries}

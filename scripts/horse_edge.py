@@ -37,7 +37,10 @@ def main():
     today = datetime.date.fromisoformat(a.date)
     idx = c.get(CARD.format(r=day_index_race_id(ymd, a.place)), use_cache=True)
     races = dict(P.parse_race_links(idx, date_yyyymmdd=ymd, jyo_code=ALL_CODES[a.place]))
-    pc = P.parse_card_page(c.get(CARD.format(r=races[a.race]), use_cache=True), races[a.race])
+    _chtml = c.get(CARD.format(r=races[a.race]), use_cache=True)
+    pc = P.parse_card_page(_chtml, races[a.race])
+    from rakuten_ped import attach as _attach_ped
+    _attach_ped(_chtml, pc.entries)   # 楽天カードから母父をインライン抽出して付与(グリップ/中山型が母父込みで発火)
     dist = getattr(pc, "distance", None)
     apct = agari_pattern(pc.entries)  # 上がりP(当日出走馬内の終い順位0〜100・小さいほど上位)
     print(f"=== {a.date} {a.place} {a.race}R (ダ{dist}m) 馬ごとエッジ検出 ===")
