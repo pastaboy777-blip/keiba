@@ -16,7 +16,7 @@ from nankeiba.scraping.race_id import day_index_race_id, ALL_CODES
 from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping import parser as P
 sys.path.insert(0,'scripts')
-from ana_recall import is_hyperion, _HYPERION_SIRES, pace_aptitude, agari_pattern
+from ana_recall import is_hyperion, _HYPERION_SIRES, _GRIP_SIRES, pace_aptitude, agari_pattern
 
 CARD = "https://keiba.rakuten.co.jp/race_card/list/RACEID/{r}"
 # 南関ダートで"道悪(渋った馬場)巧者"を出しやすい主な種牡馬（経験薄馬の代替判断用・随時追記）
@@ -80,6 +80,9 @@ def main():
         if recs and is_hyperion(recs[0]):
             tags.append("★持続巡航")
         sire = (e.sire or "").strip()
+        ds = getattr(e, "dam_sire", "") or ""
+        if any(s in sire for s in _GRIP_SIRES) or any(s in ds for s in _GRIP_SIRES):
+            tags.append("★グリップ穴")  # 中山パワー×道悪グリップ=夏NAR白砂の大波乱の穴ヒモ(人気薄で)
         if sire:
             wet = "◎湿" if any(s in sire for s in WET_SIRES) else ""
             tags.append(f"父{sire}{wet}")
