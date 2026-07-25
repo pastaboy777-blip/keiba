@@ -30,7 +30,7 @@ def main():
     base = [0, 0]
     # タグごと: [X&3+], [X&非3+], [X全体]  各[good,n]
     cell = {t: {"x3": [0, 0], "xn": [0, 0], "x": [0, 0]} for t in TAGS}
-    t3all = [0, 0]
+    t3all = [0, 0]; union = [0, 0]  # union=叩き3相性穴(叩き3+ かつ 相性タグ≥1)
     day = d0
     while day <= d1:
         ymd = day.strftime("%Y%m%d")
@@ -75,6 +75,8 @@ def main():
                     if is3:
                         t3all[0] += g; t3all[1] += 1
                     tags, _ = edges_for(e, dist, pace=pace, agari_pct=apct.get(row.umaban), today=day)
+                    if "叩き3相性穴" in tags:
+                        union[0] += g; union[1] += 1
                     for t in TAGS:
                         if t in tags:
                             cell[t]["x"][0] += g; cell[t]["x"][1] += 1
@@ -87,6 +89,7 @@ def main():
         return cc[0] / cc[1] if cc[1] else 0
     print(f"=== 叩き3+×タグ シナジー切り分け {a.frm}〜{a.to} ({a.tracks}) ===")
     print(f" 人気薄(≥{a.usui})母数{base[1]} ベース複勝{b:.1%} / 叩き3+単体 {r(t3all):.1%} lift{r(t3all)/b:.2f}")
+    print(f" ★統合[叩き3相性穴]: 複{union[0]}/{union[1]}={r(union):.1%} lift{r(union)/b:.2f}")
     print(f"\n {'タグ':10s} {'X単体':>16s} {'X&叩き3+':>16s} {'X&非3+':>14s}  判定")
     for t in TAGS:
         cx = cell[t]["x"]; c3 = cell[t]["x3"]; cn = cell[t]["xn"]
