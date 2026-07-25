@@ -127,6 +127,19 @@ def _clean(s: str) -> str:
     return unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", s))).strip()
 
 
+def parse_baba(html: str) -> str | None:
+    """当日の馬場状態を返す('良'/'稍重'/'重'/'不良')。取れなければ None。
+
+    ⚠️ ページ内を単に「重」で検索してはいけない。**馬体重**の「重」や、馬柱に載る
+    **過去走の馬場**を誤爆する（実際その誤爆で「全レース重馬場」という誤った分析を
+    一度出している）。当日の馬場はヘッダの「天候：晴 ダ：稍重」形式にしか無いので、
+    タグを剥がしたうえで **天候アンカー** で拾う。
+    """
+    txt = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", html)))
+    m = re.search(r"天候[：:]\s*\S+\s*[ダ芝][：:]\s*(不良|稍重|重|良)", txt)
+    return m.group(1) if m else None
+
+
 def _time_to_sec(t: str) -> float | None:
     m = re.match(r"(\d+):(\d\d)\.(\d)$", t)
     return round(int(m.group(1)) * 60 + int(m.group(2)) + int(m.group(3)) / 10, 1) if m else None

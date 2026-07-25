@@ -89,8 +89,7 @@ def collect_outcomes(places: set[str], cache_glob: str) -> list[Outcome]:
         place = h.get("place")
         if place not in places or not res:
             continue
-        bm = re.search(r"(不良|稍重|重|良)", chtml)
-        baba = bm.group(1) if bm else None
+        baba = rk.parse_baba(chtml)
         field = len(res)
         for r in res:
             rows.append(Outcome(name=r["name"], place=place, dist=h.get("distance"),

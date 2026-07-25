@@ -74,3 +74,20 @@ class TestWeight(unittest.TestCase):
         self.assertIsNotNone(r)
         self.assertEqual(r.weight, 526)
         self.assertEqual(r.distance, 1800)
+
+
+class TestParseBaba(unittest.TestCase):
+    """当日馬場は天候アンカーで取る（馬体重・過去走馬場を誤爆しない）。"""
+
+    def test_picks_today_baba(self):
+        html = '<div>天候：晴　<span>ダ：稍重</span></div><td>馬体重 480(+2)</td>'
+        self.assertEqual(rk.parse_baba(html), "稍重")
+
+    def test_not_fooled_by_weight_or_history(self):
+        # 「馬体重」の重や馬柱の過去走馬場('重')があっても、当日の良を返す
+        html = ('<td>馬体重</td><td>川崎ダ1400 重 ①着</td>'
+                '<div>天候：曇 ダ：良</div><td>体重 502kg</td>')
+        self.assertEqual(rk.parse_baba(html), "良")
+
+    def test_none_when_absent(self):
+        self.assertIsNone(rk.parse_baba('<td>馬体重 480</td><td>重</td>'))
