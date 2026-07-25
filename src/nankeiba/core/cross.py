@@ -30,37 +30,41 @@ SPEED = "SPEED"              # スピード・短距離
 STAMINA = "STAMINA"          # スタミナ・長距離
 TURF_KIRE = "TURF_KIRE"      # 芝の瞬発・キレ
 
-# 祖先 → 適性タグ（穴ぐさが実際にクロスで使った祖先＋同系の定番を核に）
+# 祖先 → 適性タグ（穴ぐさが実際にクロスで使った祖先＋同系の定番を核に）。
+# ⚠️ netkeiba 5代表は gen3以降が外国馬＝英語表記で返る（"Storm Cat""Halo"）。
+#    カタカナと英語(小文字化・記号除去で正規化)の両方を登録する。
 _ANCESTOR_TAGS_RAW: dict[str, set[str]] = {
     # ダート・道悪・パワー系
-    "ストームキャット": {DIRT_POWER, SPEED},
-    "ストームバード": {DIRT_POWER},
-    "デピュティミニスター": {DIRT_POWER},
-    "フレンチデピュティ": {DIRT_POWER},
+    "ストームキャット": {DIRT_POWER, SPEED}, "Storm Cat": {DIRT_POWER, SPEED},
+    "ストームバード": {DIRT_POWER}, "Storm Bird": {DIRT_POWER},
+    "デピュティミニスター": {DIRT_POWER}, "Deputy Minister": {DIRT_POWER},
+    "フレンチデピュティ": {DIRT_POWER}, "French Deputy": {DIRT_POWER},
     "クロフネ": {DIRT_POWER},
-    "ロベルト": {DIRT_POWER, STAMINA},
+    "ロベルト": {DIRT_POWER, STAMINA}, "Roberto": {DIRT_POWER, STAMINA},
     "ブライアンズタイム": {DIRT_POWER},
     "シンボリクリスエス": {DIRT_POWER},
-    "エーピーインディ": {DIRT_POWER},
-    "ミスタープロスペクター": {DIRT_POWER, SPEED},
-    "フォーティナイナー": {DIRT_POWER, SPEED},
-    "ノーザンテースト": {DIRT_POWER, STAMINA},   # パワー・底力（道悪こなす）
+    "エーピーインディ": {DIRT_POWER}, "A.P. Indy": {DIRT_POWER}, "AP Indy": {DIRT_POWER},
+    "ミスタープロスペクター": {DIRT_POWER, SPEED}, "Mr. Prospector": {DIRT_POWER, SPEED},
+    "フォーティナイナー": {DIRT_POWER, SPEED}, "Forty Niner": {DIRT_POWER, SPEED},
+    "ノーザンテースト": {DIRT_POWER, STAMINA}, "Northern Taste": {DIRT_POWER, STAMINA},
     # スピード・短距離系
-    "ダンチヒ": {SPEED},
-    "デインヒル": {SPEED},
+    "ダンチヒ": {SPEED}, "Danzig": {SPEED},
+    "デインヒル": {SPEED}, "Danehill": {SPEED},
     "サクラバクシンオー": {SPEED},
-    "ヘイルトゥリーズン": {SPEED},
+    "ヘイルトゥリーズン": {SPEED}, "Hail to Reason": {SPEED},
+    "ノーザンダンサー": {SPEED, STAMINA}, "Northern Dancer": {SPEED, STAMINA},  # 万能・パワー
     # スタミナ・長距離系
-    "サドラーズウェルズ": {STAMINA, DIRT_POWER},
-    "ニジンスキー": {STAMINA},
-    "トニービン": {STAMINA},
-    "リボー": {STAMINA},
-    "ミルリーフ": {STAMINA},
+    "サドラーズウェルズ": {STAMINA, DIRT_POWER}, "Sadler's Wells": {STAMINA, DIRT_POWER},
+    "ニジンスキー": {STAMINA}, "Nijinsky": {STAMINA},
+    "トニービン": {STAMINA}, "Tony Bin": {STAMINA},
+    "リボー": {STAMINA}, "Ribot": {STAMINA},
+    "ミルリーフ": {STAMINA}, "Mill Reef": {STAMINA},
     # 芝キレ系
-    "サンデーサイレンス": {TURF_KIRE},
-    "ヌレイエフ": {TURF_KIRE},
-    "リファール": {TURF_KIRE},
-    "ダンシングブレーヴ": {TURF_KIRE},
+    "サンデーサイレンス": {TURF_KIRE}, "Sunday Silence": {TURF_KIRE},
+    "ヌレイエフ": {TURF_KIRE}, "Nureyev": {TURF_KIRE},
+    "リファール": {TURF_KIRE}, "Lyphard": {TURF_KIRE},
+    "ダンシングブレーヴ": {TURF_KIRE}, "Dancing Brave": {TURF_KIRE},
+    "ヘイロー": {TURF_KIRE, SPEED}, "Halo": {TURF_KIRE, SPEED},
 }
 
 ANCESTOR_TAGS = {_normalize(k): v for k, v in _ANCESTOR_TAGS_RAW.items()}
