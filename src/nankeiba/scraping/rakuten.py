@@ -139,7 +139,7 @@ _RUN_RE = re.compile(
     r".*?(\d{3,4})([左右内外]*)([芝ダ])\s+"       # 距離 回り 馬場種
     r"(\d+)人\s+(\S+?)\s+([\d.]+)\s+"             # 人気 騎手 斤量
     r"(\d+:\d\d\.\d)\s+\(([^)]*)\)\s+"           # タイム (着差)
-    r"([\d.]+)\s+\d+k\s+"                         # 上り3F 馬体重
+    r"([\d.]+)\s+(\d+)k\s+"                       # 上り3F 馬体重(kg)
     r"(\d+)番\s+([\d\-]+)"                        # (当時)馬番 通過順
 )
 
@@ -150,7 +150,7 @@ def _parse_run(cell: str) -> RunRecord | None:
     if not m:
         return None
     (fin, baba, fld, place, yy, mm, dd, dist, _turn, surf,
-     _pop, jockey, _wt, tm, _marg, ag, _umb, corner) = m.groups()
+     _pop, jockey, _kin, tm, _marg, ag, wt, _umb, corner) = m.groups()
     if surf == "芝":
         return None
     corner_pos = [int(x) for x in corner.split("-") if x.isdigit()]
@@ -165,6 +165,7 @@ def _parse_run(cell: str) -> RunRecord | None:
         corner_pos=corner_pos,
         last3f_sec=float(ag) if ag else None,
         time_sec=_time_to_sec(tm),
+        weight=int(wt) if wt else None,
     )
 
 

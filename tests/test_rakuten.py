@@ -63,3 +63,14 @@ class TestParseRun(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWeight(unittest.TestCase):
+    def test_weight_captured(self):
+        from nankeiba.scraping.rakuten import _parse_run
+        cell = ("9 良 9頭 過去映像 船橋 25.08.27 フリオーソレ ４上 1800左ダ "
+                "8人 藤田凌 56.0 1:57.2 (6.1) 40.4 526k 4番 6-6-8-9 サントノーレ")
+        r = _parse_run(cell)
+        self.assertIsNotNone(r)
+        self.assertEqual(r.weight, 526)
+        self.assertEqual(r.distance, 1800)
