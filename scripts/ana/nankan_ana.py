@@ -18,7 +18,8 @@
 """
 from __future__ import annotations
 
-def ana_score(nk, interval=None, wt_ch=None, power=None, habit_front=False, cross_nd=False):
+def ana_score(nk, interval=None, wt_ch=None, power=None, habit_front=False,
+              cross_nd=False, prev_nk=None, prev_chaku=None):
     """人気薄の穴スコア。高いほど買い。nk=単勝人気(6以上が対象)。"""
     s = 0.0; why = []
     if (nk or 0) < 6:
@@ -26,6 +27,14 @@ def ana_score(nk, interval=None, wt_ch=None, power=None, habit_front=False, cros
     # 前受け習性（最重要）
     if habit_front:
         s += 2.0; why.append("前受け習性+2")
+    # 前走人気（着順でなく"人気"を見る＝発掘データ箱の手法・南関で実証）
+    if prev_nk is not None:
+        if prev_nk <= 3:       s += 2.0; why.append(f"前走{prev_nk}人気(市場評価高)+2")
+        elif prev_nk <= 5:     s += 1.0; why.append(f"前走{prev_nk}人気+1")
+        elif prev_nk >= 10:    s -= 1.0; why.append(f"前走{prev_nk}人気(評価低)-1")
+        # 前走人気だが凡走＝巻き返し(単回収113%)
+        if prev_nk <= 3 and (prev_chaku or 0) >= 6:
+            s += 0.5; why.append("前走人気を裏切り凡走→巻き返し+0.5")
     # ローテ
     if interval is not None:
         if interval <= 10:      s += 2.0; why.append(f"連闘~中1週({interval}日)+2")
@@ -102,7 +111,10 @@ def _backtest():
             interval = (d - prev[0]).days if prev else None
             wt_ch = (wt - prev[4]) if (prev and wt and prev[4]) else None
             habit_front = bool(prev and prev[5] in ("逃", "先"))
-            sc, _ = ana_score(nk, interval, wt_ch, None, habit_front)
+            prev_nk = prev[2] if prev else None
+            prev_chaku = prev[1] if prev else None
+            sc, _ = ana_score(nk, interval, wt_ch, None, habit_front,
+                              prev_nk=prev_nk, prev_chaku=prev_chaku)
             recs.append((chaku, odds, sc))
 
     def stats(rs):
