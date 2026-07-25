@@ -122,6 +122,70 @@ def build(cache_dir: str | os.PathLike = CACHE, *, use_history: bool = True) -> 
 
 
 @dataclass
+class Standing:
+    """今日の面子に対する序列の内訳。
+
+    ⚠️ 「11勝3敗」のような通算だけでは判断を誤る。同じ勝ち越しでも
+    **完封して積んだ勝ち**と**まだ争っている相手から拾った勝ち**は意味が違う。
+    実測（人気薄）: 3頭以上を完封 lift1.91 / 3頭以上に完封され lift0.41 に対し、
+    2勝1敗のような未決着ペアは効果が薄い。→ 必ず分けて見る。
+    """
+
+    horse: str
+    umaban: int | None
+    swept: list[tuple[str, int]] = field(default_factory=list)      # 完封した相手 [(名, 勝)]
+    swept_by: list[tuple[str, int]] = field(default_factory=list)   # 完封された相手 [(名, 敗)]
+    contested: list[tuple[str, int, int]] = field(default_factory=list)  # 争い中 [(名, 勝, 敗)]
+
+    @property
+    def wins(self) -> int:
+        return (sum(w for _, w in self.swept)
+                + sum(w for _, w, _ in self.contested))
+
+    @property
+    def losses(self) -> int:
+        return (sum(l for _, l in self.swept_by)
+                + sum(l for _, _, l in self.contested))
+
+    def summary(self) -> str:
+        parts = [f"{self.wins}勝{self.losses}敗"]
+        if self.swept:
+            parts.append("完封" + "・".join(f"{n}({w}-0)" for n, w in self.swept))
+        if self.swept_by:
+            parts.append("被完封" + "・".join(f"{n}(0-{l})" for n, l in self.swept_by))
+        if self.contested:
+            parts.append("争い中" + "・".join(f"{n}({w}-{l})" for n, w, l in self.contested))
+        return " / ".join(parts)
+
+
+def standings(net: "H2HNet", entries: list[dict], *,
+              before: str | None = None, min_meets: int = 2) -> list[Standing]:
+    """今日の面子について、完封／被完封／争い中を分けて集計する。
+
+    min_meets 未満の対戦（1戦だけ等）は「完封」とみなさず争い中に入れる
+    ＝ 1回勝っただけで序列が決まったとは言わない。
+    """
+    out: list[Standing] = []
+    for me in entries:
+        st = Standing(horse=me["name"], umaban=me.get("umaban"))
+        for other in entries:
+            if other is me:
+                continue
+            w, l = net.record(me["name"], other["name"], before)
+            if w + l == 0:
+                continue
+            if w + l >= min_meets and l == 0:
+                st.swept.append((other["name"], w))
+            elif w + l >= min_meets and w == 0:
+                st.swept_by.append((other["name"], l))
+            else:
+                st.contested.append((other["name"], w, l))
+        out.append(st)
+    out.sort(key=lambda s: (-len(s.swept), -(s.wins - s.losses), len(s.swept_by)))
+    return out
+
+
+@dataclass
 class Alert:
     """人気薄が人気馬に過去先着している＝その人気馬を疑う材料。"""
 

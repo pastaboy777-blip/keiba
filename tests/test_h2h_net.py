@@ -87,5 +87,49 @@ class TestAlerts(unittest.TestCase):
         self.assertEqual(h2h_net.alerts(n, self._entries()), [])
 
 
+class TestStandings(unittest.TestCase):
+    def _net3(self):
+        """A が B に 2-0（完封）、A が C に 2-1（争い中）。"""
+        n = h2h_net.H2HNet()
+        for i, k in enumerate([("2026-01-10", "川崎", 1600, 10),
+                               ("2026-02-10", "川崎", 1600, 10)]):
+            n.add("A", k, 1, from_result=True)
+            n.add("B", k, 5, from_result=True)
+            n.add("C", k, 3, from_result=True)
+        k3 = ("2026-03-10", "船橋", 1600, 11)
+        n.add("A", k3, 4, from_result=True)
+        n.add("C", k3, 3, from_result=True)      # C が A に1勝
+        return n
+
+    def _ents(self):
+        return [dict(name="A", umaban=6), dict(name="B", umaban=8),
+                dict(name="C", umaban=1)]
+
+    def test_sweep_vs_contested_are_separated(self):
+        st = {s.horse: s for s in h2h_net.standings(self._net3(), self._ents())}
+        a = st["A"]
+        self.assertEqual(a.swept, [("B", 2)])              # Bは完封
+        self.assertEqual(a.contested, [("C", 2, 1)])       # Cとは争い中
+        self.assertEqual(a.swept_by, [])
+        self.assertEqual((a.wins, a.losses), (4, 1))
+        self.assertIn("完封B(2-0)", a.summary())
+        self.assertIn("争い中C(2-1)", a.summary())
+
+    def test_swept_by_side(self):
+        st = {s.horse: s for s in h2h_net.standings(self._net3(), self._ents())}
+        # B は A(2-0) と C(2-0) の両方に完封されている
+        self.assertEqual(sorted(st["B"].swept_by), [("A", 2), ("C", 2)])
+        self.assertEqual(st["B"].swept, [])
+
+    def test_single_meeting_is_not_a_sweep(self):
+        n = h2h_net.H2HNet()
+        k = ("2026-01-10", "川崎", 1600, 10)
+        n.add("A", k, 1, from_result=True); n.add("B", k, 5, from_result=True)
+        st = {s.horse: s for s in h2h_net.standings(
+            n, [dict(name="A"), dict(name="B")], min_meets=2)}
+        self.assertEqual(st["A"].swept, [])                # 1戦だけでは完封扱いしない
+        self.assertEqual(st["A"].contested, [("B", 1, 0)])
+
+
 if __name__ == "__main__":
     unittest.main()
