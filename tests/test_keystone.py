@@ -28,14 +28,26 @@ class TestKeystone(unittest.TestCase):
             _o("C", 10), _o("C", 12), _o("C", 9),  # X無し→着外
             _o("D", 8), _o("D", 11), _o("D", 14),  # X無し→着外
         ]
-        base, npool, keys = ks.ancestor_lift(rows, anc, min_n=3, min_lift=1.15)
+        base, npool, keys = ks.ancestor_lift(rows, anc, min_n=3, min_lift=1.15,
+                                             min_horses=2)
         self.assertEqual(npool, 12)
         self.assertAlmostEqual(base, 0.5)
         names = [k.ancestor for k in keys]
         self.assertIn("x", names)
         xk = [k for k in keys if k.ancestor == "x"][0]
-        self.assertEqual((xk.n, xk.fuku), (6, 6))
+        self.assertEqual((xk.n, xk.fuku, xk.horses), (6, 6, 2))  # 2頭(A,B)
         self.assertAlmostEqual(xk.lift, 2.0)  # 100% / 50%
+
+    def test_min_horses_filters_single_horse_artifact(self):
+        # 1頭Aが5回走って全複勝 → 全祖 n=5 だが horses=1 で足切り
+        anc = {"A": ["solo1", "solo2"], "B": ["shared"], "C": ["shared"]}
+        rows = ([ks.Outcome("A", "大井", 1600, "良", 1, 8, 14)] * 5
+                + [ks.Outcome("B", "大井", 1600, "良", 1, 8, 14)] * 3
+                + [ks.Outcome("C", "大井", 1600, "良", 2, 8, 14)] * 3)
+        _, _, keys = ks.ancestor_lift(rows, anc, min_n=3, min_lift=1.0, min_horses=2)
+        names = [k.ancestor for k in keys]
+        self.assertNotIn("solo1", names)   # 1頭のみ→除外
+        self.assertIn("shared", names)     # B,C の2頭→残る
 
     def test_min_n_filters(self):
         anc = {"A": ["rare"]}

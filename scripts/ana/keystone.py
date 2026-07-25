@@ -157,16 +157,22 @@ def resolve_ancestors(names: list[str], *, limit: int | None = None,
 @dataclass
 class Keystone:
     ancestor: str
-    n: int
-    fuku: int
+    n: int                       # 延べ走数
+    fuku: int                    # うち複勝(3着内)
     rate: float
     lift: float
+    horses: int                  # その祖を持つ「異なる馬」の頭数
 
 
 def ancestor_lift(rows: list[Outcome], anc_by_name: dict[str, list[str]], *,
-                  cond=None, min_n: int = 15, min_lift: float = 1.15
+                  cond=None, min_n: int = 15, min_lift: float = 1.15,
+                  min_horses: int = 5
                   ) -> tuple[float, int, list[Keystone]]:
     """条件 cond に一致し祖が判明している馬で、祖ごとの複勝率 lift を出す。
+
+    ⚠️ 単一個体アーティファクト対策: 祖ごとに「異なる馬の頭数」も数え、min_horses 未満は
+    足切りする（1頭が何度も走って全祖のnを水増しするのを防ぐ＝血統バカ一代の本来の
+    "別々の多数の馬が該当して走る" 足切りを再現）。
 
     return: (baseline複勝率, 母数, [Keystone…](lift降順))
     """
@@ -175,21 +181,24 @@ def ancestor_lift(rows: list[Outcome], anc_by_name: dict[str, list[str]], *,
     if not pool:
         return 0.0, 0, []
     base = sum(o.is_fuku() for o in pool) / len(pool)
-    tally: dict[str, list[int]] = {}
+    tally: dict[str, list[int]] = {}          # anc -> [n, fuku]
+    horses: dict[str, set[str]] = {}          # anc -> {馬名}
     for o in pool:
         f = o.is_fuku()
         for a in anc_by_name[o.name]:
             t = tally.setdefault(a, [0, 0])
             t[0] += 1
             t[1] += f
+            horses.setdefault(a, set()).add(o.name)
     out: list[Keystone] = []
     for a, (n, fk) in tally.items():
-        if n < min_n:
+        nh = len(horses[a])
+        if n < min_n or nh < min_horses:
             continue
         rate = fk / n
         lift = rate / base if base else 0.0
         if lift >= min_lift:
-            out.append(Keystone(a, n, fk, rate, lift))
+            out.append(Keystone(a, n, fk, rate, lift, nh))
     out.sort(key=lambda k: -k.lift)
     return base, len(pool), out
 
@@ -208,6 +217,8 @@ def main(argv=None) -> int:
     ap.add_argument("--pop-min", type=int, default=None, help="人気の下限(例7=人気薄のみ)")
     ap.add_argument("--dist-band", default=None, help="距離帯フィルタ(例 1600-1800)")
     ap.add_argument("--min-n", type=int, default=15)
+    ap.add_argument("--min-horses", type=int, default=5,
+                    help="その祖を持つ異なる馬の頭数の下限(単一個体アーティファクト対策)")
     ap.add_argument("--min-lift", type=float, default=1.15)
     ap.add_argument("--top", type=int, default=30)
     args = ap.parse_args(argv)
@@ -229,7 +240,8 @@ def main(argv=None) -> int:
         return True
 
     base, npool, keys = ancestor_lift(rows, anc, cond=cond,
-                                      min_n=args.min_n, min_lift=args.min_lift)
+                                      min_n=args.min_n, min_lift=args.min_lift,
+                                      min_horses=args.min_horses)
     tag = []
     if args.pop_min:
         tag.append(f"人気{args.pop_min}〜")
@@ -238,10 +250,11 @@ def main(argv=None) -> int:
     print(f"\n=== 南関ダート キーストーン血 [{'/'.join(places)}"
           f"{' '+' '.join(tag) if tag else ''}] ===")
     print(f"母数 {npool}頭走 / baseline複勝率 {base*100:.1f}%  "
-          f"(min_n≥{args.min_n}, lift≥{args.min_lift})")
-    print(f"{'祖(4代内)':22}{'n':>5}{'複勝':>5}{'複勝率':>8}{'lift':>7}")
+          f"(min_n≥{args.min_n}, 馬数≥{args.min_horses}, lift≥{args.min_lift})")
+    print(f"{'祖(4代内)':22}{'馬数':>5}{'n':>5}{'複勝':>5}{'複勝率':>8}{'lift':>7}")
     for k in keys[:args.top]:
-        print(f"{k.ancestor[:20]:22}{k.n:>5}{k.fuku:>5}{k.rate*100:>7.1f}%{k.lift:>7.2f}")
+        print(f"{k.ancestor[:20]:22}{k.horses:>5}{k.n:>5}{k.fuku:>5}"
+              f"{k.rate*100:>7.1f}%{k.lift:>7.2f}")
     if not keys:
         print("（該当なし＝解決済み頭数が少ないか、条件が厳しい。--limitで取得を進めて）")
     return 0
