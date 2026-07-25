@@ -234,9 +234,11 @@ def edges_for(e, today_dist, small_bias=True, pace=None, agari_pct=None, today=N
     prev_j = recs[0].jockey if recs else None
     if e.jockey and prev_j and e.jockey != prev_j and jw and jw >= 18:
         tags.add("乗替トップ騎手")  # トップ騎手への勝負乗替のみ(発火絞り＝精度シグナル)
-    # 叩き3戦目以降＝夏バテ期に疲れが抜けて上向く人気薄の穴(§20・大井7月lift2.02)。
-    # 復帰戦(叩き1)は消し(lift0.54)、叩き2戦目は罠(0/11)なので穴タグに入れない。
-    if today is not None:
+    # 叩き3戦目以降(§20/§20-B南関1053R検証)＝単独では複勝lift1.15の弱い上積み。
+    # ただしマ〜中距離帯に限ると1.34-1.41で有効・短長帯は無効(0.80-0.91)。
+    # そこで「マ〜中距離 かつ 叩き3戦目以降」でのみ点灯(距離条件で精度を上げる)。
+    # ※復帰戦(1)=lift0.97,叩き2戦目=0.91と大差なく、小サンプルの「罠/lift2.0」は誤り(§20-B)。
+    if today is not None and today_dist and 1300 <= today_dist <= 1900:
         _tn = tataki_n(e, today)
         if isinstance(_tn, int) and _tn >= 3:
             tags.add("叩き3戦目穴")

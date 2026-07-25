@@ -100,20 +100,20 @@ def main():
             tags.append("延長")
         if places and a.place not in places:
             tags.append("初コース/転入")
-        # 休み明け / 叩きN戦目(§20検証済:人気薄で叩き1=lift0.54,叩き2=0.00の罠,叩き3以降=lift2.02の穴)
+        # 休み明け / 叩きN戦目(§20-B 南関1053R検証:叩き1=lift0.97,2=0.91,3以降=1.15の弱い上積み。
+        #  マ〜中距離帯に限れば1.34-1.41で有効・短長帯は無効0.80-0.91)
         if recs and recs[0].date:
             try:
                 d1 = datetime.date.fromisoformat(recs[0].date)
                 gap1 = (today - d1).days
                 if gap1 >= 60:
-                    tags.append(f"休明({gap1}日)✗薄")   # 復帰戦は人気薄で危険(lift0.54)
+                    tags.append(f"休明({gap1}日)")
             except Exception:
                 pass
         _tn = tataki_n(e, today)
         if isinstance(_tn, int) and _tn >= 3:
-            tags.append(f"★叩き{_tn}戦目(夏穴lift2.0)")  # 疲れ抜けた3戦目以降=夏の人気薄穴
-        elif _tn == 2:
-            tags.append("叩き2戦目✗(罠0/11)")           # 2戦目は上乗せ無し=消し材料
+            _md = (dist and 1300 <= dist <= 1900)
+            tags.append(f"★叩き{_tn}戦目(マ中lift1.4)" if _md else f"叩き{_tn}戦目(短長は無効)")
         # 斤量減(別定の恩恵で軽くなった＝過小評価穴・大井lift1.43)
         if e.weight_carried and recs and recs[0].weight_carried:
             dk = e.weight_carried - recs[0].weight_carried
