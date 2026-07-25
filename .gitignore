@@ -28,3 +28,6 @@ data/spark_model.json
 
 # 大系統測定(生成物・既定値はped_stats.pyに埋め込み)
 data/pedigree_stats.json
+
+# sarabure cookie(認証情報・コミット禁止)
+data/.sarabure_cookie
