@@ -1,0 +1,229 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""集団の記憶（H2H＝直接対決）アラート。
+
+検証済みの事実（南関 2026/4-7月・7月ホールドアウト通過）:
+  人気で劣る馬が人気馬に先着する確率
+    対戦歴なし  16.7%（人気差6以上）
+    過去に先着  37.3%   → +20.7pt（4-6月でも+10.2ptで再現）
+  ただし H2H が予測するのは「勝つこと」でなく「あの馬より上に来ること」。
+  → 使い方は【人気馬を疑う】【馬連/ワイドの相手選び】【3連単の着順】。
+
+使い方:
+  python3 scripts/ana/h2h.py build              # 対戦インデックス構築(馬名ベース)
+  python3 scripts/ana/h2h.py demo               # 過去レースでの動作確認
+  from h2h import alerts
+  alerts([{"name":"エルツ","umaban":12,"ninki":12}, ...])
+"""
+import re, os, glob, json, sys
+from datetime import date
+from collections import defaultdict
+
+CACHE = os.environ.get("NKCACHE",
+    "/tmp/claude-0/-home-user-keiba/5c9e9520-78d2-57a1-98df-28a0a517ec92/scratchpad/nkcache")
+INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "h2h_index.json")
+
+
+def _parse(fn):
+    t = open(fn, "rb").read().decode("euc-jp", errors="replace")
+    txt = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t))
+    hd = re.search(r"(20\d\d)年(\d+)月(\d+)日.{0,50}?(大井|川崎|船橋|浦和)", txt)
+    if not hd: return None
+    d = f"{hd.group(1)}-{int(hd.group(2)):02d}-{int(hd.group(3)):02d}"
+    place = hd.group(4)
+    rows = []
+    for r in re.findall(r"<tr[^>]*>(.*?)</tr>", t, re.S):
+        if "/horse/" not in r: continue
+        cells = [re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", c)).strip()
+                 for c in re.findall(r"<td[^>]*>(.*?)</td>", r, re.S)]
+        if len(cells) < 15: continue
+        try: chaku = int(cells[0])
+        except: continue
+        name = cells[3].strip()
+        nk = None
+        for i, c in enumerate(cells):
+            if re.match(r"^\d+\.\d$", c) and i+1 < len(cells) and re.match(r"^\d+$", cells[i+1]):
+                nk = int(cells[i+1]); break
+        if name: rows.append((name, chaku, nk))
+    return (d, place, rows) if len(rows) >= 5 else None
+
+
+def build(before=None):
+    """netkeibaキャッシュから馬名ベースの対戦インデックスを作る。
+    before='YYYY-MM-DD' を渡すとその日より前のレースのみ（検証時のリーク防止）。"""
+    races = []
+    for fn in glob.glob(os.path.join(CACHE, "2026*.html")):
+        if os.path.getsize(fn) < 5000: continue
+        p = _parse(fn)
+        if p and (before is None or p[0] < before): races.append(p)
+    races.sort(key=lambda x: x[0])
+    idx = defaultdict(lambda: {"a": 0, "b": 0, "last": None})
+    for d, place, rows in races:
+        n = len(rows)
+        for i in range(n):
+            for j in range(i+1, n):
+                na, ca, _ = rows[i]; nb, cb, _ = rows[j]
+                if na == nb: continue
+                key = "\t".join(sorted([na, nb]))
+                first = key.split("\t")[0]
+                fc = ca if first == na else cb
+                sc = cb if first == na else ca
+                e = idx[key]
+                if fc < sc: e["a"] += 1; e["last"] = [d, place, first]
+                elif sc < fc: e["b"] += 1; e["last"] = [d, place, key.split("\t")[1]]
+    out = {k: v for k, v in idx.items() if v["a"] + v["b"] > 0}
+    json.dump(out, open(INDEX, "w"), ensure_ascii=False)
+    print(f"対戦インデックス構築: {len(races)}レース → {len(out)}ペア → {INDEX}")
+    return out
+
+
+_IDX = None
+def _load():
+    global _IDX
+    if _IDX is None:
+        _IDX = json.load(open(INDEX)) if os.path.exists(INDEX) else {}
+    return _IDX
+
+
+def h2h(name_a, name_b):
+    """(a先着回数, b先着回数, 最後に先着した馬) を返す。"""
+    idx = _load()
+    key = "\t".join(sorted([name_a, name_b]))
+    e = idx.get(key)
+    if not e: return (0, 0, None)
+    first = key.split("\t")[0]
+    aw, bw = (e["a"], e["b"]) if first == name_a else (e["b"], e["a"])
+    last = e["last"][2] if e["last"] else None
+    return (aw, bw, last)
+
+
+def alerts(entries, min_gap=3):
+    """entries=[{name, umaban, ninki}] → 人気薄が人気馬に過去先着しているペア。
+    人気差が大きいほど妙味（検証：+12〜+20pt）。"""
+    res = []
+    for lo in entries:
+        for hi in entries:
+            if lo is hi: continue
+            if not lo.get("ninki") or not hi.get("ninki"): continue
+            gap = lo["ninki"] - hi["ninki"]
+            if gap < min_gap: continue          # lo が人気下
+            w, l, _ = h2h(lo["name"], hi["name"])
+            if w > l:
+                res.append(dict(ana_umaban=lo.get("umaban"), ana=lo["name"], ana_ninki=lo["ninki"],
+                                fav_umaban=hi.get("umaban"), fav=hi["name"], fav_ninki=hi["ninki"],
+                                gap=gap, record=f"{w}-{l}",
+                                lift="+20.7pt" if gap >= 6 else "+12.0pt"))
+    res.sort(key=lambda x: (-x["gap"], x["ana_ninki"]))
+    return res
+
+
+def summarize(entries, top_ninki=5, min_gap=3):
+    """レース単位の実用サマリ。
+    ① 危険な人気馬：上位人気なのに、複数の人気薄から先着されている
+    ② 妙味の人気薄：上位人気に土をつけた実績がある
+    """
+    pairs = alerts(entries, min_gap=min_gap)
+    danger = defaultdict(lambda: dict(ninki=None, umaban=None, foes=[], maxgap=0))
+    value = defaultdict(lambda: dict(ninki=None, umaban=None, beat=[], maxgap=0))
+    for r in pairs:
+        if r["fav_ninki"] <= top_ninki:          # 危険度は「上位人気が負けていた」時だけ数える
+            d = danger[r["fav"]]
+            d["ninki"] = r["fav_ninki"]; d["umaban"] = r["fav_umaban"]
+            d["foes"].append((r["ana_ninki"], r["ana"], r["record"]))
+            d["maxgap"] = max(d["maxgap"], r["gap"])
+            v = value[r["ana"]]
+            v["ninki"] = r["ana_ninki"]; v["umaban"] = r["ana_umaban"]
+            v["beat"].append((r["fav_ninki"], r["fav"]))
+            v["maxgap"] = max(v["maxgap"], r["gap"])
+    dl = sorted(danger.items(), key=lambda kv: (-len(kv[1]["foes"]), -kv[1]["maxgap"]))
+    vl = sorted(value.items(), key=lambda kv: (-len(kv[1]["beat"]), -kv[1]["maxgap"]))
+    return dl, vl, pairs
+
+
+def fmt(entries, top_ninki=5, min_gap=3, limit=4):
+    dl, vl, pairs = summarize(entries, top_ninki, min_gap)
+    if not pairs: return "  H2Hアラートなし（対戦の記憶に警報なし）"
+    out = []
+    if dl:
+        out.append("  🚨【危険な人気馬】過去に人気薄から先着されている")
+        for name, d in dl[:limit]:
+            foes = "・".join(f"{n}人気{nm}" for n, nm, _ in sorted(d["foes"])[:3])
+            mark = "⚠⚠" if len(d["foes"]) >= 3 else "⚠"
+            ub = f"{d['umaban']}番 " if d["umaban"] else ""
+            out.append(f"   {mark} {d['ninki']}人気 {ub}{name} ← {len(d['foes'])}頭に土 "
+                       f"(最大人気差{d['maxgap']}) : {foes}")
+    if vl:
+        out.append("  💡【妙味の人気薄】上位人気に先着した実績")
+        for name, v in vl[:limit]:
+            beat = "・".join(f"{n}人気{nm}" for n, nm in sorted(v["beat"])[:3])
+            ub = f"{v['umaban']}番 " if v["umaban"] else ""
+            out.append(f"   ◇ {v['ninki']}人気 {ub}{name} → {beat} に先着歴({len(v['beat'])}頭)")
+    out.append("  ※H2Hは『勝つ』でなく『その馬より上に来る』の情報。人気馬の取捨・相手選びに使う。")
+    return "\n".join(out)
+
+
+def formation(entries, fav_max=5, min_gap=3):
+    """H2Hを『着順の制約』に翻訳して買い目の骨格を出す。
+    検証済の性質＝H2Hは"勝つ"でなく"その馬より上に来る"を予測する。
+      → 降格：人気薄に土をつけられた上位人気は【1着から外す】(2-3着には残す)
+      → 昇格：その人気薄を【降格馬より上の着順】に置く
+    戻り値 dict: demote/promote/constraints
+    """
+    pairs = alerts(entries, min_gap=min_gap)
+    demote = {}   # 上位人気 → 土をつけた人気薄のリスト
+    promote = {}  # 人気薄 → 先着していた人気馬のリスト
+    for r in pairs:
+        if r["fav_ninki"] > fav_max: continue
+        d = demote.setdefault(r["fav"], dict(name=r["fav"], umaban=r["fav_umaban"],
+                                             ninki=r["fav_ninki"], foes=[], maxgap=0))
+        d["foes"].append(r["ana"]); d["maxgap"] = max(d["maxgap"], r["gap"])
+        p = promote.setdefault(r["ana"], dict(name=r["ana"], umaban=r["ana_umaban"],
+                                              ninki=r["ana_ninki"], beat=[], maxgap=0))
+        p["beat"].append(r["fav"]); p["maxgap"] = max(p["maxgap"], r["gap"])
+    dl = sorted(demote.values(), key=lambda x: (-len(x["foes"]), -x["maxgap"]))
+    pl = sorted(promote.values(), key=lambda x: (-len(x["beat"]), -x["maxgap"]))
+    cons = [(r["ana"], r["ana_umaban"], r["fav"], r["fav_umaban"], r["gap"]) for r in pairs
+            if r["fav_ninki"] <= fav_max]
+    return dict(demote=dl, promote=pl, constraints=cons)
+
+
+def fmt_formation(entries, fav_max=5, min_gap=3):
+    f = formation(entries, fav_max, min_gap)
+    if not f["demote"]:
+        return "  H2H：買い目に効く警報なし（上位人気に土の記憶なし）"
+    out = ["  🎫【H2H → 買い目の骨格】"]
+    out.append("   ▼1着から外す（人気馬の降格）")
+    for d in f["demote"][:3]:
+        ub = f"{d['umaban']}番" if d["umaban"] else ""
+        strong = "強" if len(d["foes"]) >= 2 or d["maxgap"] >= 6 else "弱"
+        out.append(f"     {d['ninki']}人気 {ub}{d['name']}  ← {len(d['foes'])}頭に土(最大人気差{d['maxgap']}) [{strong}]"
+                   f" → 3連単の1着から消し、2-3着で拾う")
+    out.append("   ▲その上に置く（人気薄の昇格）")
+    for p in f["promote"][:4]:
+        ub = f"{p['umaban']}番" if p["umaban"] else ""
+        tier = "1着候補にも" if p["maxgap"] >= 6 else "2-3着に厚く"
+        out.append(f"     {p['ninki']}人気 {ub}{p['name']}  → {'・'.join(p['beat'][:2])}に先着歴 [{tier}]")
+    out.append("   ◆守る着順（この向きで買う）")
+    for a, aub, b, bub, g in sorted(f["constraints"], key=lambda x: -x[4])[:4]:
+        out.append(f"     {aub or ''}{a} ＞ {bub or ''}{b}（人気差{g}）")
+    return "\n".join(out)
+
+
+def demo():
+    """過去レースで動作確認（そのレース以前の対戦のみでインデックスを作る＝リークなし）。"""
+    fn = os.path.join(CACHE, "202644072411.html")   # 大井 7/24 11R
+    p = _parse(fn)
+    if not p: print("demo対象が見つかりません"); return
+    d, place, rows = p
+    global _IDX
+    _IDX = build(before=d)                          # 当日より前のみ
+    entries = [dict(name=n, umaban=None, ninki=nk) for n, c, nk in rows if nk]
+    print(f"\n[demo] {d} {place} 11R（実結果：1着11番ホワイトマジック/2着10番グラスグリード）")
+    print(fmt(entries))
+
+
+if __name__ == "__main__":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "build"
+    if cmd == "build": build()
+    elif cmd == "demo": demo()
+    else: print(__doc__)
