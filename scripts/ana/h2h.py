@@ -162,6 +162,53 @@ def fmt(entries, top_ninki=5, min_gap=3, limit=4):
     return "\n".join(out)
 
 
+def formation(entries, fav_max=5, min_gap=3):
+    """H2Hを『着順の制約』に翻訳して買い目の骨格を出す。
+    検証済の性質＝H2Hは"勝つ"でなく"その馬より上に来る"を予測する。
+      → 降格：人気薄に土をつけられた上位人気は【1着から外す】(2-3着には残す)
+      → 昇格：その人気薄を【降格馬より上の着順】に置く
+    戻り値 dict: demote/promote/constraints
+    """
+    pairs = alerts(entries, min_gap=min_gap)
+    demote = {}   # 上位人気 → 土をつけた人気薄のリスト
+    promote = {}  # 人気薄 → 先着していた人気馬のリスト
+    for r in pairs:
+        if r["fav_ninki"] > fav_max: continue
+        d = demote.setdefault(r["fav"], dict(name=r["fav"], umaban=r["fav_umaban"],
+                                             ninki=r["fav_ninki"], foes=[], maxgap=0))
+        d["foes"].append(r["ana"]); d["maxgap"] = max(d["maxgap"], r["gap"])
+        p = promote.setdefault(r["ana"], dict(name=r["ana"], umaban=r["ana_umaban"],
+                                              ninki=r["ana_ninki"], beat=[], maxgap=0))
+        p["beat"].append(r["fav"]); p["maxgap"] = max(p["maxgap"], r["gap"])
+    dl = sorted(demote.values(), key=lambda x: (-len(x["foes"]), -x["maxgap"]))
+    pl = sorted(promote.values(), key=lambda x: (-len(x["beat"]), -x["maxgap"]))
+    cons = [(r["ana"], r["ana_umaban"], r["fav"], r["fav_umaban"], r["gap"]) for r in pairs
+            if r["fav_ninki"] <= fav_max]
+    return dict(demote=dl, promote=pl, constraints=cons)
+
+
+def fmt_formation(entries, fav_max=5, min_gap=3):
+    f = formation(entries, fav_max, min_gap)
+    if not f["demote"]:
+        return "  H2H：買い目に効く警報なし（上位人気に土の記憶なし）"
+    out = ["  🎫【H2H → 買い目の骨格】"]
+    out.append("   ▼1着から外す（人気馬の降格）")
+    for d in f["demote"][:3]:
+        ub = f"{d['umaban']}番" if d["umaban"] else ""
+        strong = "強" if len(d["foes"]) >= 2 or d["maxgap"] >= 6 else "弱"
+        out.append(f"     {d['ninki']}人気 {ub}{d['name']}  ← {len(d['foes'])}頭に土(最大人気差{d['maxgap']}) [{strong}]"
+                   f" → 3連単の1着から消し、2-3着で拾う")
+    out.append("   ▲その上に置く（人気薄の昇格）")
+    for p in f["promote"][:4]:
+        ub = f"{p['umaban']}番" if p["umaban"] else ""
+        tier = "1着候補にも" if p["maxgap"] >= 6 else "2-3着に厚く"
+        out.append(f"     {p['ninki']}人気 {ub}{p['name']}  → {'・'.join(p['beat'][:2])}に先着歴 [{tier}]")
+    out.append("   ◆守る着順（この向きで買う）")
+    for a, aub, b, bub, g in sorted(f["constraints"], key=lambda x: -x[4])[:4]:
+        out.append(f"     {aub or ''}{a} ＞ {bub or ''}{b}（人気差{g}）")
+    return "\n".join(out)
+
+
 def demo():
     """過去レースで動作確認（そのレース以前の対戦のみでインデックスを作る＝リークなし）。"""
     fn = os.path.join(CACHE, "202644072411.html")   # 大井 7/24 11R
