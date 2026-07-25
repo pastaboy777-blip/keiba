@@ -35,3 +35,4 @@ data/samples/chokyo_horse_*.json
 
 # 一時作業用（カードHTML/PNG・cookie等）— コミットしない
 scratchpad/
+data/cache_win5/
