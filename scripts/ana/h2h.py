@@ -162,6 +162,74 @@ def fmt(entries, top_ninki=5, min_gap=3, limit=4):
     return "\n".join(out)
 
 
+def fixation(entries):
+    """序列固定度＝出走馬の全ペアのうち、対戦歴があるペアの割合。
+    検証：人気薄★ボスの複勝lift  〜10%:使用不可 / 10-25%:1.69 / 25-40%:1.20 / 40%〜:1.22"""
+    names = [e["name"] for e in entries]
+    tot = met = 0
+    for i in range(len(names)):
+        for j in range(i+1, len(names)):
+            tot += 1
+            w, l, _ = h2h(names[i], names[j])
+            if w + l > 0: met += 1
+    fix = met/tot if tot else 0.0
+    if fix < 0.10:   judge = "対戦歴が薄い → この理論は使えない"
+    elif fix < 0.25: judge = "★最も効くゾーン（lift1.69）"
+    elif fix < 0.40: judge = "効く（lift1.20）"
+    else:            judge = "序列が固まりすぎ＝市場も承知（lift1.22）"
+    return fix, judge
+
+
+def standings(entries, min_meets=3):
+    """今日の相手に対する勝ち越しで全馬をランク付け。
+    検証（人気薄・対戦3回以上, 7月ホールドアウト通過）:
+      ★ボス(勝率70%↑) 複勝15.0% lift1.41 ／ 消(30%↓) 複勝7.0% lift0.66
+    """
+    out = []
+    for e in entries:
+        W = L = 0; beat = []
+        for o in entries:
+            if o is e: continue
+            w, l, _ = h2h(e["name"], o["name"])
+            W += w; L += l
+            if w > l: beat.append(o["name"])
+        m = W + L
+        rate = (W/m) if m else None
+        if m >= min_meets and rate is not None:
+            tier = "★ボス" if rate >= 0.7 else "優勢" if rate >= 0.5 else "劣勢" if rate >= 0.3 else "消"
+        else:
+            tier = "－"
+        out.append(dict(name=e["name"], umaban=e.get("umaban"), ninki=e.get("ninki"),
+                        W=W, L=L, meets=m, rate=rate, tier=tier, beat=beat))
+    out.sort(key=lambda x: (-(x["rate"] if x["rate"] is not None else -1), -x["meets"]))
+    return out
+
+
+def fmt_boss(entries, min_meets=3):
+    """レース単位の実戦出力：序列固定度＋★ボス／消。"""
+    fix, judge = fixation(entries)
+    st = standings(entries, min_meets)
+    out = [f"  📊 序列固定度 {fix*100:.0f}%  → {judge}"]
+    boss = [s for s in st if s["tier"] == "★ボス"]
+    kesi = [s for s in st if s["tier"] == "消"]
+    if boss:
+        out.append("  ★【今日の相手に勝ち越し】")
+        for s in boss[:4]:
+            ub = f"{s['umaban']}番 " if s["umaban"] else ""
+            nk = f"{s['ninki']}人気 " if s.get("ninki") else ""
+            umami = " ← 人気薄で妙味大" if (s.get("ninki") or 0) >= 6 else ""
+            out.append(f"    ★ {nk}{ub}{s['name']}  {s['W']}勝{s['L']}敗({s['rate']*100:.0f}%){umami}")
+    if kesi:
+        out.append("  ✖【今日の相手に負け越し】機械的に評価を下げる")
+        for s in kesi[:4]:
+            ub = f"{s['umaban']}番 " if s["umaban"] else ""
+            nk = f"{s['ninki']}人気 " if s.get("ninki") else ""
+            out.append(f"    ✖ {nk}{ub}{s['name']}  {s['W']}勝{s['L']}敗({s['rate']*100:.0f}%)")
+    if not boss and not kesi:
+        out.append("  （対戦データ不足で序列判定なし）")
+    return "\n".join(out)
+
+
 def formation(entries, fav_max=5, min_gap=3):
     """H2Hを『着順の制約』に翻訳して買い目の骨格を出す。
     検証済の性質＝H2Hは"勝つ"でなく"その馬より上に来る"を予測する。
