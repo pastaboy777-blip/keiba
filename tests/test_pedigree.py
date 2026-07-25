@@ -23,6 +23,17 @@ class TestClassify(unittest.TestCase):
         self.assertIsNone(ped.classify("存在しない種牡馬XYZ"))
         self.assertIsNone(ped.classify(None))
 
+
+    def test_expanded_sires(self):
+        # 2026-07 拡充分の主要種牡馬
+        self.assertEqual(ped.classify("シャンハイボビー"), "northern")
+        self.assertEqual(ped.classify("レッドファルクス"), "mrprospector")
+        self.assertEqual(ped.classify("マクフィ"), "mrprospector")
+        self.assertEqual(ped.classify("ロードカナロア"), "mrprospector")
+        self.assertEqual(ped.classify("ワールドエース"), "sunday")
+        self.assertEqual(ped.classify("クリエイター２"), "nasrullah")   # 全角数字
+        self.assertEqual(ped.classify("Ｂｅｒｎａｒｄｉｎｉ"), "nasrullah")  # 全角英字
+
     def test_5keys(self):
         self.assertEqual(set(ped.KEY5),
                          {"northern", "sunday", "mrprospector", "turnto", "nasrullah"})

@@ -136,6 +136,57 @@ SIRE_TO_SYSTEM.update({
     "シニスターミニスター": "nasrullah",
 })
 
+# 南関頻出の「不明」種牡馬を父系の元祖で分類（2026-07 実測で出走多数の順）
+SIRE_TO_SYSTEM.update({
+    # --- ノーザンダンサー系（Storm Cat / Sadler's Wells / Galileo / Danzig / Nureyev 系）---
+    "シャンハイボビー": "northern",        # Harlan's Holiday→Storm Cat
+    "モズアスコット": "northern",          # Frankel→Galileo
+    "ロゴタイプ": "northern",              # Lohengrin→Singspiel→Sadler's Wells
+    "デクラレーションオブウォー": "northern",  # War Front→Danzig
+    "ディスクリートキャット": "northern",    # Forestry→Storm Cat
+    "ブリックスアンドモルタ": "northern",    # Giant's Causeway→Storm Cat
+    "サトノクラウン": "northern",          # Marju→Last Tycoon→ND
+    "ノーブルミッション": "northern",       # Galileo
+    "タリスマニック": "northern",          # Medaglia d'Oro→El Prado→Sadler's Wells
+    "ミスターメロディ": "northern",         # Scat Daddy→Johannesburg→Storm Cat
+    "ホークビル": "northern",              # Kitten's Joy→El Prado→Sadler's Wells
+    "アポロケンタッキー": "northern",       # Langfuhr→Danzig
+    "ミスチヴィアスアレックス": "northern",  # Into Mischief→Harlan's Holiday→Storm Cat
+    "メイショウサムソン": "northern",       # オペラハウス→Sadler's Wells
+    "ケープブランコ": "northern",          # Galileo
+    "ヘンリーバローズ": "northern",         # Henny Hughes→Hennessy→Storm Cat
+    "ファルブラヴ": "northern",            # Fairy King→ND
+    "ヨハネスブルグ": "northern",          # Hennessy→Storm Cat
+    "ファスリエフ": "northern",            # Nureyev→ND
+    "オペラハウス": "northern",            # Sadler's Wells
+    "Shamardal": "northern",              # Giant's Causeway→Storm Cat
+    "ローエングリン": "northern",          # Singspiel→Sadler's Wells
+    # --- ミスプロ系（Kingmambo / Forty Niner / Fappiano / Machiavellian / Dubawi 系）---
+    "ロードカナロア": "mrprospector",       # キングカメハメハ→Kingmambo→Mr. Prospector
+    "キングカメハメハ": "mrprospector",     # Kingmambo→Mr. Prospector
+    "レッドファルクス": "mrprospector",     # Swept Overboard→End Sweep→Forty Niner
+    "ビーチパトロール": "mrprospector",     # Lemon Drop Kid→Kingmambo
+    "マクフィ": "mrprospector",            # Dubawi→Seeking the Gold
+    "ダンカーク": "mrprospector",          # Unbridled's Song→Fappiano
+    "フォーウィールドライブ": "mrprospector",  # American Pharoah→Empire Maker→Unbridled
+    "モンテロッソ": "mrprospector",        # Dubawi
+    "ニューイヤーズデイ": "mrprospector",    # Street Cry→Machiavellian
+    "バトルプラン": "mrprospector",        # Empire Maker→Unbridled→Fappiano
+    "フィレンツェファイア": "mrprospector",  # Speightstown→Gone West
+    "プリサイスエンド": "mrprospector",     # End Sweep→Forty Niner
+    "ティンバーカントリー": "mrprospector",  # Woodman→Mr. Prospector
+    "ウォーエンブレム": "mrprospector",     # Our Emblem→Mr. Prospector
+    "アルデバラン": "mrprospector",        # Mr. Prospector 直仔
+    "ストーミングホーム": "mrprospector",   # Machiavellian→Mr. Prospector
+    # --- サンデー系 ---
+    "ワールドエース": "sunday",            # ディープインパクト→SS
+    "ニシケンモノノフ": "sunday",          # キンシャサノキセキ→フジキセキ→SS
+    "アドマイヤジャパン": "sunday",         # SS
+    # --- ナスルーラ系（Bold Ruler / A.P.Indy / Seattle Slew 系）---
+    "クリエイター": "nasrullah",           # Tapit→Pulpit→A.P.Indy→Seattle Slew
+    "Bernardini": "nasrullah",            # A.P.Indy→Seattle Slew→Bold Ruler
+})
+
 
 def _normalize(name: str | None) -> str:
     s = (name or "")
