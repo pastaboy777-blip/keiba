@@ -19,6 +19,11 @@
 - `tenkai_pow.py`：展開×血統パワーの統合ビュー。
 - `pedigree_line.py`：`sires(rid)`→{umacd:{name,sire,gsire}}。
 - `monogatari.py`：`race_danwa(rid)`→{umacd:{umaban,name}}、`_get(url,path)`フェッチ。
+- `h2h.py`：**ボス理論×展開の統合ルール**（南関1878R検証・7月ホールドアウト通過）。
+  `python3 scripts/ana/h2h.py build` でインデックス更新 →
+  `python3 scripts/ana/h2h.py judge race.json` で ◎○▲/✖ の結論が1コマンドで出る。
+  Pythonからは `from h2h import fmt_integrated`。詳細＝`notes/live/ana_bias_tenkai.md`。
+- `nankan_ana.py`：南関穴スコア（score≥4で単回収199%）。`nankan_compi.py`：南関版コンピ指数。
 
 ## 3. デイリー手順（明日やること）
 ### A. 明日の指数トップ5画像（自前計算を優先）

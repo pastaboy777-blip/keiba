@@ -10,10 +10,17 @@
   → 使い方は【人気馬を疑う】【馬連/ワイドの相手選び】【3連単の着順】。
 
 使い方:
-  python3 scripts/ana/h2h.py build              # 対戦インデックス構築(馬名ベース)
+  python3 scripts/ana/h2h.py build              # 対戦インデックス構築(馬名+Elo)
   python3 scripts/ana/h2h.py demo               # 過去レースでの動作確認
-  from h2h import alerts
-  alerts([{"name":"エルツ","umaban":12,"ninki":12}, ...])
+  python3 scripts/ana/h2h.py judge race.json    # ★統合ルールで結論を出す(実戦用)
+
+  # race.json の中身（1レース or 1日分の配列）
+  # [{"title":"7/27川崎11R","entries":[
+  #     {"name":"エルツ","umaban":12,"ninki":9,"kyaku":"先"}, ...]}]
+  #   kyaku は「前走の脚質」逃/先/差/追
+
+  from h2h import fmt_integrated   # ← 実戦はこれ1本でOK
+  print(fmt_integrated(entries))
 """
 import re, os, glob, json, sys
 from datetime import date
@@ -356,6 +363,118 @@ def fmt_formation(entries, fav_max=5, min_gap=3):
     return "\n".join(out)
 
 
+# ============================================================
+#  統合ルール（ボス理論 × 展開）  ─ 1コマンドで結論まで出す
+#  検証：南関1878R(今年全体)／人気薄6番人気↓ベース 複勝10.2%・単回収68%
+#    ★Elo0.60↑ × 前走追込   n=41   複勝31.7% lift3.11 単回収149%
+#    Elo中位   × 前走逃げ    n=725  複勝24.3% lift2.38 単回収188%
+#    ★Elo0.60↑ (脚質不問)   n=114  複勝22.8% lift2.23 単回収 66%  ←人気化で妙味薄
+#    Elo中位   × 前走先行    n=1106 複勝17.9% lift1.75 単回収147%
+#    ✖Elo0.40↓              n=1316 複勝 3.9% lift0.38 単回収 35%  ←機械的に消す
+#  7月ホールドアウト（ベース複勝11.3%）: Elo中×逃25.0%/195%,
+#    Elo中×先23.6%/単回収310%, 前受け全体22.8%/236%, ✖Elo0.40↓ 4.5%/15%
+# ============================================================
+
+_FRONT = ("逃", "先")          # 前受け
+_CLOSE = ("追", "差追", "追込")  # 追い込み
+
+def _kyaku(e):
+    """entryの前走脚質を 逃/先/差/追 に正規化（未指定はNone）。"""
+    k = (e.get("kyaku") or e.get("kyakushitsu") or "").strip()
+    if not k: return None
+    if k[0] in "逃先差追": return k[0]
+    return None
+
+
+def integrated(entries):
+    """統合判定。entries=[{name, umaban, ninki, kyaku:'逃|先|差|追'(前走脚質)}]
+    戻り値: (rows, fix, judge)  rows は買い優先度順。
+    kyaku 未指定の馬はElo単独判定のみ（★/✖）になる。
+    """
+    st = {s["name"]: s for s in elo_standings(entries)}
+    fix, judge = fixation(entries)
+    rows = []
+    for e in entries:
+        s = st[e["name"]]
+        exp = s["exp"]; k = _kyaku(e); nk = e.get("ninki")
+        grade, why, fuku, ret = "－", "", None, None
+        if exp is None:
+            pass
+        elif exp <= 0.40:
+            grade, why, fuku, ret = "✖", "Elo下位＝今日の相手に格負け", 3.9, 35
+        elif exp >= 0.60 and k == "追":
+            grade, why, fuku, ret = "◎", "★Elo上位 × 前走追込（最強セル lift3.11）", 31.7, 149
+        elif 0.40 < exp < 0.60 and k == "逃":
+            grade, why, fuku, ret = "○", "Elo中位 × 前走逃げ（単回収188%）", 24.3, 188
+        elif 0.40 < exp < 0.60 and k == "先":
+            grade, why, fuku, ret = "○", "Elo中位 × 前走先行（7月単回収310%）", 17.9, 147
+        elif exp >= 0.60:
+            grade, why, fuku, ret = "▲", "★Elo上位（lift2.23／ただし人気化で単回収66%）", 22.8, 66
+        elif 0.40 < exp < 0.60 and k == "差":
+            grade, why = "△", "Elo中位 × 差し（該当セルなし＝中立）"
+        else:
+            grade, why = "－", "判定材料なし"
+        ana = bool(nk and nk >= 6 and grade in ("◎", "○", "▲"))
+        rows.append(dict(name=e["name"], umaban=e.get("umaban"), ninki=nk, kyaku=k,
+                         elo=s["elo"], exp=exp, grade=grade, why=why,
+                         fuku=fuku, ret=ret, ana=ana, beat=s["beat"]))
+    order = {"◎": 0, "○": 1, "▲": 2, "△": 3, "－": 4, "✖": 5}
+    rows.sort(key=lambda r: (order[r["grade"]], -(r["ret"] or 0), -(r["exp"] or 0)))
+    return rows, fix, judge
+
+
+def fmt_integrated(entries, title=""):
+    """実戦用の最終出力：✖を切って、◎○▲を買う。人気薄で発火＝穴の本線。"""
+    rows, fix, judge = integrated(entries)
+    out = []
+    if title: out.append(f"■ {title}")
+    out.append(f"  📊 序列固定度 {fix*100:.0f}%  → {judge}")
+    if fix < 0.10:
+        out.append("  ⚠ 対戦歴が薄いレース。統合ルールの信頼度は低い（参考程度に）。")
+    buy = [r for r in rows if r["grade"] in ("◎", "○", "▲")]
+    cut = [r for r in rows if r["grade"] == "✖"]
+    nomark = [r for r in rows if r["grade"] in ("△", "－")]
+    if buy:
+        out.append("  ◎○▲【買う】")
+        for r in buy:
+            ub = f"{r['umaban']}番 " if r["umaban"] else ""
+            nk = f"{r['ninki']}人気 " if r.get("ninki") else ""
+            kk = f" 前走{r['kyaku']}" if r["kyaku"] else " 前走脚質不明"
+            umami = "  ← 🔥穴の本線" if r["ana"] else ""
+            out.append(f"    {r['grade']} {nk}{ub}{r['name']}  Elo{r['elo']}/期待{r['exp']}{kk}{umami}")
+            out.append(f"        {r['why']}"
+                       + (f"（複勝{r['fuku']}% 単回収{r['ret']}%）" if r["fuku"] else ""))
+            if r["beat"]:
+                out.append(f"        直接勝ち: {'・'.join(r['beat'][:3])}")
+    if cut:
+        out.append("  ✖【機械的に切る】複勝3.9%(lift0.38)・単回収35%")
+        for r in cut[:6]:
+            ub = f"{r['umaban']}番 " if r["umaban"] else ""
+            nk = f"{r['ninki']}人気 " if r.get("ninki") else ""
+            warn = "  ← ⚠人気だが切り" if (r.get("ninki") or 99) <= 3 else ""
+            out.append(f"    ✖ {nk}{ub}{r['name']}  Elo{r['elo']}/期待{r['exp']}{warn}")
+    if nomark:
+        s = "・".join(f"{r['umaban'] or ''}{r['name']}" for r in nomark[:8])
+        out.append(f"  －【無印】{s}")
+    if not buy and not cut:
+        out.append("  （Elo差が小さく統合判定なし）")
+    return "\n".join(out)
+
+
+def judge_file(path):
+    """JSONから読んで統合判定を出す。
+    形式A: [{"name":"…","umaban":1,"ninki":3,"kyaku":"先"}, …]
+    形式B: {"title":"7/27川崎11R","entries":[…]}
+    形式C: [ {形式B}, {形式B}, … ]  ← 1日分まとめて
+    """
+    data = json.load(open(path, encoding="utf-8"))
+    races = data if isinstance(data, list) and data and isinstance(data[0], dict) \
+        and "entries" in data[0] else [data if isinstance(data, dict) else {"entries": data}]
+    for r in races:
+        print(fmt_integrated(r["entries"], r.get("title", "")))
+        print()
+
+
 def demo():
     """過去レースで動作確認（そのレース以前の対戦のみでインデックスを作る＝リークなし）。"""
     fn = os.path.join(CACHE, "202644072411.html")   # 大井 7/24 11R
@@ -373,4 +492,5 @@ if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "build"
     if cmd == "build": build()
     elif cmd == "demo": demo()
+    elif cmd == "judge": judge_file(sys.argv[2])
     else: print(__doc__)
