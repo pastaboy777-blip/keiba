@@ -22,6 +22,8 @@ from collections import defaultdict
 CACHE = os.environ.get("NKCACHE",
     "/tmp/claude-0/-home-user-keiba/5c9e9520-78d2-57a1-98df-28a0a517ec92/scratchpad/nkcache")
 INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "h2h_index.json")
+ELO_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "h2h_elo.json")
+K_ELO = 24.0
 
 
 def _parse(fn):
@@ -73,7 +75,20 @@ def build(before=None):
                 elif sc < fc: e["b"] += 1; e["last"] = [d, place, key.split("\t")[1]]
     out = {k: v for k, v in idx.items() if v["a"] + v["b"] > 0}
     json.dump(out, open(INDEX, "w"), ensure_ascii=False)
-    print(f"対戦インデックス構築: {len(races)}レース → {len(out)}ペア → {INDEX}")
+    # --- Elo レーティングも同時に構築（時系列順） ---
+    elo = defaultdict(lambda: 1500.0)
+    for d, place, rows in races:
+        n = len(rows)
+        for i in range(n):
+            for j in range(i+1, n):
+                a, ca = rows[i][0], rows[i][1]; b, cb = rows[j][0], rows[j][1]
+                if ca == cb or a == b: continue
+                win, lose = (a, b) if ca < cb else (b, a)
+                ea = 1.0/(1.0+10**((elo[lose]-elo[win])/400.0))
+                k = K_ELO/max(1, (n-1))**0.5
+                elo[win] += k*(1-ea); elo[lose] -= k*(1-ea)
+    json.dump({k: round(v, 1) for k, v in elo.items()}, open(ELO_INDEX, "w"), ensure_ascii=False)
+    print(f"対戦インデックス構築: {len(races)}レース → {len(out)}ペア / Elo {len(elo)}頭")
     return out
 
 
@@ -159,6 +174,70 @@ def fmt(entries, top_ninki=5, min_gap=3, limit=4):
             ub = f"{v['umaban']}番 " if v["umaban"] else ""
             out.append(f"   ◇ {v['ninki']}人気 {ub}{name} → {beat} に先着歴({len(v['beat'])}頭)")
     out.append("  ※H2Hは『勝つ』でなく『その馬より上に来る』の情報。人気馬の取捨・相手選びに使う。")
+    return "\n".join(out)
+
+
+_ELO = None
+def _load_elo():
+    global _ELO
+    if _ELO is None:
+        _ELO = json.load(open(ELO_INDEX)) if os.path.exists(ELO_INDEX) else {}
+    return _ELO
+
+
+def elo(name):
+    """その馬のEloレーティング（未知馬は1500）。"""
+    return _load_elo().get(name, 1500.0)
+
+
+def elo_standings(entries):
+    """今日の相手に対するElo期待勝率[0,1]で全馬をランク付け。
+    検証（南関1878R・今年全体・人気薄6番人気↓）:
+      期待値0.60↑ = 複勝22.8% lift2.23 ／ 0.40↓ = 複勝3.9% lift0.38
+      ※勝ち越し率(lift1.50)を上回る。相手の強さ＋間接推移を織り込むため、
+        直接対戦のない馬にも順位がつく（発火例の3割が対戦歴ゼロ）。
+    """
+    out = []
+    for e in entries:
+        r = elo(e["name"])
+        exp = [1.0/(1.0+10**((elo(o["name"])-r)/400.0)) for o in entries if o is not e]
+        v = sum(exp)/len(exp) if exp else None
+        # 直接勝った相手（説明用）
+        beat = []
+        for o in entries:
+            if o is e: continue
+            w, l, _ = h2h(e["name"], o["name"])
+            if w > l: beat.append(o["name"])
+        tier = "－" if v is None else "★ボス" if v >= 0.60 else "消" if v <= 0.40 else "中"
+        out.append(dict(name=e["name"], umaban=e.get("umaban"), ninki=e.get("ninki"),
+                        elo=round(r), exp=(round(v, 3) if v else None), tier=tier, beat=beat))
+    out.sort(key=lambda x: -(x["exp"] if x["exp"] is not None else -1))
+    return out
+
+
+def fmt_elo(entries):
+    """実戦出力（Elo版）。★=複勝22.8%(lift2.23) / 消=複勝3.9%(lift0.38)。"""
+    st = elo_standings(entries)
+    fix, judge = fixation(entries)
+    out = [f"  📊 序列固定度 {fix*100:.0f}%  → {judge}"]
+    boss = [s for s in st if s["tier"] == "★ボス"]
+    kesi = [s for s in st if s["tier"] == "消"]
+    if boss:
+        out.append("  ★【Elo上位＝今日の相手より格上】複勝22.8%(lift2.23)")
+        for s in boss[:4]:
+            ub = f"{s['umaban']}番 " if s["umaban"] else ""
+            nk = f"{s['ninki']}人気 " if s.get("ninki") else ""
+            umami = " ← 人気薄で妙味大" if (s.get("ninki") or 0) >= 6 else ""
+            src = f" 直接勝ち:{'・'.join(s['beat'][:3])}" if s["beat"] else " ※直接対戦なし(間接推移で検出)"
+            out.append(f"    ★ {nk}{ub}{s['name']}  Elo{s['elo']} 期待{s['exp']}{umami}{src}")
+    if kesi:
+        out.append("  ✖【Elo下位】複勝3.9%(lift0.38)＝機械的に切る")
+        for s in kesi[:5]:
+            ub = f"{s['umaban']}番 " if s["umaban"] else ""
+            nk = f"{s['ninki']}人気 " if s.get("ninki") else ""
+            out.append(f"    ✖ {nk}{ub}{s['name']}  Elo{s['elo']} 期待{s['exp']}")
+    if not boss and not kesi:
+        out.append("  （Elo差が小さく判定なし）")
     return "\n".join(out)
 
 
