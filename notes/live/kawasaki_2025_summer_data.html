@@ -4,60 +4,107 @@ body{width:1200px;background:linear-gradient(180deg,#fdf5ee 0%,#fdf8f3 40%,#fbf3
  font-family:"Noto Sans CJK JP","Hiragino Sans","Yu Gothic",sans-serif;color:#2e2a26;padding:44px 40px 26px}
 .pill{display:inline-block;border:2px solid #e0662a;color:#e0662a;border-radius:999px;
  padding:7px 22px;font-size:16px;font-weight:700}
-.head{text-align:center;margin-bottom:26px}
-h1{font-size:52px;font-weight:900;letter-spacing:.01em;margin:16px 0 8px}
+.head{text-align:center;margin-bottom:24px}
+h1{font-size:52px;font-weight:900;margin:16px 0 8px}
 h1 em{font-style:normal;color:#111}
 .sub{font-size:19px;color:#7c7168;margin-bottom:12px}
 .note{display:inline-block;background:#231f1c;color:#fff;border-radius:6px;padding:5px 16px;font-size:14px}
-.top{display:flex;gap:16px;margin-bottom:30px}
-.tcard{flex:1;background:#fff;border-radius:12px;padding:20px 22px 18px;border-top:4px solid #e0662a;
- box-shadow:0 2px 10px rgba(120,80,40,.07)}
-.tlab{font-size:13px;color:#a08e7e;font-weight:700;margin-bottom:6px}
-.tname{font-size:30px;font-weight:900;margin-bottom:8px}
-.tsmall{font-size:14px;color:#8a7d70;margin-bottom:6px}
-.trate{font-size:19px;font-weight:800;color:#1f8a5f;margin-bottom:8px}
-.tdesc{font-size:13.5px;color:#776c60;line-height:1.55}
+.legend{margin-top:12px;font-size:14.5px;color:#6b6158}
+.val{background:#d8452c;color:#fff;border-radius:5px;padding:2px 9px;font-weight:800;
+ font-size:14px;white-space:nowrap}
 h2{font-size:24px;font-weight:900;margin:0 0 16px;padding-left:14px;border-left:6px solid #e0662a}
+h2 small{font-size:15px;color:#8c8177;font-weight:700;margin-left:10px}
+.top{display:flex;gap:16px;margin-bottom:26px}
+.dk{flex:1;background:#231f1c;color:#fff;border-radius:12px;padding:22px 24px 20px;
+ box-shadow:0 4px 14px rgba(60,35,15,.18)}
+.dk .lab{font-size:13px;color:#e0a07a;font-weight:800;margin-bottom:7px;letter-spacing:.04em}
+.dk .nm{font-size:34px;font-weight:900;margin-bottom:10px;letter-spacing:.01em}
+.dk .big{font-size:30px;font-weight:900;color:#ff9264;margin-bottom:4px}
+.dk .sub2{font-size:14px;color:#b8aa9e;margin-bottom:10px}
+.dk .d{font-size:13.5px;color:#e6ded6;line-height:1.7}
+.dk .d b{color:#ffb28c}
+.dk .warn{margin-top:9px;font-size:12.5px;color:#f0c9a6;background:#3a322c;border-radius:6px;padding:7px 10px;line-height:1.6}
+.tetsu{display:flex;gap:16px;margin-bottom:30px}
+.tc{flex:1;background:#fff;border-radius:12px;padding:16px 20px;border-top:4px solid #9aa8b5;
+ box-shadow:0 2px 8px rgba(120,80,40,.06)}
+.tc .lab{font-size:12.5px;color:#a08e7e;font-weight:700;margin-bottom:5px}
+.tc .nm{font-size:23px;font-weight:900;margin-bottom:5px}
+.tc .r{font-size:15px;font-weight:800;color:#1f8a5f;margin-bottom:6px}
+.tc .d{font-size:13px;color:#776c60;line-height:1.6}
 .grid{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:28px}
 .g{width:calc(50% - 8px);background:#fff;border-radius:12px;padding:18px 22px;
  box-shadow:0 2px 8px rgba(120,80,40,.06)}
 .g3{width:calc(33.33% - 11px)}
 .gt{font-size:20px;font-weight:900;color:#2f6fb0;margin-bottom:12px}
 .gt span{font-size:13px;color:#a29387;font-weight:600;margin-left:8px}
-.row{display:flex;font-size:15px;line-height:1.85;border-bottom:1px dotted #ece2d8;padding:2px 0}
+.row{display:flex;font-size:15px;line-height:2.05;border-bottom:1px dotted #ece2d8;padding:3px 0}
 .row:last-child{border:none}
 .rk{width:42px;color:#a09384;font-weight:700;flex:none}
 .rv{flex:1}
-.hot{color:#d8452c;font-weight:800}
+.dim{color:#a2988e}
 .foot{border-top:1px dashed #d9cabb;padding-top:14px;font-size:12.5px;color:#9b8d7f;line-height:1.8}
 .foot b{color:#7b6f63}
 </style>
 <div class="head">
   <div class="pill">変態か、変態以外か。</div>
   <h1>川崎競馬 <em>好走データ 2025年 夏</em></h1>
-  <div class="sub">7・8月 全167レース ｜ 距離 × クラス別 完全版</div>
+  <div class="sub">7・8月 全167レース ｜ 妙味 × 距離 × クラス別</div>
   <div class="note">複勝率＝3着内率／（好走数・出走数）で表記</div>
+  <div class="legend"><span class="val">白抜き＝単回収100%超</span>　＝ 実際に買って増えた「妙味」。黒文字は<b>よく来るが儲からない</b>。</div>
 </div>
 
+<h2>妙味ベスト3 <small>買って一番増えたのは誰か</small></h2>
 <div class="top">
-  <div class="tcard">
-    <div class="tlab">◎ 絶対軸ジョッキー</div>
-    <div class="tname">矢野 貴之</div>
-    <div class="trate">複勝率 59％（40/68）</div>
-    <div class="tdesc">1400mで67%（18/27）。<b>2歳戦は13戦13複＝100%</b>。ただし単回収60%＝買われ過ぎ。</div>
+  <div class="dk">
+    <div class="lab">◎ 妙味の騎手</div>
+    <div class="nm">西 啓太</div>
+    <div class="big">単回収 374%</div>
+    <div class="sub2">40騎乗 5勝／複勝率 30.0%</div>
+    <div class="d">人気薄（6番人気↓）だけで<b>単回収582%</b>（24騎乗3勝）。<br>
+      <b>1500mが本領＝13騎乗2勝・単932%</b>。C級で単511%。<br>
+      11人気58.1倍・8人気63.1倍を勝たせている。</div>
+    <div class="warn">✔ 5勝が複数の馬に分散＝1本頼みではない。勝率12.5%も平均超え。</div>
   </div>
-  <div class="tcard">
-    <div class="tlab">◎ 鉄板トレーナー</div>
-    <div class="tname">加藤 誠一</div>
-    <div class="trate">複勝率 53％（18/34）</div>
-    <div class="tdesc">勝率20.6%も最上位。1400mで70%（7/10）、C級で62%（8/13）。下級条件の主役。</div>
+  <div class="dk">
+    <div class="lab">◎ 妙味の厩舎</div>
+    <div class="nm">田島 寿一</div>
+    <div class="big">単回収 216%</div>
+    <div class="sub2">48出走 4勝／複勝率 25.0%</div>
+    <div class="d">人気薄だけで<b>単回収297%</b>（31出走）。<br>
+      <b>1400mが軸＝23出走・単279%</b>。C級33出走で単197%。<br>
+      8人気33.2倍・6人気58.8倍を勝たせている。</div>
+    <div class="warn">✔ 4勝が別々の馬。1500m（16出走・単39%）は狙わない。</div>
   </div>
-  <div class="tcard">
-    <div class="tlab">◎ 妙味の種牡馬</div>
-    <div class="tname">モズアスコット</div>
-    <div class="tsmall">＝ 芝ダート兼用のフランケル系</div>
-    <div class="trate">複勝率 73％（11/15）</div>
-    <div class="tdesc"><b>2歳戦8戦7複（88%）</b>・1400m 80%（8/10）。逃先率53%＝前に行ける。</div>
+  <div class="dk">
+    <div class="lab">△ 一発の厩舎</div>
+    <div class="nm">岩本 洋</div>
+    <div class="big">単回収 279%</div>
+    <div class="sub2">31出走 <b>1勝</b>／複勝率 19.4%</div>
+    <div class="d">人気薄で単376%。<b>1500m専用＝12出走で単721%</b>、<br>
+      900m・1400m・1600mは<b>すべて単0%</b>。</div>
+    <div class="warn">⚠ 279%の中身は<b>11人気ゴールデンカガヤ86.5倍の1本のみ</b>。<br>この1勝を除くと回収率0%。他2つとは信頼度が違う。</div>
+  </div>
+</div>
+
+<h2>鉄板ベスト3 <small>よく来る。ただし単勝では増えない</small></h2>
+<div class="tetsu">
+  <div class="tc">
+    <div class="lab">◎ 絶対軸ジョッキー</div>
+    <div class="nm">矢野 貴之</div>
+    <div class="r">複勝率 59%（40/68）／単回収 60%</div>
+    <div class="d"><b>2歳戦は13戦13複＝100%</b>（単152%）。複勝・馬連の軸に限定。</div>
+  </div>
+  <div class="tc">
+    <div class="lab">◎ 鉄板トレーナー</div>
+    <div class="nm">加藤 誠一</div>
+    <div class="r">複勝率 53%（18/34）／単回収 93%</div>
+    <div class="d">勝率20.6%も最上位。<b>1400mだけは単216%</b>で妙味も出る。</div>
+  </div>
+  <div class="tc">
+    <div class="lab">◎ 鉄板種牡馬</div>
+    <div class="nm">モズアスコット</div>
+    <div class="r">複勝率 73%（11/15）／単回収 87%</div>
+    <div class="d">2歳戦8戦7複（88%・単144%）。逃先率53%＝前に行ける。</div>
   </div>
 </div>
 
@@ -65,27 +112,27 @@ h2{font-size:24px;font-weight:900;margin:0 0 16px;padding-left:14px;border-left:
 <div class="grid">
   <div class="g">
     <div class="gt">900m <span>スプリント／34R</span></div>
-    <div class="row"><div class="rk">騎手</div><div class="rv"><span class="hot">佐野遥久 63%（17/27）</span> ／ 町田直希 59% ／ 笹川翼 57%</div></div>
-    <div class="row"><div class="rk">厩舎</div><div class="rv"><span class="hot">林隆之 67%（10/15）</span> ／ 久保秀男 55% ／ 高橋宏征 50%</div></div>
-    <div class="row"><div class="rk">父</div><div class="rv">キンシャサノキセキ 60% ／ スマートファルコン 60% ／ リオンディーズ 57%</div></div>
+    <div class="row"><div class="rk">騎手</div><div class="rv">佐野遥久 63%（17/27）<span class="val">単201%</span> ／ 町田直希 59% <span class="dim">単89%</span></div></div>
+    <div class="row"><div class="rk">厩舎</div><div class="rv">林隆之 67%（10/15）<span class="val">単121%</span> ／ 久保秀男 55%<span class="val">単174%</span></div></div>
+    <div class="row"><div class="rk">父</div><div class="rv">スマートファルコン 60%<span class="val">単222%</span> ／ キンシャサノキセキ 60% <span class="dim">単76%</span></div></div>
   </div>
   <div class="g">
     <div class="gt">1400m <span>主戦場／72R</span></div>
-    <div class="row"><div class="rk">騎手</div><div class="rv"><span class="hot">矢野貴之 67%（18/27）</span> ／ 今野忠成 57% ／ 本田正重 54%</div></div>
-    <div class="row"><div class="rk">厩舎</div><div class="rv"><span class="hot">加藤誠一 70%（7/10）</span> ／ 佐々木仁 57%（17/30） ／ 内田勝義 45%</div></div>
-    <div class="row"><div class="rk">父</div><div class="rv"><span class="hot">モズアスコット 80%（8/10）</span> ／ ホッコータルマエ 62%（8/13）</div></div>
+    <div class="row"><div class="rk">騎手</div><div class="rv">矢野貴之 67%（18/27） <span class="dim">単78%</span> ／ 今野忠成 57% <span class="dim">単0%</span></div></div>
+    <div class="row"><div class="rk">厩舎</div><div class="rv">加藤誠一 70%（7/10）<span class="val">単216%</span> ／ 田島寿一 <span class="val">単279%</span>（23出走）</div></div>
+    <div class="row"><div class="rk">父</div><div class="rv">ホッコータルマエ 62%<span class="val">単518%</span> ／ モズアスコット 80%<span class="val">単116%</span></div></div>
   </div>
   <div class="g">
     <div class="gt">1500m <span>荒れ場／40R</span></div>
-    <div class="row"><div class="rk">騎手</div><div class="rv">笹川翼 48%（12/25） ／ 矢野貴之 42% ／ 山崎誠士 38%</div></div>
-    <div class="row"><div class="rk">厩舎</div><div class="rv">秋山直之 50%（6/12） ／ 山崎裕也 43%（12/28） ／ 林隆之 42%</div></div>
-    <div class="row"><div class="rk">父</div><div class="rv">ファインニードル 67%（4/6） ／ <span class="hot">ホッコータルマエ 50%（8/16）</span> ／ パイロ 43%</div></div>
+    <div class="row"><div class="rk">騎手</div><div class="rv">西啓太 <span class="val">単932%</span>（13騎乗2勝） ／ 山崎誠士 38%<span class="val">単342%</span> ／ 矢野貴之 <span class="dim">単7%</span></div></div>
+    <div class="row"><div class="rk">厩舎</div><div class="rv">秋山直之 50%<span class="val">単528%</span> ／ 岩本洋 <span class="val">単721%</span> ／ 山崎裕也 43% <span class="dim">単70%</span></div></div>
+    <div class="row"><div class="rk">父</div><div class="rv">パイロ 43%<span class="val">単105%</span> ／ ファインニードル 67% <span class="dim">単0%</span></div></div>
   </div>
   <div class="g">
     <div class="gt">1600m <span>最も堅い／12R</span></div>
-    <div class="row"><div class="rk">騎手</div><div class="rv"><span class="hot">笹川翼 58%（7/12）</span>　※他は騎乗数不足</div></div>
-    <div class="row"><div class="rk">父</div><div class="rv">マインドユアビスケッツ 60%（3/5） ／ コパノリッキー 40%</div></div>
-    <div class="row"><div class="rk">傾向</div><div class="rv">12レースで<b>三連単10万超ゼロ</b>。堅く獲る条件。</div></div>
+    <div class="row"><div class="rk">騎手</div><div class="rv">笹川翼 58%（7/12） <span class="dim">単0%</span>　※他は騎乗数不足</div></div>
+    <div class="row"><div class="rk">父</div><div class="rv">マインドユアビスケッツ 60% <span class="dim">単60%</span> ／ コパノリッキー <span class="dim">単0%</span></div></div>
+    <div class="row"><div class="rk">要点</div><div class="rv"><b>白抜きがひとつも無い＝妙味ゼロの条件</b>。三連単10万超も12戦で0回。</div></div>
   </div>
 </div>
 
@@ -93,39 +140,41 @@ h2{font-size:24px;font-weight:900;margin:0 0 16px;padding-left:14px;border-left:
 <div class="grid">
   <div class="g g3">
     <div class="gt">2歳戦 <span>30R</span></div>
-    <div class="row"><div class="rk">騎手</div><div class="rv"><span class="hot">矢野貴之 100%（13/13）</span> ／ 笹川翼 65%（11/17）</div></div>
-    <div class="row"><div class="rk">厩舎</div><div class="rv">高月賢一 70%（7/10） ／ 佐々木仁 50%</div></div>
-    <div class="row"><div class="rk">父</div><div class="rv"><span class="hot">モズアスコット 88%（7/8）</span> ／ ホッコータルマエ 80%</div></div>
+    <div class="row"><div class="rk">騎手</div><div class="rv">矢野貴之 100%（13/13）<span class="val">単152%</span> ／ 笹川翼 65% <span class="dim">単68%</span></div></div>
+    <div class="row"><div class="rk">厩舎</div><div class="rv">高月賢一 70%<span class="val">単116%</span> ／ 佐々木仁 50%<span class="val">単113%</span></div></div>
+    <div class="row"><div class="rk">父</div><div class="rv">モズアスコット 88%<span class="val">単144%</span> ／ ホッコータルマエ 80%<span class="val">単170%</span></div></div>
   </div>
   <div class="g g3">
     <div class="gt">3歳戦 <span>29R</span></div>
-    <div class="row"><div class="rk">騎手</div><div class="rv">野畑凌 53%（8/15） ／ 笹川翼 50% ／ 町田直希 47%</div></div>
-    <div class="row"><div class="rk">厩舎</div><div class="rv">安池成実 55%（6/11） ／ 林隆之 54%（7/13）</div></div>
-    <div class="row"><div class="rk">父</div><div class="rv"><span class="hot">パイロ 83%（5/6）</span> ／ モズアスコット 80%</div></div>
+    <div class="row"><div class="rk">騎手</div><div class="rv">野畑凌 53% <span class="dim">単44%</span> ／ 町田直希 47% <span class="dim">単86%</span></div></div>
+    <div class="row"><div class="rk">厩舎</div><div class="rv">林隆之 54% <span class="dim">単85%</span> ／ 安池成実 55% <span class="dim">単0%</span></div></div>
+    <div class="row"><div class="rk">父</div><div class="rv">パイロ 83%（5/6）<span class="val">単140%</span> ／ モズアスコット 80% <span class="dim">単32%</span></div></div>
   </div>
   <div class="g g3">
     <div class="gt">C級 <span>下級古馬／74R</span></div>
-    <div class="row"><div class="rk">騎手</div><div class="rv">張田昂 70%（7/10） ／ 矢野貴之 50%（12/24） ／ 山崎誠士 48%</div></div>
-    <div class="row"><div class="rk">厩舎</div><div class="rv"><span class="hot">加藤誠一 62%（8/13）</span> ／ 秋山直之 53%（9/17）</div></div>
-    <div class="row"><div class="rk">父</div><div class="rv">ビッグアーサー 83%（5/6） ／ アルアイン 80%（4/5）</div></div>
+    <div class="row"><div class="rk">騎手</div><div class="rv">西啓太 <span class="val">単511%</span>（15騎乗） ／ 山崎誠士 48%<span class="val">単197%</span> ／ 張田昂 70%<span class="val">単148%</span></div></div>
+    <div class="row"><div class="rk">厩舎</div><div class="rv">秋山直之 53%<span class="val">単439%</span> ／ 田島寿一 <span class="val">単197%</span>（33出走） ／ 加藤誠一 62% <span class="dim">単34%</span></div></div>
+    <div class="row"><div class="rk">父</div><div class="rv">ビッグアーサー 83% <span class="dim">単57%</span> ／ アルアイン 80% <span class="dim">単90%</span></div></div>
   </div>
   <div class="g g3">
     <div class="gt">B級 <span>中級／23R</span></div>
-    <div class="row"><div class="rk">騎手</div><div class="rv">佐野遥久 62%（10/16） ／ 矢野貴之 60% ／ 新原周馬 60%</div></div>
-    <div class="row"><div class="rk">厩舎</div><div class="rv"><span class="hot">山崎裕也 67%（8/12）</span></div></div>
-    <div class="row"><div class="rk">父</div><div class="rv">キンシャサノキセキ 60% ／ トゥザワールド 50% ／ キズナ 50%</div></div>
+    <div class="row"><div class="rk">騎手</div><div class="rv">新原周馬 60%（6/10）<span class="val">単243%</span> ／ 佐野遥久 62% <span class="dim">単56%</span></div></div>
+    <div class="row"><div class="rk">厩舎</div><div class="rv">山崎裕也 67%（8/12） <span class="dim">単48%</span></div></div>
+    <div class="row"><div class="rk">父</div><div class="rv">キズナ 50%<span class="val">単145%</span> ／ キンシャサノキセキ 60% <span class="dim">単56%</span></div></div>
   </div>
   <div class="g g3">
     <div class="gt">A級・OP <span>上級／3R</span></div>
     <div class="row"><div class="rk">—</div><div class="rv">7・8月の川崎は<b>A級・OPが3レースのみ</b>（延べ24頭）。<br>集計対象外とした。</div></div>
   </div>
   <div class="g g3">
-    <div class="gt">📌 ワンポイント</div>
-    <div class="row"><div class="rk"></div><div class="rv">川崎の夏は<span class="hot">逃げ馬が複勝60.6%・単回収217%</span>。ただし<b>1500mだけ逃げ複勝42.9%まで落ち、三連単10万超が25%</b>（他距離は9%）。距離ごとに別のコースとして扱う。</div></div>
+    <div class="gt">📌 妙味の血統だけ拾うなら</div>
+    <div class="row"><div class="rk">父</div><div class="rv"><span class="val">モーニン 527%</span>（26走）／<span class="val">シニスターミニスター 250%</span>（15走）</div></div>
+    <div class="row"><div class="rk"></div><div class="rv"><span class="val">ホッコータルマエ 213%</span>（36走・複勝47%）／<span class="val">コパノリッキー 149%</span>（50走）</div></div>
+    <div class="row"><div class="rk"></div><div class="rv">いずれも<b>ダート短距離血統</b>。複勝率と回収率が両立するのは<b>ホッコータルマエ</b>。</div></div>
   </div>
 </div>
 
 <div class="foot">
-  <b>集計対象</b>：2025年 7/7-7/11・8/4-8/8・8/21-8/22・8/25-8/26 の川崎 全167R ／ 好走＝3着以内（複勝圏）。数字は（好走数・出走数）と複勝率。<br>
-  ※率のみの数字は出走数が少ない場合あり（カッコ内で確認を）。公開成績を独自集計。次回開催の傾向を保証するものではありません。
+  <b>集計対象</b>：2025年 7/7-7/11・8/4-8/8・8/21-8/22・8/25-8/26 の川崎 全167R ／ 好走＝3着以内（複勝圏）。数字は（好走数・出走数）と複勝率、および単勝回収率。<br>
+  ※<b>白抜き＝単勝を全レース100円ずつ買った場合の回収率が100%超</b>。該当数が少ない項目は万馬券1本で大きく動きます（勝ち数と出走数を必ず確認してください）。公開成績を独自集計。次回開催の傾向を保証するものではありません。
 </div>
