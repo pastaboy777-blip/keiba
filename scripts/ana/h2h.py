@@ -66,7 +66,9 @@ def build(before=None):
         p = _parse(fn)
         if p and (before is None or p[0] < before): races.append(p)
     races.sort(key=lambda x: x[0])
-    idx = defaultdict(lambda: {"a": 0, "b": 0, "last": None})
+    # "m" = 対戦ログ ["MMDDa", ...] 末尾a/b＝キー先頭名が勝ったか。
+    # 同一レース由来の結果を後から1件として扱えるようにするため日付を持つ。
+    idx = defaultdict(lambda: {"a": 0, "b": 0, "last": None, "m": []})
     for d, place, rows in races:
         n = len(rows)
         for i in range(n):
@@ -78,14 +80,17 @@ def build(before=None):
                 fc = ca if first == na else cb
                 sc = cb if first == na else ca
                 e = idx[key]
-                if fc < sc: e["a"] += 1; e["last"] = [d, place, first]
-                elif sc < fc: e["b"] += 1; e["last"] = [d, place, key.split("\t")[1]]
+                if fc < sc:
+                    e["a"] += 1; e["last"] = [d, place, first]; e["m"].append(d[5:].replace("-", "")+"a")
+                elif sc < fc:
+                    e["b"] += 1; e["last"] = [d, place, key.split("\t")[1]]; e["m"].append(d[5:].replace("-", "")+"b")
     out = {k: v for k, v in idx.items() if v["a"] + v["b"] > 0}
     # before付き（検証用の部分ビルド）は本番インデックスを汚さない。
     # ※過去にこれで本番が過去日時点に切り詰められ、実戦判定が狂った。
     if before is not None:
         print(f"検証ビルド(before={before}): {len(races)}レース → {len(out)}ペア ※ファイルには書かない")
         return out
+    json.dump(out, open(INDEX, "w"), ensure_ascii=False)
     # --- Elo レーティングも同時に構築（時系列順） ---
     elo = defaultdict(lambda: 1500.0)
     for d, place, rows in races:
@@ -123,9 +128,37 @@ def h2h(name_a, name_b):
     return (aw, bw, last)
 
 
+def meetings(name_a, name_b):
+    """(a,b)の対戦ログ [(MMDD, 勝者名), ...] を返す。同一日＝同一レース。"""
+    idx = _load()
+    key = "\t".join(sorted([name_a, name_b]))
+    e = idx.get(key)
+    if not e or not e.get("m"): return []
+    first, second = key.split("\t")
+    return [(x[:4], first if x[4:] == "a" else second) for x in e["m"]]
+
+
+def race_days(name, entries):
+    """その馬が今日の相手と当たった『実レース数』（同一日は1件）。
+    延べ対戦数は同じ1レースを頭数ぶん重複計上するので、こちらが実サンプル数。"""
+    ds = set()
+    for o in entries:
+        if o["name"] == name: continue
+        for d, _ in meetings(name, o["name"]): ds.add(d)
+    return len(ds)
+
+
+# 南関1878R実測：人気で劣る側が今回も先着する率（基準＝対戦歴なし）
+#            人気差1-2        人気差3-5        人気差6以上
+#  1-0     47.5%(+6.8)     38.8%(+10.1)   30.8%(+14.8) ← 1戦だけでも最強セル
+#  2-0     45.4%(+4.8)     56.2%(+27.6)   27.8%(+11.7)
+#  効くのは「完封回数」ではなく「人気差」＝市場が無視している度合い。
+_LIFT = {("1-0", 6): "+14.8pt", ("1-0", 3): "+10.1pt", ("1-0", 1): "+6.8pt",
+         ("多", 6): "+11.7pt", ("多", 3): "+27.6pt", ("多", 1): "+4.8pt"}
+
 def alerts(entries, min_gap=3):
     """entries=[{name, umaban, ninki}] → 人気薄が人気馬に過去先着しているペア。
-    人気差が大きいほど妙味（検証：+12〜+20pt）。"""
+    ★効くのは完封回数ではなく人気差。人気差6以上は1-0でも別格（+14.8pt・n=516）。"""
     res = []
     for lo in entries:
         for hi in entries:
@@ -135,12 +168,35 @@ def alerts(entries, min_gap=3):
             if gap < min_gap: continue          # lo が人気下
             w, l, _ = h2h(lo["name"], hi["name"])
             if w > l:
+                mt = meetings(lo["name"], hi["name"])
+                days = sorted({d for d, _ in mt})
+                gz = 6 if gap >= 6 else 3 if gap >= 3 else 1
+                thick = "1-0" if w == 1 and l == 0 else "多"
                 res.append(dict(ana_umaban=lo.get("umaban"), ana=lo["name"], ana_ninki=lo["ninki"],
                                 fav_umaban=hi.get("umaban"), fav=hi["name"], fav_ninki=hi["ninki"],
-                                gap=gap, record=f"{w}-{l}",
-                                lift="+20.7pt" if gap >= 6 else "+12.0pt"))
+                                gap=gap, record=f"{w}-{l}", days=days, races=len(days),
+                                tier=("★★別格" if gap >= 6 else "★通常"),
+                                lift=_LIFT.get((thick, gz), "")))
     res.sort(key=lambda x: (-x["gap"], x["ana_ninki"]))
     return res
+
+
+def fmt_alerts(entries, min_gap=3):
+    """実戦用：人気差でティア分けしたアラート出力。"""
+    rs = alerts(entries, min_gap)
+    if not rs: return "  H2Hアラートなし"
+    out = []
+    for tier, label in [("★★別格", "★★【人気差6以上＝市場の死角。1戦だけの勝ちでも別格 +14.8pt】"),
+                        ("★通常", "★【人気差3-5 +10.1pt】")]:
+        sub = [r for r in rs if r["tier"] == tier]
+        if not sub: continue
+        out.append("  " + label)
+        for r in sub:
+            out.append(f"    {r['ana_ninki']}人気 {r['ana_umaban']}{r['ana']} ＞ "
+                       f"{r['fav_ninki']}人気 {r['fav_umaban']}{r['fav']}  "
+                       f"({r['record']} / {r['races']}レース {'・'.join(r['days'])}) {r['lift']}")
+    out.append("  ※アラートの『件数』に予測力はない（1件14.2% / 5件以上9.6%）。見るのは1件ごとの人気差。")
+    return "\n".join(out)
 
 
 def summarize(entries, top_ninki=5, min_gap=3):
@@ -285,12 +341,15 @@ def standings(entries, min_meets=3):
             if w > l: beat.append(o["name"])
         m = W + L
         rate = (W/m) if m else None
+        # 延べ対戦数(m)は同じ1レースを頭数ぶん重複計上する。実サンプルはレース数。
+        nr = race_days(e["name"], entries)
         if m >= min_meets and rate is not None:
             tier = "★ボス" if rate >= 0.7 else "優勢" if rate >= 0.5 else "劣勢" if rate >= 0.3 else "消"
         else:
             tier = "－"
         out.append(dict(name=e["name"], umaban=e.get("umaban"), ninki=e.get("ninki"),
-                        W=W, L=L, meets=m, rate=rate, tier=tier, beat=beat))
+                        W=W, L=L, meets=m, races=nr, rate=rate, tier=tier, beat=beat,
+                        thin=(nr <= 1 and m >= 3)))   # 1レースだけを何頭分にも数えている状態
     out.sort(key=lambda x: (-(x["rate"] if x["rate"] is not None else -1), -x["meets"]))
     return out
 
@@ -308,15 +367,20 @@ def fmt_boss(entries, min_meets=3):
             ub = f"{s['umaban']}番 " if s["umaban"] else ""
             nk = f"{s['ninki']}人気 " if s.get("ninki") else ""
             umami = " ← 人気薄で妙味大" if (s.get("ninki") or 0) >= 6 else ""
-            out.append(f"    ★ {nk}{ub}{s['name']}  {s['W']}勝{s['L']}敗({s['rate']*100:.0f}%){umami}")
+            warn = "  ⚠実質1レース分" if s.get("thin") else ""
+            out.append(f"    ★ {nk}{ub}{s['name']}  {s['W']}勝{s['L']}敗({s['rate']*100:.0f}%)"
+                       f" ／{s['races']}レース{umami}{warn}")
     if kesi:
         out.append("  ✖【今日の相手に負け越し】機械的に評価を下げる")
         for s in kesi[:4]:
             ub = f"{s['umaban']}番 " if s["umaban"] else ""
             nk = f"{s['ninki']}人気 " if s.get("ninki") else ""
-            out.append(f"    ✖ {nk}{ub}{s['name']}  {s['W']}勝{s['L']}敗({s['rate']*100:.0f}%)")
+            warn = "  ⚠実質1レース分" if s.get("thin") else ""
+            out.append(f"    ✖ {nk}{ub}{s['name']}  {s['W']}勝{s['L']}敗({s['rate']*100:.0f}%)"
+                       f" ／{s['races']}レース{warn}")
     if not boss and not kesi:
         out.append("  （対戦データ不足で序列判定なし）")
+    out.append("  ※勝敗数は延べ。同じ1レースを頭数ぶん重複計上するので『レース数』が実サンプル。")
     return "\n".join(out)
 
 
