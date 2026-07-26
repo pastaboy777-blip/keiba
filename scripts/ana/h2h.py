@@ -81,7 +81,11 @@ def build(before=None):
                 if fc < sc: e["a"] += 1; e["last"] = [d, place, first]
                 elif sc < fc: e["b"] += 1; e["last"] = [d, place, key.split("\t")[1]]
     out = {k: v for k, v in idx.items() if v["a"] + v["b"] > 0}
-    json.dump(out, open(INDEX, "w"), ensure_ascii=False)
+    # before付き（検証用の部分ビルド）は本番インデックスを汚さない。
+    # ※過去にこれで本番が過去日時点に切り詰められ、実戦判定が狂った。
+    if before is not None:
+        print(f"検証ビルド(before={before}): {len(races)}レース → {len(out)}ペア ※ファイルには書かない")
+        return out
     # --- Elo レーティングも同時に構築（時系列順） ---
     elo = defaultdict(lambda: 1500.0)
     for d, place, rows in races:
