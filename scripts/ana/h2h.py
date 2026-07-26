@@ -401,7 +401,7 @@ def integrated(entries):
         if exp is None:
             pass
         elif exp <= 0.40:
-            grade, why, fuku, ret = "✖", "Elo下位＝今日の相手に格負け", 3.9, 35
+            grade, why, fuku, ret = "✖", "Elo下位＝1着率0.4%。1着から消す(2-3着では拾う)", 3.9, 35
         elif exp >= 0.60 and k == "追":
             grade, why, fuku, ret = "◎", "★Elo上位 × 前走追込（最強セル lift3.11）", 31.7, 149
         elif 0.40 < exp < 0.60 and k == "逃":
@@ -447,7 +447,8 @@ def fmt_integrated(entries, title=""):
             if r["beat"]:
                 out.append(f"        直接勝ち: {'・'.join(r['beat'][:3])}")
     if cut:
-        out.append("  ✖【機械的に切る】複勝3.9%(lift0.38)・単回収35%")
+        out.append("  ✖【1着から消す】1着率0.4%(南関1878R)。ただし3着内の9割は2-3着"
+                   "＝3連単の2-3着では拾う（高配当の源泉）")
         for r in cut[:6]:
             ub = f"{r['umaban']}番 " if r["umaban"] else ""
             nk = f"{r['ninki']}人気 " if r.get("ninki") else ""
