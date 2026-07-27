@@ -69,9 +69,27 @@ class TrackBias:
     def is_fast(self) -> bool:
         return self.offset <= FAST
 
+    @property
+    def drift(self) -> float | None:
+        """開催前半 → 後半の変化量 [s/F]。プラスなら**遅くなってきている**。
+
+        散水・砂の掘れ・気温で、同じ日でも馬場は動く。実測 2026-07-27 川崎:
+        1R/2R が -0.10 だったのに 4R/5R は +0.27/+0.29 と、日中で 0.38 も動いた。
+        1日の平均 +0.08 を残りのレースに当てるのは実態と合わない。
+        """
+        if self.n_races < 4:
+            return None
+        v = [d for _, d in self.samples]
+        h = len(v) // 2
+        return round(sum(v[h:]) / len(v[h:]) - sum(v[:h]) / h, 3)
+
     def summary(self) -> str:
-        return (f"当日の馬場差 {self.offset:+.2f} s/F（{self.n_races}R実測）"
-                f" → {self.label}")
+        s = (f"当日の馬場差 {self.offset:+.2f} s/F（{self.n_races}R実測）"
+             f" → {self.label}")
+        d = self.drift
+        if d is not None and abs(d) >= 0.15:
+            s += f"　⚠️日中で{'遅く' if d > 0 else '速く'}なっている（{d:+.2f}）"
+        return s
 
     def adjusted_par(self, table: dict[str, float] | None = None) -> dict[str, float]:
         """速度ショック用に補正した par テーブル。"""
@@ -80,7 +98,7 @@ class TrackBias:
 
 
 def measure(results: list[dict], *, table: dict[str, float] | None = None,
-            place: str | None = None) -> TrackBias:
+            place: str | None = None, recent: int | None = None) -> TrackBias:
     """終わったレースから当日の馬場差を測る。
 
     results の各要素: {"race_no", "place", "distance", "win_time"}
@@ -88,6 +106,10 @@ def measure(results: list[dict], *, table: dict[str, float] | None = None,
     table を省くと **勝ち馬 par**(`PAR_WIN`) を使う。全馬 par を渡してはいけない
     （モジュール冒頭の警告を参照）。
     par が引けないレース（未登録の距離など）は自動的に除外する。
+
+    recent に本数を渡すと、**直近その本数だけ**で offset を出す（`samples` は
+    全レースぶん残るので `drift` は引き続き見られる）。日中で馬場が動く日は、
+    これから走るレースに当てる基準としてこちらが実態に近い。
     """
     base = table if table is not None else (PAR_WIN or None)
     samples: list[tuple[int, float]] = []
@@ -104,8 +126,9 @@ def measure(results: list[dict], *, table: dict[str, float] | None = None,
         samples.append((r.get("race_no") or 0, round(sf - par, 3)))
     if not samples:
         return TrackBias(offset=0.0, n_races=0)
-    off = sum(d for _, d in samples) / len(samples)
-    return TrackBias(offset=round(off, 3), n_races=len(samples), samples=samples)
+    use = samples[-recent:] if recent else samples
+    off = sum(d for _, d in use) / len(use)
+    return TrackBias(offset=round(off, 3), n_races=len(use), samples=samples)
 
 
 def mirage_discount(bias: TrackBias) -> float:

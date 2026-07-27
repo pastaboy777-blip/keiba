@@ -105,5 +105,32 @@ class TestWinParDefault(unittest.TestCase):
         self.assertTrue(data_path("par_pace.json").exists())
 
 
+class TestDriftAndRecent(unittest.TestCase):
+    """日中で馬場が動く日は、1日平均ではなく直近を基準にする。"""
+
+    def _day(self):
+        # 2026-07-27 川崎の実データ形（前半速く、後半遅い）
+        return [_res(1, 1400, 92.1), _res(2, 1400, 92.1),
+                _res(4, 1400, 94.7), _res(5, 1400, 94.8)]
+
+    def test_drift_detects_slowing(self):
+        b = track_bias.measure(self._day(), table=TABLE)
+        self.assertIsNotNone(b.drift)
+        self.assertGreater(b.drift, 0.15)          # 遅くなっている
+        self.assertIn("遅く", b.summary())
+
+    def test_drift_needs_enough_races(self):
+        b = track_bias.measure(self._day()[:3], table=TABLE)
+        self.assertIsNone(b.drift)
+        self.assertNotIn("遅く", b.summary())
+
+    def test_recent_window(self):
+        full = track_bias.measure(self._day(), table=TABLE)
+        rec = track_bias.measure(self._day(), table=TABLE, recent=2)
+        self.assertEqual(rec.n_races, 2)
+        self.assertGreater(rec.offset, full.offset)   # 直近のほうが遅い
+        self.assertEqual(len(rec.samples), 4)         # drift 用に全件は残す
+
+
 if __name__ == "__main__":
     unittest.main()
