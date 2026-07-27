@@ -18,8 +18,7 @@ from nankeiba.core import newspaper as nb               # noqa: E402
 
 
 def build_one(client, race_id, date, place, race_no):
-    html = client.get(f"/race_card/list/RACEID/{race_id}")
-    card = rk.parse_card(html)
+    card = rk.fetch_card(client, race_id)
     hd = card["header"]
     entries = card["entries"]
     if not entries:
