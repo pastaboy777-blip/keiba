@@ -61,6 +61,51 @@ class TestParseRun(unittest.TestCase):
         self.assertEqual(e["history"][0].corner_pos, [6, 6, 8, 9])
 
 
+class TestFetchCardRefetch(unittest.TestCase):
+    """発売前の空の出馬表がキャッシュに残っていたら取り直す。"""
+
+    def test_refetches_when_no_entries(self):
+        from nankeiba.scraping.rakuten import fetch_card
+
+        real = ('<title>川崎競馬場 1R</title>'
+                '<span class="distance">ダ1,400m</span>'
+                '<table class="dataTable"><tr><td>1</td><td>1</td>'
+                '<td><a href="/horse/1">ウマ</a></td></tr></table>')
+
+        class Cli:
+            def __init__(self):
+                self.calls = []
+
+            def get(self, path, *, use_cache=True):
+                self.calls.append(use_cache)
+                return "<html>空</html>" if use_cache else real
+
+        c = Cli()
+        card = fetch_card(c, "20260727000000000001")
+        self.assertEqual(c.calls, [True, False])       # 2回目はキャッシュ無視
+        self.assertEqual(card["header"]["distance"], 1400)
+
+    def test_no_refetch_when_entries_exist(self):
+        from nankeiba.scraping.rakuten import fetch_card, parse_card
+
+        html = open("tests/data/rakuten_card.html", encoding="utf-8").read() \
+            if os.path.exists("tests/data/rakuten_card.html") else None
+        if html is None or not parse_card(html)["entries"]:
+            self.skipTest("出馬表のフィクスチャが無い")
+
+        class Cli:
+            def __init__(self):
+                self.calls = []
+
+            def get(self, path, *, use_cache=True):
+                self.calls.append(use_cache)
+                return html
+
+        c = Cli()
+        fetch_card(c, "x")
+        self.assertEqual(c.calls, [True])
+
+
 if __name__ == "__main__":
     unittest.main()
 

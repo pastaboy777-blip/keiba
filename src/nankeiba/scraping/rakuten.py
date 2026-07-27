@@ -236,6 +236,21 @@ def parse_card(html: str) -> dict:
     return {"header": header, "entries": entries}
 
 
+def fetch_card(client, race_id: str) -> dict:
+    """出馬表を取り、**出走馬が0頭ならキャッシュを疑って取り直す**。
+
+    ⚠️ 発売前に取得した出馬表は枠順が未確定で、馬柱がまるごと入っていない。
+    それをキャッシュしたまま当日に使うと、そのレースだけ静かに消える。
+    実際 2026-07-27 川崎1R が、前日取得の 37KB 版（0頭）に当たって
+    検証から丸ごと脱落していた（当日の実物は 131KB / 9頭）。
+    """
+    card = parse_card(client.get(f"/race_card/list/RACEID/{race_id}"))
+    if not card["entries"]:
+        card = parse_card(client.get(f"/race_card/list/RACEID/{race_id}",
+                                     use_cache=False))
+    return card
+
+
 def _parse_pedigree(cells: list[str], name: str) -> tuple[str | None, str | None]:
     """馬情報セル「父名 馬名 母名 (母父名) …」から (父, 母父) を取り出す。"""
     for c in cells:
