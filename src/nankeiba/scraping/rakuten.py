@@ -265,39 +265,65 @@ def _res_time_to_sec(s: str) -> float | None:
     return round(mm * 60 + int(m.group(2)) + int(m.group(3)) / 10.0, 1)
 
 
+#: 結果表の見出し → 返すキー
+_RES_COLS = {"着順": "finish", "馬番": "umaban", "馬名": "name", "騎手": "jockey",
+             "タイム": "time", "推定上がり": "agari", "調教師": "trainer",
+             "人気": "popularity"}
+
+
 def parse_result(html: str) -> list[dict]:
     """競走成績(race_performance)ページの着順表を返す。
 
-    return: [{"finish","umaban","name","popularity","time_sec","agari"}, ...] 着順昇順。
+    return: [{"finish","umaban","name","jockey","trainer","popularity",
+              "time_sec","agari"}, ...] 着順昇順。
       time_sec … 走破タイム(秒)  agari … 推定上がり3F(秒)  ※取得不可なら None
+
+    ⚠️ タイム列を `m:ss.s` の正規表現で**探して**はいけない。900m など60秒未満で
+    決まるレースは `55.6` 形式で載るため取りこぼし、その日の馬場差の実測から
+    短距離戦が丸ごと落ちる（実際 2026-07-27 川崎3R が欠測した）。
+    列の位置は**見出し行**から引く。
     """
     mt = re.search(r'class="dataTable".*?</table>', html, re.S)
     if not mt:
         return []
+    rows = [[_clean(x) for x in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.S)]
+            for r in re.findall(r"<tr[^>]*>(.*?)</tr>", mt.group(0), re.S)]
+    # 見出しが取れない断片HTML向けの既定の並び
+    col: dict[str, int] = {"finish": 0, "umaban": 2, "name": 3, "jockey": 7,
+                           "time": 8, "agari": 10, "trainer": 11, "popularity": 12}
+    for c in rows:
+        hit = {_RES_COLS[h]: i for i, x in enumerate(c)
+               if (h := x.replace(" ", "").split("/")[0]) in _RES_COLS}
+        if len(hit) >= 4:            # 見出し行とみなす
+            col = hit
+            break
+
+    def cell(c: list[str], key: str) -> str | None:
+        i = col.get(key)
+        return c[i] if i is not None and i < len(c) else None
+
     out = []
-    for r in re.findall(r"<tr[^>]*>(.*?)</tr>", mt.group(0), re.S):
-        # 列: 着順 枠 馬番 馬名 性齢 負担重量 馬体重 騎手 タイム 着差 推定上がり 調教師 人気
-        c = [_clean(x) for x in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.S)]
+    for c in rows:
         if len(c) < 4 or not c[0].isdigit():
             continue
         try:
-            finish = int(c[0]); umaban = int(c[2])
-        except ValueError:
+            finish = int(c[0])
+            umaban = int(cell(c, "umaban") or "")
+        except (TypeError, ValueError):
             continue
-        pop = None
-        for x in reversed(c):
-            if x.isdigit() and 1 <= int(x) <= 18:
-                pop = int(x); break
-        # タイム(m:ss.s)を探し、その2つ後を推定上がりとみなす
-        time_sec = agari = None
-        for i, x in enumerate(c):
-            if re.match(r"\d+:\d\d\.\d$", x):
-                time_sec = _res_time_to_sec(x)
-                if i + 2 < len(c):
-                    agari = _res_time_to_sec(c[i + 2])
-                break
-        out.append({"finish": finish, "umaban": umaban, "name": c[3],
-                    "popularity": pop, "time_sec": time_sec, "agari": agari})
+        pop_s = cell(c, "popularity")
+        if pop_s is None:                       # 見出しが取れない場合の保険
+            for x in reversed(c):
+                if x.isdigit() and 1 <= int(x) <= 18:
+                    pop_s = x
+                    break
+        out.append({
+            "finish": finish, "umaban": umaban, "name": cell(c, "name"),
+            "jockey": cell(c, "jockey"), "trainer": cell(c, "trainer"),
+            "popularity": int(pop_s) if (pop_s or "").isdigit() else None,
+            "time_sec": _res_time_to_sec(cell(c, "time") or ""),
+            "agari": _res_time_to_sec(cell(c, "agari") or ""),
+        })
     out.sort(key=lambda x: x["finish"])
     return out
 

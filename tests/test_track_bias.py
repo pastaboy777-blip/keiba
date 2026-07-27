@@ -80,5 +80,30 @@ class TestMirageDiscount(unittest.TestCase):
         self.assertGreater(track_bias.mirage_discount(slow), 1.0)
 
 
+class TestWinParDefault(unittest.TestCase):
+    """当日の馬場差は**勝ち馬par**を基準にする（全馬parと取り違えない）。"""
+
+    def test_default_table_is_win_par(self):
+        # 2026-07-27 川崎1R: 1400m を 92.1秒 = 13.157 s/F
+        b = track_bias.measure([_res(1, 1400, 92.1)])
+        win_par = track_bias.PAR_WIN.get("川崎|1400")
+        self.assertIsNotNone(win_par, "data/par_win.json が読めていない")
+        self.assertAlmostEqual(b.offset, round(13.157 - win_par, 3), places=2)
+        # 全馬par(shock用)を使うと約0.19秒ぶん下駄を履く → 別物であることを確認
+        self.assertLess(win_par, shock.PAR_PACE["川崎|1400"])
+
+    def test_win_par_covers_900m(self):
+        """900mなど短距離が抜けていると、その日のレースが実測から丸ごと落ちる。"""
+        for k in ("川崎|900", "浦和|800", "園田|820"):
+            self.assertIn(k, track_bias.PAR_WIN)
+            self.assertIn(k, shock.PAR_PACE)
+
+    def test_par_tables_load_outside_repo_root(self):
+        """カレントディレクトリに依存せず data/ を引けること。"""
+        from nankeiba.core.datapath import data_path
+        self.assertTrue(data_path("par_win.json").exists())
+        self.assertTrue(data_path("par_pace.json").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

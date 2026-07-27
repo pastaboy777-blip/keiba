@@ -86,6 +86,35 @@ class TestResultFields(unittest.TestCase):
         self.assertAlmostEqual(out[0]["time_sec"], 103.4)
         self.assertAlmostEqual(out[0]["agari"], 39.7)
 
+    def test_short_race_time_without_minutes(self):
+        """900mなど60秒未満は '55.6' 形式。m:ss.s だけ探すと取りこぼす。"""
+        html = ('<table class="dataTable">'
+                '<tr><th>着順</th><th>枠</th><th>馬番</th><th>馬名</th>'
+                '<th>性齢/毛色</th><th>負担 重量</th><th>馬体重 増減</th>'
+                '<th>騎手</th><th>タイム</th><th>着差</th><th>推定 上がり</th>'
+                '<th>調教師</th><th>人気</th></tr>'
+                '<tr><td>1</td><td>1</td><td>1</td><td>フラワーガールエス</td>'
+                '<td>牝3 /青鹿毛</td><td>54.0</td><td>407 -3</td>'
+                '<td>新原周 (川崎)</td><td>55.6</td><td></td><td>37.5</td>'
+                '<td>田邊陽</td><td>-</td></tr></table>')
+        out = parse_result(html)
+        self.assertAlmostEqual(out[0]["time_sec"], 55.6)
+        self.assertAlmostEqual(out[0]["agari"], 37.5)
+        self.assertEqual(out[0]["trainer"], "田邊陽")
+        self.assertEqual(out[0]["jockey"], "新原周 (川崎)")
+        self.assertIsNone(out[0]["popularity"])   # 人気欄が '-' のときは None
+
+    def test_popularity_not_confused_with_weight(self):
+        """人気は見出しで引く。負担重量や馬体重を拾わないこと。"""
+        html = ('<table class="dataTable">'
+                '<tr><th>着順</th><th>枠</th><th>馬番</th><th>馬名</th>'
+                '<th>騎手</th><th>タイム</th><th>推定 上がり</th>'
+                '<th>調教師</th><th>人気</th></tr>'
+                '<tr><td>1</td><td>8</td><td>9</td><td>トニトゥルス</td>'
+                '<td>野畑凌 (川崎)</td><td>1:32.1</td><td>38.8</td>'
+                '<td>新井清</td><td>2</td></tr></table>')
+        self.assertEqual(parse_result(html)[0]["popularity"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

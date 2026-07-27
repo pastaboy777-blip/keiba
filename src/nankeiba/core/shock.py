@@ -27,12 +27,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from pathlib import Path
 
+from .datapath import data_path
 from .interval import RunRecord
 
 # 実測 par テーブル（(場,距離)→ 1Fあたり秒数の中央値）。data/par_pace.json があれば読む。
-_PAR_PATH = Path("data/par_pace.json")
+_PAR_PATH = data_path("par_pace.json")
 
 # フォールバック用の代表値（南関ダート）。JSONが無い環境でも動くように。
 _PAR_FALLBACK: dict[str, float] = {

@@ -1,18 +1,24 @@
 """当日の馬場差（トラックバイアス）の実測と、速度ショック基準への反映。
 
-par_pace（場×距離の基準 s/F）は**過去の中央値**なので、その日の馬場が速ければ
+par（場×距離の基準 s/F）は**過去の中央値**なので、その日の馬場が速ければ
 全レースが par より速く決まる。この差分を **当日の馬場差 offset [s/F]** として測り、
 `shock.detect()` の基準テーブルを補正する。
 
-なぜ効くか（2026-07-27 川崎で確認）:
-  ・1R・2R の勝ちタイムが par より **-0.29 s/F** 速い＝高速馬場だった。
+⚠️ **基準は「勝ち馬 par」を使う（`data/par_win.json`）。**
+`shock.PAR_PACE`（= `data/par_pace.json`）は**全出走馬**の中央値で、そちらは
+「その馬自身の前走タイム」と比べる速度ショック用。当日の馬場差は**勝ちタイム**から
+測るので、勝ち馬どうしで比べないと釣り合わない。
+実際 2026-07-27 の川崎で取り違えて、常に約 -0.19 s/F の下駄を履いていた:
+    勝ちタイム 13.157 s/F を 全馬par 13.443 にぶつけて **-0.29「高速馬場」** と誤判定
+    → 正しくは 勝ち馬par 13.257 との差 **-0.10（ほぼ標準）**
+このせいで ⚠️見かけ倒しの割引を 0.3 まで緩め、4Rで本来出ない🚀を2頭に付けていた。
+両方のテーブルは `scripts/build_par_pace.py` が同時に生成する。
+
+しくみ:
   ・高速馬場では「今走の想定ペース」が par より速くなるので、
     前走が緩かった馬はより大きな速度ショックを受ける＝**消しが強まる**。
-    実際 4R では ③シュンプタイト(-0.34→-0.63) と ④ジンジャーホープ(-0.40→-0.69) が
-    補正後に新たに 🚀 判定へ変わった。
   ・逆に「⚠️見かけ倒し（別条件の速い時計で指数が水増し）」は、
     **当日が高速馬場ならその速い時計が通用する**ため、割引を弱めるべき。
-    同日1Rで⚠️付きの指数1位が9番人気1着（単勝470円）だった。
 
 レースが進むほど実測本数が増えて精度が上がるので、**開催中に随時呼び直す**設計。
 依存ライブラリなし。
@@ -20,13 +26,29 @@ par_pace（場×距離の基準 s/F）は**過去の中央値**なので、そ�
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
-
 from . import shock
+from .datapath import data_path
 
 # 判定しきい値（s/F）
 FAST = -0.10        # これ以下なら高速馬場
 SLOW = 0.10         # これ以上なら時計のかかる馬場
+
+#: 勝ち馬のみで測った par。当日の馬場差の基準はこちら。
+_WIN_PATH = data_path("par_win.json")
+
+
+def _load_win_par() -> dict[str, float]:
+    if _WIN_PATH.exists():
+        try:
+            return json.loads(_WIN_PATH.read_text(encoding="utf-8"))
+        except Exception:                      # noqa: BLE001
+            pass
+    return {}
+
+
+PAR_WIN = _load_win_par()
 
 
 @dataclass
@@ -63,8 +85,11 @@ def measure(results: list[dict], *, table: dict[str, float] | None = None,
 
     results の各要素: {"race_no", "place", "distance", "win_time"}
       win_time … 勝ち馬の走破タイム[秒]
+    table を省くと **勝ち馬 par**(`PAR_WIN`) を使う。全馬 par を渡してはいけない
+    （モジュール冒頭の警告を参照）。
     par が引けないレース（未登録の距離など）は自動的に除外する。
     """
+    base = table if table is not None else (PAR_WIN or None)
     samples: list[tuple[int, float]] = []
     for r in results:
         dist = r.get("distance")
@@ -72,7 +97,7 @@ def measure(results: list[dict], *, table: dict[str, float] | None = None,
         pl = r.get("place") or place
         if not dist or not t or not pl:
             continue
-        par = shock.par_pace(pl, dist, table)
+        par = shock.par_pace(pl, dist, base)
         if par is None:
             continue
         sf = t / (dist / 200.0)
