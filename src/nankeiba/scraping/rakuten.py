@@ -179,6 +179,7 @@ def _parse_run(cell: str) -> RunRecord | None:
         last3f_sec=float(ag) if ag else None,
         time_sec=_time_to_sec(tm),
         weight=int(wt) if wt else None,
+        kinryo=float(_kin) if _kin else None,
     )
 
 
@@ -350,6 +351,7 @@ def parse_result(html: str) -> list[dict]:
             "agari": _res_time_to_sec(cell(c, "agari") or ""),
             **_weight(cell(c, "weight")),
             "sexage": cell(c, "sexage"),
+            "kinryo": float(k) if (k := (cell(c, "kinryo") or "")).replace(".", "", 1).isdigit() else None,
         })
     out.sort(key=lambda x: x["finish"])
     return out
