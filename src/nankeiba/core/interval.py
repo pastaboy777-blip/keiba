@@ -117,6 +117,7 @@ class RunRecord:
     surface: str | None = None          # '芝'/'ダ'(中央の指数で芝ダを分離するのに使う)
     weight: int | None = None           # その走の馬体重[kg]（体重推移の分析に使う）
     kinryo: float | None = None         # その走の斤量[kg]（指数の斤量補正に使う）
+    race_name: str | None = None        # レース名＋クラス（「負かした相手のその後」を書くのに使う）
 
     def finish_strength(self) -> float:
         """着順ベースの強さ。1着=1.0、最下位=~0.0。"""

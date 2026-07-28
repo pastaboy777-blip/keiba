@@ -149,7 +149,7 @@ def _time_to_sec(t: str) -> float | None:
 _RUN_RE = re.compile(
     r"^(\d+)\s+(良|稍|重|不)\s+(\d+)頭"          # 着順 馬場 頭数
     r".*?\s(\S+?)\s+(\d\d)\.(\d\d)\.(\d\d)\s+"    # 競馬場 日付(YY.MM.DD)
-    r".*?(\d{3,4})([左右内外]*)([芝ダ])\s+"       # 距離 回り 馬場種
+    r"(.*?)(\d{3,4})([左右内外]*)([芝ダ])\s+"     # レース名+クラス 距離 回り 馬場種
     r"(\d+)人\s+(\S+?)\s+([\d.]+)\s+"             # 人気 騎手 斤量
     r"(\d+:\d\d\.\d)\s+\(([^)]*)\)\s+"           # タイム (着差)
     r"([\d.]+)\s+(\d+)k\s+"                       # 上り3F 馬体重(kg)
@@ -162,7 +162,7 @@ def _parse_run(cell: str) -> RunRecord | None:
     m = _RUN_RE.match(cell.strip())
     if not m:
         return None
-    (fin, baba, fld, place, yy, mm, dd, dist, _turn, surf,
+    (fin, baba, fld, place, yy, mm, dd, rname, dist, _turn, surf,
      _pop, jockey, _kin, tm, _marg, ag, wt, _umb, corner) = m.groups()
     if surf == "芝":
         return None
@@ -180,6 +180,7 @@ def _parse_run(cell: str) -> RunRecord | None:
         time_sec=_time_to_sec(tm),
         weight=int(wt) if wt else None,
         kinryo=float(_kin) if _kin else None,
+        race_name=re.sub(r"\s+", " ", (rname or "")).strip() or None,
     )
 
 
