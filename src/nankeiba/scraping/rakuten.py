@@ -283,7 +283,17 @@ def _res_time_to_sec(s: str) -> float | None:
 #: 結果表の見出し → 返すキー
 _RES_COLS = {"着順": "finish", "馬番": "umaban", "馬名": "name", "騎手": "jockey",
              "タイム": "time", "推定上がり": "agari", "調教師": "trainer",
-             "人気": "popularity"}
+             "人気": "popularity", "馬体重増減": "weight", "性齢": "sexage",
+             "負担重量": "kinryo"}
+
+
+def _weight(s: str | None) -> dict:
+    """'483 +4' / '452 -3' / '計不' → {"weight": 483, "weight_diff": 4}。"""
+    m = re.match(r"(\d{3})\s*([+-]\d+)?", (s or "").strip())
+    if not m:
+        return {"weight": None, "weight_diff": None}
+    return {"weight": int(m.group(1)),
+            "weight_diff": int(m.group(2)) if m.group(2) else 0}
 
 
 def parse_result(html: str) -> list[dict]:
@@ -338,6 +348,8 @@ def parse_result(html: str) -> list[dict]:
             "popularity": int(pop_s) if (pop_s or "").isdigit() else None,
             "time_sec": _res_time_to_sec(cell(c, "time") or ""),
             "agari": _res_time_to_sec(cell(c, "agari") or ""),
+            **_weight(cell(c, "weight")),
+            "sexage": cell(c, "sexage"),
         })
     out.sort(key=lambda x: x["finish"])
     return out

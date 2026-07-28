@@ -115,6 +115,31 @@ class TestResultFields(unittest.TestCase):
                 '<td>新井清</td><td>2</td></tr></table>')
         self.assertEqual(parse_result(html)[0]["popularity"], 2)
 
+    def test_weight_and_diff(self):
+        """馬体重欄 '483 +4' から体重と増減を取る（厩舎の仕上げを見るため）。"""
+        html = ('<table class="dataTable">'
+                '<tr><th>着順</th><th>枠</th><th>馬番</th><th>馬名</th>'
+                '<th>性齢/毛色</th><th>負担 重量</th><th>馬体重 増減</th>'
+                '<th>騎手</th><th>タイム</th><th>着差</th><th>推定 上がり</th>'
+                '<th>調教師</th><th>人気</th></tr>'
+                '<tr><td>1</td><td>8</td><td>9</td><td>ウマA</td>'
+                '<td>牡6 /鹿毛</td><td>56.0</td><td>483 +4</td>'
+                '<td>騎手</td><td>1:32.1</td><td></td><td>38.8</td>'
+                '<td>調教師</td><td>2</td></tr>'
+                '<tr><td>2</td><td>2</td><td>2</td><td>ウマB</td>'
+                '<td>牝6 /青毛</td><td>54.0</td><td>487</td>'
+                '<td>騎手</td><td>1:32.1</td><td>アタマ</td><td>39.0</td>'
+                '<td>調教師</td><td>1</td></tr>'
+                '<tr><td>3</td><td>1</td><td>1</td><td>ウマC</td>'
+                '<td>牡3 /鹿毛</td><td>54.0</td><td>計不</td>'
+                '<td>騎手</td><td>1:33.0</td><td>3</td><td>39.5</td>'
+                '<td>調教師</td><td>3</td></tr></table>')
+        out = parse_result(html)
+        self.assertEqual((out[0]["weight"], out[0]["weight_diff"]), (483, 4))
+        self.assertEqual((out[1]["weight"], out[1]["weight_diff"]), (487, 0))
+        self.assertEqual((out[2]["weight"], out[2]["weight_diff"]), (None, None))
+        self.assertEqual(out[0]["sexage"], "牡6 /鹿毛")
+
 
 if __name__ == "__main__":
     unittest.main()
