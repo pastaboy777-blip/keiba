@@ -137,5 +137,42 @@ class TestPositionNotAddedBack(unittest.TestCase):
         self.assertAlmostEqual(a.points, 1.0, places=1)
 
 
+class TestNewspaperIntegration(unittest.TestCase):
+    """巻き返し候補が新聞カードに出ること。"""
+
+    def _card(self):
+        from nankeiba.core import newspaper as nb
+        from nankeiba.core.hindex import SpeedIndexModel
+
+        def runs(um, corners, fin):
+            return [RunRecord(date="2026-07-20", place="川崎", distance=1400,
+                              field_size=12, finish_pos=fin, corner_pos=corners,
+                              time_sec=92.0 + um, kinryo=55.0),
+                    RunRecord(date="2026-07-01", place="川崎", distance=1400,
+                              field_size=12, finish_pos=4, corner_pos=[4, 4, 4, 4],
+                              time_sec=93.0, kinryo=55.0)]
+
+        entries = [
+            nb.PaperEntry(umaban=1, name="マキカエシ", history=runs(1, [2, 2, 2, 3], 9)),
+            nb.PaperEntry(umaban=2, name="ソトマワリ", history=runs(2, [11, 11, 11, 11], 9)),
+            nb.PaperEntry(umaban=3, name="ゼンソウチャクジュン", history=runs(3, [2, 2, 2, 2], 2)),
+        ]
+        model = SpeedIndexModel.fit([r for e in entries for r in e.history])
+        return nb, nb.build_card(
+            nb.RaceHeader(place="川崎", distance=1400, date="2026-07-29",
+                          race_no=1, baba=None), entries, model)
+
+    def test_only_the_forward_loser_is_flagged(self):
+        _, card = self._card()
+        self.assertEqual([v.entry.umaban for v in card.revengers()], [1])
+
+    def test_appears_in_text_render(self):
+        nb, card = self._card()
+        t = nb.render_text(card)
+        self.assertIn("巻き返し候補", t)
+        self.assertIn("マキカエシ", t)
+        self.assertNotIn("ソトマワリ", t.split("【10走以内")[0].split("巻き返し候補")[1])
+
+
 if __name__ == "__main__":
     unittest.main()

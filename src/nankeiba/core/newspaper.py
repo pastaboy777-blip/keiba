@@ -17,6 +17,7 @@ from typing import Sequence
 
 from .interval import RunRecord
 from .hindex import SpeedIndexModel, normalize_going
+from . import adjust as adj
 from . import pace as pc
 from . import summary as sm
 from . import composite as cp
@@ -85,6 +86,7 @@ class HorseView:
     pace_apt: str = "U"           # ペース適性 S/H/F/U(+激)
     mirage: "mir.Mirage | None" = None   # 見かけ倒し指数の警告
     grip: "grp.GripTag | None" = None    # グリップ血統(夏NAR大波乱の穴ヒモ)
+    revenge: bool = False         # 前走大敗×前々のポジション(実測 lift 1.31)
 
 
 @dataclass
@@ -101,6 +103,20 @@ class RaceCard:
     agari_top: list[tuple[int, float]] = field(default_factory=list)
     ped_tags: dict[int, "ped.PedTag"] = field(default_factory=dict)
     ped_bias: "ped.PedBias | None" = None
+
+    def revengers(self) -> list[HorseView]:
+        """前走大敗（7着以下）だが前々で運べていた馬。
+
+        着順だけ見て消すと取りこぼす層。実測（南関 前走7着以下 44,826組、
+        その層の次走複勝率16.6%）で、条件該当は n=12,320 / 21.7% / **lift 1.31**、
+        条件を外した層（外を回らされた側）は 14.7% / lift 0.89。
+        ⚠️ JRDB IDM 式に「損したぶんを指数へ足し戻す」のは実測で棄却済み。
+        これは足し戻しではなく **前で運べたかの指標**として使う。
+        """
+        out = [v for v in self.horses if v.revenge]
+        out.sort(key=lambda v: -(v.comp.total if v.comp and v.comp.total is not None
+                                 else (v.idx_best5 or -1e9)))
+        return out
 
     def grip_holes(self) -> list[HorseView]:
         """グリップ血統 × 指数不人気（印なし＝人気薄想定）の穴ヒモ候補。
@@ -148,6 +164,7 @@ def build_card(
             pace_apt=pa.pace_aptitude_mark(e.history),
             mirage=mrg if mrg else None,
             grip=gtag if gtag else None,
+            revenge=adj.revenge(e.history[0]) if e.history else False,
         ))
     # 印: 総合指数の場内順位上位から ◎○▲△△(総合が無い馬は素指数で代替)
     def _rank_key(v: HorseView):
@@ -202,6 +219,20 @@ def render_text(card: RaceCard) -> str:
         cell = card.grid.cell(key)
         L.append(f"  [{name:<8}] {cell.display()}")
     L.append("")
+
+    # 巻き返し候補（前走大敗 × 前々のポジション）
+    rv = card.revengers()
+    if rv:
+        L.append("【巻き返し候補】前走7着以下だが前々で運べていた馬"
+                 "（実測 その層で複勝lift 1.31）")
+        for v in rv:
+            p0 = v.entry.history[0]
+            pl = adj.position_loss(p0)
+            L.append(f"  {v.entry.umaban:>2}  {v.entry.name:<12} "
+                     f"前走 {p0.place}{p0.distance} {p0.finish_pos}着"
+                     f"({p0.field_size}頭) 通過{_corner_str(p0.corner_pos)}"
+                     + (f" ロス{pl.sec:.2f}秒" if pl else ""))
+        L.append("")
 
     # 10走以内 指数上位
     L.append("【10走以内 指数上位】(馬番 指数 / 何走前 場 距離 馬場 日付)")
