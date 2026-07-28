@@ -28,8 +28,7 @@ import os
 from dataclasses import dataclass, field
 
 from ..scraping import rakuten as rk
-
-CACHE = "data/cache/rakuten"
+from .datapath import cache_dir
 
 #: 重賞・特別の見分け（レース名に含まれる語）。南関の表記ゆれを広めに拾う。
 STAKES_WORDS = ("記念", "賞", "特別", "カップ", "杯", "ステークス", "S")
@@ -103,16 +102,16 @@ def is_stakes(name: str | None) -> bool:
 class Index:
     """レースの出走馬名簿と、馬ごとの全走を持つ索引。"""
 
-    def __init__(self, cache_dir: str = CACHE):
+    def __init__(self, cache: str | None = None):
         self.roster: dict[tuple, list[tuple[str, int]]] = {}
         self.runs: dict[str, dict[str, tuple]] = {}
-        self._load(cache_dir)
+        self._load(str(cache or cache_dir()))
 
-    def _load(self, cache_dir: str) -> None:
+    def _load(self, cdir: str) -> None:
         for pf in sorted(glob.glob(os.path.join(
-                cache_dir, "race_performance_list_RACEID_*.html"))):
+                cdir, "race_performance_list_RACEID_*.html"))):
             rid = pf.rsplit("_", 1)[-1].removesuffix(".html")
-            cf = os.path.join(cache_dir, f"race_card_list_RACEID_{rid}.html")
+            cf = os.path.join(cdir, f"race_card_list_RACEID_{rid}.html")
             if not os.path.exists(cf):
                 continue
             try:
@@ -125,7 +124,7 @@ class Index:
             key = (f"{rid[0:4]}-{rid[4:6]}-{rid[6:8]}", hd["place"], hd["distance"])
             self.roster[key] = [(r["name"], r["finish"]) for r in res if r.get("name")]
         for cf in sorted(glob.glob(os.path.join(
-                cache_dir, "race_card_list_RACEID_*.html"))):
+                cdir, "race_card_list_RACEID_*.html"))):
             try:
                 card = rk.parse_card(open(cf, encoding="utf-8").read())
             except Exception:                      # noqa: BLE001

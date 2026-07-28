@@ -86,7 +86,7 @@ def main() -> None:
     places = tuple(args.places)
 
     print("索引を作成中（出走馬名簿とその後の走り）…")
-    idx = rv.Index(CACHE)
+    idx = rv.Index()
 
     # 同条件（場×距離）の上がり平均を出しておく
     ag_by = defaultdict(list)

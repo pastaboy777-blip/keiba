@@ -20,6 +20,16 @@ from pathlib import Path
 _PKG_ROOT = Path(__file__).resolve().parents[3]      # …/src/nankeiba/core → repo
 
 
+def cache_dir(name: str = "rakuten") -> Path:
+    """`data/cache/<name>` の実在するパス。カレントに依存しない。
+
+    ⚠️ `rivals.Index` がここを相対パスで持っていたため、リポジトリ直下以外から
+    実行すると **名簿が20レースしか読めない**（本来8,000超）という取りこぼしが
+    起きた。par テーブルと同じ轍。走らせる場所に依存させないこと。
+    """
+    return data_path(os.path.join("cache", name))
+
+
 def data_path(name: str) -> Path:
     """`data/<name>` の実在するパスを返す。無ければ最後の候補を返す。"""
     cands = []
