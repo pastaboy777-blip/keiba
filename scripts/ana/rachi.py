@@ -56,32 +56,78 @@ def classify(c4):
 
 KEYS = ["先頭", "ラチ沿い追走", "外を回す", "単独(証拠なし)"]
 
-def run(pre, upto=12):
-    tot, hit, win = Counter(), Counter(), Counter()
-    print(f"■ ラチ沿い逆算  {pre}\n")
-    for RR in range(1, upto+1):
-        order, c4, dist = parse(fetch(pre, RR))
-        if not order: continue
-        r = classify(c4)
-        print(f"{RR:>3}R {dist:>5}m  4角[{c4}]")
-        print("      " + " / ".join(f"{ch}着{ub}{r.get(ub,('?',0))[0]}" for ch, ub in sorted(order)[:3]))
-        for ch, ub in order:
-            k = r.get(ub, ("?", 0))[0]
-            tot[k] += 1
-            if ch <= 3: hit[k] += 1
-            if ch == 1: win[k] += 1
+
+def _table(label, tot, hit, win):
     N = sum(tot.values())
-    if not N: print("データなし"); return
+    if not N: return None
     base = sum(hit.values())/N
-    print(f"\n── 4角のポジション別 3着内率（{N}頭）──")
+    print(f"\n── {label}（{N}頭）──")
     print(f"{'区分':<16}{'頭数':>5}{'1着':>5}{'3着内':>6}{'3着内率':>9}{'倍率':>7}")
     for k in KEYS:
         if not tot[k]: continue
         p = hit[k]/tot[k]
         print(f"{k:<16}{tot[k]:>5}{win[k]:>5}{hit[k]:>6}{p*100:>8.1f}%{p/base:>7.2f}")
     print(f"{'全体':<16}{N:>5}{sum(win.values()):>5}{sum(hit.values()):>6}{base*100:>8.1f}%{1.0:>7.2f}")
+    return {k: (hit[k]/tot[k]/base if tot[k] else None) for k in KEYS}
+
+
+def run(pre, upto=12):
+    tot, hit, win = Counter(), Counter(), Counter()
+    H = {"前半": [Counter(), Counter(), Counter()], "後半": [Counter(), Counter(), Counter()]}
+    print(f"■ ラチ沿い逆算  {pre}\n")
+    for RR in range(1, upto+1):
+        order, c4, dist = parse(fetch(pre, RR))
+        if not order: continue
+        r = classify(c4)
+        half = "前半" if RR <= 6 else "後半"
+        print(f"{RR:>3}R {dist:>5}m  4角[{c4}]")
+        print("      " + " / ".join(f"{ch}着{ub}{r.get(ub,('?',0))[0]}" for ch, ub in sorted(order)[:3]))
+        for ch, ub in order:
+            k = r.get(ub, ("?", 0))[0]
+            tot[k] += 1; H[half][0][k] += 1
+            if ch <= 3: hit[k] += 1; H[half][1][k] += 1
+            if ch == 1: win[k] += 1; H[half][2][k] += 1
+    if not sum(tot.values()): print("データなし"); return
+    _table("4角のポジション別 3着内率", tot, hit, win)
+    a = _table("前半 1R〜6R", *H["前半"])
+    b = _table("後半 7R〜12R", *H["後半"])
     print("\n読み方：先頭が突出して後ろの内が沈むなら『ハナ有利・内は蓋をされると終い甘い』。")
     print("        外を回した馬が差してくるなら、穴は外を使える枠から取る。")
+    _shift(a, b)
+
+
+def _shift(a, b):
+    """前後半の向きを当日実測で判定する。
+
+    ※川崎84R(2026/7/6-7/10, 7/27, 7/28)で検証したところ、
+      「後半ほどハナが強くなる」は日替わりで事前には決められない。
+        先頭の倍率 前半→後半：7/6 2.07→1.13 / 7/7 3.33→1.13 / 7/8 2.96→1.19
+                              7/9 1.74→2.48 / 7/10 2.08→1.56 / 7/27 1.81→2.87 / 7/28 1.89→3.15
+      5日が下降・2日が上昇。平均すると前半2.25 → 後半1.91 でむしろ前半のほうがハナ有利。
+      よって固定の補正は入れず、6R終了時点の実測で向きを出す。
+
+    一方で配当だけは全7日で安定して後半が高い：
+      三連単 中央値 前半5,150円 → 後半14,740円 ／ 1万超 31%(13/42) → 60%(25/42)
+      → 勝負するなら7R以降、は事前に使ってよい。
+    """
+    if not (a and b): 
+        print("\n（前後半の比較には1R〜6Rと7R以降の両方が必要）")
+        return
+    print("\n── 前後半の向き（当日実測）──")
+    for k in ("先頭", "外を回す"):
+        x, y = a.get(k), b.get(k)
+        if x is None or y is None: continue
+        arrow = "↑強まる" if y - x >= 0.3 else ("↓弱まる" if x - y >= 0.3 else "→ほぼ変化なし")
+        print(f"  {k:<8} 前半{x:.2f} → 後半{y:.2f}  {arrow}")
+    d = (b.get("先頭") or 0) - (a.get("先頭") or 0)
+    if d >= 0.3:
+        print("  → 後半はハナを取れる馬に絞る。外から差す馬は評価を下げる。")
+    elif d <= -0.3:
+        print("  → 後半はハナの利が薄れている。前に行く馬の頭固定は緩めて相手を広げる。")
+    else:
+        print("  → 前後半で位置バイアスは変わっていない。前半の読みをそのまま延長してよい。")
+    print("  ※配当は全日で後半のほうが高い（84R検証：三連単中央 前半5,150円→後半14,740円、")
+    print("    1万超31%→60%）。勝負を厚くするなら7R以降。")
 
 if __name__ == "__main__":
     run(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 12)
