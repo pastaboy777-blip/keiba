@@ -1,0 +1,99 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'WenQuanYi Zen Hei',sans-serif; }
+  body { background:#0a4f96; }
+  .card { width:1400px; position:relative; overflow:hidden;
+          background:radial-gradient(circle at 50% 6%, #2a8fd8 0%, #1173c4 26%, #0a58a6 62%, #084b90 100%); padding:34px 40px 26px; }
+  .rays { position:absolute; inset:-40% -10% -10% -10%; pointer-events:none;
+          background:repeating-conic-gradient(from 0deg at 50% 10%,
+            rgba(255,255,255,.075) 0deg 3.2deg, rgba(255,255,255,0) 3.2deg 7.4deg); }
+  .inner { position:relative; }
+
+  .kicker { color:#ffd83b; font-size:19px; font-weight:900; letter-spacing:.5px; }
+  .titleline { display:flex; align-items:center; gap:14px; margin-top:6px; }
+  .title { color:#fff; font-size:52px; font-weight:900; letter-spacing:1px; text-shadow:0 3px 10px rgba(0,0,0,.28); }
+  .bdg { background:#ffd83b; color:#0a3f78; font-size:34px; font-weight:900; padding:3px 18px; border-radius:11px; box-shadow:0 3px 0 #d9a800; }
+  .bdg2 { background:#14456f; color:#eaf6ff; font-size:23px; font-weight:900; padding:8px 16px; border-radius:10px; }
+  .lead { color:#fff; font-size:18px; font-weight:700; margin-top:9px; }
+  .lead .y{color:#ffd83b;} .lead .c{color:#8fe3ff;}
+
+  .cols { display:flex; margin:20px 0 7px; padding:0 8px; color:#cfe8ff; font-size:15px; font-weight:800; }
+  .cR{flex:0 0 104px;} .cH{flex:0 0 386px;} .cA{flex:0 0 346px;} .cM{flex:1;}
+
+  .row { display:flex; align-items:stretch; background:#fff; border:3px solid #ffd83b; border-radius:15px;
+         margin-bottom:13px; padding:14px 16px; box-shadow:0 6px 16px rgba(0,0,0,.2); }
+  .rN { flex:0 0 104px; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+  .rN .n { color:#c92a2a; font-size:33px; font-weight:900; line-height:1; }
+  .rN .d { color:#5a6b7d; font-size:13px; font-weight:800; margin-top:4px; }
+  .hm { flex:0 0 386px; display:flex; align-items:center; gap:11px; padding-left:6px; }
+  .at { flex:0 0 346px; display:flex; align-items:center; gap:10px; }
+  .mk { font-size:27px; font-weight:900; color:#c92a2a; }
+  .mk2 { font-size:20px; font-weight:900; color:#1b8fd0; }
+  .nm { font-size:27px; font-weight:900; color:#10375e; letter-spacing:.5px; }
+  .nm2 { font-size:23px; font-weight:900; color:#10375e; }
+  .fire { font-size:26px; }
+  .memo { flex:1; color:#3c4a58; font-size:15px; line-height:1.6; padding-left:16px; border-left:1px solid #dfe8f0; align-self:center; }
+  .memo b { color:#0a58a6; } .memo .r { color:#c92a2a; font-weight:900; } .memo .g{color:#1f8a4c;font-weight:900;}
+
+  .row.skip { border-color:#9fb6cc; background:#eef4fa; }
+  .row.skip .rN .n { color:#6b7f93; }
+
+  .foot { margin-top:6px; background:#0b2b4d; border:3px solid #ffd83b; border-radius:15px;
+          padding:15px 22px; color:#fff; font-size:19px; font-weight:800; }
+  .foot .y{color:#ffd83b;} .foot .c{color:#8fe3ff;}
+  .sig { text-align:right; color:#dbeaf7; font-size:17px; font-weight:800; margin-top:16px; }
+</style></head><body>
+<div class="card"><div class="rays"></div><div class="inner">
+
+  <!-- ★雛形★ 青サンバースト「AIズブ穴」カード。数値・馬名を差し替えて使う。
+       メモは1行=約130字×3行が標準（見本 7/28 6R-12R の分量）。削りすぎない。
+       行を増やす時は <div class="row"> ブロックを複製。見送りレースは class="row skip"。 -->
+  <div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>
+  <div class="titleline">
+    <div class="title">7/29(水) 川崎 1R〜5R</div>
+    <div class="bdg">ズブ穴</div>
+    <div class="bdg2">🐴 調教チェック済版</div>
+  </div>
+  <div class="lead">軸は<span class="y">実力軸×人気薄</span>。◎も○も<span class="c">差し脚のある人気薄</span>で揃える。◎本命／○相手／メモにヒモ穴。</div>
+
+  <div class="cols"><div class="cR">R</div><div class="cH">◎ 本命</div><div class="cA">○ 相手</div><div class="cM">メモ</div></div>
+
+  <div class="row">
+    <div class="rN"><div class="n">1R</div><div class="d">ダ900</div></div>
+    <div class="hm"><span class="mk">◎</span><span class="nm">⑥ルリール</span></div>
+    <div class="at"><span class="mk2">○</span><span class="nm2">④マイリトルロマンス</span></div>
+    <div class="memo">◎⑥は<b>小型420の強差し×道悪巧者</b>で実力軸5位＝人気の盲点。川崎の重を一杯で38.0。○④はエッジ5最多、<b>「仕上がり良好」で64日明け解消</b>。<span class="r">399の下地は全馬ゼロ＝信頼度低。</span>ヒモ⑫⑧</div>
+  </div>
+
+  <div class="row">
+    <div class="rN"><div class="n">2R</div><div class="d">ダ1400</div></div>
+    <div class="hm"><span class="mk">◎</span><span class="nm">⑩テンノウズアイル</span></div>
+    <div class="at"><span class="mk2">○</span><span class="nm2">⑤ジーカンピオーネ</span></div>
+    <div class="memo">◎⑩は<b>前走7/9の稍重を後方から40.1で8番人気1着</b>。小型416×強差し。○⑤は399が8.0でカード断然、<span class="r">ただし着順が伴わない差し損ね型</span>。ヒモ⑨⑥</div>
+  </div>
+
+  <div class="row">
+    <div class="rN"><div class="n">3R</div><div class="d">ダ1500</div></div>
+    <div class="hm"><span class="mk">◎</span><span class="nm">②インフェルレーヴ</span></div>
+    <div class="at"><span class="mk2">○</span><span class="nm2">⑦ミオサンダー</span></div>
+    <div class="memo">◎②は稍重を中団39.9で3着6番人気。<span class="r">ただし追い切りデータ皆無＝最大の減点</span>。○⑦は不良を一杯38.1で中身が上、<span class="g">資金は⑦を厚く</span>。ヒモ①⑤</div>
+  </div>
+
+  <div class="row skip">
+    <div class="rN"><div class="n">4R</div><div class="d">ダ1500</div></div>
+    <div class="hm"><span class="mk">◎</span><span class="nm">④ゴールドサンデー</span></div>
+    <div class="at"><span class="mk2">○</span><span class="nm2">⑤シナノマルス</span></div>
+    <div class="memo"><span class="r">見送り推奨。</span>①56.5%・⑦55.5%が実力断然で<b>調教も人気側が上</b>。◎④は前走2着も<span class="r">「完調に今ひと息」</span>。ヒモ③⑥</div>
+  </div>
+
+  <div class="row">
+    <div class="rN"><div class="n">5R</div><div class="d">ダ1400</div></div>
+    <div class="hm"><span class="fire">🔥</span><span class="mk">◎</span><span class="nm">⑫マロンルピナス</span></div>
+    <div class="at"><span class="mk2">○</span><span class="nm2">⑪セレナス</span></div>
+    <div class="memo">◎⑫は<b>7/8の稍重を後方40.2＝14番人気4着</b>。小型433×強差し、<b>7/25は馬なりで37.1</b>。<span class="g">実力軸1位の⑦は攻めが馬なり41.1と軽い</span>。ヒモ⑥⑦</div>
+  </div>
+
+  <div class="foot">🔑 本線の一撃は <span class="y">5R⑫マロンルピナス</span>。人気薄で後方から差した実績と、馬なり37.1の攻めが噛み合う唯一の馬。<span class="c">1Rは信頼度低・4Rは見送り</span>で、勝負は2R⑩・3R⑦・5R⑫に絞る。オッズ開放後に6番人気以下かを再確認。</div>
+
+  <div class="sig">By Claude AI</div>
+</div></div>
+</body></html>
