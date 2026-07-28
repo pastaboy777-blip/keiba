@@ -22,6 +22,7 @@ from . import pace as pc
 from . import summary as sm
 from . import composite as cp
 from . import pace_aptitude as pa
+from . import race_level as rl
 from . import mirage as mir
 from . import grip as grp
 from . import smart as sma
@@ -87,6 +88,7 @@ class HorseView:
     mirage: "mir.Mirage | None" = None   # 見かけ倒し指数の警告
     grip: "grp.GripTag | None" = None    # グリップ血統(夏NAR大波乱の穴ヒモ)
     revenge: bool = False         # 前走大敗×前々のポジション(実測 lift 1.31)
+    prev_level: "rl.Level | None" = None  # 前走のレースレベル(メンバーの格)
 
 
 @dataclass
@@ -114,9 +116,33 @@ class RaceCard:
         これは足し戻しではなく **前で運べたかの指標**として使う。
         """
         out = [v for v in self.horses if v.revenge]
-        out.sort(key=lambda v: -(v.comp.total if v.comp and v.comp.total is not None
-                                 else (v.idx_best5 or -1e9)))
+        out.sort(key=lambda v: (not (v.prev_level and v.prev_level.is_high),
+                                -(v.comp.total if v.comp and v.comp.total is not None
+                                  else (v.idx_best5 or -1e9))))
         return out
+
+    def bad_last_run(self) -> list[HorseView]:
+        """前走大敗（7着以下）の馬を、巻き返しの見込み順に並べる。
+
+        実測（南関 30,322組・前走7着以下の次走複勝率 14.8%）:
+            ハイレベル○×前々○  n=483    24.8%  lift 1.67
+            ハイレベル××前々○  n=7,096  20.0%  lift 1.35
+            ハイレベル○×前々×  n=1,666  16.0%  lift 1.08
+            ハイレベル×××前々× n=21,077 12.8%  lift 0.86  ← ただ弱いだけ
+        「相手が強かったか（格）」と「勝負になっていたか（位置取り）」は独立。
+        """
+        out = []
+        for v in self.horses:
+            if not v.entry.history:
+                continue
+            p = v.entry.history[0]
+            if p.finish_pos is None or p.finish_pos < adj.BAD_FINISH:
+                continue
+            hi = bool(v.prev_level and v.prev_level.is_high)
+            out.append((2 if (hi and v.revenge) else 1 if v.revenge
+                        else 0 if hi else -1, v))
+        out.sort(key=lambda x: -x[0])
+        return [v for _, v in out]
 
     def grip_holes(self) -> list[HorseView]:
         """グリップ血統 × 指数不人気（印なし＝人気薄想定）の穴ヒモ候補。
@@ -165,6 +191,7 @@ def build_card(
             mirage=mrg if mrg else None,
             grip=gtag if gtag else None,
             revenge=adj.revenge(e.history[0]) if e.history else False,
+            prev_level=rl.prev_level(e.history, e.name),
         ))
     # 印: 総合指数の場内順位上位から ◎○▲△△(総合が無い馬は素指数で代替)
     def _rank_key(v: HorseView):
@@ -228,10 +255,13 @@ def render_text(card: RaceCard) -> str:
         for v in rv:
             p0 = v.entry.history[0]
             pl = adj.position_loss(p0)
+            lv = v.prev_level
             L.append(f"  {v.entry.umaban:>2}  {v.entry.name:<12} "
                      f"前走 {p0.place}{p0.distance} {p0.finish_pos}着"
                      f"({p0.field_size}頭) 通過{_corner_str(p0.corner_pos)}"
-                     + (f" ロス{pl.sec:.2f}秒" if pl else ""))
+                     + (f" ロス{pl.sec:.2f}秒" if pl else "")
+                     + (f"  格{lv.grade:.2f}{'★ハイレベル' if lv.is_high else ''}"
+                        if lv else "  格—"))
         L.append("")
 
     # 10走以内 指数上位
