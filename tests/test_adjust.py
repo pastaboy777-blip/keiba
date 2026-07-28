@@ -81,10 +81,11 @@ class TestLateStart(unittest.TestCase):
 
 
 class TestAdjustment(unittest.TestCase):
-    def test_total_and_points(self):
+    def test_total_is_kinryo_only(self):
+        """位置取りの足し戻しは実測で棄却したので total には入らない。"""
         a = adjust.Adjustment(kinryo_sec=0.10, position_sec=0.20, late=0.0)
-        self.assertAlmostEqual(a.total_sec, 0.30, places=3)
-        self.assertAlmostEqual(a.points, 3.0, places=1)
+        self.assertAlmostEqual(a.total_sec, 0.10, places=3)
+        self.assertAlmostEqual(a.points, 1.0, places=1)
 
     def test_note_mentions_only_active_parts(self):
         a = adjust.Adjustment(kinryo_sec=0.0, position_sec=0.30, late=0.4)
@@ -96,8 +97,44 @@ class TestAdjustment(unittest.TestCase):
     def test_adjust_end_to_end(self):
         a = adjust.adjust(_run(corner_pos=[10, 9, 8, 7], kinryo=56.0),
                           sec_per_kg_per_f=0.003)
-        self.assertGreater(a.position_sec, 0)
-        self.assertGreater(a.total_sec, 0)
+        self.assertGreater(a.position_sec, 0)      # 指標としては出す
+        self.assertGreater(a.total_sec, 0)         # ただし total は斤量ぶんのみ
+        self.assertAlmostEqual(a.total_sec, a.kinryo_sec, places=3)
+
+
+class TestRevenge(unittest.TestCase):
+    """前走大敗×前々のポジション = 巻き返し候補（実測 lift 1.39）。"""
+
+    def test_bad_finish_but_forward_is_flagged(self):
+        self.assertTrue(adjust.revenge(
+            _run(finish_pos=9, corner_pos=[2, 2, 2, 3], field_size=12)))
+
+    def test_boundary_is_around_fourth_in_a_twelve_horse_field(self):
+        """実測の境界は1.5秒。12頭立てなら4番手(1.21秒)まで、5番手(1.61秒)は外。"""
+        self.assertTrue(adjust.revenge(
+            _run(finish_pos=10, corner_pos=[4, 4, 4, 4], field_size=12)))
+        self.assertFalse(adjust.revenge(
+            _run(finish_pos=10, corner_pos=[5, 5, 5, 5], field_size=12)))
+
+    def test_bad_finish_from_the_back_is_not(self):
+        self.assertFalse(adjust.revenge(
+            _run(finish_pos=9, corner_pos=[12, 12, 11, 11], field_size=12)))
+
+    def test_good_finish_is_not_a_revenge_case(self):
+        self.assertFalse(adjust.revenge(
+            _run(finish_pos=2, corner_pos=[2, 2, 2, 2], field_size=12)))
+
+    def test_needs_corner_data(self):
+        self.assertFalse(adjust.revenge(_run(finish_pos=9, corner_pos=[])))
+
+
+class TestPositionNotAddedBack(unittest.TestCase):
+    """IDM式の『損を足し戻す』は実測で棄却したので total に含めない。"""
+
+    def test_total_excludes_position(self):
+        a = adjust.Adjustment(kinryo_sec=0.10, position_sec=1.50, late=0.0)
+        self.assertAlmostEqual(a.total_sec, 0.10, places=3)
+        self.assertAlmostEqual(a.points, 1.0, places=1)
 
 
 if __name__ == "__main__":
