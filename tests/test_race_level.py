@@ -78,5 +78,63 @@ class TestShippedTable(unittest.TestCase):
             self.assertLessEqual(v, 1.0)
 
 
+class TestRivalsInNewspaper(unittest.TestCase):
+    """『前走で先着した相手の、その後』が新聞に事実として出ること。"""
+
+    def _index(self):
+        from nankeiba.core import rivals as rv
+
+        idx = rv.Index.__new__(rv.Index)      # キャッシュ読込を飛ばす
+        idx.roster = {("2026-06-03", "船橋", 1500):
+                      [("本命馬", 1), ("負かした馬", 2), ("凡走馬", 7)]}
+        idx.runs = {
+            "負かした馬": {"2026-07-01": ("2026-07-01", "船橋", 1600, 3,
+                                          "小石川賞競走 Ｂ１")},
+            "凡走馬": {"2026-07-01": ("2026-07-01", "船橋", 1600, 9, "Ｃ２三")},
+        }
+        return idx
+
+    def test_beaten_lists_only_horses_behind_me(self):
+        idx = self._index()
+        h = [RunRecord(date="2026-06-03", place="船橋", distance=1500,
+                       field_size=8, finish_pos=1, race_name="手賀沼特別")]
+        b = idx.beaten(h, "本命馬")
+        self.assertEqual(sorted(r.name for r in b.rivals),
+                         ["凡走馬", "負かした馬"])
+
+    def test_stakes_placing_is_starred_and_ranked_first(self):
+        idx = self._index()
+        h = [RunRecord(date="2026-06-03", place="船橋", distance=1500,
+                       field_size=8, finish_pos=1, race_name="手賀沼特別")]
+        b = idx.beaten(h, "本命馬")
+        top = b.highlights()[0]
+        self.assertEqual(top.name, "負かした馬")
+        self.assertIn("★", top.line())
+        self.assertIn("小石川賞競走", top.line())
+
+    def test_class_names_are_not_treated_as_stakes(self):
+        from nankeiba.core import rivals as rv
+        self.assertFalse(rv.is_stakes("３歳二"))
+        self.assertFalse(rv.is_stakes("Ｃ２三四"))
+        self.assertTrue(rv.is_stakes("手賀沼特別"))
+        self.assertTrue(rv.is_stakes("小石川賞競走 Ｂ１"))
+
+    def test_appears_in_text_render(self):
+        from nankeiba.core import newspaper as nb
+        from nankeiba.core.hindex import SpeedIndexModel
+
+        h = [RunRecord(date="2026-06-03", place="船橋", distance=1500,
+                       field_size=8, finish_pos=1, race_name="手賀沼特別",
+                       time_sec=95.0, corner_pos=[3, 3, 3, 3])]
+        e = nb.PaperEntry(umaban=3, name="本命馬", history=h)
+        model = SpeedIndexModel.fit(h)
+        card = nb.build_card(
+            nb.RaceHeader(place="川崎", distance=1600, date="2026-07-29",
+                          race_no=11, baba=None), [e], model, self._index())
+        t = nb.render_text(card)
+        self.assertIn("前走で先着した相手の、その後", t)
+        self.assertIn("小石川賞競走", t)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -15,9 +15,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from nankeiba.scraping import rakuten as rk            # noqa: E402
 from nankeiba.core.hindex import SpeedIndexModel        # noqa: E402
 from nankeiba.core import newspaper as nb               # noqa: E402
+from nankeiba.core import rivals as rv                  # noqa: E402
 
 
-def build_one(client, race_id, date, place, race_no):
+def build_one(client, race_id, date, place, race_no, rival_index=None):
     card = rk.fetch_card(client, race_id)
     hd = card["header"]
     entries = card["entries"]
@@ -32,7 +33,7 @@ def build_one(client, race_id, date, place, race_no):
         date=f"{date[:4]}-{date[4:6]}-{date[6:]}", race_no=hd.get("race_no") or race_no,
         baba=None, post_time=hd.get("post_time"), race_name=hd.get("race_name"),
     )
-    return nb.render_html(nb.build_card(header, pe, model))
+    return nb.render_html(nb.build_card(header, pe, model, rival_index))
 
 
 def main():
@@ -47,13 +48,16 @@ def main():
     rnos = list(range(int(a), int(b) + 1)) if "-" in args.races else [int(x) for x in args.races.split(",")]
 
     client = rk.KeibaRakuten()
+    print("索引を作成中（前走で先着した相手の、その後）…")
+    ridx = rv.Index()
     meeting = client.find_race_id(args.date, args.place, 1)[:-2]
 
     style = None
     papers = []
     for rno in rnos:
         try:
-            doc = build_one(client, meeting + f"{rno:02d}", args.date, args.place, rno)
+            doc = build_one(client, meeting + f"{rno:02d}", args.date, args.place,
+                            rno, ridx)
         except Exception as e:                       # noqa: BLE001
             print(f"  R{rno}: 失敗 {e}")
             continue

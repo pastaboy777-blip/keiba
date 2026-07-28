@@ -23,6 +23,7 @@ from . import summary as sm
 from . import composite as cp
 from . import pace_aptitude as pa
 from . import race_level as rl
+from . import rivals as rv
 from . import mirage as mir
 from . import grip as grp
 from . import smart as sma
@@ -89,6 +90,7 @@ class HorseView:
     grip: "grp.GripTag | None" = None    # グリップ血統(夏NAR大波乱の穴ヒモ)
     revenge: bool = False         # 前走大敗×前々のポジション(実測 lift 1.31)
     prev_level: "rl.Level | None" = None  # 前走のレースレベル(メンバーの格)
+    beaten: "rv.PrevRaceRivals | None" = None  # 前走で先着した相手の、その後
 
 
 @dataclass
@@ -161,6 +163,7 @@ def build_card(
     header: RaceHeader,
     entries: Sequence[PaperEntry],
     model: SpeedIndexModel,
+    rival_index: "rv.Index | None" = None,
 ) -> RaceCard:
     """出走馬と指数モデルから新聞1レース分のカードを組み立てる。"""
     hist = [(e.umaban, e.history) for e in entries]
@@ -192,6 +195,8 @@ def build_card(
             grip=gtag if gtag else None,
             revenge=adj.revenge(e.history[0]) if e.history else False,
             prev_level=rl.prev_level(e.history, e.name),
+            beaten=(rival_index.beaten(e.history, e.name)
+                    if rival_index else None),
         ))
     # 印: 総合指数の場内順位上位から ◎○▲△△(総合が無い馬は素指数で代替)
     def _rank_key(v: HorseView):
@@ -262,6 +267,21 @@ def render_text(card: RaceCard) -> str:
                      + (f" ロス{pl.sec:.2f}秒" if pl else "")
                      + (f"  格{lv.grade:.2f}{'★ハイレベル' if lv.is_high else ''}"
                         if lv else "  格—"))
+        L.append("")
+
+    # 前走で負かした相手の、その後（点数にせず事実を出す）
+    bt = [v for v in card.horses
+          if v.beaten and any(r.best() for r in v.beaten.highlights())]
+    if bt:
+        L.append("【前走で先着した相手の、その後】★＝特別・重賞で3着内")
+        for v in bt:
+            b = v.beaten
+            L.append(f"  {v.entry.umaban:>2}  {v.entry.name:<12} "
+                     f"前走 {b.place}{b.distance} {b.race_name or ''} "
+                     f"{b.my_finish}着")
+            for r in b.highlights():
+                if r.best():
+                    L.append(f"        {r.line()}")
         L.append("")
 
     # 10走以内 指数上位
