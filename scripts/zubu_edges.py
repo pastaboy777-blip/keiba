@@ -56,7 +56,8 @@ def main():
             ev = A.evaluate(e, tb, args.place, pa, ba, args.thr, False)
             rows.append((len(tags), ev["score"], e, tags, ev, cw))
         for n, sc, e, tags, ev, bw in sorted(rows, key=lambda x: (-x[0], -x[1])):
-            print(f"  {e.umaban:>2} {e.horse_name:<12} エッジ{n} 399={sc:4.1f} "
+            um = f"{e.umaban:>2}" if e.umaban is not None else " ?"
+            print(f"  {um} {e.horse_name:<12} エッジ{n} 399={sc:4.1f} "
                   f"本物{ev['n_real']} 体重{bw or '-'} | {'・'.join(sorted(tags))}")
         print()
 
