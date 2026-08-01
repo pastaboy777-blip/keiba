@@ -217,35 +217,62 @@ def parse_race_header(html: str):
     return {"place": place.strip(), "race_no": int(m.group(5)), "race_name": name}
 
 
+#: 出馬表の見出し → 返すキー。見出し文字列は全角スペース等を落として突合する。
+_SYU_COLS = {
+    "馬番": "umaban", "馬名": "name", "性齢": "sex_age", "騎手": "jockey",
+    "重量": "kinryo", "厩舎": "stable", "短評": "comment",
+    "レイティング": "rating", "単勝": "odds", "人気": "popularity",
+    "枠番": "waku", "馬体重(kg)": "weight",
+}
+
+
 def parse_entries(html: str) -> list[dict]:
-    """出馬表テーブルから各馬 {umaban,name,sex_age,jockey,trainer,umacd}。"""
+    """出馬表テーブルから各馬の情報を返す。
+
+    ⚠️ 予想家の印の列数はレース／表示設定で変わるため、**位置決め打ちは禁止**。
+    必ず見出し行(<th>)から列番号を引くこと。楽天の parse_result で踏んだのと
+    同じ轍で、決め打ちだと列がずれて静かに壊れる。
+
+    返すキー: umaban, name, sex_age, umacd, jockey, kinryo, stable, comment,
+              rating, odds, popularity, waku, weight, row
+
+    **odds / popularity は前日夕方の前売り時点で既に入っている**（JRAは前日発売）。
+    近走人気で市場側を代用する必要は無い ── 本物のオッズがあるならそちらを使う。
+    """
     mt = re.search(r'<table[^>]*syutuba[^>]*>.*?</table>', html, re.S)
     if not mt:
         return []
     rows = re.findall(r"<tr.*?</tr>", mt.group(0), re.S)
+    heads = [re.sub(r"\s+", "", _text(x))
+             for x in re.findall(r"<th[^>]*>(.*?)</th>", rows[0] if rows else "", re.S)]
+    col = {_SYU_COLS[h]: i for i, h in enumerate(heads) if h in _SYU_COLS}
+    if "umaban" not in col or "name" not in col:
+        return []
+
+    def num(s, cast=float):
+        m = re.search(r"\d+(?:\.\d+)?", (s or ""))
+        return cast(m.group(0)) if m else None
+
     entries = []
-    for r in rows:
+    for r in rows[1:]:
         um = re.search(r'/db/uma/(\d+)', r)
         cells = _cells(r)
-        if not um or len(cells) < 12:
+        if not um or len(cells) <= max(col.values()):
             continue
-        # 列: 枠 馬番 My印 ... 馬名★ 性齢 減量 騎手 斤量 厩舎 ...
         try:
-            umaban = int(cells[1])
-        except (ValueError, IndexError):
+            umaban = int(re.sub(r"\D", "", cells[col["umaban"]]))
+        except ValueError:
             continue
-        name = next((c.replace("★", "").replace("☆", "").strip()
-                     for c in cells if re.search(r"[ぁ-んァ-ヶ一-龠]", c) and "★" in c), None)
-        # 性齢・騎手はセル位置が可変なので正規表現で拾う
-        sex = next((c for c in cells if re.match(r"[牡牝セセン]", c)), None)
-        row_txt = " ".join(cells)
-        entries.append({
-            "umaban": umaban,
-            "name": name or f"{umaban}番",
-            "sex_age": sex,
-            "umacd": um.group(1),
-            "row": row_txt,
-        })
+        name = cells[col["name"]].replace("★", "").replace("☆", "").strip()
+        e = {"umaban": umaban, "name": name or f"{umaban}番",
+             "umacd": um.group(1), "row": " ".join(cells)}
+        for key in ("sex_age", "jockey", "stable", "comment"):
+            if key in col:
+                e[key] = cells[col[key]] or None
+        for key, cast in (("kinryo", float), ("rating", float), ("odds", float),
+                          ("popularity", int), ("waku", int), ("weight", int)):
+            e[key] = num(cells[col[key]], cast) if key in col else None
+        entries.append(e)
     return entries
 
 
@@ -287,9 +314,16 @@ def parse_history(html: str, *, limit: int = 12,
             finish = int(re.sub(r"\D", "", c[8]) or 0)
         except ValueError:
             finish = 0
-        # ペース後3F 例 'H 39.0' の 39.0 が上がり3F
+        # ペース後3F 例 'H 39.0' → ペース記号 H と 上がり3F 39.0
         m3 = re.search(r"(\d{2}\.\d)", c[16]) if len(c) > 16 else None
         last3f = float(m3.group(1)) if m3 else None
+        mp = re.match(r"\s*([HMS])", c[16]) if len(c) > 16 else None
+        pace_mark = mp.group(1) if mp else None
+        # タイム差(c[14])。勝ち馬は 2着との差が入るので 0.0 に潰す。
+        mm = re.match(r"-?\d+\.\d", (c[14] or "").strip())
+        margin = abs(float(mm.group(0))) if mm else None
+        if finish == 1:
+            margin = 0.0
         try:
             pop = int(re.sub(r"\D", "", c[7]) or 0) or None
         except ValueError:
@@ -309,6 +343,10 @@ def parse_history(html: str, *, limit: int = 12,
             last3f_sec=last3f,
             time_sec=t,
             surface=surf,
+            race_name=(c[4] or None),
+            race_class=(c[3] or c[4] or None),
+            margin_sec=margin,
+            pace_mark=pace_mark,
         ))
         if len(runs) >= limit:
             break
@@ -353,12 +391,62 @@ def find_meeting_cyuou(client: KeibabookClient, date: str, place: str) -> list[s
     return [f"{prefix}{n:02d}" for n in range(1, 13)]
 
 
-def parse_race_header_cyuou(html: str) -> dict:
+#: ナビ帯の1レース分。例:
+#:   <li class="otherrace_new" id="03" value="2歳新馬 <br>芝内・1400m"><a href="202602070303">3R</a>
+_NAV_RACE_RE = re.compile(
+    r'<li[^>]*class="[^"]*otherrace[^"]*"[^>]*value="(.*?)"[^>]*>\s*'
+    r'<a[^>]*href="[^"]*?(\d{12})"[^>]*>\s*(\d{1,2})R', re.S)
+
+
+def parse_meeting_races_cyuou(html: str) -> dict[str, dict]:
+    """中央の任意のページのナビ帯から、**その開催12レース分**の条件を返す。
+
+    ⚠️ レース条件をページ本文から正規表現で拾ってはいけない。ナビ帯（他レースへの
+       リンク）が本文より先に現れるため、素直に検索すると **どのレースを開いても
+       1Rの条件が返る**。実際 2026-08-01 新潟で12レース全部が「芝1000m」になり、
+       その距離基準で指数を計算してしまった。必ず race_id で引くこと。
+
+    return: {race_id: {"race_no","race_name","surface","course","distance"}}
+            course は新潟・京都などの '内'/'外'（回り）。無ければ None。
+    """
+    out: dict[str, dict] = {}
+    for val, rid, rno in _NAV_RACE_RE.findall(html):
+        txt = unescape(re.sub(r"<[^>]+>", " ", val))
+        m = re.search(r"(芝|ダート|ダ|障)([内外])?[・\s右左]{0,3}([\d０-９]{3,4})\s*[mメ]", txt)
+        if not m:
+            continue
+        name = txt[:m.start()].strip(" 　・")
+        out[rid] = {
+            "race_no": int(rno),
+            "race_name": name or None,
+            "surface": ("ダ" if m.group(1).startswith("ダ")
+                        else "障" if m.group(1) == "障" else "芝"),
+            "course": m.group(2),
+            "distance": int(m.group(3).translate(
+                {c: c - 0xFEE0 for c in range(0xFF10, 0xFF1A)})),
+        }
+    return out
+
+
+def parse_race_header_cyuou(html: str, race_id: str | None = None) -> dict:
     """中央 syutuba ページから距離・馬場種・レース名・クラスを返す。
 
-    return: {"distance":int|None, "surface":'芝'/'ダ'/'障'|None,
+    race_id を渡すとナビ帯から**そのレースの**条件を引く（推奨）。省略した場合は
+    ページ本文から推定するが、ナビ帯を先に踏むため信用しないこと
+    （`parse_meeting_races_cyuou` の警告を読むこと）。
+
+    return: {"distance":int|None, "surface":'芝'/'ダ'/'障'|None, "course":'内'/'外'|None,
              "race_name":str|None, "race_no":int|None}
     """
+    title = (re.search(r"<title>(.*?)</title>", html, re.S) or [None, ""])[1]
+    rno = re.search(r"(\d{1,2})R", title)
+
+    nav = parse_meeting_races_cyuou(html)
+    if race_id and race_id in nav:
+        d = dict(nav[race_id])
+        d.setdefault("race_no", int(rno.group(1)) if rno else None)
+        return d
+
     txt = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", html)))
     # 条件は "ダ・1200m" 等(中黒/回り記号あり)。全角数字も許容し 'm' 必須で馬柱誤検出を避ける
     m = re.search(r"(芝|ダート|ダ|障)[・\s右左内外]{0,3}([\d０-９]{3,4})\s*[mメ]", txt)
@@ -367,14 +455,12 @@ def parse_race_header_cyuou(html: str) -> dict:
     if m:
         surface = "ダ" if m.group(1).startswith("ダ") else ("障" if m.group(1) == "障" else "芝")
         distance = int(m.group(2).translate({c: c - 0xFEE0 for c in range(0xFF10, 0xFF1A)}))
-    title = (re.search(r"<title>(.*?)</title>", html) or [None, ""])[1]
-    rno = re.search(r"(\d{1,2})R", title)
     # <h2> のクラス見出し(例 ３歳以上１勝クラス)を race_name に
     heads = [unescape(re.sub(r"<[^>]+>", "", x)).strip()
              for x in re.findall(r"<h[12][^>]*>(.*?)</h[12]>", html, re.S)]
     race_name = next((h for h in heads if ("クラス" in h or "賞" in h or "ステークス" in h
                                             or "特別" in h or "勝" in h)), None)
-    return {"distance": distance, "surface": surface,
+    return {"distance": distance, "surface": surface, "course": None,
             "race_name": race_name, "race_no": int(rno.group(1)) if rno else None}
 
 

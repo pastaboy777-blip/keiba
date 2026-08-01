@@ -118,6 +118,25 @@ class RunRecord:
     weight: int | None = None           # その走の馬体重[kg]（体重推移の分析に使う）
     kinryo: float | None = None         # その走の斤量[kg]（指数の斤量補正に使う）
     race_name: str | None = None        # レース名＋クラス（「負かした相手のその後」を書くのに使う）
+    margin_sec: float | None = None     # 勝ち馬とのタイム差[秒]（勝ち馬は0.0）
+    pace_mark: str | None = None        # そのレースのペース判定 'H'/'M'/'S'
+    race_class: str | None = None       # クラス表記（'１勝'/'ＯＰ'/'Ｇ３' など）
+
+    def win_time_sec(self) -> float | None:
+        """**そのレースの勝ちタイム**を自分の走破タイムから復元する。
+
+        自分の着順は使わない。10着でもレース自体が速ければ「速いレース」と判定する
+        ため、能力側の指数はこの復元値だけで作る（=オッズも着順も混ぜない）。
+
+        ⚠️ タイム差が取れない走は None。勝ち馬自身は margin_sec=0.0 とみなす。
+        """
+        if self.time_sec is None:
+            return None
+        if self.finish_pos == 1:
+            return self.time_sec
+        if self.margin_sec is None:
+            return None
+        return self.time_sec - self.margin_sec
 
     def finish_strength(self) -> float:
         """着順ベースの強さ。1着=1.0、最下位=~0.0。"""
