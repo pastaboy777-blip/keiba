@@ -240,11 +240,13 @@ def main():
                   f"{h['kin'] or 0:>5}  上位2走{g(x['top2'])} 近4走{g(x['rec'])} "
                   f"該当条件{g(x['cond'])} 上級{x['nhi']:>2}走平均着差{g(x['mg'])}")
             for p in h["past"][:5]:
+                # 馬柱は欠損する（中止・除外・地方戦など）。表示用に必ず文字列へ落とす。
+                g = lambda k, d="-": (str(p.get(k)) if p.get(k) is not None else d)
                 print(f"     {p['date']} {wid(p['place'], 4)}{wid(p.get('race'), 10)}"
-                      f"{wid(p.get('klass'), 4)}{p.get('surf', '')}{p.get('dist', '')}"
-                      f"{p.get('baba', ''):<2} {str(p.get('fin') or '?'):>3}着/{p.get('field', '?'):>2}頭"
-                      f" {p.get('pop', '?'):>2}人 上{p.get('agari', '-'):>5} 差{p.get('margin', '-'):>5}"
-                      f" 体{p.get('hw', '-'):>4} 指数{p.get('fig') if p.get('fig') is not None else '-':>6}")
+                      f"{wid(p.get('klass'), 4)}{g('surf', '')}{g('dist', '')}"
+                      f"{g('baba', ''):<2} {g('fin', '?'):>3}着/{g('field', '?'):>2}頭"
+                      f" {g('pop', '?'):>2}人 上{g('agari'):>5} 差{g('margin'):>5}"
+                      f" 体{g('hw'):>4} 指数{g('fig'):>6}")
 
 
 if __name__ == "__main__":
