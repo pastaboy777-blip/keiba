@@ -118,6 +118,9 @@ def main():
     # mark -> [点数, 単的中, 複的中, 単払戻, 複払戻]
     acc = {"◎": [0, 0, 0, 0, 0], "○": [0, 0, 0, 0, 0]}
     base = [0, 0, 0, 0, 0]                 # 対象全頭を平等に買った場合＝並べ方の効果を測る土台
+    # 「上がりがかかる日は人気薄が浮く」が本当でも、勝ち馬の上がりは終わってからしか分からない。
+    # 発走前に分かる馬場状態で代用できるかを見るため、馬場ごとに土台を割る。
+    by_baba = defaultdict(lambda: [0, 0, 0, 0.0, 0.0, []])
     by_pop, rows = {}, []
     for d, races in days:
         for rno, rid in sorted(races.items()):
@@ -133,6 +136,7 @@ def main():
             if not fuku:
                 continue                       # 未確定・払戻が読めない
             ra = race_agari(rhtml)
+            baba = res.baba or "?"
             if args.slow_from is not None and (ra is None or ra < args.slow_from):
                 continue
             if args.fast_to is not None and (ra is None or ra > args.fast_to):
@@ -174,6 +178,15 @@ def main():
                 base[2] += 1 if f0 else 0
                 base[3] += t0
                 base[4] += f0
+            bb = by_baba[baba]
+            if ra:
+                bb[5].append(ra)
+            for _n, _sc, e, r_ in cand:
+                bb[0] += 1
+                bb[1] += 1 if r_.finish_pos == 1 else 0
+                bb[2] += 1 if r_.finish_pos <= 3 else 0
+                bb[3] += tan.get(e.umaban, 0) if r_.finish_pos == 1 else 0
+                bb[4] += fuku.get(e.umaban, 0) if r_.finish_pos <= 3 else 0
             cand.sort(key=lambda x: (-x[0], -x[1]))
             for mark, item in zip("◎○", cand[:2]):
                 _n, _sc, e, r_ = item
@@ -213,6 +226,17 @@ def main():
         print(f"{'計':<4}{n:>6}{w/n*100:>7.1f}%{p/n*100:>7.1f}%"
               f"{tp/(n*100)*100:>8.1f}%{fp/(n*100)*100:>8.1f}%{(tp+fp)/(n*200)*100:>9.1f}%")
         print(f"\n  投資 {n*200:,}円 → 払戻 {tp+fp:,}円")
+
+    print("\n■ 馬場別の土台（発走前に分かる情報だけで『かかる日』を代用できるか）")
+    print(f"  {'馬場':<4}{'点数':>6}{'勝率':>8}{'複勝率':>8}{'単回収':>9}{'複回収':>9}{'単複均等':>10}"
+          f"{'勝ち馬上がり':>14}")
+    for k in ("良", "稍", "重", "不", "?"):
+        n, w, p3, tp, fp, ras = by_baba.get(k, [0, 0, 0, 0.0, 0.0, []])
+        if not n:
+            continue
+        avg = f"{st.mean(ras):.2f}" if ras else "  -  "
+        print(f"  {k:<4}{n:>6}{w/n*100:>7.1f}%{p3/n*100:>7.1f}%"
+              f"{tp/(n*100)*100:>8.1f}%{fp/(n*100)*100:>8.1f}%{(tp+fp)/(n*200)*100:>9.1f}%{avg:>14}")
 
     print(f"\n■ 人気別（12番人気以上はまとめ）")
     print(f"  {'人気':>4}{'点数':>6}{'単回収':>9}{'複回収':>9}")
