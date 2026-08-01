@@ -6,6 +6,7 @@ venv/
 
 # スクレイピングのキャッシュ・収集データ
 data/cache/
+data/cache_win5_board/
 data/*.parquet
 data/*.csv
 data/*.sqlite
