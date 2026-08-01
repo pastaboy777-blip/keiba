@@ -40,7 +40,7 @@ from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping.race_id import NANKAN_CODES
 from nankeiba.scraping import parser as P
 
-from nankan_babasa import DRIFT_BASE, DRIFT_SHRINK, REF, grade, sec
+from nankan_babasa import DRIFT_BASE, DRIFT_SHRINK, REF, grade, par_key, sec
 from nankan_racelevel import VENUES, collect
 from nankan_zubu_backtest import CARD, PERF, race_days
 
@@ -99,12 +99,12 @@ def main():
 
     by_cond, by_dist = defaultdict(list), defaultdict(list)
     for r in rec:
-        by_cond[(r["dist"], r["g"])].append(r["t"])
+        by_cond[par_key(r["dist"], r["g"])].append(r["t"])
         by_dist[r["dist"]].append(r["t"])
     std = {k: st.median(v) for k, v in by_cond.items() if len(v) >= 3}
     std_d = {k: st.median(v) for k, v in by_dist.items()}
     for r in rec:
-        b = std.get((r["dist"], r["g"]), std_d.get(r["dist"]))
+        b = std.get(par_key(r["dist"], r["g"]), std_d.get(r["dist"]))
         r["diff"] = round(r["t"] - b, 2) if b else None
     byday, byhalf = defaultdict(list), defaultdict(list)
     for r in rec:

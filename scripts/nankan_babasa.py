@@ -90,6 +90,16 @@ def grade(cls):
     return m.group(1) + (m.group(2) or "") if m else "?"
 
 
+# A級以上は1場あたり年に数本しかなく、級ごとにparを作れない。
+# 距離だけのpar（2歳〜C3込みの中央値）に落とすと大幅に速く出てしまうので、
+# par を引くときだけ「A+」にまとめる。表示は元の級のまま残す。
+TOP = {"A", "A1", "A2", "OP", "OP特", "準重", "重賞"}
+
+
+def par_key(dist, g):
+    return (dist, "A+" if g in TOP else g)
+
+
 def main():
     ap = argparse.ArgumentParser(description="南関の日ごと馬場差と完タイム差")
     ap.add_argument("--place", default="船橋", choices=list(NANKAN_CODES))
@@ -126,13 +136,13 @@ def main():
     by_cond = defaultdict(list)
     by_dist = defaultdict(list)
     for r in rec:
-        by_cond[(r["dist"], r["g"])].append(r["t"])
+        by_cond[par_key(r["dist"], r["g"])].append(r["t"])
         by_dist[r["dist"]].append(r["t"])
     std = {k: st.median(v) for k, v in by_cond.items() if len(v) >= 3}
     std_d = {k: st.median(v) for k, v in by_dist.items()}
 
     for r in rec:
-        base = std.get((r["dist"], r["g"]), std_d.get(r["dist"]))
+        base = std.get(par_key(r["dist"], r["g"]), std_d.get(r["dist"]))
         r["diff"] = round(r["t"] - base, 2) if base else None
 
     # 馬場差：その日のタイム差を1000mあたりに直した中央値。距離をまたいでも足並みが揃う。
