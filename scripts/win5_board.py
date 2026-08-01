@@ -49,7 +49,16 @@ def get(url):
         time.sleep(wait)
     _last[0] = time.time()
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept-Language": "ja"})
-    html = urllib.request.urlopen(req, timeout=30, context=CTX).read().decode("utf-8", "ignore")
+    last = None
+    for attempt in range(5):                      # 接続リセットで長い収集が落ちるので指数バックオフ
+        try:
+            html = urllib.request.urlopen(req, timeout=30, context=CTX).read().decode("utf-8", "ignore")
+            break
+        except Exception as e:                    # URLError / socket.timeout / HTTPError
+            last = e
+            time.sleep(2 ** attempt)
+    else:
+        raise last
     key.write_text(html)
     return html
 
