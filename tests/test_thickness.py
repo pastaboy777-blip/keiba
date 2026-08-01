@@ -109,3 +109,29 @@ class TestLabel(unittest.TestCase):
         s = lv(thick=-2.1, ten_d=-1.4, ag_d=-0.7, time_lv=4.11, grade=0.23).line()
         self.assertIn("-2.1", s)
         self.assertIn("川崎5R", s)
+
+
+class TestBiasNameCollision(unittest.TestCase):
+    """⚠️ bias（当日馬場差の数値）と finish_bias（決着傾向の文字列）の取り違え。
+
+    `lap.LapAnalysis.bias` は決着傾向だが `RaceLevel.bias` は馬場差[s/F]。
+    名前が同じで中身が違うため、日別集計の「決着」欄に馬場差の数値が
+    並ぶバグを出した。
+    """
+
+    def test_two_different_fields(self):
+        r = lv(bias=0.043, finish_bias="前残り")
+        self.assertIsInstance(r.bias, float)
+        self.assertEqual(r.finish_bias, "前残り")
+
+    def test_finish_bias_defaults_to_none_not_zero(self):
+        self.assertIsNone(lv().finish_bias)
+        self.assertEqual(lv().bias, 0.0)
+
+    def test_counting_finish_bias_never_yields_numbers(self):
+        from collections import Counter
+        rs = [lv(bias=0.04, finish_bias="前残り"), lv(bias=0.11, finish_bias="差し"),
+              lv(bias=0.07, finish_bias="前残り")]
+        c = Counter(r.finish_bias for r in rs if r.finish_bias)
+        self.assertEqual(c, {"前残り": 2, "差し": 1})
+        self.assertTrue(all(isinstance(k, str) for k in c))

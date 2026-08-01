@@ -153,7 +153,7 @@ def main() -> None:
         rs = sorted(by_day[d], key=lambda r: r.race_no or 0)
         tb = track_bias.measure(day_win.get(d, []), place=args.place)
         pace = Counter(r.pace for r in rs)
-        bias = Counter(r.bias for r in rs if getattr(r, "bias", None))
+        fin = Counter(r.finish_bias for r in rs if r.finish_bias)
         lv = [r.time_lv for r in rs if r.time_lv is not None]
         drift = tb.drift
         head = (f"■ {d}（{len(rs)}R）　馬場差 {tb.offset:+.2f} s/F {tb.label}"
@@ -162,8 +162,8 @@ def main() -> None:
         print(head)
         pl = " / ".join(f"{k}{v}本" for k, v in pace.most_common() if k)
         print(f"    ペース {pl}"
-              + (f"　決着 " + " / ".join(f"{k}{v}" for k, v in bias.most_common())
-                 if bias else ""))
+              + ("　決着 " + " / ".join(f"{k}{v}本" for k, v in fin.most_common())
+                 if fin else ""))
         if drift is not None and abs(drift) >= 0.15:
             print(f"    ⚠️ 日中で馬場が {abs(drift):.2f} s/F "
                   f"{'遅く' if drift > 0 else '速く'}なっている。"
@@ -189,7 +189,7 @@ def main() -> None:
     # --- 期間まとめ ---------------------------------------------------------
     print("=== 期間まとめ ===")
     allp = Counter(r.pace for r in races if r.pace)
-    allb = Counter(r.bias for r in races if getattr(r, "bias", None))
+    allb = Counter(r.finish_bias for r in races if r.finish_bias)
     print("  ペース " + " / ".join(f"{k}{v}本({v/len(races):.0%})"
                                   for k, v in allp.most_common()))
     if allb:

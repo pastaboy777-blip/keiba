@@ -15,11 +15,24 @@
 3つの物差しを**別々に**出す。1つに畳まないこと（畳むと平均に収束して情報が消える）。
 
   濃さ     … テン3F差 ＋ 上がり差（どちらも同条件の中央値との差、当日馬場差を補正後）
-             **マイナスほど濃い。** 実測でいちばん効いている。
+             **マイナスほど濃い。**
   時計レベル … 勝ちタイムが標準（par_win）＋当日馬場差より何秒速いか。プラスが速い。
              クラスを見ないので、上位に上級条件が並ぶのは当然。
   格       … 出走馬の「そのレースより前の1着経験率」の中央値（`race_level`）。
              メンバーが揃っていたか。
+
+⚠️ `RaceLevel.bias` は**当日馬場差[s/F]（数値）**、`RaceLevel.finish_bias` は
+   **決着傾向（前残り/差しの文字列）**。`lap.LapAnalysis.bias` は後者なので、
+   名前が同じで中身が違う。実際これを取り違えて、日別集計の「決着」欄に
+   馬場差の数値が並ぶバグを出した。
+
+⚠️ **濃さの予測力は確認できていない。** 南関213レースで「その後」と突き合わせた
+   実測（§30）:
+       濃い上位1/4  次走勝率 7.5% / 次走3着内 26.7%
+       真ん中       次走勝率 8.0% / 次走3着内 26.3%
+       薄い下位1/4  次走勝率 5.5% / 次走3着内 21.9%
+   上位と真ん中に差が無い。**薄いレースが下がっているだけ**で、「濃いレースを
+   選ぶ」効果は出ていない。目安として見るのはよいが、根拠には使わないこと。
 
 ⚠️ 当日馬場差（`track_bias`）を必ず引くこと。引かないと「高速馬場の日のレース」が
    全部濃いことになる。テン・上がりはどちらも3ハロンなので `馬場差 × 3` を引く。
@@ -76,6 +89,7 @@ class RaceLevel:
     baba: str | None = None
     win_time: float | None = None
     bias: float = 0.0                     # 当日その場の馬場差[s/F]
+    finish_bias: str | None = None        # 決着傾向（前残り/差し）。lap.analyze の bias
     ten_d: float | None = None            # テン3F差（馬場補正後・マイナスほど速い）
     ag_d: float | None = None             # 上がり差（同上）
     thick: float | None = None            # 濃さ = ten_d + ag_d（マイナスほど濃い）
@@ -180,7 +194,8 @@ def scan(cache: str | None = None, *, month: str = "",
                    if (ten_d is not None and ag_d is not None) else None),
             time_lv=(round((par - sf - b) * (di / 200.0), 2) if par else None),
             grade=lv.grade if lv else None,
-            pace=la.pace, lap=la.lap_curve(), best_agari=bestag,
+            pace=la.pace, finish_bias=la.bias, lap=la.lap_curve(),
+            best_agari=bestag,
         ))
     return out
 
