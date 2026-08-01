@@ -57,21 +57,47 @@ def rband(rn):
     return "1-4R" if rn <= 4 else ("5-8R" if rn <= 8 else "9-12R")
 
 
+def grade(name):
+    """レース名からクラスを決める。判定順が重要。
+
+    「オープン」の語は重賞名の中にも出るので、Jpn・重賞を先に見ないと
+    さきたま杯(JpnI)がオープンに落ちる。級を1つ取りこぼすと、そのレースは
+    距離だけのparに落ちて完タイム差が壊れる。
+
+    南関の結果ページ（netkeiba db）の h1 に入っている表記の全パターン:
+      平場      C3三 / B2一 / 3歳七 / 2歳       → そのまま級
+      特別      桑島孝春記念(A2B1)              → 括弧内の先頭級
+      重賞      第38回かしわ記念(JpnI)          → JpnI/II/III
+                第70回金盃競走(重賞)            → 重賞
+      オープン  品川オープン競走(4上)           → 括弧が年齢条件だけ＝OP
+    ※<title> には括弧が入らない。必ず h1 を見ること。
+    """
+    if not name:
+        return None
+    if re.search(r"Jpn\s?(I{1,3})", name) or re.search(r"[（(]G[ⅠⅡⅢI]{1,3}", name):
+        return "Jpn"                       # 統一G1〜G3。南関では最上位
+    if "重賞" in name:
+        return "重賞"                       # 南関のみの重賞（SI〜SIII相当）
+    m = re.search(r"([ABC])\s?([1-4])", name)
+    if m:
+        return m.group(1) + m.group(2)
+    m = re.search(r"([23]歳)", name)
+    if m:
+        return m.group(1)
+    if re.search(r"[（(]\s?\d\s?(上|歳)", name):
+        return "OP"                        # 括弧が年齢条件だけ＝オープン特別
+    return None
+
+
 def klass(fn):
-    """レース名からクラスを取る。data_intro の <h1> に入っている。
-    平場は名前そのもの（例 C3三）、特別戦は括弧（例 桑島孝春記念(A2B1)）。
-    ※<title> にはこの括弧が入らないので、h1 を見ること。"""
+    """h1からレース名とクラスを返す。"""
     t = open(fn, "rb").read().decode("euc-jp", errors="replace")
     m = re.search(r'class="data_intro".*?<h1>(.*?)</h1>', t, re.S)
     if not m:
         return None, None
     nm = re.sub(r"<!--.*?-->", "", m.group(1), flags=re.S)
     nm = re.sub(r"<[^>]+>", "", nm).strip()
-    k = re.search(r"([ABC])\s?([1-4])", nm)
-    if k:
-        return nm, k.group(1) + k.group(2)
-    a = re.search(r"([23]歳)", nm)
-    return nm, (a.group(1) if a else None)
+    return nm, grade(nm)
 
 
 def collect(place, dfrom, dto):
