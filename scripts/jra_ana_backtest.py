@@ -112,9 +112,32 @@ def main():
     ap.add_argument("days", nargs="+", help="開催日 YYYYMMDD を複数")
     ap.add_argument("--grid", action="store_true", help="門と重みを総当たりで比較")
     ap.add_argument("--top", type=int, default=0, help="スコア上位N頭だけ買う（0=全候補）")
+    ap.add_argument("--dump", help="全候補を1行1頭でCSVに書き出す（分析用）")
     args = ap.parse_args()
 
     days = load(args.days)
+
+    if args.dump:
+        import csv
+        with open(args.dump, "w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(["date", "rid", "place", "rn", "surf", "dist", "field", "umaban", "name",
+                        "cond", "cond_rank", "top2", "worst", "pop3", "upset", "score",
+                        "fin", "pop", "odds", "fuku"])
+            for ymd, D, par, R in days:
+                for o in candidates(D, par, 6, 1, 0.0, 0.5, 0.06):   # 門を全開にして母集団ごと出す
+                    res, fuku = R.get(o["rid"], ({}, {}))
+                    r = res.get(o["umaban"])
+                    if not r:
+                        continue
+                    x = o["x"]
+                    w.writerow([ymd, o["rid"], o["pl"], o["rn"], o["surf"], o["dist"], o["nh"],
+                                o["umaban"], x["h"]["name"],
+                                round(x["cond"], 2), o["rank"], round(x["top2"], 2), round(x["worst"], 2),
+                                round(x["pop"], 2) if x["pop"] else "", len(x["upset"]),
+                                round(o["score"], 3), r[0], r[1], r[2], fuku.get(o["umaban"], 0)])
+        print(f"→ {args.dump} に書き出し")
+
     base = evaluate(days, 4, 3, 6.0, 0.5, 0.06, args.top or None, verbose=True)
     if not base:
         raise SystemExit("候補が1頭も出なかった")
