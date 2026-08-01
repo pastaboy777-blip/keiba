@@ -120,6 +120,30 @@ def fit(D):
     return par
 
 
+def ana_score(cond_rank, pop3, worst, field, cond, top2):
+    """大穴スコア：市場に無視されている度合いだけを足す。確実性は足さない。
+
+    現行スコアは3着内率を上げる方向に効くが、配当を上げる方向には逆に効く。
+    2026/7の8日・1,173頭で『単勝20倍以上での的中の出現率』を分解した結果：
+
+      条件順位   1位3.3% 2位2.7% 3位2.4% 4位6.8% 5位4.1% 6位3.6%   → 4位が突出
+      近3走人気  〜4人1.0% 4-6人1.7% 6-8人4.7% 8人以上6.9%        → 無視されているほど出る
+      最低指数   -1.0以上1.6% -2.5〜-1.0 4.1% -2.5未満4.6%        → ムラがある方が出る
+      頭数       〜12頭4.1% 13-15頭3.8% 16頭以上3.8%（回収は16頭以上で48%と悪い）
+      条件-実力  +0.5以上4.8% ±0.5内3.0% -0.5未満15.8%           → 最強。ただし単勝回収10%＝複勝向き
+
+    重みはこの出現率の比から置いた。★7月の同一データ内で見つけた切り方なので、
+    別期間で確かめるまで信用しないこと。
+    """
+    s = {1: -0.1, 2: -0.3, 3: -0.4, 4: 0.6, 5: 0.1, 6: 0.0}.get(cond_rank, 0.0)
+    s += (-1.3 if pop3 < 4 else -0.8 if pop3 < 6 else 0.2 if pop3 < 8 else 0.6)
+    s += (-0.9 if worst >= -1 else 0.1 if worst >= -2.5 else 0.2)
+    s += (0.0 if field <= 15 else -0.2)
+    gap = cond - top2
+    s += (1.4 if gap < -0.5 else 0.0 if gap < 0.5 else 0.2)
+    return round(s, 3)
+
+
 def candidates(D, par, cond_rank=4, skip_rank=3, min_pop=6.0,
                w_upset=0.5, w_pop=0.06):
     """出走表＋較正済みparから候補を作る。本番もバックテストもここを通す。
@@ -163,7 +187,8 @@ def candidates(D, par, cond_rank=4, skip_rank=3, min_pop=6.0,
             rows.append(dict(rid=rid, umaban=x["h"]["umaban"],
                              pl=JRA.get(rid[4:6], rid[4:6]), rn=int(rid[-2:]), race=r["name"],
                              nh=nh, surf=surf, dist=dist, x=x, rank=rank,
-                             score=x["cond"] + len(x["upset"]) * w_upset + min(x["pop"], 14) * w_pop))
+                             score=x["cond"] + len(x["upset"]) * w_upset + min(x["pop"], 14) * w_pop,
+                             ana=ana_score(rank, x["pop"], x["worst"], nh, x["cond"], x["top2"])))
     rows.sort(key=lambda x: -x["score"])
     return rows
 
@@ -177,18 +202,22 @@ def main():
     ap.add_argument("--min-pop", type=float, default=6.0, help="③ 近3走の平均人気がこれ以下")
     ap.add_argument("--w-upset", type=float, default=0.5, help="人気薄好走1回あたりの加点")
     ap.add_argument("--w-pop", type=float, default=0.06, help="近3走平均人気1番あたりの加点")
+    ap.add_argument("--mode", choices=("hit", "ana"), default="hit",
+                    help="hit=現行スコア順（3着内狙い） / ana=大穴スコア順（高配当狙い）")
     args = ap.parse_args()
 
     D = collect_day(args.ymd)
     par = fit(D)
     rows = candidates(D, par, args.cond_rank, args.skip_rank, args.min_pop,
                       args.w_upset, args.w_pop)
+    if args.mode == "ana":
+        rows.sort(key=lambda z: -z["ana"])
 
-    print(f"■ ズブ穴候補（①条件{args.cond_rank}位以内 ②実力{args.skip_rank}位以内でない "
+    print(f"■ ズブ穴候補（並び＝{'大穴スコア' if args.mode == 'ana' else '現行スコア'}）（①条件{args.cond_rank}位以内 ②実力{args.skip_rank}位以内でない "
           f"③近3走平均{args.min_pop:.0f}番人気以下）\n")
     for o in rows[:args.top]:
         x, h = o["x"], o["x"]["h"]
-        print(f"{o['score']:5.2f} {o['pl']}{o['rn']:>2}R {wid(o['race'], 13)}{o['surf']}{o['dist']} "
+        print(f"{(o['ana'] if args.mode == 'ana' else o['score']):5.2f} {o['pl']}{o['rn']:>2}R {wid(o['race'], 13)}{o['surf']}{o['dist']} "
               f"{o['nh']:>2}頭 │ {h['umaban']:>2} {wid(h['name'], 18)}{wid(h['sexage'], 6)}"
               f"{wid(h['jockey'], 7)}{h['kin'] or 0:>5} 該当{x['cond']:5.2f}(条件{o['rank']}位) "
               f"最低{x['worst']:5.2f} 近3走平均{x['pop']:4.1f}人 人気薄好走{len(x['upset'])}回")
