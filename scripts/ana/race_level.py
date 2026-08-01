@@ -80,6 +80,7 @@ def next_form(races):
 
     for i, r in enumerate(races):
         nx_win = nx_plc = nx_n = 0
+        lo_win = lo_plc = lo_n = 0          # 4着以下だった馬（＝敗者）だけの次走
         detail = []
         for name, chaku, ninki in r["rows"]:
             s = seq[name]
@@ -96,8 +97,15 @@ def next_form(races):
                 nx_win += 1
             if fin <= 3:
                 nx_plc += 1
-            detail.append((name, chaku, fin, nr["date"], nr["place"]))
+            if chaku >= 4:                  # このレースで負けた馬
+                lo_n += 1
+                if fin == 1:
+                    lo_win += 1
+                if fin <= 3:
+                    lo_plc += 1
+            detail.append((name, chaku, fin, nr["date"], nr["place"], ninki))
         r["nx_n"], r["nx_win"], r["nx_plc"], r["nx_detail"] = nx_n, nx_win, nx_plc, detail
+        r["lo_n"], r["lo_win"], r["lo_plc"] = lo_n, lo_win, lo_plc
 
 
 def add_elo(races):
@@ -127,8 +135,10 @@ def main():
     ap.add_argument("--min-horses", type=int, default=7, help="次走が追えた頭数の下限")
     ap.add_argument("--top", type=int, default=25)
     ap.add_argument("--horse", help="この馬が出走したレースの水準を出す")
-    ap.add_argument("--sort", choices=("win", "plc", "elo", "raw"), default="win",
-                    help="win=次走勝率(母数補正) / plc=次走3着内率(母数補正) / elo=平均Elo / raw=補正なしの生の率")
+    ap.add_argument("--sort", choices=("win", "plc", "elo", "raw", "loser"), default="win",
+                    help="win=次走勝率 / plc=次走3着内率 / loser=【4着以下だった馬】の次走勝率 "
+                         "/ elo=平均Elo / raw=補正なしの生の率")
+    ap.add_argument("--min-losers", type=int, default=4, help="loser時：次走を追えた敗者の下限")
     args = ap.parse_args()
 
     races = load_races()
@@ -159,7 +169,10 @@ def main():
     if not R:
         raise SystemExit("条件に合うレースがない")
 
+    if args.sort == "loser":
+        R = [r for r in R if r["lo_n"] >= args.min_losers]
     key = {"win": lambda r: (wilson_lo(r["nx_win"], r["nx_n"]),),
+           "loser": lambda r: (wilson_lo(r["lo_win"], r["lo_n"]),),
            "plc": lambda r: (wilson_lo(r["nx_plc"], r["nx_n"]),),
            "raw": lambda r: (r["nx_win"] / r["nx_n"], r["nx_n"]),
            "elo": lambda r: (r["elo_mean"] or 0,)}[args.sort]
@@ -167,16 +180,21 @@ def main():
 
     base_w = sum(r["nx_win"] for r in R) / sum(r["nx_n"] for r in R)
     base_p = sum(r["nx_plc"] for r in R) / sum(r["nx_n"] for r in R)
-    print(f"  対象{len(R)}レース／全体の次走勝率 {base_w*100:.1f}%・次走3着内率 {base_p*100:.1f}%\n")
-    print(f"  {'日付':<11}{'場':<4}{'R':>3} {'条件':<9}{'頭':>3} {'次走勝率':<13}{'倍率':>5} "
-          f"{'次走3着内':<13}{'平均Elo':>7}  レース名")
+    ln = sum(r["lo_n"] for r in R)
+    base_l = sum(r["lo_win"] for r in R) / ln if ln else 0
+    base_lp = sum(r["lo_plc"] for r in R) / ln if ln else 0
+    print(f"  対象{len(R)}レース／全体の次走勝率 {base_w*100:.1f}%・次走3着内率 {base_p*100:.1f}%")
+    print(f"  うち4着以下だった馬（敗者{ln}頭）の次走勝率 {base_l*100:.1f}%・3着内率 {base_lp*100:.1f}%\n")
+    print(f"  {'日付':<11}{'場':<4}{'R':>3} {'条件':<9}{'頭':>3} {'敗者の次走勝率':<15}{'倍率':>5} "
+          f"{'敗者3着内':<13}{'全体次走勝率':<13}  レース名")
     for r in R[:args.top]:
+        lw = f"{r['lo_win']}/{r['lo_n']}={r['lo_win']/r['lo_n']*100:.0f}%" if r["lo_n"] else "—"
+        lp = f"{r['lo_plc']}/{r['lo_n']}={r['lo_plc']/r['lo_n']*100:.0f}%" if r["lo_n"] else "—"
         w = f"{r['nx_win']}/{r['nx_n']}={r['nx_win']/r['nx_n']*100:.0f}%"
-        pl = f"{r['nx_plc']}/{r['nx_n']}={r['nx_plc']/r['nx_n']*100:.0f}%"
+        lift = (r["lo_win"] / r["lo_n"] / base_l) if (r["lo_n"] and base_l) else 0
         cond = f"{r['surf'] or ''}{r['dist'] or ''}m"
         print(f"  {r['date']:<11}{r['place']:<4}{r['rn'] or 0:>3} {cond:<9}{len(r['rows']):>3} "
-              f"{w:<13}{r['nx_win']/r['nx_n']/base_w:>5.2f} {pl:<13}"
-              f"{r['elo_mean'] or 0:>7.0f}  {r['name']}")
+              f"{lw:<15}{lift:>5.2f} {lp:<13}{w:<13}  {r['name']}")
 
     print("\n  ── 使い方 ──")
     print("  上位のレースで4着以下だった馬が、次に人気を落として出てきたら狙い目。")
