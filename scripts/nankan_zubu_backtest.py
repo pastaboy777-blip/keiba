@@ -46,6 +46,20 @@ CARD = "https://keiba.rakuten.co.jp/race_card/list/RACEID/{r}"
 PERF = "https://keiba.rakuten.co.jp/race_performance/list/RACEID/{r}"
 _TAN = re.compile(r"単勝\s+(\d+)\s+([\d,]+)\s*円")
 _FUKU = re.compile(r"複勝\s+((?:\d+\s+)+)((?:[\d,]+\s*円\s*)+)")
+def race_agari(html):
+    """勝ち馬の上がり＝そのレースの決着水準。『かかった日／速い日』の判定に使う。"""
+    s = BeautifulSoup(html, "html.parser")
+    tb = P._find_result_table(s)
+    if tb is None:
+        return None
+    for tr in (tb.find("tbody") or tb).find_all("tr"):
+        o = tr.find("td", class_="order")
+        if o is None or o.get_text(strip=True) != "1":
+            continue
+        sp = tr.find("td", class_="spurt")
+        if sp and re.match(r"[\d.]+$", sp.get_text(strip=True)):
+            return float(sp.get_text(strip=True))
+    return None
 
 
 def payouts(html):
@@ -88,6 +102,10 @@ def main():
                     help="edge=エッジ数→399 / span=ブレ幅の小ささ→中心の速さ")
     ap.add_argument("--max-span", type=float, default=2.0,
                     help="span時：近5走の上がり(1400m相当)の最大−最小がこの値以下だけ候補にする")
+    ap.add_argument("--slow-from", type=float,
+                    help="レース自身の上がり3Fがこの秒数以上のレースだけを対象にする(かかった日)")
+    ap.add_argument("--fast-to", type=float,
+                    help="レース自身の上がり3Fがこの秒数以下のレースだけを対象にする(速い日)")
     ap.add_argument("--out", help="1点ごとの明細を書き出す JSONL")
     args = ap.parse_args()
 
@@ -114,6 +132,11 @@ def main():
             tan, fuku = payouts(rhtml)
             if not fuku:
                 continue                       # 未確定・払戻が読めない
+            ra = race_agari(rhtml)
+            if args.slow_from is not None and (ra is None or ra < args.slow_from):
+                continue
+            if args.fast_to is not None and (ra is None or ra > args.fast_to):
+                continue
             fin = {r.umaban: r for r in res.rows}
             tb = A.band(page.distance)
             cand = []
