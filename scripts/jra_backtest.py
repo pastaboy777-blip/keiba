@@ -45,14 +45,22 @@ def result(rid):
     f = CACHE / f"{rid}.json"
     if f.exists():
         return json.loads(f.read_text())
-    wait = 1.0 - (time.time() - _last[0])
-    if wait > 0:
-        time.sleep(wait)
-    _last[0] = time.time()
     req = urllib.request.Request(f"https://race.netkeiba.com/race/result.html?race_id={rid}",
                                  headers={"User-Agent": UA, "Accept-Language": "ja"})
-    s = BeautifulSoup(urllib.request.urlopen(req, timeout=30, context=CTX).read()
-                      .decode("utf-8", "ignore"), "html.parser")
+    for attempt in range(5):
+        wait = 1.5 - (time.time() - _last[0])
+        if wait > 0:
+            time.sleep(wait)
+        _last[0] = time.time()
+        try:
+            raw = urllib.request.urlopen(req, timeout=30, context=CTX).read()
+            break
+        except Exception as e:      # 長時間の収集では相手に切られる。落ちないことを優先。
+            if attempt == 4:
+                raise
+            print(f"\n  retry {attempt+1}/4 ({e}) {rid}", flush=True)
+            time.sleep(5 * (attempt + 1))
+    s = BeautifulSoup(raw.decode("utf-8", "ignore"), "html.parser")
     fuku = {}
     for tr in s.select("table.Payout_Detail_Table tr.Fukusho"):
         td = tr.find_all("td")

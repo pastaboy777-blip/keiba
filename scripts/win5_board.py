@@ -44,14 +44,21 @@ def get(url):
     key = CACHE / (re.sub(r"\W", "_", url)[-80:] + ".html")
     if key.exists():
         return key.read_text()
-    wait = 1.2 - (time.time() - _last[0])
-    if wait > 0:
-        time.sleep(wait)
-    _last[0] = time.time()
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept-Language": "ja"})
-    html = urllib.request.urlopen(req, timeout=30, context=CTX).read().decode("utf-8", "ignore")
-    key.write_text(html)
-    return html
+    for attempt in range(5):
+        wait = 1.5 - (time.time() - _last[0])
+        if wait > 0:
+            time.sleep(wait)
+        _last[0] = time.time()
+        try:
+            html = urllib.request.urlopen(req, timeout=30, context=CTX).read().decode("utf-8", "ignore")
+            key.write_text(html)
+            return html
+        except Exception as e:      # 長時間の収集では相手に切られる。数を稼ぐより落ちないこと。
+            if attempt == 4:
+                raise
+            print(f"\n  retry {attempt+1}/4 ({e}) {url[-40:]}", flush=True)
+            time.sleep(5 * (attempt + 1))
 
 
 def sec(t):
