@@ -19,6 +19,13 @@
   レースレベル ＝ 出走馬の後続スコアの平均（後続が取れた馬だけで平均）
   併せて「後続で勝った馬の数」も出す。こちらは解釈しやすい。
 
+  ★素の平均のままだと、後続が5頭しか取れていないレースが上下を独占する（ただの小標本）。
+    なので全体平均へ縮める：  level ＝ (Σスコア + k×全体平均) / (頭数 + k)
+    k は「何頭ぶんの事前情報として全体平均を混ぜるか」。k=8 なら後続5頭のレースは
+    ほぼ全体平均に戻り、後続20頭のレースはほとんど動かない。
+    クラスの交絡は無い（レース番号とレベルの相関 −0.050 で実測済み）。着順スコアが
+    その後のレース内の相対順位なので、クラスは自動的に打ち消される。
+
   ★後続が溜まるまで時間が要るので、直近のレースほどレベルは測れない。
     最低 min-runs 頭ぶんの後続が無いレースは出さない。
 
@@ -82,6 +89,8 @@ def main():
     ap.add_argument("--place", help="表示を1場に絞る（収集は常に南関4場）")
     ap.add_argument("--min-runs", type=int, default=5,
                     help="後続が取れた馬がこの頭数未満のレースは判定しない")
+    ap.add_argument("--shrink", type=float, default=8.0,
+                    help="全体平均へ縮める強さ。小標本のレースが上下を独占するのを防ぐ")
     ap.add_argument("--top", type=int, default=20)
     args = ap.parse_args()
 
@@ -102,27 +111,32 @@ def main():
             wins += sum(1 for x in later if x[3] == 1)
         if cover < args.min_runs:
             continue
-        out.append(dict(rid=rid, level=st.mean(scores), cover=cover, wins=wins, **r))
+        out.append(dict(rid=rid, raw=st.mean(scores), tot=sum(scores),
+                        cover=cover, wins=wins, **r))
 
     if not out:
         raise SystemExit("後続が足りない。期間を早めに取るか --min-runs を下げること。")
+    g = sum(o["tot"] for o in out) / sum(o["cover"] for o in out)   # 全体平均
+    for o in out:
+        o["level"] = (o["tot"] + args.shrink * g) / (o["cover"] + args.shrink)
     lv = [o["level"] for o in out]
     mu, sd = st.mean(lv), st.pstdev(lv)
+    print(f"■ 全体平均 {g:.3f}／縮め k={args.shrink:g}")
     print(f"■ 判定できた {len(out)}レース／レベルの平均 {mu:.3f} 標準偏差 {sd:.3f}\n")
 
     show = [o for o in out if not args.place or o["place"] == args.place]
     show.sort(key=lambda o: -o["level"])
-    print(f"{'':<22}{'頭数':>5}{'後続が':>7}{'後続の':>7}{'レベル':>8}{'偏差':>7}")
-    print(f"{'レース':<22}{'':>5}{'取れた':>7}{'勝利数':>7}{'':>8}{'':>7}")
+    print(f"{'':<22}{'頭数':>5}{'後続が':>7}{'後続の':>7}{'素の値':>8}{'レベル':>8}{'偏差':>7}")
+    print(f"{'レース':<22}{'':>5}{'取れた':>7}{'勝利数':>7}{'':>8}{'':>8}{'':>7}")
     for o in show[:args.top]:
         z = (o["level"] - mu) / sd if sd else 0
         print(f"{str(o['date'])+' '+o['place']+str(o['rno'])+'R ダ'+str(o['dist']):<22}"
-              f"{o['n']:>5}{o['cover']:>7}{o['wins']:>7}{o['level']:>8.3f}{z:>+7.2f}")
+              f"{o['n']:>5}{o['cover']:>7}{o['wins']:>7}{o['raw']:>8.3f}{o['level']:>8.3f}{z:>+7.2f}")
     print("  ── 下位 ──")
     for o in show[-5:]:
         z = (o["level"] - mu) / sd if sd else 0
         print(f"{str(o['date'])+' '+o['place']+str(o['rno'])+'R ダ'+str(o['dist']):<22}"
-              f"{o['n']:>5}{o['cover']:>7}{o['wins']:>7}{o['level']:>8.3f}{z:>+7.2f}")
+              f"{o['n']:>5}{o['cover']:>7}{o['wins']:>7}{o['raw']:>8.3f}{o['level']:>8.3f}{z:>+7.2f}")
 
     print("\n■ 使い方：この表で偏差+1.0以上のレースに出ていた馬は、着順が悪くても"
           "相手が強かっただけかもしれない。逆に−1.0以下のレースの勝ち馬は割引く。")
