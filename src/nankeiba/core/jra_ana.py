@@ -80,6 +80,23 @@ def class_ord(text: str | None) -> int | None:
     return None
 
 
+def age_cond(text: str | None) -> str:
+    """世代条件。'2'=2歳戦 / '3'=3歳限定 / 'old'=古馬混合。
+
+    ⚠️ クラス序列（`class_ord`）だけでは **2歳新馬と3歳未勝利がどちらも0**に
+       なってしまい、まったく違う時計水準が同じ扱いになる。交差検証で
+       残差SD 1.251 → 1.193秒（−0.058秒）。回帰に入れた特徴のうち、
+       効いたのはこれだけだった（当日馬場差・場×距離・頭数・牝馬限定は
+       いずれも改善しないか悪化した）。
+    """
+    t = text or ""
+    if "２歳" in t or "2歳" in t:
+        return "2"
+    if ("３歳" in t or "3歳" in t) and "上" not in t:
+        return "3"
+    return "old"
+
+
 def before_date(runs, date: str | None):
     """**当日以降の行を落とす。**
 
@@ -127,15 +144,17 @@ class Cond:
     baba: str = "良"
     klass: int | None = None
     pace: str | None = None                # 'H'/'M'/'S'
+    age: str = "old"                       # '2'/'3'/'old'
 
     @classmethod
     def of(cls, r: RunRecord) -> "Cond | None":
         s = norm_surface(r.surface)
         if not s or not r.distance:
             return None
+        txt = f"{r.race_class or ''} {r.race_name or ''}"
         return cls(surface=s, distance=int(r.distance), place=r.place,
                    baba=norm_baba(r.baba), klass=class_ord(r.race_class or r.race_name),
-                   pace=r.pace_mark)
+                   pace=r.pace_mark, age=age_cond(txt))
 
 
 def _solve(a: list[list[float]], b: list[float]) -> list[float] | None:
@@ -181,7 +200,8 @@ class TimeModel:
              turf * (c.baba == "稍"), turf * (c.baba == "重"), turf * (c.baba == "不"),
              dirt * (c.baba == "稍"), dirt * (c.baba == "重"), dirt * (c.baba == "不"),
              float(c.klass if c.klass is not None else 0),
-             1.0 if c.klass is None else 0.0]          # クラス欠測フラグ
+             1.0 if c.klass is None else 0.0,          # クラス欠測フラグ
+             1.0 if c.age == "2" else 0.0, 1.0 if c.age == "3" else 0.0]
         x += [1.0 if c.place == p else 0.0 for p in self.places[1:]]
         if self.use_pace:
             x += [1.0 if c.pace == "H" else 0.0, 1.0 if c.pace == "S" else 0.0]
@@ -190,7 +210,8 @@ class TimeModel:
     @staticmethod
     def _names(places: list[str], use_pace: bool) -> list[str]:
         n = ["切片", "芝×距離", "芝×距離²", "ダ×距離", "ダ×距離²", "ダート",
-             "芝稍", "芝重", "芝不", "ダ稍", "ダ重", "ダ不", "クラス", "クラス欠測"]
+             "芝稍", "芝重", "芝不", "ダ稍", "ダ重", "ダ不", "クラス", "クラス欠測",
+             "2歳戦", "3歳限定"]
         n += [f"場:{p}" for p in places[1:]]
         if use_pace:
             n += ["ペースH", "ペースS"]
@@ -271,23 +292,29 @@ class TimeModel:
 # 第2段・第3段: 門とスコア
 # ---------------------------------------------------------------------------
 
+TOP_K = 2            # 条件指数に使う「良かった走」の本数
+MIN_COND_RUNS = 2    # 条件指数を信用するのに要る最低走数
 W_ANA = 0.5          # 人気薄好走1回あたり（手置き。sensitivity で妥当性を見る）
 W_POP = 0.06         # 市場人気1つあたり（同上）
 ANA_POP = 5          # 「人気薄」＝何番人気以下か
 GATE_COND = 4        # ①条件順がこれ以内
 GATE_POWER = 3       # ②実力順がこれ以内なら落とす
 GATE_MARKET = 6.0    # ③市場人気がこれ以上（＝人気がない）
+MIN_STABILITY = 0.50  # ①ノイズを乗せても条件上位に残る確率の下限
 
 
 @dataclass
 class Cand:
     umaban: int
     name: str
-    cond_idx: float | None = None        # 今日の条件でのベスト[秒]＝一発のピーク
+    cond_idx: float | None = None        # 今日の条件での上位2走平均[秒]＝ピーク
     cond_rank: int | None = None
+    cond_runs: int = 0                   # 条件指数の材料になった走の数
+    cond_ago: int | None = None          # ピークの走が何走前か（大きいほど市場は忘れている）
     power_idx: float | None = None       # 全走の中央値[秒]＝ふだんの水準
     power_rank: int | None = None
     n_runs: int = 0
+    stability: float | None = None       # 条件順が上位に残る確率（ノイズ耐性）
     market: float | None = None          # 市場人気（当日人気順 or 近走平均人気）
     market_src: str = "-"
     ana_wins: int = 0                    # 人気薄での好走回数
@@ -304,6 +331,25 @@ class Cand:
             return "通過"
         ng = [n for n, ok in zip("①②③", self.gates) if not ok]
         return "".join(ng) + "で落ち"
+
+
+def peak(vals: list[float], k: int = TOP_K) -> float:
+    """良かった走 上位k本の平均＝「今日の条件でのピーク」。
+
+    ⚠️ **max を使ってはいけない。** max は残差ノイズの最大値を拾うので、
+       走数の多い馬や、たまたま速い時計の出たレースを使っただけの馬が上に来る。
+
+       検算（結果も市場も使わない再現性テスト）：同じ馬の過去走を奇数番目/
+       偶数番目に割り、片方だけで作った指数ともう片方だけで作った指数の一致度を
+       見た。**走数を揃えた150頭で max 0.298 に対し 上位2走の平均 0.484。**
+       max は測っているものの半分がノイズだった。
+
+       走数で縮小（`× n/(n+k)`）すると相関はさらに上がるが、これは**走数が
+       両側に共通で入るだけの見かけの上昇**（走数を揃えると上位2走平均と
+       完全に同値になる）。よって採用しない。走数の少なさは指数を歪めるのでは
+       なく `Cand.cond_runs` で表に出し、門で弾く。
+    """
+    return mean(sorted(vals, reverse=True)[:k])
 
 
 def _ana_wins(runs, *, ana_pop: int = ANA_POP) -> int:
@@ -330,6 +376,8 @@ def evaluate(entries: list[dict], surface: str, *,
              gate_cond: int = GATE_COND, gate_power: int = GATE_POWER,
              gate_market: float = GATE_MARKET,
              ana_pop: int = ANA_POP, power: str = "median",
+             top_k: int = TOP_K, min_cond_runs: int = MIN_COND_RUNS,
+             min_stability: float = MIN_STABILITY, draws: int = 400,
              before: str | None = None,
              model: TimeModel | None = None) -> tuple[list[Cand], TimeModel | None]:
     """出走馬（`runs` に過去走を持つ dict のリスト）を評価して候補を返す。
@@ -346,12 +394,17 @@ def evaluate(entries: list[dict], surface: str, *,
         runs = before_date(e.get("runs", []), before)
         vals = [(r, model.fast(r)) for r in runs]
         vals = [(r, v) for r, v in vals if v is not None]
-        cond = [v for r, v in vals if norm_surface(r.surface) == surface]
+        cond = [(i, v) for i, (r, v) in enumerate(vals)
+                if norm_surface(r.surface) == surface]
         allv = [v for _, v in vals]
         mk, src = _market(e, runs)
+        best = sorted(cond, key=lambda iv: -iv[1])[:top_k]
         cands.append(Cand(
             umaban=e["umaban"], name=e.get("name", ""),
-            cond_idx=max(cond) if cond else None,
+            cond_idx=(peak([v for _, v in cond], top_k)
+                      if len(cond) >= min_cond_runs else None),
+            cond_runs=len(cond),
+            cond_ago=(best[0][0] + 1 if best else None),
             power_idx=((max(allv) if power == "max" else median(allv)) if allv else None),
             market=mk, market_src=src, ana_wins=_ana_wins(runs, ana_pop=ana_pop),
             n_runs=len(allv),
@@ -369,14 +422,59 @@ def evaluate(entries: list[dict], surface: str, *,
     rank_by("cond_idx")
     rank_by("power_idx")
 
+    stab = stability(entries, surface, model=model, gate_cond=gate_cond, top_k=top_k,
+                     min_cond_runs=min_cond_runs, before=before,
+                     draws=draws) if draws else {}
     for c in cands:
-        g1 = c.cond_rank is not None and c.cond_idx is not None and c.cond_rank <= gate_cond
+        c.stability = stab.get(c.umaban)
+        g1 = (c.cond_rank is not None and c.cond_idx is not None
+              and c.cond_rank <= gate_cond
+              and (not draws or (c.stability or 0.0) >= min_stability))
         g2 = c.power_rank is None or c.power_rank > gate_power
         g3 = c.market is not None and c.market >= gate_market
         c.gates = (g1, g2, g3)
         if c.passed:
             c.score = round(c.cond_idx + w_ana * c.ana_wins + w_pop * c.market, 2)
     return cands, model
+
+
+def stability(entries: list[dict], surface: str, *, model: TimeModel,
+              gate_cond: int = GATE_COND, top_k: int = TOP_K,
+              min_cond_runs: int = MIN_COND_RUNS, before: str | None = None,
+              draws: int = 400, seed: int = 7) -> dict[int, float]:
+    """条件順が**ノイズに耐えるか**を測る。返り値は「条件順が上位に入る確率」。
+
+    ⚠️ 残差SDは実測 1.15秒。ところがレース内の「条件4位までの幅」は 0.2〜1.0秒
+       しかないことがほとんどで、**点推定の順位はたいていノイズ**。
+       2026-08-01 の36レース中、幅が残差SDを超えたのは数レースだけだった。
+       「条件3位だから買う」は、測定誤差の中で3位だったというだけ。
+
+    そこで各走の指数に実測残差SDのゆらぎを乗せて何度も並べ直し、
+    **上位に入り続ける馬だけを拾う**。走数の多い馬は平均で誤差が薄まるので
+    自然に安定し、1〜2走しか材料が無い馬は落ちる。縮小推定を手で入れる
+    代わりに、測った誤差そのものに順位を判定させる。
+    """
+    import random
+    rng = random.Random(seed)
+    sd = model.resid_sd
+    pool: dict[int, list[float]] = {}
+    for e in entries:
+        vals = []
+        for r in before_date(e.get("runs", []), before):
+            if norm_surface(r.surface) != surface:
+                continue
+            v = model.fast(r)
+            if v is not None:
+                vals.append(v)
+        if len(vals) >= min_cond_runs:
+            pool[e["umaban"]] = vals
+    hit = {um: 0 for um in pool}
+    for _ in range(draws):
+        drawn = {um: peak([v + rng.gauss(0, sd) for v in vs], top_k)
+                 for um, vs in pool.items()}
+        for um in sorted(drawn, key=lambda u: -drawn[u])[:gate_cond]:
+            hit[um] += 1
+    return {um: h / draws for um, h in hit.items()}
 
 
 def sensitivity(entries: list[dict], surface: str, *, model: TimeModel | None = None,

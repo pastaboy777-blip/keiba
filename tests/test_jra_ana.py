@@ -157,10 +157,14 @@ class TestFutureRaceLeak(unittest.TestCase):
         ents = [{"umaban": i, "name": f"新馬{i}", "popularity": i,
                  "runs": [run("2026-08-01", "中京", "芝", 1400, time=82.7)]}
                 for i in (1, 2, 3)]
-        leaked, _ = ja.evaluate(ents, "芝", model=model)      # before を渡し忘れた場合
+        # before を渡し忘れた場合（min_cond_runs=1 にすると素通りしてしまう）
+        leaked, _ = ja.evaluate(ents, "芝", model=model, min_cond_runs=1)
         vals = {c.cond_idx for c in leaked}
-        self.assertEqual(len(vals), 1)
+        self.assertEqual(len(vals), 1, "全馬が同じ1行を共有して同値になる")
         self.assertIsNotNone(vals.pop())
+        # 既定(min_cond_runs=2)なら1走しかない馬は弾かれるので二重に守られる
+        guarded, _ = ja.evaluate(ents, "芝", model=model)
+        self.assertTrue(all(c.cond_idx is None for c in guarded))
 
     def test_fit_ignores_future_rows(self):
         m = TestTimeModel()
@@ -188,8 +192,10 @@ class TestGates(unittest.TestCase):
                 (5, -2.5, -2.5, 3, [3, 2, 1]),
                 (6, -2.5, -2.5, 4, [1, 3, 2])]
         for um, cond_gain, other_gain, pop, hist in spec:
-            runs = [run("2026-03-01", "中京", "ダ", 1400, finish=3, margin=0.3,
-                        time=m._truth("ダ", 1400, "良") + cond_gain + 0.3, pop=hist[0])]
+            # 条件指数は「今日と同じ馬場種の上位2走の平均」なのでダートを2走持たせる
+            runs = [run(f"2026-03-0{j}", "中京", "ダ", 1400, finish=3, margin=0.3,
+                        time=m._truth("ダ", 1400, "良") + cond_gain + 0.3, pop=hist[0])
+                    for j in (1, 2)]
             for j, p in enumerate(hist[1:], 1):
                 runs.append(run(f"2026-02-0{j}", "中京", "芝", 1600, finish=3, margin=0.3,
                                 time=m._truth("芝", 1600, "良") + other_gain + 0.3, pop=p))
@@ -324,3 +330,62 @@ class TestParseEntries(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPeakEstimator(unittest.TestCase):
+    """⚠️ max はノイズの最大値を拾う。上位k走の平均を使う。"""
+
+    def test_top2_mean(self):
+        self.assertAlmostEqual(ja.peak([3.0, 1.0, 2.0, 0.0]), 2.5)
+        self.assertAlmostEqual(ja.peak([3.0, 1.0, 2.0, 0.0], k=3), 2.0)
+
+    def test_one_run_is_itself(self):
+        self.assertAlmostEqual(ja.peak([1.7]), 1.7)
+
+    def test_max_is_dragged_by_a_single_outlier_but_top2_is_not(self):
+        steady = [2.2, 2.2, 2.2, 2.2]
+        fluke = [4.0, 0.0, 0.0, 0.0]
+        self.assertGreater(max(fluke), max(steady))          # max だと一発が勝つ
+        self.assertGreater(ja.peak(steady), ja.peak(fluke))  # 上位2走なら逆転する
+
+    def test_needs_min_runs(self):
+        m = TestTimeModel()
+        model = ja.TimeModel.fit(m._runs())
+        one = [{"umaban": 1, "name": "一走馬", "popularity": 9,
+                "runs": [run("2026-03-01", "中京", "ダ", 1400, time=81.0)]}]
+        self.assertIsNone(ja.evaluate(one, "ダ", model=model)[0][0].cond_idx)
+        self.assertIsNotNone(
+            ja.evaluate(one, "ダ", model=model, min_cond_runs=1)[0][0].cond_idx)
+
+    def test_reports_how_many_runs_and_how_long_ago(self):
+        m = TestTimeModel()
+        model = ja.TimeModel.fit(m._runs())
+        runs = [run("2026-06-01", "中京", "ダ", 1400, time=85.0),   # 1走前(遅い)
+                run("2026-05-01", "中京", "芝", 1600, time=88.0),   # 芝なので条件外
+                run("2026-04-01", "中京", "ダ", 1400, time=79.0),   # 3走前(速い)
+                run("2026-03-01", "中京", "ダ", 1400, time=80.0)]
+        c = ja.evaluate([{"umaban": 1, "name": "x", "popularity": 9, "runs": runs}],
+                        "ダ", model=model)[0][0]
+        self.assertEqual(c.cond_runs, 3)
+        self.assertEqual(c.n_runs, 4)
+        self.assertEqual(c.cond_ago, 3, "ピークは3走前＝市場はもう忘れている")
+
+
+class TestAgeCond(unittest.TestCase):
+    def test_split(self):
+        self.assertEqual(ja.age_cond("２歳新馬"), "2")
+        self.assertEqual(ja.age_cond("３歳未勝利"), "3")
+        self.assertEqual(ja.age_cond("３歳１勝クラス"), "3")
+        self.assertEqual(ja.age_cond("３歳上１勝クラス"), "old")
+        self.assertEqual(ja.age_cond("３歳以上２勝クラス"), "old")
+        self.assertEqual(ja.age_cond("桶狭間Ｓ"), "old")
+
+    def test_two_year_olds_are_not_lumped_with_maidens(self):
+        """クラス序列だけだと2歳新馬と3歳未勝利がどちらも0になってしまう。"""
+        self.assertEqual(ja.class_ord("２歳新馬"), ja.class_ord("３歳未勝利"))
+        self.assertNotEqual(ja.age_cond("２歳新馬"), ja.age_cond("３歳未勝利"))
+
+    def test_is_a_regression_term(self):
+        m = ja.TimeModel.fit(TestTimeModel()._runs())
+        self.assertIn("2歳戦", m.names)
+        self.assertIn("3歳限定", m.names)

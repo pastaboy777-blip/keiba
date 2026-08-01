@@ -31,8 +31,8 @@ from nankeiba.core import jra_ana as ja                # noqa: E402
 from nankeiba.scraping import keibabook as kb          # noqa: E402
 
 LOG_COLS = ["日付", "場", "R", "馬場種", "距離", "馬番", "馬名", "印",
-            "条件指数", "条件順", "実力指数", "実力順", "市場人気", "市場ソース",
-            "人気薄好走", "スコア", "残差SD", "着順"]
+            "条件指数", "条件順", "ノイズ耐性", "条件走数", "ピーク何走前", "実力指数", "実力順",
+            "市場人気", "市場ソース", "人気薄好走", "スコア", "残差SD", "判別可否", "着順"]
 
 
 def parse_races(s: str) -> list[int]:
@@ -74,6 +74,14 @@ def main() -> None:
     ap.add_argument("--gate-power", type=int, default=ja.GATE_POWER)
     ap.add_argument("--gate-market", type=float, default=ja.GATE_MARKET)
     ap.add_argument("--ana-pop", type=int, default=ja.ANA_POP)
+    ap.add_argument("--top-k", type=int, default=ja.TOP_K,
+                    help="条件指数に使う良かった走の本数（既定2。1にすると旧max相当）")
+    ap.add_argument("--min-cond-runs", type=int, default=ja.MIN_COND_RUNS,
+                    help="条件指数を信用するのに要る最低走数")
+    ap.add_argument("--min-stability", type=float, default=ja.MIN_STABILITY,
+                    help="残差SDのゆらぎを乗せても条件上位に残る確率の下限")
+    ap.add_argument("--draws", type=int, default=400,
+                    help="ノイズ耐性の試行回数。0でこの門を無効化")
     ap.add_argument("--power", choices=("median", "max"), default="median",
                     help="実力指数の定義。median=ふだんの水準(既定) / max=全走ベスト")
     ap.add_argument("--w-ana", type=float, default=ja.W_ANA)
@@ -148,11 +156,16 @@ def main() -> None:
     print(f"\n[第2段] 門 … ①条件{args.gate_cond}位以内(今日の条件のベスト) "
           f"②実力{args.gate_power}位以内でない({pw}) "
           f"③市場人気{args.gate_market:g}以下")
+    if args.draws:
+        print(f"        ①には**ノイズ耐性**も課す … 各走に残差SDのゆらぎを乗せて"
+              f"{args.draws}回並べ直し、条件{args.gate_cond}位以内に"
+              f"{args.min_stability:.0%}以上残ること")
     print(f"[第3段] スコア = 条件指数 + {args.w_ana}×人気薄好走 + {args.w_pop}×市場人気\n")
 
     kw = dict(gate_cond=args.gate_cond, gate_power=args.gate_power,
               gate_market=args.gate_market, ana_pop=args.ana_pop, power=args.power,
-              before=d)
+              top_k=args.top_k, min_cond_runs=args.min_cond_runs,
+              min_stability=args.min_stability, draws=args.draws, before=d)
     rows = []
     for pl, rno, rid, hd, ents in races:
         surf = hd["surface"]
@@ -166,12 +179,24 @@ def main() -> None:
             print(f"{head}  → 候補なし")
         else:
             print(head)
-            print("     馬             条件指数 条件順 実力順 人気 薄好走 スコア")
+            print("     馬             条件指数 条件順 耐性 実力順 人気 薄好走 スコア  材料")
             for i, c in enumerate(passed):
                 mark = "◎" if i == 0 else ("○" if i == 1 else "▲")
+                ago = f"{c.cond_ago}走前" if c.cond_ago else "-"
+                old = "★" if (c.cond_ago or 0) >= 3 else " "   # 市場が忘れている頃
                 print(f"  {mark}{c.umaban:>2} {c.name[:8]:<8} "
-                      f"{c.cond_idx:+7.2f} {c.cond_rank:>5} {c.power_rank:>5} "
-                      f"{c.market:>5.1f} {c.ana_wins:>4} {c.score:>7.2f}")
+                      f"{c.cond_idx:+7.2f} {c.cond_rank:>5} "
+                      f"{(c.stability or 0):>4.0%} {c.power_rank:>5} "
+                      f"{c.market:>5.1f} {c.ana_wins:>4} {c.score:>7.2f}"
+                      f"  {c.cond_runs}走中{ago}{old}")
+            # 判別可能か。上位の差が残差SDに埋もれるなら順位はほぼノイズ。
+            tops = sorted((c.cond_idx for c in cands if c.cond_idx is not None),
+                          reverse=True)[:args.gate_cond]
+            if len(tops) >= 2:
+                spread = tops[0] - tops[-1]
+                if spread < model.resid_sd:
+                    print(f"     ⚠️ 条件{args.gate_cond}位までの幅 {spread:.2f}秒 "
+                          f"< 残差SD {model.resid_sd:.2f}秒 → **この並びはほぼノイズ**")
             if args.sens:
                 tally, n = ja.sensitivity(ents, surf, model=model,
                                           w_ana=(args.w_ana / 2, args.w_ana, args.w_ana * 2),
@@ -191,14 +216,20 @@ def main() -> None:
                     ci = f"{c.cond_idx:+.2f}" if c.cond_idx is not None else "  -  "
                     mk = f"{c.market:.1f}" if c.market is not None else " - "
                     print(f"    {c.umaban:>3} {c.name[:8]:<8} {ci:>7} "
-                          f"条{c.cond_rank} 実{c.power_rank} 人{mk}  {c.why()}")
+                          f"条{c.cond_rank} 耐{(c.stability or 0):.0%} "
+                          f"実{c.power_rank} 人{mk}  {c.why()}")
         print()
 
+        tops = sorted((c.cond_idx for c in cands if c.cond_idx is not None),
+                      reverse=True)[:args.gate_cond]
+        ok = "判別可" if len(tops) >= 2 and tops[0] - tops[-1] >= model.resid_sd else "ノイズ域"
         for i, c in enumerate(passed):
             rows.append([d, pl, rno, surf, hd.get("distance"), c.umaban, c.name,
-                         "◎○▲"[min(i, 2)], c.cond_idx, c.cond_rank, c.power_idx,
-                         c.power_rank, c.market, c.market_src, c.ana_wins, c.score,
-                         round(model.resid_sd, 2), ""])
+                         "◎○▲"[min(i, 2)], c.cond_idx, c.cond_rank,
+                         round(c.stability or 0, 3), c.cond_runs,
+                         c.cond_ago, c.power_idx, c.power_rank, c.market,
+                         c.market_src, c.ana_wins, c.score,
+                         round(model.resid_sd, 2), ok, ""])
 
     if args.log and rows:
         new = not os.path.exists(args.log)
