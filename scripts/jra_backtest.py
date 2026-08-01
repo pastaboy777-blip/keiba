@@ -10,6 +10,10 @@
   B ズブ穴フィルタ  … 通過馬の単複回収率（重みを変える前の素の性能）
   C 仮説検証        … 該当条件指数を「渋った馬場で出した馬」と「良馬場で出した馬」に
                        分けて成績を比べる。渋った側だけ成績が落ちるなら馬場補正が甘い。
+  D 現物            … 「同じ競馬場・同じ距離で3着内に来たことがある」という生の事実。
+                       指数は場と距離を正規化して均してしまうので、この情報が消える。
+                       2026-08-01の柳都Sは、指数13/15位だが新潟ダ1800稍重を勝っていた馬が
+                       勝った。正規化せずに残すほうが効くのかを測る。
 
     python3 scripts/jra_backtest.py 20260725 20260726 20260718 20260719
 """
@@ -29,7 +33,7 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from jra_ana import collect_day, fit
+from jra_ana import JRA, collect_day, fit
 from win5_board import sec
 
 CTX = ssl.create_default_context(cafile="/root/.ccr/ca-bundle.crt")
@@ -107,7 +111,13 @@ def horses_of(r, par):
                 and p.get("surf") == surf and abs(p.get("dist", 0) - dist) <= 200]
         best = max(cond, key=lambda p: p["fig"]) if cond else None
         pops = [p["pop"] for p in h["past"][:3] if p.get("pop")]
+        # 現物＝今回とまったく同じ競馬場・同じ距離での成績。正規化しない生の事実。
+        same = [p for p in h["past"]
+                if p.get("place") == r["_place"] and p.get("surf") == surf
+                and p.get("dist") == dist and p.get("fin")]
         hs.append(dict(h=h, top2=st.mean(sorted(f, reverse=True)[:2]),
+                       gen_win=sum(1 for p in same if p["fin"] == 1),
+                       gen_top3=sum(1 for p in same if p["fin"] <= 3),
                        cond=best["fig"] if best else None,
                        cond_baba=best.get("baba") if best else None,
                        pop3=st.mean(pops) if pops else None,
@@ -130,6 +140,7 @@ def main():
     pops = defaultdict(lambda: [0, 0, 0, 0.0, 0.0])
     ana = [0, 0, 0, 0.0, 0.0]
     ana_rows, baba_split = [], defaultdict(lambda: [0, 0, 0, 0.0])
+    gen = defaultdict(lambda: [0, 0, 0, 0.0, 0.0])
     nrace = 0
 
     for ymd in args.dates:
@@ -144,6 +155,7 @@ def main():
             if not res:
                 continue
             fin = {x["umaban"]: x for x in res}
+            r["_place"] = JRA.get(rid[4:6], "")
             hs, surf, dist = horses_of(r, par)
             if not hs:
                 continue
@@ -190,6 +202,18 @@ def main():
                 if x["r"]["fin"] <= 3:
                     d[2] += 1
 
+            # D: 現物（同場・同距離で3着内 / 勝ち鞍あり）だけで買ったらどうか
+            for lab, sel in (("現物勝ち鞍", [x for x in hs if x["gen_win"] >= 1]),
+                             ("現物3着内", [x for x in hs if x["gen_top3"] >= 1])):
+                for x in sel:
+                    tally(gen[lab], x)
+                    tally(gen[(lab, hcp)], x)
+            # 現物を持つ馬の中で該当条件指数が最上位の1頭
+            g1 = sorted([x for x in hs if x["gen_top3"] >= 1 and x["cond"] is not None],
+                        key=lambda x: -x["cond"])
+            if g1:
+                tally(gen["現物×指数1位"], g1[0])
+
             # B: ズブ穴フィルタ
             honmei = {id(x) for x in sorted(hs, key=lambda x: -x["top2"])[:args.skip_rank]}
             cand = sorted([x for x in hs if x["cond"] is not None], key=lambda x: -x["cond"])
@@ -223,6 +247,13 @@ def main():
         show(f"{p}人気", pops[p])
     print("-- ズブ穴フィルタ通過馬")
     show("ズブ穴", ana)
+
+    print("\n■ D 現物（今回と同じ競馬場・同じ距離での実績。指数で正規化しない生の事実）")
+    for lab in ("現物3着内", "現物勝ち鞍", "現物×指数1位"):
+        show(lab, gen[lab])
+    for lab in ("現物3着内", "現物勝ち鞍"):
+        for hcp in ("定量", "ハンデ"):
+            show(f"{lab}/{hcp}", gen[(lab, hcp)])
 
     print("\n■ ハンデ戦 vs 定量戦（斤量を見ない指数が効くのはどちらか）")
     for hcp in ("定量", "ハンデ"):
