@@ -6,7 +6,8 @@
     完タイム差 ＝ タイム差 ＋ 馬場差（距離で按分） ＋ 補正値
 
   タイム差 … 勝ちタイム − その条件(場・距離・クラス)の標準
-  馬場差   … その日1日を通した速さのズレ。1つの数字で持ち、距離に比例して効かせる
+  馬場差   … その日の速さのズレ。距離に比例して効かせる。
+             1日の中でも砂は動くので 前半(1〜6R)/後半(7〜12R) に分けて持つ（ドリフト）
   補正値   … 展開など個別事情。ここでは扱わない（0とする）
 
 なぜ必要か（2026-08-01 の失敗）:
@@ -50,14 +51,35 @@ def sec(t):
 
 
 def grade(cls):
-    """クラス表記を粗い級に落とす。Ｃ３五→C3、２歳二→2歳、３歳(七)→3歳。"""
+    """クラス表記を粗い級に落とす。標準タイムをこの単位で作るので、取りこぼすと時計が歪む。
+
+    南関の表記ゆれ:
+      Ｃ３五 / Ｂ２ / Ａ１        → C3 / B2 / A1
+      ２歳二 / ３歳(七)          → 2歳 / 3歳
+      帝王賞（Ｊｐｎ１）選定馬重賞 → 重賞     ← A級より上。分けないと標準が狂う
+      短夜賞（準重賞） ３上 オープン → 準重
+      ゆりかもめオープン競走 オープン特別 → OP特
+      さきたま杯 ３上 オープン    → 重賞（Ｊｐｎ表記を先に見る）
+    """
     if not cls:
         return "?"
-    c = cls.translate(str.maketrans("ＡＢＣ１２３", "ABC123"))
+    c = cls.translate(str.maketrans("ＡＢＣ０１２３４５６７８９", "ABC0123456789"))
+    # 格の高い順に判定する。オープンの語は重賞名にも含まれるので順番を崩さないこと。
+    if "Ｊｐｎ" in cls or "Jpn" in cls or re.search(r"[（(]G[ⅠⅡⅢ123]", cls):
+        return "重賞"
+    if "準重賞" in c:
+        return "準重"
+    if "重賞" in c:
+        return "重賞"
+    if "オープン特別" in c:
+        return "OP特"
+    if "オープン" in c:
+        return "OP"
     if "歳" in c and not re.search(r"[ABC]", c):
-        return re.sub(r".*?(\d)歳.*", r"\1歳", c)[:2] or "?"
+        m = re.search(r"(\d)歳", c)
+        return m.group(1) + "歳" if m else "?"
     m = re.search(r"([ABC])\s*(\d)?", c)
-    return (m.group(1) + (m.group(2) or "")) if m else "?"
+    return m.group(1) + (m.group(2) or "") if m else "?"
 
 
 def main():
@@ -106,22 +128,33 @@ def main():
         r["diff"] = round(r["t"] - base, 2) if base else None
 
     # 馬場差：その日のタイム差を1000mあたりに直した中央値。距離をまたいでも足並みが揃う。
-    byday = defaultdict(list)
+    # さらに前半/後半に割る。砂は散水と踏み固めで1日の中でも動くので、
+    # 1日1つの数字にすると後半のレースに前半の馬場を当ててしまう。
+    byday, byhalf = defaultdict(list), defaultdict(list)
     for r in rec:
         if r["diff"] is not None:
-            byday[r["d"]].append(r["diff"] / (r["dist"] / 1000))
+            v = r["diff"] / (r["dist"] / 1000)
+            byday[r["d"]].append(v)
+            byhalf[(r["d"], r["rno"] <= 6)].append(v)
     variant = {d: st.median(v) for d, v in byday.items()}
+    half = {k: st.median(v) for k, v in byhalf.items() if len(v) >= 4}
 
     for r in rec:
         if r["diff"] is not None:
-            r["kan"] = round(r["diff"] - variant[r["d"]] * (r["dist"] / 1000), 2)
+            v = half.get((r["d"], r["rno"] <= 6), variant[r["d"]])
+            r["v"] = v
+            r["kan"] = round(r["diff"] - v * (r["dist"] / 1000), 2)
 
     if args.races:
         target = date.fromisoformat(args.races)
         v = variant.get(target)
         if v is None:
             raise SystemExit(f"{args.races} は対象外")
-        print(f"\n■ {args.place} {target}　馬場差 {v * REF / 1000:+.1f}秒"
+        f_, b_ = half.get((target, True)), half.get((target, False))
+        ext = ("" if f_ is None or b_ is None else
+               f"　前半 {f_ * REF / 1000:+.2f} → 後半 {b_ * REF / 1000:+.2f}"
+               f"（ドリフト {(b_ - f_) * REF / 1000:+.2f}）")
+        print(f"\n■ {args.place} {target}　馬場差 {v * REF / 1000:+.1f}秒{ext}"
               f"（{REF}m換算／マイナスは速い馬場）\n")
         print(f"{'R':>3}{'距離':>6}{'級':>5}{'馬場':>4}{'勝ち馬':<16}"
               f"{'走破':>8}{'タイム差':>9}{'完タイム差':>11}")
@@ -134,15 +167,23 @@ def main():
 
     print(f"\n■ {args.place} {args.d_from}〜{args.d_to}　日ごとの馬場差"
           f"（{REF}m換算・マイナスが速い馬場）\n")
-    print(f"{'日付':<12}{'発表馬場':<10}{'R':>3}{'馬場差':>9}{'完タイム差の幅':>16}")
+    print(f"{'日付':<12}{'発表馬場':<10}{'R':>3}{'1日':>7}{'前半':>7}{'後半':>7}"
+          f"{'ドリフト':>10}")
     for d in sorted(variant):
         day = [r for r in rec if r["d"] == d and r["diff"] is not None]
         bb = "/".join(sorted({r["baba"] or "?" for r in day}))
-        k = [r["kan"] for r in day]
-        print(f"{str(d):<12}{bb:<10}{len(day):>3}{variant[d] * REF / 1000:>+9.2f}"
-              f"{min(k):>+8.2f}〜{max(k):>+6.2f}")
+        f_ = half.get((d, True))
+        b_ = half.get((d, False))
+        g = lambda v: f"{v * REF / 1000:+.2f}" if v is not None else "  -  "
+        dr = (f"{(b_ - f_) * REF / 1000:+.2f}" if f_ is not None and b_ is not None else "  -  ")
+        print(f"{str(d):<12}{bb:<10}{len(day):>3}{g(variant[d]):>7}{g(f_):>7}{g(b_):>7}{dr:>10}")
     vs = [v * REF / 1000 for v in variant.values()]
+    drs = [(half[(d, False)] - half[(d, True)]) * REF / 1000 for d in variant
+           if (d, True) in half and (d, False) in half]
     print(f"\n  馬場差の幅 {min(vs):+.2f}〜{max(vs):+.2f}秒（{max(vs)-min(vs):.2f}秒）")
+    if drs:
+        print(f"  ドリフト（後半−前半）の幅 {min(drs):+.2f}〜{max(drs):+.2f}秒"
+              f"／平均 {st.mean(drs):+.2f}秒。プラスは後半にかけて重くなった日。")
     print("  ※標準タイムは同じ期間から作っているので、日数が少ないと自分自身に引きずられる。")
 
 
