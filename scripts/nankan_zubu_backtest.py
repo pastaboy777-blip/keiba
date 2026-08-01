@@ -38,6 +38,7 @@ from nankeiba.scraping.race_id import day_index_race_id, NANKAN_CODES
 from nankeiba.scraping import parser as P
 
 import statistics as st
+from collections import defaultdict
 
 import ana399 as A
 import ana_recall as R
