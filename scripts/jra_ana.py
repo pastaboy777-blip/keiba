@@ -51,7 +51,7 @@ def collect_day(ymd):
         if m.group(1) not in ids:
             ids.append(m.group(1))
     if not ids:
-        raise SystemExit(f"{ymd} のレースが取れない。開催日か日付を確認。")
+        return {}                      # 非開催日。呼び出し側でスキップする
     D = {}
     for i, rid in enumerate(ids, 1):
         s = BeautifulSoup(get(PAST.format(rid=rid)), "html.parser")
@@ -130,6 +130,8 @@ def main():
     args = ap.parse_args()
 
     D = collect_day(args.ymd)
+    if not D:
+        raise SystemExit(f"{args.ymd} は開催がない。日付を確認。")
     par = fit(D)
 
     rows = []

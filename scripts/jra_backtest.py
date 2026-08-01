@@ -135,6 +135,9 @@ def main():
     for ymd in args.dates:
         print(f"\n===== {ymd} =====")
         D = collect_day(ymd)
+        if not D:
+            print("  非開催日。スキップ。")
+            continue
         par = fit(D)
         for rid, r in D.items():
             res = result(rid)
