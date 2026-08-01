@@ -40,7 +40,7 @@ from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping.race_id import NANKAN_CODES
 from nankeiba.scraping import parser as P
 
-from nankan_babasa import DRIFT_SHRINK, REF, grade, sec
+from nankan_babasa import DRIFT_BASE, DRIFT_SHRINK, REF, grade, sec
 from nankan_racelevel import VENUES, collect
 from nankan_zubu_backtest import CARD, PERF, race_days
 
@@ -114,8 +114,13 @@ def main():
             byhalf[(r["d"], r["rno"] <= 6)].append(v)
     variant = {d: st.median(v) for d, v in byday.items()}
     raw_half = {k: st.median(v) for k, v in byhalf.items() if len(v) >= 4}
-    half = {k: variant[k[0]] + (v - variant[k[0]]) * DRIFT_SHRINK
+    base = DRIFT_BASE / 2 * 1000 / REF
+    half = {k: variant[k[0]] + (base if k[1] else -base)
+               + (v - variant[k[0]]) * DRIFT_SHRINK
             for k, v in raw_half.items()}
+    for d in variant:
+        for first in (True, False):
+            half.setdefault((d, first), variant[d] + (base if first else -base))
     for r in rec:
         if r["diff"] is not None:
             r["v"] = half.get((r["d"], r["rno"] <= 6), variant[r["d"]])

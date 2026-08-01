@@ -47,7 +47,10 @@ from nankeiba.scraping import parser as P
 from nankan_zubu_backtest import CARD, PERF, race_days
 
 REF = 1400            # 馬場差を表示する基準距離
-DRIFT_SHRINK = 0.3    # 生ドリフトのうち実際に効かせる割合。信号²/(信号²+雑音²) から
+DRIFT_BASE = -0.258   # 後半−前半の全日平均（1400m換算）。南関4場68日で z=-3.9。
+                      # 級を見ないparだと -1.059 出るが、par に級を入れると 76% 消える。
+                      # 残ったこの分だけが構造的で、日ごとの推定より桁違いに安定している。
+DRIFT_SHRINK = 0.3    # 日ごとのズレのうち効かせる割合。信号²/(信号²+雑音²) から
 
 
 def sec(t):
@@ -143,9 +146,15 @@ def main():
             byhalf[(r["d"], r["rno"] <= 6)].append(v)
     variant = {d: st.median(v) for d, v in byday.items()}
     raw_half = {k: st.median(v) for k, v in byhalf.items() if len(v) >= 4}
-    # 縮め：1日の値を基準に、前後半のズレぶんだけを DRIFT_SHRINK 倍して足す。
-    half = {k: variant[k[0]] + (v - variant[k[0]]) * DRIFT_SHRINK
+    # 全日共通の傾き（前半は遅く・後半は速く）を必ず入れたうえで、
+    # その日固有のズレだけを DRIFT_SHRINK 倍して足す。日ごとの生値は当てにならない。
+    base = DRIFT_BASE / 2 * 1000 / REF        # 1000mあたりに直す。前半は+、後半は−
+    half = {k: variant[k[0]] + (base if k[1] else -base)
+               + (v - variant[k[0]]) * DRIFT_SHRINK
             for k, v in raw_half.items()}
+    for d in variant:                          # 前後半が取れない日も傾きだけは当てる
+        for first in (True, False):
+            half.setdefault((d, first), variant[d] + (base if first else -base))
 
     for r in rec:
         if r["diff"] is not None:
@@ -195,8 +204,10 @@ def main():
     if drs:
         print(f"  生ドリフト（後半−前半）の幅 {min(drs):+.2f}〜{max(drs):+.2f}秒"
               f"／平均 {st.mean(drs):+.2f}秒。プラスは後半にかけて重くなった日。")
-        print(f"  ただし偽ドリフト（偶数R−奇数R）がほぼ同じ大きさで出るため、"
-              f"実際に効かせるのは {DRIFT_SHRINK:g} 倍だけ。")
+        print(f"  ただし日ごとの生値は偽ドリフト（偶数R−奇数R）と同程度のブレなので、"
+              f"効かせるのは {DRIFT_SHRINK:g} 倍だけ。")
+        print(f"  加えて全日共通の傾き {DRIFT_BASE:+.2f}秒（後半が速い）を必ず入れる。"
+              f"南関68日で z=-3.9。")
     print("  ※標準タイムは同じ期間から作っているので、日数が少ないと自分自身に引きずられる。")
 
 
