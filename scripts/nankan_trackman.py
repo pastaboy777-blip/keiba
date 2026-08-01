@@ -114,7 +114,7 @@ def main():
             byhalf[(r["d"], r["rno"] <= 6)].append(v)
     variant = {d: st.median(v) for d, v in byday.items()}
     raw_half = {k: st.median(v) for k, v in byhalf.items() if len(v) >= 4}
-    base = DRIFT_BASE / 2 * 1000 / REF
+    base = -DRIFT_BASE / 2 * 1000 / REF   # 前半に+base（遅い側）、後半に-base
     half = {k: variant[k[0]] + (base if k[1] else -base)
                + (v - variant[k[0]]) * DRIFT_SHRINK
             for k, v in raw_half.items()}

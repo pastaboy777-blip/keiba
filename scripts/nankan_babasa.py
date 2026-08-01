@@ -158,7 +158,8 @@ def main():
     raw_half = {k: st.median(v) for k, v in byhalf.items() if len(v) >= 4}
     # 全日共通の傾き（前半は遅く・後半は速く）を必ず入れたうえで、
     # その日固有のズレだけを DRIFT_SHRINK 倍して足す。日ごとの生値は当てにならない。
-    base = DRIFT_BASE / 2 * 1000 / REF        # 1000mあたりに直す。前半は+、後半は−
+    # DRIFT_BASE は「後半−前半」なので負＝後半が速い。前半には遅い側(+)、後半には速い側(-)を当てる。
+    base = -DRIFT_BASE / 2 * 1000 / REF       # 1000mあたりに直した半分。前半は+base、後半は-base
     half = {k: variant[k[0]] + (base if k[1] else -base)
                + (v - variant[k[0]]) * DRIFT_SHRINK
             for k, v in raw_half.items()}
