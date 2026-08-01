@@ -16,8 +16,17 @@
 
   濃さ     … テン3F差 ＋ 上がり差（どちらも同条件の中央値との差、当日馬場差を補正後）
              **マイナスほど濃い。**
-  時計レベル … 勝ちタイムが標準（par_win）＋当日馬場差より何秒速いか。プラスが速い。
-             クラスを見ないので、上位に上級条件が並ぶのは当然。
+  時計レベル … 勝ちタイムが標準（par_win）より何秒速いか。**当日馬場差を差し引いた後。**
+             プラスが速い。クラスを見ないので、上位に上級条件が並ぶのは当然。
+
+             time_lv = (par − 実測s/F + 馬場差) × ハロン数
+
+⚠️ **馬場差の符号に注意。** `track_bias.offset` は `平均(実測 s/F − par)` なので
+   **時計のかかる日はプラス**。補正は「実測 − par − 馬場差」と**引く**のが正しい。
+   最初これを足してしまい、重馬場の日（2026-07-03 船橋・馬場差+0.27 s/F）が
+   **全12レース D/E、完全タイム差の中央値が +3.5秒**という、補正した後とは
+   思えない表になった。補正後は**その日の中央値が0付近**になるのが正しい。
+   日ごとの中央値を見れば必ず気づけるので、疑わしいときはそこを見ること。
   格       … 出走馬の「そのレースより前の1着経験率」の中央値（`race_level`）。
              メンバーが揃っていたか。
 
@@ -192,7 +201,7 @@ def scan(cache: str | None = None, *, month: str = "",
             ag_d=round(ag_d, 2) if ag_d is not None else None,
             thick=(round(ten_d + ag_d, 2)
                    if (ten_d is not None and ag_d is not None) else None),
-            time_lv=(round((par - sf - b) * (di / 200.0), 2) if par else None),
+            time_lv=(round((par - sf + b) * (di / 200.0), 2) if par else None),
             grade=lv.grade if lv else None,
             pace=la.pace, finish_bias=la.bias, lap=la.lap_curve(),
             best_agari=bestag,

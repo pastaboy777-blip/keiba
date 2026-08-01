@@ -135,3 +135,48 @@ class TestBiasNameCollision(unittest.TestCase):
         c = Counter(r.finish_bias for r in rs if r.finish_bias)
         self.assertEqual(c, {"前残り": 2, "差し": 1})
         self.assertTrue(all(isinstance(k, str) for k in c))
+
+
+class TestTimeLevelSign(unittest.TestCase):
+    """⚠️ 当日馬場差の符号。補正後はその日の中央値が0付近になるのが正しい。
+
+    `track_bias.offset` は 平均(実測 s/F − par) なので**時計のかかる日はプラス**。
+    「実測 − par − 馬場差」と引くべきところを足してしまい、2026-07-03 船橋
+    （馬場差 +0.27 s/F）が全12レース D/E・完全タイム差の中央値 +3.5秒という
+    補正後とは思えない表になった。
+    """
+
+    def _day(self, par, off, dist=1200, n=12):
+        """par から一律 off だけ遅い日を作る（＝馬場差 off の日）。"""
+        f = dist / 200.0
+        return [dict(race_no=i, place="船橋", distance=dist,
+                     win_time=(par + off) * f) for i in range(1, n + 1)]
+
+    def test_offset_is_positive_on_a_slow_day(self):
+        from nankeiba.core import track_bias
+        tb = track_bias.measure(self._day(12.5, +0.27),
+                                table={"船橋|1200": 12.5})
+        self.assertAlmostEqual(tb.offset, 0.27, places=2)
+
+    def test_corrected_time_is_zero_on_a_uniform_day(self):
+        """一律に遅い日なら、馬場差を引いた完全タイム差は0になる。"""
+        par, off, dist = 12.5, 0.27, 1200
+        f = dist / 200.0
+        sf = par + off
+        time_lv = (par - sf + off) * f          # 実装と同じ式
+        self.assertAlmostEqual(time_lv, 0.0, places=6)
+
+    def test_wrong_sign_would_double_the_error(self):
+        """足してしまうと誤差が2倍になる（当時の症状の再現）。"""
+        par, off, dist = 12.5, 0.27, 1200
+        f = dist / 200.0
+        sf = par + off
+        wrong = -(par - sf - off) * f           # 旧実装の完全タイム差
+        self.assertAlmostEqual(wrong, 2 * off * f, places=6)
+        self.assertGreater(wrong, 3.0, "1200mで+3秒超＝表の症状")
+
+    def test_a_genuinely_fast_race_still_scores_positive(self):
+        par, off, dist = 12.5, 0.27, 1200
+        f = dist / 200.0
+        sf = par + off - 0.5                    # その日の中でさらに0.5s/F速い
+        self.assertAlmostEqual((par - sf + off) * f, 0.5 * f, places=6)
