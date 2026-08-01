@@ -57,6 +57,23 @@ def rband(rn):
     return "1-4R" if rn <= 4 else ("5-8R" if rn <= 8 else "9-12R")
 
 
+def klass(fn):
+    """レース名からクラスを取る。data_intro の <h1> に入っている。
+    平場は名前そのもの（例 C3三）、特別戦は括弧（例 桑島孝春記念(A2B1)）。
+    ※<title> にはこの括弧が入らないので、h1 を見ること。"""
+    t = open(fn, "rb").read().decode("euc-jp", errors="replace")
+    m = re.search(r'class="data_intro".*?<h1>(.*?)</h1>', t, re.S)
+    if not m:
+        return None, None
+    nm = re.sub(r"<!--.*?-->", "", m.group(1), flags=re.S)
+    nm = re.sub(r"<[^>]+>", "", nm).strip()
+    k = re.search(r"([ABC])\s?([1-4])", nm)
+    if k:
+        return nm, k.group(1) + k.group(2)
+    a = re.search(r"([23]歳)", nm)
+    return nm, (a.group(1) if a else None)
+
+
 def collect(place, dfrom, dto):
     out = []
     for fn in sorted(glob.glob(os.path.join(h2h.CACHE, "2026*.html"))):
@@ -73,8 +90,45 @@ def collect(place, dfrom, dto):
         if not w or w["t"] is None:
             continue
         p["wt"] = w["t"]; p["winner"] = w["name"]; p["wnin"] = w["ninki"]
+        p["rname"], p["klass"] = klass(fn)
         out.append(p)
     return out
+
+
+
+def _fit_par(R):
+    """基準タイムを (場, 距離, クラス) で作る。クラスが読めない場合だけR帯で代用し、
+    その馬は par_ok=False にして『標準タイムが当たっていない』と分かるようにする。"""
+    g = defaultdict(list)
+    for r in R:
+        if r["klass"]:
+            g[(r["place"], r["dist"], r["klass"])].append(r["wt"])
+    par = {k: st.median(v) for k, v in g.items() if len(v) >= 3}
+    gb = defaultdict(list)
+    for r in R:
+        gb[(r["place"], r["dist"], rband(r["rn"]))].append(r["wt"])
+    parb = {k: st.median(v) for k, v in gb.items() if len(v) >= 3}
+    for r in R:
+        p = par.get((r["place"], r["dist"], r["klass"])) if r["klass"] else None
+        r["par_ok"] = p is not None
+        if p is None:
+            p = parb.get((r["place"], r["dist"], rband(r["rn"])))
+        r["sa"] = round(r["wt"] - p, 2) if p else None
+
+
+def _fit_basa(byday):
+    """馬場差は【1000mあたりの秒】で持ち、距離に比例して効かせる。
+    完タイム差 = タイム差 − 馬場差 × 距離/1000
+    （距離が延びるほど馬場の影響は積み上がるので、一律に引くのは誤り）"""
+    for k, rs in byday.items():
+        v = [x["sa"] / (x["dist"] / 1000.0) for x in rs
+             if x["sa"] is not None and x.get("par_ok")]
+        if len(v) < 4:                                  # 信用できる基準が少ない日は全部使う
+            v = [x["sa"] / (x["dist"] / 1000.0) for x in rs if x["sa"] is not None]
+        bs = round(st.median(v), 2) if v else 0.0
+        for x in rs:
+            x["basa"] = bs
+            x["kt"] = round(x["sa"] - bs * (x["dist"] / 1000.0), 2)
 
 
 def main():
@@ -94,19 +148,13 @@ def main():
     if not R:
         raise SystemExit("該当レースがキャッシュにない")
 
-    # 基準タイム：場×距離×R帯 の勝ちタイム中央値
-    grp = defaultdict(list)
-    for r in R:
-        grp[(r["place"], r["dist"], rband(r["rn"]))].append(r["wt"])
-    par = {k: st.median(v) for k, v in grp.items() if len(v) >= 3}
-    for r in R:
-        p = par.get((r["place"], r["dist"], rband(r["rn"])))
-        r["sa"] = round(r["wt"] - p, 1) if p else None
+    _fit_par(R)
 
     byday = defaultdict(list)
     for r in R:
         if r["sa"] is not None:
             byday[(r["date"], r["place"])].append(r)
+    _fit_basa(byday)
 
     print(f"■ 馬場差  {args.place or '南関全場'}  {args.dfrom}〜{args.dto}")
     print(f"  対象{len(R)}レース／基準が作れた条件 {len(par)}通り")
@@ -115,9 +163,7 @@ def main():
     days = []
     for k in sorted(byday):
         rs = byday[k]
-        bs = round(st.median(x["sa"] for x in rs), 1)
-        for x in rs:
-            x["kt"] = round(x["sa"] - bs, 1)          # 完全タイム差
+        bs = rs[0]["basa"]
         from collections import Counter
         baba = Counter(x["baba"] for x in rs).most_common(1)[0][0]
         best = min(rs, key=lambda z: z["kt"])
@@ -155,35 +201,28 @@ def main():
 # ── トラックマンTV形式の一覧（別エントリ） ─────────────────────────
 def trackman(place, dfrom, dto):
     """グリーンチャンネル トラックマンTVの『ダートのタイム比較』と同じ形で出す。
-    列＝レース／距離／優勝馬／2着／条件／走破タイム／タイム差／完全タイム差／レベル(タイム・メンバー)
-    末尾に その日の馬場差。
+
+    完タイム差 = タイム差 − (その日の馬場差 × 距離/1000)
+      馬場差は各日の全12レースから実測した1つの数字で、距離に比例して効かせる。
+    時計   = 完タイム差の分位（A=上位10%）
+    メンバー = そのレースで4着以下だった馬のその後の成績（A=上位10%）
+      ※この2つは別物として持つ。時計が速くてもメンバーが薄い日はある。
     """
-    import json
     from collections import Counter
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from race_level import add_elo, load_races, next_form
 
     R = collect(place, dfrom, dto)
-    # 基準は年間ぶんで作る（期間を絞ると基準が痩せるため）
-    ALL = collect(place, "2026-01-01", "2026-12-31")
-    grp = defaultdict(list)
-    for r in ALL:
-        grp[(r["place"], r["dist"], rband(r["rn"]))].append(r["wt"])
-    par = {k: st.median(v) for k, v in grp.items() if len(v) >= 3}
-    for r in ALL:
-        p = par.get((r["place"], r["dist"], rband(r["rn"])))
-        r["sa"] = round(r["wt"] - p, 1) if p else None
+    ALL = collect(place, "2026-01-01", "2026-12-31")     # 基準は年間ぶんで作る
+    _fit_par(ALL)
     byday_all = defaultdict(list)
     for r in ALL:
         if r["sa"] is not None:
             byday_all[(r["date"], r["place"])].append(r)
-    for k, rs in byday_all.items():
-        bs = round(st.median(x["sa"] for x in rs), 1)
-        for x in rs:
-            x["basa"] = bs
-            x["kt"] = round(x["sa"] - bs, 1)
+    _fit_basa(byday_all)
 
     kts = sorted(x["kt"] for rs in byday_all.values() for x in rs)
+
     def grade(v, arr, rev=False):
         import bisect
         q = bisect.bisect_left(arr, v) / len(arr)
@@ -193,7 +232,7 @@ def trackman(place, dfrom, dto):
 
     lv = load_races(); next_form(lv); add_elo(lv)
     mem = {(r["date"], r["place"], r["rn"]): r for r in lv}
-    rates = sorted((r["nx_win"] / r["nx_n"]) for r in lv if r["nx_n"] >= 5)
+    lrates = sorted((r["lo_win"] / r["lo_n"]) for r in lv if r["lo_n"] >= 4)
 
     days = sorted({(r["date"], r["place"]) for r in R})
     for k in days:
@@ -201,24 +240,29 @@ def trackman(place, dfrom, dto):
         if not rs:
             continue
         baba = Counter(x["baba"] for x in rs).most_common(1)[0][0]
-        print(f"\n■ {k[1]} {k[0]}（{baba}）  ダートのタイム比較")
-        print(f"  {'R':>3}{'距離':>6} {'優勝馬':<15}{'2着':<15}{'条件':<12}"
-              f"{'走破ﾀｲﾑ':>9}{'ﾀｲﾑ差':>7}{'完全ﾀｲﾑ差':>10}  ﾚﾍﾞﾙ(時/員)")
+        bs = rs[0]["basa"]
+        tag = "速い" if bs <= -0.25 else ("重い" if bs >= 0.25 else "標準")
+        print(f"\n■ {k[1]} {k[0]}（発表{baba}）   馬場差 {bs:+.2f}秒/1000m  {tag}")
+        print(f"  {'R':>3}{'距離':>6} {'優勝馬':<15}{'条件':<5}{'ﾀｲﾑ差':>7}{'完ﾀｲﾑ差':>9}  {'時計':<4}{'ﾒﾝﾊﾞｰ':<5} 2着")
         for x in rs:
             w = next((h for h in x["rows"] if h["chaku"] == 1), None)
             s2 = next((h for h in x["rows"] if h["chaku"] == 2), None)
             m = mem.get((x["date"], x["place"], x["rn"]))
-            mg = "—"
-            if m and m["nx_n"] >= 5:
-                mg = grade(m["nx_win"] / m["nx_n"], rates, rev=True)
-            mm, ss = divmod(x["wt"], 60)
-            tm = f"{int(mm)}:{ss:04.1f}" if mm else f"{ss:.1f}"
+            mg = "-"
+            if m and m["lo_n"] >= 4:
+                mg = grade(m["lo_win"] / m["lo_n"], lrates, rev=True)
+            mark = "" if x["par_ok"] else " ※"
             print(f"  {x['rn']:>3}{x['dist']:>6} {(w['name'] if w else '?'):<15}"
-                  f"{(s2['name'] if s2 else '-'):<15}{'':<12}{tm:>9}{x['sa']:>+7.1f}"
-                  f"{x['kt']:>+10.1f}   {grade(x['kt'], kts)} / {mg}")
-        print(f"  {'':>3}{'':>6} {'':<15}{'':<15}{'':<12}{'馬場差':>9}{rs[0]['basa']:>+7.1f}")
-    print("\n  レベル：完全タイム差の速い順に A(上位10%) B(30%) C(70%) D(90%) E。")
-    print("  メンバー：そのレースの出走馬の次走勝率で同じくA〜E（race_level.py と同じ指標）。")
+                  f"{(x['klass'] or '?'):<5}{x['sa']:>+7.2f}{x['kt']:>+9.2f}  "
+                  f"{grade(x['kt'], kts):<4}{mg:<5} {(s2['name'] if s2 else '-')}{mark}")
+    ng = [x for rs in byday_all.values() for x in rs
+          if not x["par_ok"] and (x["date"], x["place"]) in set(days)]
+    print("\n  ※＝条件が読めておらず標準タイムが当たっていない。その完ﾀｲﾑ差と時計評価は信用しない。")
+    if ng:
+        print("    該当：" + "／".join(f"{x['date']} {x['rn']}R {x['rname'] or ''}" for x in ng))
+    print("  メンバー欄の「-」は4着以下の後続が4頭に満たず判定不能。時間が経つほど埋まる。")
+    print("  発表馬場と馬場差は対応しない。半端に濡れた砂は重くなり、飽和して初めて速くなる。")
+
 
 
 if __name__ == "__main__":
