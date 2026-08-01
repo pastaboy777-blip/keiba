@@ -64,6 +64,7 @@ def main():
     ap.add_argument("--days", nargs="+", required=True, help="表にする開催日")
     ap.add_argument("--std-from", default="2026-05-01", help="標準タイムを作る期間の開始")
     ap.add_argument("--level-from", default="2026-01-01", help="メンバーレベル収集の開始")
+    ap.add_argument("--tsv", help="画像化などに使うTSVの書き出し先。桁揃えで馬名が切れないよう生値で出す")
     args = ap.parse_args()
 
     client = PoliteClient(use_cache=True)
@@ -130,6 +131,21 @@ def main():
     g0 = sum(v[0] for v in raw.values()) / sum(v[1] for v in raw.values())
     lv = {rid: (t + 8 * g0) / (c + 8) for rid, (t, c) in raw.items()}
     mu, sd = st.mean(lv.values()), st.pstdev(lv.values())
+
+    if args.tsv:
+        # 表示用の桁揃えは全角を2文字幅で切るため馬名が途切れる。加工用には生値を渡す。
+        with open(args.tsv, "w") as f:
+            for d in targets:
+                v = variant.get(d)
+                for r in sorted([x for x in rec if x["d"] == d and x.get("kan") is not None],
+                                key=lambda x: x["rno"]):
+                    z = (lv[r["rid"]] - mu) / sd if r["rid"] in lv and sd else None
+                    f.write("\t".join(str(x) for x in [
+                        d, r["baba"] or "?", f"{v * REF / 1000:+.2f}", r["rno"], r["dist"],
+                        r["win"], r["second"], r["g"], f"{r['t']:.1f}",
+                        f"{r['diff']:+.2f}", f"{r['kan']:+.2f}", band(r["kan"], q),
+                        band(-z, (-1.5, -0.5, 0.5, 1.5)) if z is not None else "-"]) + "\n")
+        print(f"TSV → {args.tsv}")
 
     for d in targets:
         day = sorted([r for r in rec if r["d"] == d and r.get("kan") is not None],
