@@ -61,11 +61,14 @@ def result(rid):
             yen = [int(x.replace(",", "").replace("円", "")) for x in
                    td[1].get_text("|", strip=True).split("|")]
             fuku = {int(n): y for n, y in zip(nums, yen) if n.isdigit()}
+    if not fuku:
+        return []                                       # 払戻が出ていない＝未確定
     out = []
     for tr in s.select("tr.HorseList"):
+        # 末尾にラップ分析やコーナー通過の行が同じクラスで混ざる。着順が数字の行だけ拾う。
         td = [x.get_text(" ", strip=True) for x in tr.find_all("td")]
         if len(td) < 12 or not td[0].isdigit() or not td[2].isdigit():
-            return []                                   # 1頭でも未確定なら日ごと捨てる
+            continue
         um = int(td[2])
         out.append(dict(fin=int(td[0]), umaban=um, name=td[3],
                         pop=int(td[9]) if td[9].isdigit() else None,
@@ -114,6 +117,8 @@ def main():
     args = ap.parse_args()
 
     rank = defaultdict(lambda: [0, 0, 0, 0.0, 0.0])     # 出走,1着,3着内,単払戻,複払戻
+    hrank = defaultdict(lambda: [0, 0, 0, 0.0, 0.0])    # (ハンデ/定量, 指標, 順位) 別
+    nr_by_hcp = defaultdict(int)
     pops = defaultdict(lambda: [0, 0, 0, 0.0, 0.0])
     ana = [0, 0, 0, 0.0, 0.0]
     ana_rows, baba_split = [], defaultdict(lambda: [0, 0, 0, 0.0])
@@ -137,6 +142,10 @@ def main():
             if len(hs) < 6:
                 continue
             nrace += 1
+            # ハンデ戦は「過去の実績を斤量で相殺する」競走なので、斤量を見ない指数が
+            # 効かないはず。定量戦と分けて測る。
+            hcp = "ハンデ" if "ハンデ" in r["data2"] else "定量"
+            nr_by_hcp[hcp] += 1
 
             def tally(d, x):
                 d[0] += 1
@@ -152,6 +161,7 @@ def main():
                                              key=lambda x: -x["cond"]))):
                 for i, x in enumerate(lst[:5], 1):
                     tally(rank[(key, i)], x)
+                    tally(hrank[(hcp, key, i)], x)
             for x in hs:
                 if x["r"]["pop"] and x["r"]["pop"] <= 5:
                     tally(pops[x["r"]["pop"]], x)
@@ -202,6 +212,13 @@ def main():
         show(f"{p}人気", pops[p])
     print("-- ズブ穴フィルタ通過馬")
     show("ズブ穴", ana)
+
+    print("\n■ ハンデ戦 vs 定量戦（斤量を見ない指数が効くのはどちらか）")
+    for hcp in ("定量", "ハンデ"):
+        print(f"-- {hcp}  {nr_by_hcp[hcp]}レース")
+        for key, lab in (("top2", "上位2走"), ("cond", "該当条件")):
+            for i in (1, 2, 3):
+                show(f"{lab}{i}位", hrank[(hcp, key, i)])
 
     print("\n■ 仮説C：該当条件指数を稼いだ走りの馬場別（条件1位の馬だけ）")
     print(f"  {'':<6} {'頭数':>5} {'勝率':>7} {'複勝率':>7} {'単回収':>8}")
