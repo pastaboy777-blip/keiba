@@ -226,12 +226,30 @@ class TestGates(unittest.TestCase):
         self.assertAlmostEqual(
             c.cond_idx + ja.W_ANA * c.ana_wins + ja.W_POP * c.market, 3.40, places=2)
 
-    def test_market_prefers_today_over_recent(self):
+    def test_market_prefers_today_then_odds_then_recent(self):
         runs = [run("2026-03-01", "中京", "ダ", 1400, pop=9),
                 run("2026-02-01", "中京", "ダ", 1400, pop=9)]
-        self.assertEqual(ja._market({"popularity": 3}, runs), (3.0, "当日人気"))
-        self.assertEqual(ja._market({}, runs), (9.0, "近2走人気"))
-        self.assertEqual(ja._market({}, [])[0], None)
+        ents = [{"umaban": 1, "popularity": 3, "odds": 99.0, "runs": runs},
+                {"umaban": 2, "odds": 4.5, "runs": runs},
+                {"umaban": 3, "odds": 12.0, "runs": runs},
+                {"umaban": 4, "runs": runs},
+                {"umaban": 5, "runs": []}]
+        m = ja.market_of(ents)
+        self.assertEqual(m[1], (3.0, "当日人気"))
+        self.assertEqual(m[2], (1.0, "オッズ順"))      # 4.5 が最低オッズ
+        self.assertEqual(m[3], (2.0, "オッズ順"))
+        self.assertEqual(m[4], (9.0, "近2走人気"))
+        self.assertEqual(m[5], (None, "-"))
+
+    def test_odds_rank_ignores_horses_without_odds(self):
+        """オッズの無い馬（取消など）は順位に混ぜない。"""
+        ents = [{"umaban": 1, "odds": None, "runs": []},
+                {"umaban": 2, "odds": 3.0, "runs": []},
+                {"umaban": 3, "odds": 8.0, "runs": []}]
+        m = ja.market_of(ents)
+        self.assertEqual(m[2][0], 1.0)
+        self.assertEqual(m[3][0], 2.0)
+        self.assertIsNone(m[1][0])
 
     def test_ana_wins_counts_longshot_placings_only(self):
         runs = [run("2026-03-01", "中京", "ダ", 1400, finish=2, pop=8),   # ○
@@ -444,3 +462,29 @@ class TestBasis(unittest.TestCase):
         self.assertNotEqual(a, b)
         # 着差0.3秒ぶんだけ self のほうが低く出る
         self.assertAlmostEqual(b[1] - a[1], 0.3, places=6)
+
+
+class TestVerifyNameJoin(unittest.TestCase):
+    """⚠️ 出馬表の (外)(地) 接頭辞で名寄せが静かに落ちる回帰のテスト。"""
+
+    def setUp(self):
+        import importlib.util
+        path = os.path.join(os.path.dirname(__file__), "..", "scripts", "jra_verify.py")
+        spec = importlib.util.spec_from_file_location("jra_verify", path)
+        self.mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.mod)
+
+    def test_strips_origin_prefix(self):
+        n = self.mod.norm_name
+        self.assertEqual(n("(外)パーシャングレー"), "パーシャングレー")
+        self.assertEqual(n("（地）サトノドルチェ"), "サトノドルチェ")
+        self.assertEqual(n("パーシャングレー"), "パーシャングレー")
+
+    def test_leaves_normal_names_alone(self):
+        n = self.mod.norm_name
+        self.assertEqual(n("ハヤテノオジョー"), "ハヤテノオジョー")
+        self.assertEqual(n(" タイキインドラ "), "タイキインドラ")
+
+    def test_entry_and_result_forms_join(self):
+        n = self.mod.norm_name
+        self.assertEqual(n("(外)パーシャングレー"), n("パーシャングレー"))

@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import csv
 import os
+import re
 import sys
 from collections import defaultdict
 
@@ -68,6 +69,17 @@ def read_log(path: str, date: str | None, *, latest_only: bool = True):
     return [r for _, r in raw]
 
 
+def norm_name(s: str) -> str:
+    """馬名を突合用に正規化する。
+
+    ⚠️ 出馬表は外国産・地方所属に **(外) (地) (市) (父) などの接頭辞**が付くが、
+       結果ページには付かない（しかもレース確定後は出馬表側からも消える）。
+       素の文字列で突き合わせると、その馬だけ静かに未照合になる。
+       2026-08-01 で「(外)パーシャングレー」「(地)サトノドルチェ」が該当した。
+    """
+    return re.sub(r"^[（(][^）)]{1,3}[）)]", "", (s or "").strip()).replace("　", "")
+
+
 def pct(a, b):
     return f"{a}/{b} = {a / b:.0%}" if b else f"{a}/{b} = -"
 
@@ -109,12 +121,13 @@ def main() -> None:
                 continue
             done.add((p, str(rno)))
             for x in res:
-                fin[(p, str(rno), x["name"])] = x["finish"]
-                pops[(p, str(rno), x["name"])] = x.get("popularity")
+                fin[(p, str(rno), norm_name(x["name"]))] = x["finish"]
+                pops[(p, str(rno), norm_name(x["name"]))] = x.get("popularity")
 
     for r in rows:
-        r["着順"] = fin.get((r["場"], r["R"], r["馬名"]))
-        r["確定人気"] = pops.get((r["場"], r["R"], r["馬名"]))
+        key = (r["場"], r["R"], norm_name(r["馬名"]))
+        r["着順"] = fin.get(key)
+        r["確定人気"] = pops.get(key)
 
     live = [r for r in rows if r["着順"]]
     未 = [r for r in rows if not r["着順"] and (r["場"], r["R"]) not in done]

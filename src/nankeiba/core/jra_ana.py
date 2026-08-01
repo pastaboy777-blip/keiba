@@ -402,17 +402,37 @@ def _ana_wins(runs, *, ana_pop: int = ANA_POP) -> int:
                and r.finish_pos and r.finish_pos <= 3)
 
 
-def _market(entry: dict, runs, *, recent: int = 3) -> tuple[float | None, str]:
-    """市場側。当日の人気があればそれを、無ければ近走の平均人気で代用する。
+def market_of(entries: list[dict], *, recent: int = 3) -> dict:
+    """市場側を出走馬ぜんぶまとめて作る。良い順に3段構え。
 
-    ⚠️ 代用はあくまで代用。**当日オッズが出ているならそちらが正しい**。
+      1. 当日の人気（出馬表の「人気」欄）
+      2. **単勝オッズの昇順順位** … 人気欄がまだ空でもオッズは先に入る。
+         前日夕方の時点だと新潟・中京は人気欄が空でオッズだけ、という状態に
+         なる（2026-08-02 の前日17時で実測）。オッズがあるなら順位は自分で
+         作れるので、近走人気で代用する必要はない。
+      3. 近走の平均人気 … オッズも無いとき（発売前）だけの最後の手段。
+
+    ⚠️ 代用（3）は市場を見ていないのと同じ。どれを使ったかは必ず表示する。
+    ⚠️ **レース確定後に取ると「確定人気」になる。** 事前予想として記録したい
+       なら発走前に取ること。時計側は当日の行を落としてあるので汚れないが、
+       市場側は取得時刻がそのまま結果に効く。
+
+    return: {馬番: (値, 由来)}
     """
-    if entry.get("popularity"):
-        return float(entry["popularity"]), "当日人気"
-    ps = [r.popularity for r in runs[:recent] if r.popularity]
-    if ps:
-        return round(mean(ps), 1), f"近{len(ps)}走人気"
-    return None, "-"
+    out = {}
+    pri = [e for e in entries if e.get("odds")]
+    rank = {e["umaban"]: i for i, e in enumerate(
+        sorted(pri, key=lambda e: e["odds"]), 1)}
+    for e in entries:
+        um = e["umaban"]
+        if e.get("popularity"):
+            out[um] = (float(e["popularity"]), "当日人気")
+        elif um in rank:
+            out[um] = (float(rank[um]), "オッズ順")
+        else:
+            ps = [r.popularity for r in e.get("runs", [])[:recent] if r.popularity]
+            out[um] = ((round(mean(ps), 1), f"近{len(ps)}走人気") if ps else (None, "-"))
+    return out
 
 
 def evaluate(entries: list[dict], surface: str, *,
@@ -434,6 +454,7 @@ def evaluate(entries: list[dict], surface: str, *,
     if model is None:
         return [], None
 
+    mkt = market_of(entries)
     cands: list[Cand] = []
     for e in entries:
         runs = before_date(e.get("runs", []), before)
@@ -443,7 +464,7 @@ def evaluate(entries: list[dict], surface: str, *,
         cond = [(i, v) for i, (r, v) in enumerate(vals)
                 if norm_surface(r.surface) == surface]
         allv = [v for _, v in vals]
-        mk, src = _market(e, runs)
+        mk, src = mkt.get(e["umaban"], (None, "-"))
         best = sorted(cond, key=lambda iv: -iv[1])[:top_k]
         cands.append(Cand(
             umaban=e["umaban"], name=e.get("name", ""),
