@@ -96,24 +96,50 @@ def collect(place, dfrom, dto):
 
 
 
-def _fit_par(R):
-    """基準タイムを (場, 距離, クラス) で作る。クラスが読めない場合だけR帯で代用し、
-    その馬は par_ok=False にして『標準タイムが当たっていない』と分かるようにする。"""
-    g = defaultdict(list)
+def _fit_par(R, verbose=False):
+    """基準タイムを最小二乗で推定する。
+
+        勝ちタイム ≒ base[(場, 距離)] + κ[クラス] × (距離/1000)
+
+    クラスを距離あたりの係数として持つのが要点。こうするとA2の1700mが
+    年間3レースしかなくても、全距離のA2からκが決まる。
+    （場×距離×クラスの中央値だと母数が割れて基準が作れない条件が残る）
+
+    馬場状態は入れない。その日の速さは馬場差として別に持つため
+    （＝parは日をまたいだ共通の物差しでよい）。
+
+    クラスが読めなかったレースは専用の水準に落とし、par_ok=False を立てて
+    「標準タイムが当たっていない」と分かるようにする。
+    """
+    import numpy as np
+    rs = [r for r in R if r["wt"] and r["dist"]]
+    gs = sorted({(r["place"], r["dist"]) for r in rs})
+    ks = sorted({(r["klass"] or "?") for r in rs})
+    gi = {g: i for i, g in enumerate(gs)}
+    ki = {k: i for i, k in enumerate(ks)}
+    X = np.zeros((len(rs), len(gs) + len(ks)))
+    y = np.array([r["wt"] for r in rs])
+    for i, r in enumerate(rs):
+        X[i, gi[(r["place"], r["dist"])]] = 1
+        X[i, len(gs) + ki[r["klass"] or "?"]] = r["dist"] / 1000.0
+    I = np.eye(X.shape[1]); I[:len(gs), :len(gs)] = 0        # クラス側だけ縮める
+    beta = np.linalg.solve(X.T @ X + I, X.T @ y)
+    resid = float(np.std(y - X @ beta))
+    if verbose:
+        c0 = beta[len(gs) + ki.get("C3", 0)]
+        print(f"  基準の推定：{len(rs)}レース／残差SD {resid:.2f}秒")
+        print("  クラス係数（秒/1000m・C3を0とした差／小さいほど速い）")
+        for k in ks:
+            print(f"    {k:<4}{beta[len(gs)+ki[k]] - c0:+6.2f}", end="")
+        print()
     for r in R:
-        if r["klass"]:
-            g[(r["place"], r["dist"], r["klass"])].append(r["wt"])
-    par = {k: st.median(v) for k, v in g.items() if len(v) >= 3}
-    gb = defaultdict(list)
-    for r in R:
-        gb[(r["place"], r["dist"], rband(r["rn"]))].append(r["wt"])
-    parb = {k: st.median(v) for k, v in gb.items() if len(v) >= 3}
-    for r in R:
-        p = par.get((r["place"], r["dist"], r["klass"])) if r["klass"] else None
-        r["par_ok"] = p is not None
-        if p is None:
-            p = parb.get((r["place"], r["dist"], rband(r["rn"])))
-        r["sa"] = round(r["wt"] - p, 2) if p else None
+        g = gi.get((r["place"], r["dist"]))
+        k = r["klass"] or "?"
+        if g is None or k not in ki:
+            r["par_ok"] = False; r["sa"] = None; continue
+        par = beta[g] + beta[len(gs) + ki[k]] * (r["dist"] / 1000.0)
+        r["par_ok"] = bool(r["klass"])
+        r["sa"] = round(r["wt"] - par, 2)
 
 
 def _fit_basa(byday):
@@ -147,7 +173,7 @@ def main():
     R = collect(args.place, args.dfrom, args.dto)
     if not R:
         raise SystemExit("該当レースがキャッシュにない")
-
+    _fit_par(collect(None, "2026-01-01", "2026-12-31"), verbose=True)
     _fit_par(R)
 
     byday = defaultdict(list)
@@ -213,15 +239,17 @@ def trackman(place, dfrom, dto):
     from race_level import add_elo, load_races, next_form
 
     R = collect(place, dfrom, dto)
-    ALL = collect(place, "2026-01-01", "2026-12-31")     # 基準は年間ぶんで作る
-    _fit_par(ALL)
+    ALL = collect(None, "2026-01-01", "2026-12-31")      # 基準は南関全場・年間で作る
+    _fit_par(ALL, verbose=True)
     byday_all = defaultdict(list)
     for r in ALL:
         if r["sa"] is not None:
             byday_all[(r["date"], r["place"])].append(r)
     _fit_basa(byday_all)
 
-    kts = sorted(x["kt"] for rs in byday_all.values() for x in rs)
+    # 分位は同じ場の中で取る（場が違えば時計の出方も違うため）
+    kts = sorted(x["kt"] for rs in byday_all.values() for x in rs
+                 if not place or x["place"] == place)
 
     def grade(v, arr, rev=False):
         import bisect
