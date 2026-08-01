@@ -389,3 +389,58 @@ class TestAgeCond(unittest.TestCase):
         m = ja.TimeModel.fit(TestTimeModel()._runs())
         self.assertIn("2歳戦", m.names)
         self.assertIn("3歳限定", m.names)
+
+
+class TestBasis(unittest.TestCase):
+    """⚠️ レースの勝ち時計だけだと順位付けの力がほぼ無い（実測 +0.095）。
+
+    自分の走破タイム（レースの速さ − 着差）を土台にすると +0.319 になった。
+    着差は着順ではなく**時計の差**なので、オッズを見ない原則は保たれている。
+    """
+
+    def _model(self):
+        return ja.TimeModel.fit(TestTimeModel()._runs())
+
+    def test_race_basis_ignores_the_margin(self):
+        m = self._model()
+        t = TestTimeModel()._truth("ダ", 1400, "良")
+        won = run("2026-03-01", "中京", "ダ", 1400, finish=1, margin=0.0, time=t)
+        lost = run("2026-03-01", "中京", "ダ", 1400, finish=9, margin=3.0, time=t + 3.0)
+        self.assertAlmostEqual(m.fast(won), m.fast(lost), places=6)
+
+    def test_self_basis_separates_them(self):
+        m = self._model()
+        t = TestTimeModel()._truth("ダ", 1400, "良")
+        won = run("2026-03-01", "中京", "ダ", 1400, finish=1, margin=0.0, time=t)
+        lost = run("2026-03-01", "中京", "ダ", 1400, finish=9, margin=3.0, time=t + 3.0)
+        self.assertAlmostEqual(m.fast_self(won) - m.fast_self(lost), 3.0, places=6)
+
+    def test_a_beaten_horse_in_a_fast_race_still_scores_well(self):
+        """5馬身離されても、レースが速ければ良い数字になる（着順では切らない）。"""
+        m = self._model()
+        t = TestTimeModel()._truth("ダ", 1400, "良")
+        beaten_in_fast = run("2026-03-01", "中京", "ダ", 1400, finish=8,
+                             margin=1.0, time=t - 3.0 + 1.0)
+        won_slow = run("2026-03-01", "中京", "ダ", 1400, finish=1, margin=0.0, time=t)
+        self.assertGreater(m.fast_self(beaten_in_fast), m.fast_self(won_slow))
+
+    def test_margin_weight_interpolates(self):
+        m = self._model()
+        t = TestTimeModel()._truth("ダ", 1400, "良")
+        r = run("2026-03-01", "中京", "ダ", 1400, finish=5, margin=2.0, time=t + 2.0)
+        self.assertAlmostEqual(m.fast_self(r, 0.5) - m.fast_self(r, 1.0), 1.0, places=6)
+
+    def test_missing_margin_falls_out(self):
+        m = self._model()
+        r = run("2026-03-01", "中京", "ダ", 1400, finish=5, margin=None, time=85.0)
+        self.assertIsNone(m.fast_self(r))
+
+    def test_evaluate_default_is_self(self):
+        base, ents = TestGates()._entries()
+        model = ja.TimeModel.fit(base + [r for e in ents for r in e["runs"]])
+        a = {c.umaban: c.cond_idx for c in ja.evaluate(ents, "ダ", model=model)[0]}
+        b = {c.umaban: c.cond_idx
+             for c in ja.evaluate(ents, "ダ", model=model, basis="race")[0]}
+        self.assertNotEqual(a, b)
+        # 着差0.3秒ぶんだけ self のほうが低く出る
+        self.assertAlmostEqual(b[1] - a[1], 0.3, places=6)

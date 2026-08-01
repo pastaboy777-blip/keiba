@@ -11,10 +11,26 @@
 
 第1段 時計指数（能力側をオッズなしで作る）
     ① 各馬の過去走から、**そのレースの勝ちタイム**を復元する（RunRecord.win_time_sec）。
-       自分の着順は使わない。10着でもレース自体が速ければ速いと判定する。
     ② 復元勝ちタイムを条件で分解する（最小二乗法）。距離・馬場種・馬場状態・
-       クラス・競馬場、そして**ペース記号 H/M/S**。
-    ③ 各走を「標準勝ち時計から何秒速いか」に換算する。プラスなら標準より速い。
+       クラス・世代・競馬場、そして**ペース記号 H/M/S**。
+    ③ 各走を「標準勝ち時計から**その馬自身が**何秒速く走ったか」に換算する
+       （＝ レースの速さ − 勝ち馬との着差）。プラスなら標準より速い。
+
+    ⚠️ 当初は「自分の着順は使わない。10着でもレースが速ければ速い」という前提で
+       レースの勝ち時計だけを見ていた（`fast()`）。**それだと順位付けの力が
+       ほぼ無い。** 2026-08-01 中央27レースの実測:
+
+           指数の作り方            レース内スピアマン  条件1位の勝率/複勝率
+           レースの勝ち時計              +0.095      15.0% / 30.0%
+           自分の走破タイム              +0.319      25.0% / 60.0%
+           着差を半分だけ                +0.222      25.0% / 50.0%
+           （参考）単なる人気             +0.504
+
+       速いレースに「出ていた」だけでは足りない。**そこで自分がどれだけの時計で
+       走ったか**が要る。着差は着順ではなく**時計の差**なので、
+       「オッズを見ない」という原則は保たれている。
+       南関のエンジンB（実測 複勝率67%）も自分の走破タイムを使っている。
+       JRA版だけがそれを捨てていた。`basis="race"` で旧挙動に戻せる。
 
 第2段 3つの門（すべて通った馬だけ候補）
     ① 条件順が上位          … 今日の条件で足りている（＝ベスト1発）
@@ -261,12 +277,40 @@ class TimeModel:
         return sum(a * v for a, v in zip(self.coef, self._row(c)))
 
     def fast(self, r: RunRecord) -> float | None:
-        """その走が **標準勝ち時計より何秒速かったか**。プラスが速い。"""
+        """**そのレース**が標準勝ち時計より何秒速かったか。プラスが速い。
+
+        レースの質そのもの。同じレースを使った馬は着順に関わらず同値になる。
+        """
         y = r.win_time_sec()
         c = Cond.of(r)
         if y is None or c is None:
             return None
         return self.predict(c) - y
+
+    def fast_self(self, r: RunRecord, margin_weight: float = 1.0) -> float | None:
+        """**その馬自身**が標準勝ち時計より何秒速く走ったか。プラスが速い。
+
+        ＝ レースの速さ − 勝ち馬との着差。**着順ではなく自分の時計**を使う。
+        5馬身離された馬でも、レースが速ければ良い数字になる。
+
+        ⚠️ 当初は「自分の着順は使わない。10着でもレースが速ければ速い」という
+           前提で `fast()` だけを使っていたが、**それだと順位付けの力がほぼ無い**。
+           2026-08-01 中央27レースの実測（同じ土俵での比較）:
+
+               指数の作り方          レース内スピアマン  条件1位の勝率/複勝率
+               レースの勝ち時計            +0.095      15.0% / 30.0%
+               自分の走破タイム            +0.319      25.0% / 60.0%
+               着差を半分だけ              +0.222      25.0% / 50.0%
+               （参考）単なる人気           +0.504
+
+           速いレースに出ていたという事実だけでは足りない。**そこで自分が
+           どれだけの時計で走ったか**が要る。南関のエンジンB（実測 複勝率67%）
+           も自分の走破タイムを使っている。JRA版だけそれを捨てていた。
+        """
+        v = self.fast(r)
+        if v is None or r.margin_sec is None:
+            return None
+        return v - r.margin_sec * margin_weight
 
     def baba_report(self) -> dict[str, float]:
         """健全性チェック用の馬場係数。
@@ -378,6 +422,7 @@ def evaluate(entries: list[dict], surface: str, *,
              ana_pop: int = ANA_POP, power: str = "median",
              top_k: int = TOP_K, min_cond_runs: int = MIN_COND_RUNS,
              min_stability: float = MIN_STABILITY, draws: int = 400,
+             basis: str = "self", margin_weight: float = 1.0,
              before: str | None = None,
              model: TimeModel | None = None) -> tuple[list[Cand], TimeModel | None]:
     """出走馬（`runs` に過去走を持つ dict のリスト）を評価して候補を返す。
@@ -392,7 +437,8 @@ def evaluate(entries: list[dict], surface: str, *,
     cands: list[Cand] = []
     for e in entries:
         runs = before_date(e.get("runs", []), before)
-        vals = [(r, model.fast(r)) for r in runs]
+        vals = [(r, (model.fast(r) if basis == "race"
+                     else model.fast_self(r, margin_weight))) for r in runs]
         vals = [(r, v) for r, v in vals if v is not None]
         cond = [(i, v) for i, (r, v) in enumerate(vals)
                 if norm_surface(r.surface) == surface]
@@ -423,8 +469,8 @@ def evaluate(entries: list[dict], surface: str, *,
     rank_by("power_idx")
 
     stab = stability(entries, surface, model=model, gate_cond=gate_cond, top_k=top_k,
-                     min_cond_runs=min_cond_runs, before=before,
-                     draws=draws) if draws else {}
+                     min_cond_runs=min_cond_runs, before=before, basis=basis,
+                     margin_weight=margin_weight, draws=draws) if draws else {}
     for c in cands:
         c.stability = stab.get(c.umaban)
         g1 = (c.cond_rank is not None and c.cond_idx is not None
@@ -441,6 +487,7 @@ def evaluate(entries: list[dict], surface: str, *,
 def stability(entries: list[dict], surface: str, *, model: TimeModel,
               gate_cond: int = GATE_COND, top_k: int = TOP_K,
               min_cond_runs: int = MIN_COND_RUNS, before: str | None = None,
+              basis: str = "self", margin_weight: float = 1.0,
               draws: int = 400, seed: int = 7) -> dict[int, float]:
     """条件順が**ノイズに耐えるか**を測る。返り値は「条件順が上位に入る確率」。
 
@@ -463,7 +510,8 @@ def stability(entries: list[dict], surface: str, *, model: TimeModel,
         for r in before_date(e.get("runs", []), before):
             if norm_surface(r.surface) != surface:
                 continue
-            v = model.fast(r)
+            v = (model.fast(r) if basis == "race"
+                 else model.fast_self(r, margin_weight))
             if v is not None:
                 vals.append(v)
         if len(vals) >= min_cond_runs:

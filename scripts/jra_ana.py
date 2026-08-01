@@ -78,6 +78,10 @@ def main() -> None:
                     help="条件指数に使う良かった走の本数（既定2。1にすると旧max相当）")
     ap.add_argument("--min-cond-runs", type=int, default=ja.MIN_COND_RUNS,
                     help="条件指数を信用するのに要る最低走数")
+    ap.add_argument("--basis", choices=("self", "race"), default="self",
+                    help="指数の土台。self=自分の走破タイム(既定) / race=レースの勝ち時計")
+    ap.add_argument("--margin-weight", type=float, default=1.0,
+                    help="着差の効かせ具合。1.0=自分の時計そのまま / 0.5=半分")
     ap.add_argument("--min-stability", type=float, default=ja.MIN_STABILITY,
                     help="残差SDのゆらぎを乗せても条件上位に残る確率の下限")
     ap.add_argument("--draws", type=int, default=400,
@@ -136,7 +140,9 @@ def main() -> None:
         sys.exit(1)
 
     print(f"=== {d} 中央 穴候補（{'・'.join(places)} / {len(races)}R） ===")
-    print(f"\n[第1段] 時計指数 … {model.n}レース分の勝ちタイムを条件分解")
+    bs = ("自分の走破タイム（レースの速さ − 着差）" if args.basis == "self"
+          else "レースの勝ち時計（自分の走りは見ない）")
+    print(f"\n[第1段] 時計指数 … {model.n}レース分の勝ちタイムを条件分解 / 土台は{bs}")
     print(f"  残差SD {model.resid_sd:.2f}秒"
           f"（{'ペース項あり' if model.use_pace else 'ペース項なし'}）"
           f" → **これより小さい条件指数の差は差と見ない**")
@@ -165,7 +171,8 @@ def main() -> None:
     kw = dict(gate_cond=args.gate_cond, gate_power=args.gate_power,
               gate_market=args.gate_market, ana_pop=args.ana_pop, power=args.power,
               top_k=args.top_k, min_cond_runs=args.min_cond_runs,
-              min_stability=args.min_stability, draws=args.draws, before=d)
+              min_stability=args.min_stability, draws=args.draws, before=d,
+              basis=args.basis, margin_weight=args.margin_weight)
     rows = []
     for pl, rno, rid, hd, ents in races:
         surf = hd["surface"]
