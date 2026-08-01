@@ -37,6 +37,8 @@ from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping.race_id import day_index_race_id, NANKAN_CODES
 from nankeiba.scraping import parser as P
 
+import statistics as st
+
 import ana399 as A
 import ana_recall as R
 
@@ -82,6 +84,10 @@ def main():
     ap.add_argument("--to", dest="d_to", required=True)
     ap.add_argument("--pop-min", type=int, default=6, help="この番人気以下だけを対象にする")
     ap.add_argument("--thr", type=float, default=40.5, help="ana399 の勝ち圏しきい値")
+    ap.add_argument("--rule", default="edge", choices=["edge", "span"],
+                    help="edge=エッジ数→399 / span=ブレ幅の小ささ→中心の速さ")
+    ap.add_argument("--max-span", type=float, default=2.0,
+                    help="span時：近5走の上がり(1400m相当)の最大−最小がこの値以下だけ候補にする")
     ap.add_argument("--out", help="1点ごとの明細を書き出す JSONL")
     args = ap.parse_args()
 
@@ -115,9 +121,27 @@ def main():
                 r_ = fin.get(e.umaban)
                 if not r_ or not r_.popularity or r_.popularity < args.pop_min:
                     continue
-                tags, _cw = R.edges_for(e, page.distance, today=d)
-                ev = A.evaluate(e, tb, args.place, pa, ba, args.thr, False)
-                cand.append((len(tags), ev["score"], e, r_))
+                if args.rule == "edge":
+                    tags, _cw = R.edges_for(e, page.distance, today=d)
+                    ev = A.evaluate(e, tb, args.place, pa, ba, args.thr, False)
+                    cand.append((len(tags), ev["score"], e, r_))
+                else:
+                    # ブレ幅＝近5走の上がりを「その場・1400m相当」に正規化した最大−最小。
+                    # 小さい＝どんな馬場でも同じ脚を使える。ただしそれだけでは
+                    # 「いつも同じくらい遅い馬」も拾ってしまうので、中心(中央値)の速さと2条件で見る。
+                    norms = []
+                    for pr in (e.recent_runs or []):
+                        n = A.norm_agari(pr.agari, pr.place, A.band(pr.distance),
+                                         args.place, pa, ba)
+                        if n is not None and len(norms) < 5:
+                            norms.append(n)
+                    if len(norms) < 3:
+                        continue
+                    span = max(norms) - min(norms)
+                    if span > args.max_span:
+                        continue
+                    # 1次キー：中心が速いほど上（符号を反転）。2次キー：ブレ幅が小さいほど上。
+                    cand.append((-st.median(norms), -span, e, r_))
             # 並べ方に意味があるかは「対象全頭を平等に買った場合」と比べないと分からない。
             for _n, _sc, e, r_ in cand:
                 base[0] += 1
