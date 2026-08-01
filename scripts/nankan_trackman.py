@@ -4,6 +4,12 @@
 トラックマンの時計比較表と同じ形にする。ただし A〜E は目分量ではなく実測から付ける。
 
     完タイム差   ＝ タイム差 − 馬場差×(距離/1000)      … nankan_babasa と同じ式
+                   馬場差は前半(1〜6R)/後半(7〜12R)で分けて持つ。1日1つにすると
+                   午後に速くなった日の後半レースを軒並み過大評価する
+                   （7/02は前半+0.17→後半−0.47で、後半4鞍が0.3〜0.5秒ぶん甘く出ていた）
+                   ただし生のドリフトはほぼノイズなので DRIFT_SHRINK 倍に縮めて使う。
+                   奇数R/偶数R で割った偽ドリフトがほぼ同じ大きさで出る
+                   （scripts/nankan_drift_test.py）。
     タイムレベル ＝ 完タイム差の分位（速いほど A）
     メンバーレベル＝ 出走馬のその後の成績（nankan_racelevel と同じ、4着以下の敗者で測る）
 
@@ -34,7 +40,7 @@ from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping.race_id import NANKAN_CODES
 from nankeiba.scraping import parser as P
 
-from nankan_babasa import REF, grade, sec
+from nankan_babasa import DRIFT_SHRINK, REF, grade, sec
 from nankan_racelevel import VENUES, collect
 from nankan_zubu_backtest import CARD, PERF, race_days
 
@@ -100,14 +106,20 @@ def main():
     for r in rec:
         b = std.get((r["dist"], r["g"]), std_d.get(r["dist"]))
         r["diff"] = round(r["t"] - b, 2) if b else None
-    byday = defaultdict(list)
+    byday, byhalf = defaultdict(list), defaultdict(list)
     for r in rec:
         if r["diff"] is not None:
-            byday[r["d"]].append(r["diff"] / (r["dist"] / 1000))
+            v = r["diff"] / (r["dist"] / 1000)
+            byday[r["d"]].append(v)
+            byhalf[(r["d"], r["rno"] <= 6)].append(v)
     variant = {d: st.median(v) for d, v in byday.items()}
+    raw_half = {k: st.median(v) for k, v in byhalf.items() if len(v) >= 4}
+    half = {k: variant[k[0]] + (v - variant[k[0]]) * DRIFT_SHRINK
+            for k, v in raw_half.items()}
     for r in rec:
         if r["diff"] is not None:
-            r["kan"] = round(r["diff"] - variant[r["d"]] * (r["dist"] / 1000), 2)
+            r["v"] = half.get((r["d"], r["rno"] <= 6), variant[r["d"]])
+            r["kan"] = round(r["diff"] - r["v"] * (r["dist"] / 1000), 2)
     kans = sorted(r["kan"] for r in rec if r.get("kan") is not None)
     q = [kans[int(len(kans) * p)] for p in (0.10, 0.30, 0.70, 0.90)]   # 速い順にA〜E
 
@@ -140,8 +152,11 @@ def main():
                 for r in sorted([x for x in rec if x["d"] == d and x.get("kan") is not None],
                                 key=lambda x: x["rno"]):
                     z = (lv[r["rid"]] - mu) / sd if r["rid"] in lv and sd else None
+                    fh, bh = half.get((d, True)), half.get((d, False))
+                    dr = ((bh - fh) * REF / 1000) if fh is not None and bh is not None else 0.0
                     f.write("\t".join(str(x) for x in [
-                        d, r["baba"] or "?", f"{v * REF / 1000:+.2f}", r["rno"], r["dist"],
+                        d, r["baba"] or "?", f"{v * REF / 1000:+.2f}",
+                        f"{r['v'] * REF / 1000:+.2f}", f"{dr:+.2f}", r["rno"], r["dist"],
                         r["win"], r["second"], r["g"], f"{r['t']:.1f}",
                         f"{r['diff']:+.2f}", f"{r['kan']:+.2f}", band(r["kan"], q),
                         band(-z, (-1.5, -0.5, 0.5, 1.5)) if z is not None else "-"]) + "\n")
@@ -154,8 +169,11 @@ def main():
             print(f"\n{d}：データなし")
             continue
         bb = "/".join(sorted({r["baba"] or "?" for r in day}))
+        fh, bh = half.get((d, True)), half.get((d, False))
+        ext = ("" if fh is None or bh is None else
+               f"　前半 {fh * REF / 1000:+.2f} → 後半 {bh * REF / 1000:+.2f}")
         print(f"\n■ {args.place} {d}（{bb}）　馬場差 "
-              f"{variant[d] * REF / 1000:+.1f}秒（{REF}m換算・マイナスが速い）")
+              f"{variant[d] * REF / 1000:+.1f}秒{ext}（{REF}m換算・マイナスが速い）")
         print(f"{'R':>3}{'距離':>6} {'優勝馬':<16}{'2着':<16}{'条件':<5}"
               f"{'走破':>7}{'タイム差':>8}{'完タイム差':>10}  {'時計':<4}{'メンバー'}")
         for r in day:

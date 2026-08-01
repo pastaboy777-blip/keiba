@@ -7,7 +7,11 @@
 
   タイム差 … 勝ちタイム − その条件(場・距離・クラス)の標準
   馬場差   … その日の速さのズレ。距離に比例して効かせる。
-             1日の中でも砂は動くので 前半(1〜6R)/後半(7〜12R) に分けて持つ（ドリフト）
+             1日の中でも砂は動くので 前半(1〜6R)/後半(7〜12R) に分けて持つ（ドリフト）。
+             ただし生のドリフトはほぼノイズ。同じ日を奇数R/偶数R で割った偽ドリフトが
+             ほぼ同じ大きさで出る（船橋 本物SD0.60 vs 偽SD0.48／川崎 0.48 vs 0.42、
+             scripts/nankan_drift_test.py）。本物の成分は船橋0.36秒・川崎0.23秒ぶんしかない。
+             そこで信号対雑音比から DRIFT_SHRINK 倍に縮めて使う。生値は使わないこと。
   補正値   … 展開など個別事情。ここでは扱わない（0とする）
 
 なぜ必要か（2026-08-01 の失敗）:
@@ -42,7 +46,8 @@ from nankeiba.scraping import parser as P
 
 from nankan_zubu_backtest import CARD, PERF, race_days
 
-REF = 1400          # 馬場差を表示する基準距離
+REF = 1400            # 馬場差を表示する基準距離
+DRIFT_SHRINK = 0.3    # 生ドリフトのうち実際に効かせる割合。信号²/(信号²+雑音²) から
 
 
 def sec(t):
@@ -137,7 +142,10 @@ def main():
             byday[r["d"]].append(v)
             byhalf[(r["d"], r["rno"] <= 6)].append(v)
     variant = {d: st.median(v) for d, v in byday.items()}
-    half = {k: st.median(v) for k, v in byhalf.items() if len(v) >= 4}
+    raw_half = {k: st.median(v) for k, v in byhalf.items() if len(v) >= 4}
+    # 縮め：1日の値を基準に、前後半のズレぶんだけを DRIFT_SHRINK 倍して足す。
+    half = {k: variant[k[0]] + (v - variant[k[0]]) * DRIFT_SHRINK
+            for k, v in raw_half.items()}
 
     for r in rec:
         if r["diff"] is not None:
@@ -168,22 +176,27 @@ def main():
     print(f"\n■ {args.place} {args.d_from}〜{args.d_to}　日ごとの馬場差"
           f"（{REF}m換算・マイナスが速い馬場）\n")
     print(f"{'日付':<12}{'発表馬場':<10}{'R':>3}{'1日':>7}{'前半':>7}{'後半':>7}"
-          f"{'ドリフト':>10}")
+          f"{'生ドリフト':>11}{'採用':>7}")
     for d in sorted(variant):
         day = [r for r in rec if r["d"] == d and r["diff"] is not None]
         bb = "/".join(sorted({r["baba"] or "?" for r in day}))
         f_ = half.get((d, True))
         b_ = half.get((d, False))
         g = lambda v: f"{v * REF / 1000:+.2f}" if v is not None else "  -  "
+        rf, rb = raw_half.get((d, True)), raw_half.get((d, False))
+        raw = (f"{(rb - rf) * REF / 1000:+.2f}" if rf is not None and rb is not None else "  -  ")
         dr = (f"{(b_ - f_) * REF / 1000:+.2f}" if f_ is not None and b_ is not None else "  -  ")
-        print(f"{str(d):<12}{bb:<10}{len(day):>3}{g(variant[d]):>7}{g(f_):>7}{g(b_):>7}{dr:>10}")
+        print(f"{str(d):<12}{bb:<10}{len(day):>3}{g(variant[d]):>7}{g(f_):>7}{g(b_):>7}"
+              f"{raw:>11}{dr:>7}")
     vs = [v * REF / 1000 for v in variant.values()]
-    drs = [(half[(d, False)] - half[(d, True)]) * REF / 1000 for d in variant
-           if (d, True) in half and (d, False) in half]
+    drs = [(raw_half[(d, False)] - raw_half[(d, True)]) * REF / 1000 for d in variant
+           if (d, True) in raw_half and (d, False) in raw_half]
     print(f"\n  馬場差の幅 {min(vs):+.2f}〜{max(vs):+.2f}秒（{max(vs)-min(vs):.2f}秒）")
     if drs:
-        print(f"  ドリフト（後半−前半）の幅 {min(drs):+.2f}〜{max(drs):+.2f}秒"
+        print(f"  生ドリフト（後半−前半）の幅 {min(drs):+.2f}〜{max(drs):+.2f}秒"
               f"／平均 {st.mean(drs):+.2f}秒。プラスは後半にかけて重くなった日。")
+        print(f"  ただし偽ドリフト（偶数R−奇数R）がほぼ同じ大きさで出るため、"
+              f"実際に効かせるのは {DRIFT_SHRINK:g} 倍だけ。")
     print("  ※標準タイムは同じ期間から作っているので、日数が少ないと自分自身に引きずられる。")
 
 
