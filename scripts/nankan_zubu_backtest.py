@@ -93,6 +93,7 @@ def main():
 
     # mark -> [点数, 単的中, 複的中, 単払戻, 複払戻]
     acc = {"◎": [0, 0, 0, 0, 0], "○": [0, 0, 0, 0, 0]}
+    base = [0, 0, 0, 0, 0]                 # 対象全頭を平等に買った場合＝並べ方の効果を測る土台
     by_pop, rows = {}, []
     for d, races in days:
         for rno, rid in sorted(races.items()):
@@ -117,6 +118,15 @@ def main():
                 tags, _cw = R.edges_for(e, page.distance, today=d)
                 ev = A.evaluate(e, tb, args.place, pa, ba, args.thr, False)
                 cand.append((len(tags), ev["score"], e, r_))
+            # 並べ方に意味があるかは「対象全頭を平等に買った場合」と比べないと分からない。
+            for _n, _sc, e, r_ in cand:
+                base[0] += 1
+                t0 = tan.get(e.umaban, 0) if r_.finish_pos == 1 else 0
+                f0 = fuku.get(e.umaban, 0) if r_.finish_pos <= 3 else 0
+                base[1] += 1 if t0 else 0
+                base[2] += 1 if f0 else 0
+                base[3] += t0
+                base[4] += f0
             cand.sort(key=lambda x: (-x[0], -x[1]))
             for mark, item in zip("◎○", cand[:2]):
                 _n, _sc, e, r_ = item
@@ -146,6 +156,11 @@ def main():
             tot[i] += acc[mark][i]
         print(f"{mark:<4}{n:>6}{w/n*100:>7.1f}%{p/n*100:>7.1f}%"
               f"{tp/(n*100)*100:>8.1f}%{fp/(n*100)*100:>8.1f}%{(tp+fp)/(n*200)*100:>9.1f}%")
+    n, w, p, tp, fp = base
+    if n:
+        print(f"{'土台':<4}{n:>6}{w/n*100:>7.1f}%{p/n*100:>7.1f}%"
+              f"{tp/(n*100)*100:>8.1f}%{fp/(n*100)*100:>8.1f}%{(tp+fp)/(n*200)*100:>9.1f}%"
+              "  ← 対象全頭を平等に買った場合")
     n, w, p, tp, fp = tot
     if n:
         print(f"{'計':<4}{n:>6}{w/n*100:>7.1f}%{p/n*100:>7.1f}%"
