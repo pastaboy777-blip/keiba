@@ -91,6 +91,9 @@ def main():
                     help="後続が取れた馬がこの頭数未満のレースは判定しない")
     ap.add_argument("--shrink", type=float, default=8.0,
                     help="全体平均へ縮める強さ。小標本のレースが上下を独占するのを防ぐ")
+    ap.add_argument("--losers", type=int, metavar="N",
+                    help="N着以下（＝負けた馬）だけでレベルを測る。勝ち馬は誰にでも見えて"
+                         "人気を被るので、狙えるのは『強い相手に揉まれて着順を落とした馬』のほう")
     ap.add_argument("--top", type=int, default=20)
     args = ap.parse_args()
 
@@ -103,6 +106,8 @@ def main():
     for rid, r in races.items():
         scores, wins, cover = [], 0, 0
         for row in r["rows"]:
+            if args.losers and row.finish_pos < args.losers:
+                continue                       # 勝ち・上位馬は数えない
             later = [x for x in timeline[row.horse_id] if x[0] > r["date"]]
             if not later:
                 continue
@@ -138,8 +143,12 @@ def main():
         print(f"{str(o['date'])+' '+o['place']+str(o['rno'])+'R ダ'+str(o['dist']):<22}"
               f"{o['n']:>5}{o['cover']:>7}{o['wins']:>7}{o['raw']:>8.3f}{o['level']:>8.3f}{z:>+7.2f}")
 
-    print("\n■ 使い方：この表で偏差+1.0以上のレースに出ていた馬は、着順が悪くても"
-          "相手が強かっただけかもしれない。逆に−1.0以下のレースの勝ち馬は割引く。")
+    if args.losers:
+        print(f"\n■ {args.losers}着以下の馬だけで測っている。上位のレースは"
+              "『負けた馬がその後勝ち上がった』レース＝次走で狙える馬がいたレース。")
+    else:
+        print("\n■ 使い方：この表で偏差+1.0以上のレースに出ていた馬は、着順が悪くても"
+              "相手が強かっただけかもしれない。逆に−1.0以下のレースの勝ち馬は割引く。")
 
 
 if __name__ == "__main__":
