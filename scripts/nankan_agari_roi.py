@@ -166,6 +166,45 @@ def main():
         print(f"\n   複勝回収の差（最速 − 無差別）= {d:+.1f}ポイント")
         print("   誤差の幅を超えていなければ、上がり最速に買う価値はない。")
 
+    # ---- ③ 位置を固定して、それでも上がりの差が残るか
+    #   ②のままだと「上がり最速＝後方の馬」を拾っているだけかもしれない。
+    #   同じ4角位置の馬どうしで比べ、差が消えるなら上がりは位置取りの写しにすぎない。
+    cell = defaultdict(lambda: defaultdict(list))
+    for rid, r in races.items():
+        if not (d0 <= r["date"] <= d1):
+            continue
+        for row in r["rows"]:
+            if row["fin"] < 4 or "arank" not in row or row["pos4"] is None:
+                continue
+            nxt = next((x for x in timeline[row["horse_id"]] if x[0] > r["date"]), None)
+            if nxt is None or nxt[1] not in races:
+                continue
+            nr = races[nxt[1]]
+            me = next((x for x in nr["rows"] if x["horse_id"] == row["horse_id"]), None)
+            if me is None:
+                continue
+            try:
+                tan, fuku = payouts(client.get(PERF.format(r=nxt[1])))
+            except Exception:
+                continue
+            if not fuku:
+                continue
+            bet = dict(tan=float(tan.get(me["umaban"], 0)),
+                       fuku=float(fuku.get(me["umaban"], 0)))
+            band = "前(〜33%)" if row["pos4"] <= 1 / 3 else \
+                   "中(33〜66%)" if row["pos4"] <= 2 / 3 else "後(66%〜)"
+            cell[band]["すべて"].append(bet)
+            cell[band]["上がり最速" if row["arank"] == 1 else "最速以外"].append(bet)
+
+    print("\n■ ③ 4角の位置を固定して比べる（位置の効果を打ち消す）")
+    print(f"{'4角の位置':<13}{'上がり':<12}{'点数':>6}{'勝率':>8}{'複勝率':>9}{'単回収':>10}{'':<6}{'複回収':>8}")
+    for band in ("前(〜33%)", "中(33〜66%)", "後(66%〜)"):
+        for k in ("すべて", "上がり最速", "最速以外"):
+            v = cell[band][k]
+            if len(v) >= 40:
+                line(f"{band:<13}{k}", v)
+        print()
+
 
 if __name__ == "__main__":
     main()
