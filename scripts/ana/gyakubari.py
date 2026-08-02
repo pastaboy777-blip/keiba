@@ -73,10 +73,12 @@ def parse(fn):
     x = re.sub(r"<[^>]+>", "|", t); x = re.sub(r"[ 　]+", " ", x)
     fy = re.sub(r"\s+", " ", x)
     c4 = re.search(r"4コーナー\| \|([^|]+)\|", fy)
+    lap = re.search(r"ラップ\| \|([0-9.\- ]+)\|", fy)
     cond = re.search(r"(ダ|芝)(?:左|右|直)?(\d+)m.{0,60}?(良|稍重|重|不良)", fy)
     return dict(date=d, place=hd.group(4), rn=int(os.path.basename(fn)[-7:-5]),
                 dist=(int(cond.group(2)) if cond else None), baba=(cond.group(3) if cond else "?"),
-                rows=rows, c4=(c4.group(1).strip() if c4 else ""))
+                rows=rows, c4=(c4.group(1).strip() if c4 else ""),
+                laps=[float(v) for v in lap.group(1).split("-")] if lap else [])
 
 
 def main():
