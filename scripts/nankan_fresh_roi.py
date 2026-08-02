@@ -105,21 +105,24 @@ def main():
     print(f"\n収集 延べ{len(runs):,}走／開催初日 {len(op):,}走（境目 {args.gap}日）\n")
     print(f"{'区分':<28}{'頭数':>6}{'勝率':>7}{'複勝率':>8}{'単回収':>10}{'':<6}{'複回収':>8}")
 
-    def fresh(x):
-        return (x["prev_place"] is not None and x["prev_place"] != x["place"]
-                and x["hgap"] is not None and x["hgap"] <= 21)
+    def other(x):
+        return x["prev_place"] is not None and x["prev_place"] != x["place"]
 
-    print("── 開催初日（21日以上空いた日） ──")
-    line("すべて", op)
-    line("他場帰り×21日以内", [x for x in op if fresh(x)])
-    line("　うち南関3場から", [x for x in op if fresh(x) and x["prev_place"] in VENUES])
-    line("　うち南関外から", [x for x in op if fresh(x) and x["prev_place"] not in VENUES])
-    line("同じ場・35日以上", [x for x in op if x["prev_place"] == x["place"]
-                              and x["hgap"] is not None and x["hgap"] >= 35])
-    print("── 2日目以降（比較用） ──")
-    reg = [x for x in runs if not x["opening"]]
-    line("すべて", reg)
-    line("他場帰り×21日以内", [x for x in reg if fresh(x)])
+    # 2026-08-02 で効いたように見えた3頭（佐賀29日・金沢26日・名古屋31日）は
+    # どれも21日を超えていた。間隔で切ると、拾いたい馬を1頭も拾えない。
+    for tag, grp in (("開催初日", op), ("2日目以降", [x for x in runs if not x["opening"]])):
+        print(f"── {tag} ──")
+        line("すべて", grp)
+        line("他場帰り（間隔を問わない）", [x for x in grp if other(x)])
+        line("　うち南関3場から", [x for x in grp if other(x) and x["prev_place"] in VENUES])
+        line("　うち南関外から", [x for x in grp if other(x)
+                                  and x["prev_place"] not in VENUES])
+        line("　他場×21日以内", [x for x in grp if other(x)
+                                 and x["hgap"] is not None and x["hgap"] <= 21])
+        line("　他場×22日以上", [x for x in grp if other(x)
+                                 and x["hgap"] is not None and x["hgap"] >= 22])
+        line("同じ場・35日以上", [x for x in grp if x["prev_place"] == x["place"]
+                                  and x["hgap"] is not None and x["hgap"] >= 35])
     print("\n  控除率のぶん、無差別に買えば75%前後に沈む。見るのは『すべて』の行との差。")
 
 
