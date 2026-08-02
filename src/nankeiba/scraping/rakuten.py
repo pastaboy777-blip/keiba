@@ -189,8 +189,14 @@ def parse_card(html: str) -> dict:
 
     return: {
       "header": {"place","race_no","distance","race_name","post_time"},
-      "entries": [{"umaban","name","horseid","history":[RunRecord,...]}, ...],
+      "entries": [{"umaban","name","horseid","sex_age","age","jockey","kinryo",
+                   "birth","odds","popularity","history":[RunRecord,...]}, ...],
     }
+
+    ⚠️ 性齢・騎手・誕生日は**出馬表に載っている**。長らく拾っていなかったが、
+       「ズブさ」を見るのに年齢が、「乗り替わり」を見るのに騎手が要る。
+       オッズ・人気は**発売前は "-（-人気）"** なので None になる。前日夜に
+       取ると必ず None。当日の発売後に取り直すこと。
     """
     # ヘッダ(タイトル基準で誤検出を避ける)
     title = (re.search(r"<title>(.*?)</title>", html) or [None, ""])[1]
@@ -226,10 +232,22 @@ def parse_card(html: str) -> dict:
         name = _clean(hm.group(2))
         sire, bms = _parse_pedigree(cells, name)
         runs = [r for c in cells if (r := _parse_run(c)) is not None]
+        txt = _clean(re.sub(r"<[^>]+>", " ", row))
+        sa = re.search(r"([牡牝セン]+)\s*(\d{1,2})(?!\d)", txt)
+        jk = re.search(r"(\d{2}\.\d)\s+([一-龥ぁ-んァ-ヶ]{2,4})\s*（", txt)
+        bd = re.search(r"(\d{4})/(\d{1,2})/(\d{1,2})生", txt)
+        od = re.search(r"(\d+\.\d)\s*[（(]\s*(\d+)\s*人気", txt)
         entries.append({
             "umaban": umaban,
             "name": name,
             "horseid": hm.group(1),
+            "sex_age": (sa.group(1) + sa.group(2)) if sa else None,
+            "age": int(sa.group(2)) if sa else None,
+            "jockey": jk.group(2) if jk else None,
+            "kinryo": float(jk.group(1)) if jk else None,
+            "birth": f"{bd.group(1)}-{int(bd.group(2)):02d}-{int(bd.group(3)):02d}" if bd else None,
+            "odds": float(od.group(1)) if od else None,
+            "popularity": int(od.group(2)) if od else None,
             "sire": sire,
             "bms": bms,
             "history": runs,

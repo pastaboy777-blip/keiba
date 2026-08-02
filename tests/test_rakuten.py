@@ -136,3 +136,63 @@ class TestParseBaba(unittest.TestCase):
 
     def test_none_when_absent(self):
         self.assertIsNone(rk.parse_baba('<td>馬体重 480</td><td>重</td>'))
+
+
+class TestCardEntryProfile(unittest.TestCase):
+    """出馬表から 性齢・騎手・誕生日・オッズ を拾えるか。
+
+    ⚠️ ここは長らく拾っていなかった。「ズブさ」を見るのに年齢が、
+       「乗り替わり」を見るのに騎手が要る（2026-08-03 の船橋で必要になった）。
+    ⚠️ オッズ・人気は**発売前は "-（-人気）"** なので None になる。
+       前日夜に取ると必ず None。当日の発売後に取り直すこと。
+    """
+
+    ROW = """
+    <table><tr>
+      <td>1</td><td>1</td>
+      <td>アメリカンペイトリオッ</td>
+      <td><a href="/horse_detail/detail/HORSEID/2820260044">クシナダヒメ</a></td>
+      <td>カナワン (エピファネイア)</td>
+      <td>{odds}</td>
+      <td>2024/4/23生</td><td>大久保秀一</td><td>富田恭司生産</td>
+      <td>牝2</td><td>青鹿毛</td><td>54.0</td><td>野澤憲</td><td>（船 橋）</td>
+      <td>佐々清</td>
+    </tr></table>
+    """
+
+    def _one(self, odds="-（-人気）"):
+        html = ("<title>船橋競馬場 出馬表 | 2026/08/03 1R</title>"
+                + self.ROW.format(odds=odds))
+        e = rk.parse_card(html)["entries"]
+        self.assertEqual(len(e), 1)
+        return e[0]
+
+    def test_sex_age(self):
+        e = self._one()
+        self.assertEqual(e["sex_age"], "牝2")
+        self.assertEqual(e["age"], 2)
+
+    def test_jockey_and_kinryo(self):
+        e = self._one()
+        self.assertEqual(e["jockey"], "野澤憲")
+        self.assertEqual(e["kinryo"], 54.0)
+
+    def test_birth(self):
+        self.assertEqual(self._one()["birth"], "2024-04-23")
+
+    def test_odds_is_none_before_sale(self):
+        """発売前は '-（-人気）'。0 や 1番人気に化けないこと。"""
+        e = self._one()
+        self.assertIsNone(e["odds"])
+        self.assertIsNone(e["popularity"])
+
+    def test_odds_after_sale(self):
+        e = self._one(odds="5.9（2人気）")
+        self.assertEqual(e["odds"], 5.9)
+        self.assertEqual(e["popularity"], 2)
+
+    def test_existing_fields_untouched(self):
+        e = self._one()
+        self.assertEqual(e["umaban"], 1)
+        self.assertEqual(e["name"], "クシナダヒメ")
+        self.assertEqual(e["horseid"], "2820260044")
