@@ -25,6 +25,13 @@
   .why { color:#c9d6e2; font-size:20px; line-height:1.85; }
   .why b { color:#fff; }
 
+  .three { display:flex; gap:16px; margin-top:20px; }
+  .t { flex:1; background:#12212f; border:3px solid #ffd83b; border-radius:14px;
+       padding:20px 10px; text-align:center; }
+  .t .ic { font-size:38px; line-height:1; }
+  .t .w { color:#ffd83b; font-size:34px; font-weight:900; margin-top:10px; letter-spacing:1px; }
+  .t .d { color:#8fa4b8; font-size:16px; font-weight:800; margin-top:7px; }
+
   .cases { margin-top:16px; }
   .case { display:flex; align-items:center; gap:16px; background:#12212f;
           border-left:6px solid #f5c542; border-radius:10px; padding:13px 18px; margin-bottom:10px; }
@@ -42,8 +49,16 @@
   <div class="bar"><b>変態か、変態以外か。 ── AIズブ穴</b></div>
   <div class="body">
     <h1>穴は<em>「何かが変わった馬」</em>から出る</h1>
-    <div class="sub">8/2 船橋・全12鞍110頭を、前走からの<b>変化の数</b>で割った。
-      変化＝<b>乗り替わり・距離変更・競馬場替わり</b>の3つ。</div>
+    <div class="sub">8/2 船橋・全12鞍110頭を、前走からの<b>変化の数</b>で割った。</div>
+
+    <div class="three">
+      <div class="t"><div class="ic">🏇</div><div class="w">乗り替わり</div>
+        <div class="d">騎手が変わった</div></div>
+      <div class="t"><div class="ic">📏</div><div class="w">距離変更</div>
+        <div class="d">前走と距離が違う</div></div>
+      <div class="t"><div class="ic">🏟️</div><div class="w">競馬場替わり</div>
+        <div class="d">前走と場が違う</div></div>
+    </div>
 
     <table>
       <tr><th class="l">前走からの変化</th><th>頭数</th><th>勝</th><th>勝率</th><th>単回収</th></tr>
