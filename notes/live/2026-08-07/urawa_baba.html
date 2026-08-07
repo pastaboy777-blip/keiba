@@ -1,0 +1,79 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'WenQuanYi Zen Hei',sans-serif; }
+  body { background:#0a4f96; }
+  .card { width:1400px; position:relative; overflow:hidden;
+          background:radial-gradient(circle at 50% 6%, #2a8fd8 0%, #1173c4 26%, #0a58a6 62%, #084b90 100%); padding:34px 40px 28px; }
+  .rays { position:absolute; inset:-40% -10% -10% -10%; pointer-events:none;
+          background:repeating-conic-gradient(from 0deg at 50% 10%,
+            rgba(255,255,255,.075) 0deg 3.2deg, rgba(255,255,255,0) 3.2deg 7.4deg); }
+  .inner { position:relative; }
+
+  .kicker { color:#ffd83b; font-size:19px; font-weight:900; letter-spacing:.5px; }
+  .titleline { position:relative; display:flex; align-items:center; margin-top:6px; }
+  .titleline .bdg { position:absolute; left:50%; transform:translateX(-50%); }
+  .title { color:#fff; font-size:50px; font-weight:900; letter-spacing:1px; text-shadow:0 3px 10px rgba(0,0,0,.28); }
+  .bdg { background:#ffd83b; color:#0a3f78; font-size:32px; font-weight:900; padding:3px 18px; border-radius:11px; box-shadow:0 3px 0 #d9a800; }
+
+  .head { margin-top:20px; background:#fff; border:4px solid #ffd83b; border-radius:18px;
+          padding:22px 30px; box-shadow:0 6px 18px rgba(0,0,0,.22); text-align:center; }
+  .head .t { color:#5a6b7d; font-size:20px; font-weight:900; }
+  .head .m { color:#c92a2a; font-size:54px; font-weight:900; margin-top:6px; line-height:1.25; }
+
+  .three { display:flex; gap:16px; margin-top:18px; }
+  .b { flex:1; background:#fff; border:4px solid #ffd83b; border-radius:18px; padding:20px 12px 18px;
+       text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.22); }
+  .b .lb { color:#0a58a6; font-size:19px; font-weight:900; }
+  .b .v { color:#c92a2a; font-size:66px; font-weight:900; line-height:1.05; margin-top:6px; }
+  .b .u { color:#10375e; font-size:26px; font-weight:900; }
+  .b .d { color:#5a6b7d; font-size:16px; font-weight:800; margin-top:8px; line-height:1.5; }
+
+  .cmp { margin-top:18px; background:#0b2b4d; border:4px solid #ffd83b; border-radius:18px; padding:18px 26px; }
+  .cmp .h { color:#8fe3ff; font-size:19px; font-weight:900; margin-bottom:10px; }
+  .cmp .r { display:flex; align-items:center; gap:16px; padding:7px 0; }
+  .cmp .r .k { flex:0 0 250px; color:#fff; font-size:22px; font-weight:900; }
+  .cmp .bar { flex:1; height:30px; background:#123a63; border-radius:6px; overflow:hidden; }
+  .cmp .bar i { display:block; height:100%; background:#ffd83b; }
+  .cmp .r .n { flex:0 0 110px; color:#ffd83b; font-size:26px; font-weight:900; text-align:right; }
+  .cmp .r.sub .bar i { background:#5b9bd5; }
+  .cmp .r.sub .n { color:#8fe3ff; }
+
+  .foot { margin-top:18px; background:#fff; border:4px solid #ffd83b; border-radius:18px;
+          padding:18px 26px; color:#3c4a58; font-size:21px; font-weight:800; line-height:1.7;
+          box-shadow:0 6px 18px rgba(0,0,0,.22); }
+  .foot b { color:#c92a2a; }
+  .sig { text-align:right; color:#dbeaf7; font-size:17px; font-weight:800; margin-top:16px; }
+</style></head><body>
+<div class="card"><div class="rays"></div><div class="inner">
+  <div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>
+  <div class="titleline">
+    <div class="title">8/7(金) 浦和の馬場</div>
+    <div class="bdg">全12鞍</div>
+  </div>
+
+  <div class="head">
+    <div class="t">一言でいうと</div>
+    <div class="m">前が止まらない。<br>しかも内が有利。</div>
+  </div>
+
+  <div class="three">
+    <div class="b"><div class="lb">勝ち馬の4角position</div><div class="v">0.11</div>
+      <div class="d">ほぼ先頭付近。<br>船橋の直近3日は0.31〜0.32</div></div>
+    <div class="b"><div class="lb">3着内36頭のうち</div><div class="v">86<span class="u">%</span></div>
+      <div class="d">4角3番手以内だった<br>（31頭）</div></div>
+    <div class="b"><div class="lb">3着内36頭のうち</div><div class="v">58<span class="u">%</span></div>
+      <div class="d">馬番①〜④だった<br>（21頭）</div></div>
+  </div>
+
+  <div class="cmp">
+    <div class="h">3着内に入った馬番の分布（36頭）</div>
+    <div class="r"><div class="k">① 〜 ④</div><div class="bar"><i style="width:58%"></i></div><div class="n">21頭</div></div>
+    <div class="r sub"><div class="k">⑤ 〜 ⑧</div><div class="bar"><i style="width:33%"></i></div><div class="n">12頭</div></div>
+    <div class="r sub"><div class="k">⑨ より外</div><div class="bar"><i style="width:8%"></i></div><div class="n">3頭</div></div>
+  </div>
+
+  <div class="foot">🔑 ラスト200mは平均<b>13.73</b>で、前も止まっていた。それでも残ったのは
+  <b>後ろがもっと止まっていた</b>から。上がりの速い馬を探すより、<b>4角3番手以内に行ける内枠</b>を拾うほうが早い一日だった。</div>
+
+  <div class="sig">By Claude AI</div>
+</div></div>
+</body></html>
