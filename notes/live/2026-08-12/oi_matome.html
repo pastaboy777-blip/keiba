@@ -1,0 +1,163 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'WenQuanYi Zen Hei',sans-serif; }
+  body { background:#eef2f6; }
+  .card { width:1400px; background:#eef2f6; padding:26px 30px 22px; }
+
+  .hd { background:linear-gradient(135deg,#2f6fb0 0%,#1d5490 100%); border-radius:16px 16px 0 0;
+        padding:22px 30px 20px; color:#fff; }
+  .hd .k { color:#ffd83b; font-size:17px; font-weight:900; letter-spacing:.5px; }
+  .hd h1 { font-size:42px; font-weight:900; margin-top:4px; letter-spacing:1px; }
+  .hd .s { font-size:19px; font-weight:800; color:#cfe6fa; margin-top:6px; }
+
+  .body { background:#fff; border-radius:0 0 16px 16px; padding:24px 30px 26px;
+          box-shadow:0 5px 16px rgba(0,0,0,.09); }
+
+  h2 { font-size:23px; font-weight:900; color:#1d3a5c; margin:26px 0 12px;
+       padding-left:12px; border-left:7px solid #2f6fb0; line-height:1.25; }
+  h2:first-child { margin-top:0; }
+  h2 small { font-size:16px; color:#6b7f93; font-weight:800; margin-left:10px; }
+
+  .hero { display:flex; gap:16px; }
+  .hb { flex:1; border-radius:14px; padding:16px 18px 15px; text-align:center; }
+  .hb.a { background:#fdecef; border:3px solid #e8b4bf; }
+  .hb.b { background:#eef4fb; border:3px solid #b8cfe6; }
+  .hb .t { font-size:17px; font-weight:900; color:#5d7186; }
+  .hb .v { font-size:60px; font-weight:900; line-height:1.05; margin:2px 0 2px; }
+  .hb.a .v { color:#c92a2a; } .hb.b .v { color:#2f6fb0; }
+  .hb .d { font-size:15px; font-weight:800; color:#6b7f93; }
+  .arrow { align-self:center; font-size:30px; font-weight:900; color:#8a99a8; }
+
+  table { width:100%; border-collapse:collapse; }
+  th { background:#f2f5f8; color:#41566b; font-size:16px; font-weight:900;
+       padding:10px 12px; border:1px solid #e2e8ee; text-align:center; }
+  td { font-size:19px; font-weight:800; color:#1d3a5c; padding:11px 12px;
+       border:1px solid #e2e8ee; text-align:center; }
+  td.l { text-align:left; }
+  td b { color:#c92a2a; font-size:22px; }
+  td.g { color:#1f8a4c; } td.r { color:#c92a2a; }
+  tr.hi td { background:#fffaf0; }
+
+  .bars { margin-top:4px; }
+  .bar { display:flex; align-items:center; margin-bottom:9px; }
+  .bar .lb { flex:0 0 168px; font-size:18px; font-weight:900; color:#1d3a5c; }
+  .bar .tr { flex:1; height:34px; background:#f0f4f8; border-radius:8px; overflow:hidden; }
+  .bar .fl { height:100%; border-radius:8px; }
+  .bar .vv { flex:0 0 190px; text-align:right; font-size:19px; font-weight:900; color:#41566b; }
+  .bar .vv em { font-style:normal; color:#c92a2a; font-size:24px; }
+
+  .steps { counter-reset:s; }
+  .st { display:flex; align-items:flex-start; gap:14px; padding:11px 0;
+        border-bottom:1px dashed #dfe8f0; }
+  .st:last-child { border-bottom:none; }
+  .st .n { flex:0 0 38px; height:38px; background:#2f6fb0; color:#fff; border-radius:50%;
+           font-size:20px; font-weight:900; display:flex; align-items:center; justify-content:center; }
+  .st .x { flex:1; font-size:20px; font-weight:800; color:#33465a; line-height:1.5; padding-top:5px; }
+  .st .x b { color:#c92a2a; }
+  .st.no .n { background:#8a99a8; }
+
+  .note { margin-top:18px; background:#f6f9fc; border-left:7px solid #2f6fb0; border-radius:10px;
+          padding:14px 18px; color:#33465a; font-size:19px; font-weight:700; line-height:1.7; }
+  .note b { color:#c92a2a; }
+  .sig { text-align:right; color:#8a99a8; font-size:16px; font-weight:800; margin-top:14px; }
+</style></head><body>
+<div class="card">
+  <div class="hd">
+    <div class="k">変態か、変態以外か。 ── AI復習</div>
+    <h1>大井競馬 前開催まとめ</h1>
+    <div class="s">7/20(月)〜7/24(金)　全58鞍のラップを1鞍ずつ見た結論</div>
+  </div>
+
+  <div class="body">
+
+    <h2>① 大井は浦和と別の競馬<small>3着内に入った馬のうち、4角3番手以内だった割合</small></h2>
+    <div class="hero">
+      <div class="hb a"><div class="t">浦和（8/7・12鞍）</div><div class="v">86%</div>
+        <div class="d">前にいないと話にならない</div></div>
+      <div class="arrow">→</div>
+      <div class="hb b"><div class="t">大井（5日・58鞍）</div><div class="v">58%</div>
+        <div class="d">101頭 / 174頭</div></div>
+    </div>
+    <div class="note">浦和の感覚のままだと<b>前を買いすぎる</b>。大井は4割が4角4番手より後ろから来ている。</div>
+
+    <h2>② 内回りと外回りで、直線が100m違う</h2>
+    <table>
+      <tr><th>コース</th><th>1周</th><th>直線</th><th>使う距離</th><th>ラップで読めるか</th></tr>
+      <tr class="hi"><td><b>外回り</b></td><td>1600m</td><td><b>386m</b></td>
+        <td class="l">1000・1200・1400・1650・1800・2000・2400</td><td class="g">読める</td></tr>
+      <tr><td><b>内回り</b></td><td>1400m</td><td><b>286m</b></td>
+        <td class="l">1600m だけ</td><td class="r">読めない</td></tr>
+    </table>
+    <div class="note">直線が短い内回りは、脚の残り具合より<b>ポジションと内をロスなく回れたか</b>が先に効く。
+    1600mは<b>16鞍見てもラップと結果が対応しなかった</b>。</div>
+
+    <h2>③ 距離ごとの「読めるかどうか」<small>ラップから4角位置を当てた率</small></h2>
+    <table>
+      <tr><th>距離</th><th>コース</th><th>見る数字</th><th>境目</th><th>的中</th></tr>
+      <tr class="hi"><td>1200m<br><span style="font-size:15px;color:#6b7f93">22鞍</span></td><td>外回り</td>
+        <td>ラスト1F</td><td>13.5 以上 → 後ろ</td><td><b>18/22</b><br><span style="font-size:15px;color:#6b7f93">82%</span></td></tr>
+      <tr class="hi"><td>1400m<br><span style="font-size:15px;color:#6b7f93">12鞍</span></td><td>外回り</td>
+        <td>残り600m</td><td>13秒台 → 後ろ</td><td><b>9/12</b><br><span style="font-size:15px;color:#6b7f93">75%</span></td></tr>
+      <tr><td>1600m<br><span style="font-size:15px;color:#6b7f93">16鞍</span></td><td>内回り</td>
+        <td colspan="2" style="color:#8a99a8">12.8で4角14番手が来た日も、14.0で5番手までの日もある</td>
+        <td class="r">─</td></tr>
+    </table>
+
+    <h2>④ いちばん硬いのは「頭数」<small>3着内に7番人気以下が入った割合</small></h2>
+    <div class="bars">
+      <div class="bar"><div class="lb">11頭以下<span style="font-size:14px;color:#6b7f93">　25鞍</span></div>
+        <div class="tr"><div class="fl" style="width:28%;background:#9fb6cc"></div></div>
+        <div class="vv">7鞍　<em>28%</em></div></div>
+      <div class="bar"><div class="lb">12〜13頭<span style="font-size:14px;color:#6b7f93">　13鞍</span></div>
+        <div class="tr"><div class="fl" style="width:38%;background:#6f9fd0"></div></div>
+        <div class="vv">5鞍　<em>38%</em></div></div>
+      <div class="bar"><div class="lb">14頭以上<span style="font-size:14px;color:#6b7f93">　20鞍</span></div>
+        <div class="tr"><div class="fl" style="width:55%;background:#c92a2a"></div></div>
+        <div class="vv">11鞍　<em>55%</em></div></div>
+    </div>
+    <div class="note">ラップと違って<b>日によってブレない</b>。しかも出馬表を見た瞬間に分かる。
+    ズブ穴を狙う場所は、まずここで決まる。</div>
+
+    <h2>⑤ ただし「日」で前有利度が動く<small>3着内のうち4角3番手以内だった割合</small></h2>
+    <div class="bars">
+      <div class="bar"><div class="lb">7/20(月)</div>
+        <div class="tr"><div class="fl" style="width:53%;background:#6f9fd0"></div></div><div class="vv"><em>53%</em></div></div>
+      <div class="bar"><div class="lb">7/21(火)</div>
+        <div class="tr"><div class="fl" style="width:50%;background:#6f9fd0"></div></div><div class="vv"><em>50%</em></div></div>
+      <div class="bar"><div class="lb">7/22(水)</div>
+        <div class="tr"><div class="fl" style="width:69%;background:#c92a2a"></div></div><div class="vv"><em>69%</em></div></div>
+      <div class="bar"><div class="lb">7/23(木)</div>
+        <div class="tr"><div class="fl" style="width:58%;background:#6f9fd0"></div></div><div class="vv"><em>58%</em></div></div>
+      <div class="bar"><div class="lb">7/24(金)</div>
+        <div class="tr"><div class="fl" style="width:60%;background:#6f9fd0"></div></div><div class="vv"><em>60%</em></div></div>
+    </div>
+    <div class="note">浦和は5日間ずっと同じ傾向だったが、大井は違う。<b>水曜だけ明確に前有利</b>で、
+    その日は1600mのラップ物差しが6鞍中1鞍しか当たらなかった。<b>当日の前半で数えるのが必須。</b></div>
+
+    <h2>⑥ 前半の速さは、荒れる根拠にならない</h2>
+    <table>
+      <tr><th>レース</th><th>前半3F</th><th>ラスト1F</th><th>決着</th></tr>
+      <tr><td class="l">7/23 11R（1200m）</td><td><b>34.4</b> 最速</td><td>13.0</td><td class="g">1・2・4番人気で堅い</td></tr>
+      <tr class="hi"><td class="l">7/20 2R（1200m）</td><td>35.3 平凡</td><td><b>14.0</b></td><td class="r">6・12・14番人気で大荒れ</td></tr>
+    </table>
+    <div class="note">前半が速くても、ラスト1Fで踏ん張れるなら<b>ただ力のある馬が飛ばしただけ</b>。
+    見るのは<b>最後の1F（または残り600m）だけでいい。</b></div>
+
+    <h2>⑦ 実戦での順番</h2>
+    <div class="steps">
+      <div class="st"><div class="n">1</div><div class="x"><b>1200m・1400m の14頭以上</b>を探す。ここが勝負レース</div></div>
+      <div class="st"><div class="n">2</div><div class="x">当日の <b>1R〜5Rで4角3番手以内率を数える</b>。7割を超える日は前寄りに修正</div></div>
+      <div class="st"><div class="n">3</div><div class="x"><b>ラスト1F／残り600m</b>を想定して、買う位置を「前」か「後ろ」に決める</div></div>
+      <div class="st"><div class="n">4</div><div class="x">その位置にいる<b>人気薄を厚く買う</b>。位置は読めても人気までは読めない</div></div>
+      <div class="st no"><div class="n">5</div><div class="x">1600m（内回り）は<b>ラップで深追いしない</b>。枠・脚質・鞍上で組む</div></div>
+    </div>
+
+    <div class="note" style="margin-top:22px;background:#fff8e8;border-left-color:#e0a800">
+      <b>5日58鞍で狙いどおりに獲れた形</b>は 7/24 11R。<b>外回り1400m・16頭立て・残り600mが13.1</b>で緩み、
+      決着は<b>4角7番手・10番手・5番手</b>、3着に<b>12番人気</b>。
+      買う前に条件が3つとも揃っていた1鞍だった。
+    </div>
+
+    <div class="sig">By Claude AI</div>
+  </div>
+</div>
+</body></html>
