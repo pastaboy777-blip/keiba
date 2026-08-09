@@ -1,0 +1,105 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'WenQuanYi Zen Hei',sans-serif; }
+  body { background:#eef2f6; }
+  .card { width:1400px; background:#eef2f6; padding:26px 30px 22px; }
+
+  .hd { background:linear-gradient(135deg,#2f6fb0 0%,#1d5490 100%); border-radius:16px 16px 0 0;
+        padding:24px 32px 22px; color:#fff; }
+  .hd .k { color:#ffd83b; font-size:18px; font-weight:900; }
+  .hd h1 { font-size:46px; font-weight:900; margin-top:4px; letter-spacing:1px; }
+  .hd .s { font-size:20px; font-weight:800; color:#cfe6fa; margin-top:6px; }
+
+  .body { background:#fff; border-radius:0 0 16px 16px; padding:28px 32px 30px;
+          box-shadow:0 5px 16px rgba(0,0,0,.09); }
+
+  .tiles { display:flex; gap:18px; }
+  .t { flex:1; border-radius:14px; padding:18px 16px 16px; text-align:center; border:3px solid; }
+  .t .h { font-size:19px; font-weight:900; }
+  .t .v { font-size:66px; font-weight:900; line-height:1.05; margin:4px 0 4px; }
+  .t .d { font-size:17px; font-weight:800; color:#5d7186; line-height:1.5; }
+  .t1 { background:#fdecef; border-color:#e8b4bf; } .t1 .h,.t1 .v { color:#c92a2a; }
+  .t2 { background:#eef4fb; border-color:#b8cfe6; } .t2 .h,.t2 .v { color:#2f6fb0; }
+  .t3 { background:#eef8f1; border-color:#a9d5bb; } .t3 .h,.t3 .v { color:#1f8a4c; }
+
+  h2 { font-size:26px; font-weight:900; color:#1d3a5c; margin:30px 0 14px;
+       padding-left:13px; border-left:8px solid #2f6fb0; }
+
+  table { width:100%; border-collapse:collapse; }
+  th { background:#f2f5f8; color:#41566b; font-size:18px; font-weight:900;
+       padding:11px; border:1px solid #e2e8ee; }
+  td { font-size:22px; font-weight:900; color:#1d3a5c; padding:14px 12px;
+       border:1px solid #e2e8ee; text-align:center; }
+  td .sub { display:block; font-size:16px; font-weight:800; color:#6b7f93; margin-top:3px; }
+  tr.ok td { background:#fffaf0; } tr.ok td.k { color:#c92a2a; }
+  td.ng { color:#8a99a8; }
+
+  .steps { display:flex; gap:14px; margin-top:6px; }
+  .stp { flex:1; background:#f6f9fc; border:3px solid #d5e3f0; border-radius:14px;
+       padding:16px 16px 15px; }
+  .stp .n { width:36px; height:36px; background:#2f6fb0; color:#fff; border-radius:50%;
+          font-size:19px; font-weight:900; display:flex; align-items:center; justify-content:center; }
+  .stp .x { font-size:20px; font-weight:900; color:#1d3a5c; margin-top:9px; line-height:1.5; }
+  .stp .y { font-size:16px; font-weight:800; color:#5d7186; margin-top:6px; line-height:1.5; }
+  .stp .x b { color:#c92a2a; }
+
+  .kick { margin-top:24px; background:#0e3b66; border-radius:14px; padding:18px 24px;
+          color:#fff; font-size:22px; font-weight:900; line-height:1.6; }
+  .kick .y { color:#ffd83b; } .kick .c { color:#8fe3ff; }
+  .sig { text-align:right; color:#8a99a8; font-size:16px; font-weight:800; margin-top:16px; }
+</style></head><body>
+<div class="card">
+  <div class="hd">
+    <div class="k">変態か、変態以外か。 ── AI復習</div>
+    <h1>大井 前開催まとめ</h1>
+    <div class="s">7/20〜7/24　全58鞍のラップを1鞍ずつ確認</div>
+  </div>
+
+  <div class="body">
+
+    <div class="tiles">
+      <div class="t t1"><div class="h">浦和 8/7</div><div class="v">86%</div>
+        <div class="d">3着内が4角3番手以内</div></div>
+      <div class="t t2"><div class="h">大井 58鞍</div><div class="v">58%</div>
+        <div class="d">大井は<b>後ろから来る</b></div></div>
+      <div class="t t3"><div class="h">14頭以上</div><div class="v">55%</div>
+        <div class="d">7番人気以下が3着内<br>（11頭以下は28%）</div></div>
+    </div>
+
+    <h2>距離で見るものが変わる</h2>
+    <table>
+      <tr><th style="width:16%">距離</th><th style="width:20%">コース・直線</th>
+          <th style="width:34%">見る数字</th><th style="width:30%">結果</th></tr>
+      <tr class="ok"><td>1200m<span class="sub">22鞍</span></td>
+        <td>外回り<span class="sub">386m</span></td>
+        <td>ラスト1F<span class="sub">13.5以上なら後ろ</span></td>
+        <td class="k">18/22<span class="sub">82% 当たる</span></td></tr>
+      <tr class="ok"><td>1400m<span class="sub">12鞍</span></td>
+        <td>外回り<span class="sub">386m</span></td>
+        <td>残り600m<span class="sub">13秒台なら後ろ</span></td>
+        <td class="k">9/12<span class="sub">75% 当たる</span></td></tr>
+      <tr><td>1600m<span class="sub">16鞍</span></td>
+        <td>内回り<span class="sub">286m</span></td>
+        <td class="ng" colspan="2">ラップと結果が対応しない<span class="sub">直線が短くポジション勝負になる</span></td></tr>
+    </table>
+
+    <h2>買うときの3手順</h2>
+    <div class="steps">
+      <div class="stp"><div class="n">1</div>
+        <div class="x"><b>1200m・1400m</b>の<br><b>14頭以上</b>を探す</div>
+        <div class="y">出馬表だけで決まる。ここが勝負レース</div></div>
+      <div class="stp"><div class="n">2</div>
+        <div class="x">ラスト1F／残り600mで<br><b>前か後ろかを決める</b></div>
+        <div class="y">当日1R〜5Rの前残り率が7割超なら前寄りに修正</div></div>
+      <div class="stp"><div class="n">3</div>
+        <div class="x">その位置にいる<br><b>人気薄を厚く買う</b></div>
+        <div class="y">位置は読めても、人気までは読めない</div></div>
+    </div>
+
+    <div class="kick">🔑 見本は <span class="y">7/24 11R</span>。外回り1400m・<span class="y">16頭</span>・残り600mが<span class="y">13.1</span>で緩み、
+    決着は<span class="c">4角7番手・10番手・5番手</span>、3着に<span class="y">12番人気</span>。<br>
+    <span class="c">条件は、買う前に3つとも揃っていた。</span></div>
+
+    <div class="sig">By Claude AI</div>
+  </div>
+</div>
+</body></html>
