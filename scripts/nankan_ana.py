@@ -130,8 +130,8 @@ def main() -> None:
         rid = f"{base}{rno:02d}"
         try:
             card = rk.fetch_card(cli, rid)
-            raw = cli.get(f"/race_performance/list/RACEID/{rid}")
-            res = rk.parse_result(raw)
+            res = rk.fetch_result(cli, rid)          # 未確定を掴まない
+            raw = cli.get(f"/race_performance/list/RACEID/{rid}") if res else ""
         except Exception:                                # noqa: BLE001
             continue
         if not res:

@@ -76,13 +76,24 @@ class KeibaRakuten:
             time.sleep(self.min_interval - dt)
         self._last = time.monotonic()
 
+    def cache_path(self, path: str):
+        """その URL パスがキャッシュされる先。cache_dir が無ければ None。"""
+        if not self.cache_dir:
+            return None
+        key = re.sub(r"[^0-9A-Za-z]+", "_", path).strip("_")
+        return self.cache_dir / f"{key}.html"
+
     def get(self, path: str, *, use_cache: bool = True, retries: int = 3) -> str:
         url = path if path.startswith("http") else BASE + path
-        cache = None
-        if self.cache_dir and use_cache:
-            key = re.sub(r"[^0-9A-Za-z]+", "_", path).strip("_")
-            cache = self.cache_dir / f"{key}.html"
-            if cache.exists():
+        cache = self.cache_path(path)
+        if cache is not None:
+            # ⚠️ use_cache=False は「読まない」だけで、取り直した結果は**必ず書く**。
+            #    書かないと、次に既定（use_cache=True）で呼んだとき古いものが返る。
+            #    実際 2026-08-10 浦和で、5R以降がまだ確定していない時刻に取った
+            #    「結果0頭」のページが残り、確定後に取り直しても
+            #    use_cache=False では上書きされず、既定呼び出しが延々と
+            #    「未確定」を返し続けた。
+            if use_cache and cache.exists():
                 return cache.read_text(encoding="utf-8")
         last_err: Exception | None = None
         for i in range(retries):
@@ -269,6 +280,30 @@ def fetch_card(client, race_id: str) -> dict:
         card = parse_card(client.get(f"/race_card/list/RACEID/{race_id}",
                                      use_cache=False))
     return card
+
+
+def fetch_result(client, race_id: str) -> list[dict]:
+    """結果を取り、**0頭ならキャッシュを疑って取り直す**。`fetch_card` の結果版。
+
+    ⚠️ **まだ発走していないレースの結果ページをキャッシュしてはいけない。**
+       開催中に取ると、未確定のレースが「0頭」で保存される。以後は既定の
+       `get()` がそれを返し続けるので、**確定後に何度取り直しても未確定のまま**
+       になる。実際 2026-08-10 浦和で、4Rまで確定の時点で全12Rを取得した結果、
+       5R以降が0頭で固定され、全レース確定後の分析が4レース分しか出なかった。
+
+       取り直しても0頭のままなら**本当に未確定**なので、キャッシュを消して返す。
+       残すと次回また同じことになる。
+    """
+    path = f"/race_performance/list/RACEID/{race_id}"
+    res = parse_result(client.get(path))
+    if res:
+        return res
+    res = parse_result(client.get(path, use_cache=False))
+    if not res:
+        p = client.cache_path(path)
+        if p is not None:
+            p.unlink(missing_ok=True)
+    return res
 
 
 def _parse_pedigree(cells: list[str], name: str) -> tuple[str | None, str | None]:
