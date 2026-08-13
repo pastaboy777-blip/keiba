@@ -516,3 +516,195 @@ def parse_result_cyuou(html: str) -> list[dict]:
         out.append({"finish": finish, "name": name, "popularity": pop})
     out.sort(key=lambda x: x["finish"])
     return out
+
+
+# ---------------------------------------------------------------------------
+# 中央の成績ページ「レース単位の詳細」（BT値の入力）
+# ---------------------------------------------------------------------------
+
+#: 発走直後の不利。ここに入るものだけ「序盤不利」として素点に加点してよい。
+_START_KINDS = ("出遅れ", "ダッシュ付かず", "アオル", "スタート直後")
+#: 全角数字・漢数字 → 値
+_NUM = {**{c: i for i, c in enumerate("０１２３４５６７８９")},
+        **{c: i for i, c in enumerate("〇一二三四五六七八九")}}
+
+
+def _num(s: str) -> float | None:
+    """'１' '２' '半' → 1.0 / 2.0 / 0.5。読めなければ None。"""
+    if not s:
+        return None
+    if s == "半":
+        return 0.5
+    v = 0
+    for c in s:
+        if c in _NUM:
+            v = v * 10 + _NUM[c]
+        elif c.isdigit():
+            v = v * 10 + int(c)
+        else:
+            return None
+    return float(v)
+
+
+def _caption_table(html: str, caption: str) -> str | None:
+    """<caption>{caption}</caption> を持つ table を返す。"""
+    for m in re.finditer(r"<table[^>]*>.*?</table>", html, re.S):
+        if re.search(rf"<caption[^>]*>\s*{re.escape(caption)}", m.group(0)):
+            return m.group(0)
+    return None
+
+
+def _th_td_pairs(table: str) -> dict[str, str]:
+    """<tr><th>ラベル</th><td>値</td></tr> の並びを辞書に。"""
+    out: dict[str, str] = {}
+    for r in re.findall(r"<tr[^>]*>(.*?)</tr>", table, re.S):
+        th = re.findall(r"<th[^>]*>(.*?)</th>", r, re.S)
+        td = re.findall(r"<td[^>]*>(.*?)</td>", r, re.S)
+        if len(th) == 1 and len(td) == 1:
+            out[_text(th[0]).replace("　", "").replace(" ", "")] = _text(td[0])
+    return out
+
+
+def _header_row_table(table: str) -> dict[int, float]:
+    """見出し行が距離、次の行が秒、という表を {距離[m]: 秒} に。
+
+    ⚠️ 見出しは **レースごとに違う**。1400m戦のラップは 200/400/… だが、
+       半端な距離（1150m など）は 150/350/… や 100/300/… で始まる。
+       位置決め打ちは禁止で、必ず見出しと値を対で読むこと。
+    """
+    ths = [_text(x) for x in re.findall(r"<th[^>]*>(.*?)</th>", table, re.S)]
+    tds = [_text(x) for x in re.findall(r"<td[^>]*>(.*?)</td>", table, re.S)]
+    out: dict[int, float] = {}
+    for h, d in zip(ths, tds):
+        mh = re.match(r"(\d+)m", h)
+        md = re.match(r"(\d+\.\d)$", d)
+        if mh and md:
+            out[int(mh.group(1))] = float(md.group(1))
+    return out
+
+
+def parse_corner_order(s: str | None) -> dict[int, int]:
+    """コーナー通過順の文字列を **馬番 → 順位** に。
+
+        '9.3-2-5(14.7.15)4.8(10.6.13)-1-11-12'
+        → {9:1, 3:2, 2:3, 5:4, 14:5, 7:5, 15:5, 4:8, ...}
+
+    括弧は横並び（同順）。同順には同じ順位を振り、次はその頭数ぶん飛ばす。
+    `-` は差、`=` は大差だが、順位の計算には影響しない（並び順がすべて）。
+    """
+    if not s:
+        return {}
+    pos: dict[int, int] = {}
+    rank = 1
+    for grp, solo in re.findall(r"\(([^)]*)\)|(\d+)", s):
+        nums = [int(x) for x in re.findall(r"\d+", grp or solo)]
+        if not nums:
+            continue
+        for u in nums:
+            pos.setdefault(u, rank)
+        rank += len(nums)
+    return pos
+
+
+def parse_incidents(s: str | None) -> list[dict]:
+    """「発走状況他」を1件ずつに割る。
+
+        '(2)(3)(5)(8)出遅れ１馬身不利　(1)アオル２馬身不利'
+        → [{'umaban':2,'kind':'出遅れ','lengths':1.0,'phase':'start', ...}, ...]
+
+    ⚠️ **これは全馬に付くデータではない。** 記載のあった馬にだけ付く。
+       欠測を「不利ゼロ」として扱うと、**書かれた馬だけが得をする**偏りが出る。
+       使う側で必ず「記載なし＝不明」と「記載あり＝この量」を区別すること。
+
+    ⚠️ 記載はほぼ**発走直後**に偏る（実測: 92件中、道中の不利は6件のみ）。
+       レース中の不利をこれで代表させないこと。
+
+    phase は 'start'（出遅れ・ダッシュ付かず・アオル・スタート直後）、
+    'mid'（向正面・３角・４角・直線）、'stop'（競走中止）。
+    `severe` は「１秒以上大きな不利」のように馬身に換算されていないもの。
+    """
+    if not s:
+        return []
+    txt = re.sub(r"[\s　]+", " ", s).strip()
+    out: list[dict] = []
+    for chunk in re.findall(r"((?:\(\d+\))+[^()]*)", txt):
+        umas = [int(x) for x in re.findall(r"\((\d+)\)", chunk)]
+        body = re.sub(r"^(?:\(\d+\))+", "", chunk).strip()
+        if not umas or not body:
+            continue
+        if "競走中止" in body:
+            phase, lengths, severe = "stop", None, True
+        else:
+            phase = ("start" if any(k in body for k in _START_KINDS) else
+                     "mid" if re.match(r"(向正面|[０-９0-9１-４一-四]角|直線|道中)", body)
+                     else "other")
+            # ⚠️ 文字クラスで `〇-九` のような**漢数字の範囲指定を書かないこと**。
+            #    U+3007〜U+4E5D はひらがな・カタカナを丸ごと含む。実際
+            #    `[０-９〇-九\d]+馬身` は「出遅れ１馬身」から **「れ１馬身」** を
+            #    掴み、数値化に失敗して lengths が全部 None になっていた。
+            #    使う文字を1つずつ並べること。
+            m = re.search(r"([半０-９〇一二三四五六七八九\d]+)馬身", body)
+            lengths = _num(m.group(1)) if m else None
+            severe = bool(re.search(r"秒以上|大きな不利", body))
+        out.append(dict(umaban=umas[0] if len(umas) == 1 else None,
+                        umabans=umas, kind=body, lengths=lengths,
+                        phase=phase, severe=severe, raw=chunk.strip()))
+    # 複数馬にかかる記述は馬ごとにばらす
+    flat: list[dict] = []
+    for x in out:
+        for u in x["umabans"]:
+            flat.append({**x, "umaban": u})
+    return flat
+
+
+def parse_result_detail_cyuou(html: str) -> dict:
+    """中央の成績ページから **レース単位の詳細** を返す（BT値の入力）。
+
+    return: {
+      "sectionals": {600: 34.8, 800: 46.5},    # 通過タイム（先頭の累計）
+      "laps":       {200: 12.4, 400: 11.0, …}, # ハロンラップ（先頭）
+      "corners":    {"４角": "9.3-2-5(14.7.15)…", …},
+      "corner_pos": {4: {馬番: 順位}, 3: {…}},  # 角番号→並び
+      "avg_furlong": 11.80, "agari4f": 46.6, "agari3f": 35.5,
+      "pace": "ミドル", "decisive": "…", "incidents": [ … ],
+    }
+
+    ⚠️ **通過タイム・ラップは「先頭の」時計**であって、個々の馬のものではない。
+       BT値の仕様が要求する「馬ごとのテン3F」は**公開されていない**。
+       各馬の前3Fが要る場面では、この先頭ラップとコーナー通過順から
+       **推定するしかない**。推定であることを消さないこと。
+
+    ⚠️ 取得率（キャッシュ56レースでの実測）: 通過タイム96% / ラップ96% /
+       コーナー通過順98% / 発走状況他98%。**欠ける日がある**前提で書くこと。
+    """
+    sec = _caption_table(html, "通過タイム")
+    lap = _caption_table(html, "ラップタイム")
+    cor = _caption_table(html, "コーナー通過順")
+    etc = _caption_table(html, "平均ハロンなど")
+    corners = _th_td_pairs(cor) if cor else {}
+    misc = _th_td_pairs(etc) if etc else {}
+
+    cpos: dict[int, dict[int, int]] = {}
+    for label, val in corners.items():
+        m = re.match(r"([１-４1-4一二三四])角", label)
+        if m:
+            n = "１1一".find(m.group(1))
+            n = {"１": 1, "1": 1, "一": 1, "２": 2, "2": 2, "二": 2,
+                 "３": 3, "3": 3, "三": 3, "４": 4, "4": 4, "四": 4}[m.group(1)]
+            cpos[n] = parse_corner_order(val)
+
+    ag = misc.get("上り") or ""
+    m4 = re.match(r"([\d.]+)-([\d.]+)", ag)
+    avg = misc.get("平均ハロン")
+    return {
+        "sectionals": _header_row_table(sec) if sec else {},
+        "laps": _header_row_table(lap) if lap else {},
+        "corners": corners,
+        "corner_pos": cpos,
+        "avg_furlong": float(avg) if avg and re.match(r"[\d.]+$", avg) else None,
+        "agari4f": float(m4.group(1)) if m4 else None,
+        "agari3f": float(m4.group(2)) if m4 else None,
+        "pace": misc.get("ペース"),
+        "decisive": misc.get("決め手"),
+        "incidents": parse_incidents(misc.get("発走状況他")),
+    }
