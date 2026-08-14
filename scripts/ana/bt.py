@@ -29,11 +29,17 @@
      とすればA2の1700mが年3レースでも全距離のA2からκが決まる。
      （baba_sa.py で1,940レース・残差SD1.00秒を確認した式をそのまま使う）
 
-Phase 1 で入っているもの:
+入っているもの:
     基準タイム3本（全体／テン／上がり）→ 2区間の日別馬場比 → 斤量補正
-    → 年齢補正（馬齢群×月）→ 素点（中心55）
-Phase 2 以降（未実装）:
-    ペース補正ブレンド、コース形態係数、ペースバイアス補正、Cap/Floor
+    → 年齢補正（馬齢群×月）→ スロー時の上がり寄せブレンド
+    → ペースバイアス補正（日の偏り×位置、レースの流れ×位置）
+    → 中心合わせ → クラス別Cap/Floor
+
+入れなかったもの（理由つき）:
+    個別不利補正        … 南関にデータが無い
+    コース形態係数      … 基準タイムを場×距離×区間別に引いているので二重になる
+    ハイペースのテン寄せ … テンを「走破−上がり」で作る以上、潰れた馬ほど高得点になる
+    馬場状態係数        … 南関のダートはU字で、原典の単調な向きが当てはまらない
 
 使い方:
     python3 scripts/ana/bt.py --fit                     # 係数を推定して表示
@@ -63,6 +69,26 @@ BASE_CLASS = "B2"      # 中心値を当てるクラス（南関の真ん中）
 DIST_FLOOR = 1.2       # 距離係数の下限。短距離でノイズが同じ倍率で増幅されるのを抑える
 KIN_FRONT = 0.70       # 斤量補正の前3F配分（加速時のほうが重量が効く）
 
+# --- Phase 2: ペース補正ブレンド ------------------------------------------
+# ペース比＝実測テン ÷（テン基準×その日のテン馬場比）。1より大きければスロー。
+# 南関1,710レースの実測で 中央1.0006 / SD 0.0181 だったので、1σを刻みに使う。
+PACE_SIG = 0.018       # ペース比の1σ（実測値）
+W_AT_1SIG = 0.25       # 1σずれたときのブレンド率
+W_MAX = 0.50           # ブレンド率の上限。走破タイムを主役から降ろしすぎない
+SLOW_KIN = 0.10        # スロー時の斤量追加補正（秒/kg/1000m・ブレンド率に比例）
+
+# ★コース形態係数（テン3F係数・上がり3F係数）は入れない。
+#   原典がこれを必要とするのは基準タイムの粒度が粗いため。
+#   こちらは基準タイムを【場×距離ごとに、テン・上がり別々に】引いているので、
+#   下り坂スタートで構造的にテンが速い分はすでに基準に入っている。
+#   同じものを係数でもう一度引くと二重補正になる。
+
+# --- Phase 3: ペースバイアス補正・Cap/Floor --------------------------------
+# その日その場が前残りだったか差し有利だったかは、個々の馬の能力とは無関係。
+# ただし【同じレースの着順から測ると循環する】ので、日×場の単位で測って当てる。
+CAP_Q = 99.5           # クラス別の上限（パーセンタイル）
+FLOOR_Q = 0.5          # クラス別の下限
+
 
 # ---------------------------------------------------------------- 読み込み
 
@@ -84,6 +110,8 @@ def parse(fn):
     x = re.sub(r"[ 　]+", " ", re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "|", t)))
     lap = re.search(r"ラップ\| \|([0-9.\- ]+)\|", x)
     laps = [float(v) for v in lap.group(1).split("-")] if lap else []
+    c4m = re.search(r"4コーナー\| \|([^|]+)\|", x)
+    c4 = c4m.group(1).strip() if c4m else ""
     rows = []
     for r in re.findall(r"<tr[^>]*>(.*?)</tr>", t, re.S):
         if "/horse/" not in r:
@@ -111,6 +139,7 @@ def parse(fn):
     return dict(date=f"{y:04d}-{m:02d}-{d:02d}", month=m, place=hd.group(4),
                 rn=int(os.path.basename(fn)[-7:-5]), dist=int(cond.group(2)),
                 baba=cond.group(3), rname=rname, klass=grade(rname), laps=laps,
+                c4=c4, rk=rank4(c4), n=len(rows),
                 ag3=ag3, ten3=(win["t"] - ag3 if win and ag3 else None),
                 wt=(win["t"] if win else None), rows=rows)
 
@@ -302,8 +331,143 @@ def fit_kin_age(R, M, verbose=False):
 
 # ---------------------------------------------------------------- BT値
 
-def bt_of(r, h, M):
-    """1頭ぶんのBT値。返り値は (BT値, 内訳dict) か None。"""
+def fit_blend(R, M):
+    """全体／上がり／テンの残差を、同じ物差しに揃えるための平均とSD。
+
+    3つは単位も分散も違う（上がりは常に600m、テンは距離-600m）。
+    そのまま混ぜると混ぜた瞬間にスケールが壊れるので、
+    先に平均0・SD1に標準化してから全体側のスケールに戻す。
+    """
+    A, G, T = [], [], []
+    for r in R:
+        pa = par_of(M["all"], r["place"], r["dist"], BASE_CLASS)
+        pg = par_of(M["ag"], r["place"], r["dist"], BASE_CLASS)
+        pt = par_of(M["ten"], r["place"], r["dist"], BASE_CLASS)
+        if not pa:
+            continue
+        tr, ar = M["basa"].get(f"{r['date']}\t{r['place']}", [1.0, 1.0])
+        for h in r["rows"]:
+            if not (h["t"] and h["agari"]):
+                continue
+            ten = h["t"] - h["agari"]
+            A.append((pa - (ten / tr + h["agari"] / ar)) / (r["dist"] / 1000.0))
+            if pg:
+                G.append((pg - h["agari"] / ar) / 0.6)
+            if pt and r["dist"] > 600:
+                T.append((pt - ten / tr) / ((r["dist"] - 600) / 1000.0))
+    f = lambda v: [round(st.mean(v), 4), round(st.pstdev(v) or 1.0, 4)]
+    return {"all": f(A), "ag": f(G), "ten": f(T)}
+
+
+def fit_bias(R, M, verbose=False):
+    """日×場の前残り【偏り】と、その効きを推定する。
+
+    ★ここは一度タウトロジーで壊した。記録として残す。
+      最初は「3着内馬の相対4角位置の中央値」をそのまま前残り度合いに使い、
+      0.5より小さければ前有利、とした。だが実測は152開催日すべてで
+      中央0.200。前にいた馬が上位に来るのはどの日でも当たり前で、
+      これは日の性質ではなく着順で切ったことの言い換えでしかない。
+      同じ理由で効きγも+5.0秒/1000mという桁違いの値になった。
+      （「前の馬は速い」という普遍の関係を、そのまま補正量として拾っていた）
+
+    直した測り方:
+      ① 日×場の値から【全体の中央値】を引いた差だけを偏りとする。
+      ② 効きは交互作用としてだけ取る。位置そのものの効き a は残す。
+             残差 ~ a*(rel-0.5) + γ*偏り*(rel-0.5)
+         a は「前にいる馬は実際に強い／うまい」という能力側の成分なので消さない。
+         消すのは γ の項＝その日だけ余計に前が残った／差しが決まった分。
+    """
+    import numpy as np
+    by = defaultdict(list)
+    for r in R:
+        if not r.get("rk") or r["n"] < 5:
+            continue
+        for h in r["rows"]:
+            if h["chaku"] <= 3 and h["ub"] in r["rk"]:
+                by[(r["date"], r["place"])].append((r["rk"][h["ub"]] - 1) / (r["n"] - 1))
+    raw = {k: st.median(v) for k, v in by.items() if len(v) >= 9}
+    if not raw:
+        return {}, 0.0, 0.0
+    g0 = st.median(raw.values())                       # 全体の水準。これが基準線
+    bias = {"\t".join(k): round(v - g0, 4) for k, v in raw.items()}   # 差だけ持つ
+    X, y = [], []
+    for r in R:
+        pa = par_of(M["all"], r["place"], r["dist"], BASE_CLASS)
+        b = bias.get(f"{r['date']}\t{r['place']}")
+        if not pa or b is None or not r.get("rk") or r["n"] < 5:
+            continue
+        pc = _pace(r, M)
+        if pc is None:
+            continue
+        pd = (pc - 1.0) / PACE_SIG           # 正ならスロー、負ならハイ（σ単位）
+        tr, ar = M["basa"].get(f"{r['date']}\t{r['place']}", [1.0, 1.0])
+        for h in r["rows"]:
+            if not (h["t"] and h["agari"] and h["ub"] in r["rk"]):
+                continue
+            rel = (r["rk"][h["ub"]] - 1) / (r["n"] - 1) - 0.5
+            res = (pa - ((h["t"] - h["agari"]) / tr + h["agari"] / ar)) / (r["dist"] / 1000.0)
+            X.append([rel, b * rel, pd * rel, 1.0])
+            y.append(res)
+    if len(X) < 500:
+        return bias, 0.0, 0.0
+    beta, *_ = np.linalg.lstsq(np.array(X), np.array(y), rcond=None)
+    a, g, pz = float(beta[0]), float(beta[1]), float(beta[2])
+    if verbose:
+        v = sorted(bias.values())
+        print(f"  3着内馬の相対4角位置は全体で {g0:.3f}。これを基準線にして日ごとの差を取る")
+        print(f"  {len(bias)}開催日×場  前寄り{sum(1 for x in v if x < -0.05)}日"
+              f" / 差し寄り{sum(1 for x in v if x > 0.05)}日  幅 {v[0]:+.2f}〜{v[-1]:+.2f}")
+        print(f"  位置そのものの効き a={a:+.3f}（能力側なので消さない）")
+        print(f"  日の偏り×位置 γ={g:+.3f} ／ ペース×位置 p={pz:+.3f} 秒/1000m（この2つを消す）")
+    return bias, g, pz
+
+
+def fit_cap(R, M, verbose=False):
+    """クラス別の上限・下限。いびつな馬場やペースで膨らんだ外れ値を止める。"""
+    by = defaultdict(list)
+    for r in R:
+        for h in r["rows"]:
+            b = bt_of(r, h, M)
+            if b:
+                by[r["klass"] or "?"].append(b[0])
+    cap = {}
+    for k, v in by.items():
+        if len(v) < 60:
+            continue
+        q = st.quantiles(v, n=1000)
+        cap[k] = [round(q[int(FLOOR_Q * 10) - 1], 1), round(q[int(CAP_Q * 10) - 1], 1)]
+    if verbose:
+        print("  Cap/Floor " + " ".join(f"{k}[{a}-{b}]" for k, (a, b) in sorted(cap.items())))
+    return cap
+
+
+def rank4(c4):
+    """4角の通過順文字列 → {馬番: 順位}。括弧は併走で、内側の馬から書かれる。"""
+    out, k = {}, 0
+    for tok in re.findall(r"\([^)]*\)|\d+", c4 or ""):
+        for v in re.findall(r"\d+", tok):
+            k += 1
+            out[int(v)] = k
+    return out
+
+
+def _pace(r, M):
+    """そのレースのペース比を返す。1より大きい＝スロー、小さい＝ハイ。"""
+    if not (r["klass"] and r["ten3"]):
+        return None
+    p = par_of(M["ten"], r["place"], r["dist"], r["klass"])
+    if not p:
+        return None
+    tr, _ = M["basa"].get(f"{r['date']}\t{r['place']}", [1.0, 1.0])
+    return r["ten3"] / (p * tr)
+
+
+def bt_of(r, h, M, blend=True):
+    """1頭ぶんのBT値。返り値は (BT値, 内訳dict) か None。
+
+    ① 馬場比（テン／上がりの2区間） ② 斤量 ③ 年齢 で補正後タイムを作り、
+    ④ ペース補正ブレンド ⑤ ペースバイアス補正 ⑥ クラス別Cap/Floor を当てる。
+    """
     if not (h["t"] and h["agari"] and h["kin"] and h["age"]):
         return None
     par = par_of(M["all"], r["place"], r["dist"], BASE_CLASS)   # 全クラス共通の物差し
@@ -320,9 +484,57 @@ def bt_of(r, h, M):
     adj -= dk * KIN_FRONT + dk * (1 - KIN_FRONT)                # ② 斤量（配分は現状同値）
     ac = M["ka"]["age"].get(f"{g}\t{r['month']}", 0.0) * (r["dist"] / 1000.0)
     sa = par - adj - ac                                         # ③ 年齢
-    v = CENTER + sa / max(r["dist"] / 1000.0, DIST_FLOOR) * 10 + M.get("anchor", 0.0)
-    return round(v, 1), dict(par=round(par, 1), adj=round(adj, 1), ten_hi=tr, ag_hi=ar,
-                             kin=round(dk, 2), age=round(ac, 2), sa=round(sa, 2))
+    dk1 = r["dist"] / 1000.0
+    rr = sa / dk1                                               # 秒/1000m・正なら速い
+    d = dict(par=round(par, 1), adj=round(adj, 1), ten_hi=tr, ag_hi=ar,
+             kin=round(dk, 2), age=round(ac, 2), sa=round(sa, 2), w=0.0, mode="時計")
+
+    if blend and M.get("blend"):
+        pc = _pace(r, M)
+        if pc:
+            w = min(W_MAX, abs(pc - 1.0) / PACE_SIG * W_AT_1SIG)
+            Z = M["blend"]
+            if pc > 1.0:
+                # ④ スロー：上がり勝負。上がり3Fベースのスコアを混ぜる。
+                #    上がりは1頭ごとの実測値なので、走破タイムと独立に測れている。
+                pa = par_of(M["ag"], r["place"], r["dist"], BASE_CLASS)
+                if pa:
+                    sub = (pa - h["agari"] / ar) / 0.6
+                    sub = (sub - Z["ag"][0]) / Z["ag"][1] * Z["all"][1] + Z["all"][0]
+                    rr = (1 - w) * rr + w * sub
+                    # スロー時は軽斤量の恩恵がタイム差以上に効く。ブレンド率に比例して追加。
+                    rr -= (base - h["kin"]) * SLOW_KIN * w
+                    d.update(w=round(w, 2), mode="上がり寄せ")
+            # ★ハイペース側の「テン寄せブレンド」は入れない。実装して外した記録:
+            #   原典は1頭ごとの実測テン3Fを混ぜる。だが南関で1頭ごとに取れる区間は
+            #   上がり3Fだけなので、テンは【走破タイム − 上がり3F】で作るしかない。
+            #   するとテンと上がりが機械的に裏返しになり、
+            #   「上がりが悪い馬ほどテンが速い」＝潰れた馬ほど高得点になる。
+            #   実測でも 8/2船橋9R で6着(上り42.9)が勝ち馬と同じBT56.1、
+            #   11着(上り44.7)が7着・10着より上、という壊れ方をした。
+            #   ハイペースで先行した馬への評価は、時計ではなく【位置】で当てる。
+            #   → 下のペース×位置の項で処理する。
+            d["pace"] = round(pc, 4)
+
+    # ⑤ ペースバイアス補正。日×場の前残り度合いを、その馬の4角位置に当てて外す。
+    if M.get("bias") and h["ub"]:
+        b = M["bias"].get(f"{r['date']}\t{r['place']}")
+        pos = (r.get("rk") or {}).get(h["ub"])
+        if b is not None and pos is not None and r.get("n", 0) > 1:
+            rel = (pos - 1) / (r["n"] - 1) - 0.5
+            rr -= M["bias_g"] * b * rel          # その日の偏りの分
+            pc2 = _pace(r, M)
+            if pc2 is not None and M.get("pace_p"):
+                rr -= M["pace_p"] * ((pc2 - 1.0) / PACE_SIG) * rel   # そのレースの流れの分
+            d["bias"] = round(b, 3)
+
+    v = CENTER + rr * dk1 / max(dk1, DIST_FLOOR) * 10 + M.get("anchor", 0.0)
+
+    # ⑥ クラス別Cap/Floor。いびつな馬場やペースで膨らんだ外れ値を止める。
+    cf = (M.get("cap") or {}).get(r["klass"] or "?")
+    if cf:
+        v = max(cf[0], min(cf[1], v))
+    return round(v, 1), d
 
 
 # ---------------------------------------------------------------- 実行
@@ -339,18 +551,30 @@ def build(dfrom, dto, verbose=True):
         print(f"■ 馬場比 {len(M['basa'])} 開催日×場")
         print("■ 斤量・年齢")
     M["ka"] = fit_kin_age(R, M, verbose)
+    if verbose:
+        print("■ ペース補正ブレンド")
+    M["blend"] = fit_blend(R, M)
+    if verbose:
+        z = M["blend"]
+        print(f"  標準化 全体SD{z['all'][1]:.2f} 上がりSD{z['ag'][1]:.2f} テンSD{z['ten'][1]:.2f}"
+              f"（秒/1000m）／1σで{W_AT_1SIG:.2f}・上限{W_MAX:.2f}混ぜる")
+        print("■ ペースバイアス補正")
+    M["bias"], M["bias_g"], M["pace_p"] = fit_bias(R, M, verbose)
     M["anchor"] = 0.0
     # 中心値の据え方。parは【勝ちタイム】で引いてあるので、そのままだと
     # 55＝「B2を基準タイムで勝った走り」になり、分布全体が下に寄る。
     # 原典は「標準的な走りをした馬が中心値」なので、基準クラスの全出走馬の
     # 中央値が55に来るよう平行移動する。ここは目盛りの原点合わせであって、
     # 馬ごとの上下関係は一切変えない。
-    v = [bt_of(r, h, M)[0] for r in R if r["klass"] == BASE_CLASS
-         for h in r["rows"] if bt_of(r, h, M)]
+    v = [b[0] for r in R if r["klass"] == BASE_CLASS for h in r["rows"]
+         if (b := bt_of(r, h, M))]
     if len(v) >= 30:
         M["anchor"] = round(CENTER - st.median(v), 2)
         if verbose:
             print(f"■ 中心合わせ {BASE_CLASS}の{len(v):,}走の中央値を55へ（平行移動 {M['anchor']:+.2f}）")
+    if verbose:
+        print("■ クラス別Cap/Floor")
+    M["cap"] = fit_cap(R, M, verbose)
     M["meta"] = dict(dfrom=dfrom, dto=dto, races=len(R), center=CENTER, base_class=BASE_CLASS)
     return M, R
 
