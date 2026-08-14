@@ -33,6 +33,36 @@ class TestChanges(unittest.TestCase):
         self.assertGreaterEqual(s, shigeki.W_PLACE)
         self.assertTrue(any("川崎" in x for x in t))
 
+    def test_novelty_scores_more_than_routine(self):
+        """⚠️ ただ替わっただけの変化はオッズに織り込まれている。
+        効くとすれば**その馬がまだ試していない**変化のはず。"""
+        prev = run(place="川崎")
+        hist_new = [prev, run(place="川崎"), run(place="船橋")]
+        hist_old = [prev, run(place="浦和"), run(place="浦和")]
+        a, ta = shigeki.changes("浦和", 1400, "Ａ", "2026-08-10", prev,
+                                history=hist_new)
+        b, _ = shigeki.changes("浦和", 1400, "Ａ", "2026-08-10", prev,
+                               history=hist_old)
+        self.assertGreater(a, b)
+        self.assertTrue(any("初浦和" in x for x in ta))
+
+    def test_first_jockey_combo(self):
+        prev = run(jockey="Ａ")
+        s, t = shigeki.changes("浦和", 1400, "Ｚ", "2026-08-10", prev,
+                               history=[prev, run(jockey="Ａ")])
+        self.assertTrue(any("初コンビ" in x for x in t))
+
+    def test_first_distance_band(self):
+        prev = run(distance=1200)
+        s, t = shigeki.changes("浦和", 2000, "Ａ", "2026-08-10", prev,
+                               history=[prev, run(distance=1200)])
+        self.assertTrue(any("初長距離" in x for x in t))
+
+    def test_band(self):
+        self.assertEqual(shigeki.band(1200), "短")
+        self.assertEqual(shigeki.band(1500), "中")
+        self.assertEqual(shigeki.band(1800), "長")
+
     def test_jockey_change(self):
         s, t = shigeki.changes("浦和", 1400, "Ｂ", "2026-08-10", run(jockey="Ａ"))
         self.assertTrue(any("乗替" in x for x in t))
@@ -74,10 +104,28 @@ class TestPreheat(unittest.TestCase):
         s, w = shigeki.preheat(runs)
         self.assertTrue(any("位置" in x for x in w))
 
-    def test_finish_improved(self):
+    def test_finish_improvement_is_not_credited(self):
+        """⚠️ **着順が上がったことを加点しない。**着順はオッズに反映されるので、
+        そこを買うと人気馬を買うことになる。8/14 大井で「点火」と出した人気薄
+        15頭が1頭も来ず、来た穴は「材料なし」判定だったのがこの形。"""
         runs = [run(finish_pos=2)] + [run(finish_pos=9)] * 3
         s, w = shigeki.preheat(runs)
-        self.assertTrue(any("着順" in x for x in w))
+        self.assertFalse(any("着順が上がった" in x for x in w))
+
+    def test_hidden_improvement_is_the_target(self):
+        """内容は良化したのに着順は着外、が狙い（まだ人気にならない）。"""
+        runs = ([run(last3f_sec=38.0, finish_pos=8)]
+                + [run(last3f_sec=41.0, finish_pos=8)] * 3)
+        s, w = shigeki.preheat(runs)
+        self.assertTrue(any("着順に出ていない" in x for x in w))
+
+    def test_visible_improvement_scores_less(self):
+        """同じ内容良化でも、着順に出てしまった馬は加点しない。"""
+        hidden = shigeki.preheat([run(last3f_sec=38.0, finish_pos=8)]
+                                 + [run(last3f_sec=41.0, finish_pos=8)] * 3)[0]
+        shown = shigeki.preheat([run(last3f_sec=38.0, finish_pos=1)]
+                                + [run(last3f_sec=41.0, finish_pos=8)] * 3)[0]
+        self.assertGreater(hidden, shown)
 
     def test_chained_change_counts(self):
         """前走**も**変化だったなら予熱が済んでいる。"""
@@ -110,17 +158,18 @@ class TestIgnition(unittest.TestCase):
         ig = shigeki.ignition("浦和", 1400, "Ａ", "2026-08-10", runs)
         self.assertIn("変化のみ", ig.label())
 
-    def test_already_fired_is_not_no_material(self):
-        """⚠️ 変化が無くても前走で動いていれば「発射済み」。材料なしと混ぜない。
-        実際ここを混ぜて、前走1着で内容も良化した馬を『材料が無い』と
-        表示するバグを出した。"""
-        runs = [run(last3f_sec=38.0, corner_pos=(2,), finish_pos=1, place="浦和"),
+    def test_warm_without_trigger_is_not_no_material(self):
+        """⚠️ 変化が無くても前走で動いていれば「予熱済み・引き金なし」。
+        材料なしと混ぜない。実際ここを混ぜて表示バグを出した。
+        ⚠️ かつて「前走で発射済み」と呼んでいたが、着順加点を外した今は
+        予熱が高い＝着順に出ていない良化なので、その名前は逆だった。"""
+        runs = [run(last3f_sec=38.0, corner_pos=(2,), finish_pos=8, place="浦和"),
                 run(last3f_sec=41.0, corner_pos=(8,), finish_pos=8, place="川崎"),
                 run(last3f_sec=41.0, corner_pos=(8,), finish_pos=8, place="川崎")]
         ig = shigeki.ignition("浦和", 1400, "Ａ", "2026-08-10", runs)
         self.assertLess(ig.change, 1.5)
         self.assertGreaterEqual(ig.preheat, 3.0)
-        self.assertIn("発射済み", ig.label())
+        self.assertIn("予熱済み", ig.label())
         self.assertNotIn("材料なし", ig.label())
 
     def test_nothing(self):

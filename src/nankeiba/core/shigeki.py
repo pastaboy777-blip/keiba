@@ -58,7 +58,31 @@
    直すなら重みではなく構造。有力なのは**予熱を「着順に出ていないもの」に
    絞る**こと。いまは `W_FINISH`（着順が上がった）を加点しているが、着順は
    人気に反映される。**着順は悪いのに上がり・位置だけ良化した**馬に絞るほうが
-   「エンジンは温まったがまだ結果に出ていない」という趣旨に合う。未着手。
+   「エンジンは温まったがまだ結果に出ていない」という趣旨に合う。
+
+── 構造を直した後、同じ日で測り直した ─────────────────────────
+
+  ①変化に「珍しさ」（初めての場・初コンビ・初の距離帯）を上乗せ
+  ②`W_FINISH` を廃止し、**内容は良化したのに着順は着外**（`W_HIDDEN`）に置換
+
+  **説明は良くなったが、選別にはなっていない。**実際に来た穴のうち
+  9人気2着と8人気2着は、直す前は「材料なし2.0点」だったのが
+  「着順に出ていない（10着/5着で良化）」を拾って4.5点になった。**狙った信号は
+  ちゃんと点いた。**しかし——
+
+      この日の穴の3着内率（全体）        9.1%（66頭中6頭）
+      「着順に出ていない」札あり  41頭 →  7.3%
+      「着順に出ていない」札なし  25頭 → 12.0%
+      初物あり                  18頭 → 11.1%
+      初物なし                  48頭 →  8.3%
+
+  ⚠️⚠️ **札が付いた馬のほうがむしろ悪い。**そして決定的なのは
+     **「着順に出ていない」が66頭中41頭（62%）に付いている**こと。
+     n=66・的中6本なので有意差の議論はできないが、**大半に付く札は
+     選別として成立しない**という点だけは母数によらず言える。
+
+  次にやるなら閾値ではなく**希少性**。いまは「上がりが自己中央値より0.2秒速い」
+  程度で札が付く。穴を拾うなら、上位1割にしか付かない強さの条件が要る。
 """
 
 from __future__ import annotations
@@ -67,18 +91,32 @@ from dataclasses import dataclass, field
 from statistics import median
 
 #: 変化の重み[点]。⚠️ **未測定の初期値。**
-W_PLACE = 2.0          # 競馬場が替わった
-W_JOCKEY = 1.5         # 乗り替わり
-W_DIST = 1.5           # 距離が変わった（400m以上でさらに加点）
-W_DIST_BIG = 1.0
+W_PLACE = 1.0          # 競馬場が替わった
+W_JOCKEY = 0.8         # 乗り替わり
+W_DIST = 0.8           # 距離が変わった
+W_DIST_BIG = 0.7       # 400m以上の変更
 W_REST = 1.5           # 間隔が空いた（休み明け）
 W_TIGHT = 1.0          # 詰めて使ってきた
+
+#: **珍しさ**の上乗せ[点]。その馬にとって初めての変化かどうか。
+#:
+#: ⚠️ ただ替わっただけの変化は**オッズに織り込まれている**。乗り替わりも
+#:    距離替わりも出馬表を見れば誰でも分かるので、変化が大きい馬は既に買われて
+#:    いる。実際 8/14 大井で「点火」と判定した人気薄15頭は1頭も来なかった。
+#:    効くとすれば「その馬が**まだ試していない**変化」のはずなので、
+#:    初物のときだけ重くする。
+N_PLACE = 2.0          # 初めて走る競馬場
+N_JOCKEY = 1.5         # 初コンビ
+N_BAND = 1.5           # 初めての距離帯
 
 #: 予熱の重み[点]。⚠️ **未測定の初期値。**
 W_AGARI = 2.0          # 前走の上がりが自己ベースより速かった
 W_POS = 1.5            # 前走で位置を上げた
-W_FINISH = 1.0         # 前走で着順が上がった
 W_CHAINED = 1.5        # 前走**も**変化だった（予熱が済んでいる）
+W_HIDDEN = 2.5         # **内容は良化したのに着順に出ていない**（本命）
+
+#: 「着順に出ていない」とみなす前走着順。
+HIDDEN_FINISH = 4
 
 #: 休み明けとみなす日数 / 詰めて使ったとみなす日数。
 REST_DAYS = 60
@@ -118,38 +156,67 @@ class Ignition:
            なお前走で発射済みの馬は**もう人気になっている**ことが多いので、
            穴として狙う対象ではない。区別できないと、そこを取り違える。
         """
-        fired = self.preheat >= 3.0
+        warm = self.preheat >= 3.0
         if self.change >= 1.5:
-            if fired:
+            if warm:
                 return "**点火**（変化があり、前走で動けていた）"
             if self.preheat >= 1.5:
                 return "予熱中（変化はあるが兆候は弱い）"
             return "変化のみ（前走に兆候なし）"
-        if fired:
-            return "前走で発射済み（今回は変化なし・人気になりやすい）"
+        if warm:
+            # ⚠️ ここを「前走で発射済み」と書いていたのは、W_FINISH（着順が
+            #    上がった）を予熱に数えていた頃の名残。着順加点を外した今、
+            #    予熱が高い＝**着順に出ていない良化**なので「発射済み」は逆。
+            return "予熱済み・引き金なし（今回は変化がない）"
         return "材料なし"
 
 
+def band(distance: int | None) -> str:
+    """距離帯。'短'（〜1300）/'中'（〜1600）/'長'。"""
+    if not distance:
+        return "中"
+    if distance <= 1300:
+        return "短"
+    return "中" if distance <= 1600 else "長"
+
+
 def changes(place: str, distance: int | None, jockey: str | None,
-            date: str, prev) -> tuple[float, list]:
-    """今回の変化を点数と札にする。前走が無ければ (0, [])。"""
+            date: str, prev, history=None) -> tuple[float, list]:
+    """今回の変化を点数と札にする。前走が無ければ (0, [])。
+
+    `history` を渡すと**珍しさ**を上乗せする（その馬が初めて試す変化か）。
+    渡さなければ変化の有無だけ見る。
+    """
     if prev is None:
         return 0.0, []
+    h = history or []
     s, tags = 0.0, []
     p_place, p_dist = _get(prev, "place"), _get(prev, "distance")
     p_jk, p_date = _get(prev, "jockey"), _get(prev, "date")
     if p_place and place and p_place != place:
         s += W_PLACE
-        tags.append(f"{p_place}→{place}")
+        if h and place not in {_get(r, "place") for r in h}:
+            s += N_PLACE
+            tags.append(f"**初{place}**")
+        else:
+            tags.append(f"{p_place}→{place}")
     if p_jk and jockey and p_jk != jockey:
         s += W_JOCKEY
-        tags.append(f"乗替({p_jk}→{jockey})")
+        if h and jockey not in {_get(r, "jockey") for r in h}:
+            s += N_JOCKEY
+            tags.append(f"**初コンビ({jockey})**")
+        else:
+            tags.append(f"乗替({p_jk}→{jockey})")
     if p_dist and distance and p_dist != distance:
         s += W_DIST
         d = abs(p_dist - distance)
         if d >= 400:
             s += W_DIST_BIG
-        tags.append(f"{'短縮' if p_dist > distance else '延長'}{d}m")
+        lab = f"{'短縮' if p_dist > distance else '延長'}{d}m"
+        if h and band(distance) not in {band(_get(r, "distance")) for r in h}:
+            s += N_BAND
+            lab = f"**初{band(distance)}距離**({lab})"
+        tags.append(lab)
     gap = _days(date, p_date) if p_date else None
     if gap is not None:
         if gap >= REST_DAYS:
@@ -190,14 +257,19 @@ def preheat(runs) -> tuple[float, list]:
         s += W_POS
         warm.append("前走で位置を上げた")
 
-    lf, pf = _get(last, "finish_pos"), _get(rest[0], "finish_pos")
-    if lf and pf and lf < pf:
-        s += W_FINISH
-        warm.append(f"着順が上がった（{pf}着→{lf}着）")
+    # ⚠️ **「着順が上がった」を加点しない。**着順はオッズに反映されるので、
+    #    そこを買うと人気馬を買うことになる。実際 8/14 大井で「点火」と出した
+    #    人気薄15頭は1頭も来ず、来た穴は「材料なし」判定の馬だった。
+    #    狙いは「エンジンは温まったが、まだ結果に出ていない」馬。
+    #    **内容が良化したのに着順は着外**、という組み合わせだけを重く見る。
+    lf = _get(last, "finish_pos")
+    if s > 0 and lf and lf >= HIDDEN_FINISH:
+        s += W_HIDDEN
+        warm.append(f"**着順に出ていない**（内容は良化して{lf}着）")
 
     c, _ = changes(_get(last, "place"), _get(last, "distance"),
                    _get(last, "jockey"), _get(last, "date") or "", rest[0])
-    if c >= 3.0:
+    if c >= 2.0:
         s += W_CHAINED
         warm.append("前走も変化だった（予熱済み）")
     return s, warm
@@ -208,7 +280,7 @@ def ignition(place: str, distance: int | None, jockey: str | None,
     """今回の出走について点火指数を出す。`runs` は過去走（新しい順）。"""
     if not runs:
         return Ignition()
-    c, tags = changes(place, distance, jockey, date, runs[0])
+    c, tags = changes(place, distance, jockey, date, runs[0], history=runs)
     p, warm = preheat(runs)
     return Ignition(score=round(c + p, 1), change=round(c, 1),
                     preheat=round(p, 1), tags=tags, warm=warm)
