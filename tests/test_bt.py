@@ -224,12 +224,64 @@ class TestScore(unittest.TestCase):
     def test_missing_time_returns_none(self):
         self.assertIsNone(bt.score(row(time_sec=None), self.B, self.flat))
 
+    def test_baba_adjust_applied(self):
+        good = bt.score(row(baba="良"), self.B, self.flat)
+        wet = bt.score(row(baba="不良"), self.B, self.flat)
+        self.assertAlmostEqual(wet.bt - good.bt, bt.BABA_ADJ["不"], places=1)
+        self.assertEqual(wet.parts["馬場"], bt.BABA_ADJ["不"])
+
+    def test_baba_can_be_disabled(self):
+        a = bt.score(row(baba="不良"), self.B, self.flat, baba=False)
+        b = bt.score(row(baba="良"), self.B, self.flat, baba=False)
+        self.assertAlmostEqual(a.bt, b.bt, places=1)
+
     def test_track_ratio_applied(self):
         """高速馬場（比<1）で出した時計は割り引かれる。"""
         fast = bt.TrackRatio(0.97, 0.97, 12)
         a = bt.score(row(time_sec=90.0), self.B, self.flat)
         b = bt.score(row(time_sec=90.0), self.B, fast)
         self.assertLess(b.bt, a.bt)
+
+
+class TestBaba(unittest.TestCase):
+    def test_norm(self):
+        self.assertEqual(bt.norm_baba("稍重"), "稍")
+        self.assertEqual(bt.norm_baba("不良"), "不")
+        self.assertEqual(bt.norm_baba("良"), "良")
+        self.assertIsNone(bt.norm_baba(None))
+
+    def test_wet_gets_credit(self):
+        """当日馬場比だけでは道悪を吸収しきれず、系統的に低く出る。その分を戻す。"""
+        self.assertEqual(bt.BABA_ADJ["良"], 0.0)
+        self.assertLess(bt.BABA_ADJ["稍"], bt.BABA_ADJ["重"])
+        self.assertLess(bt.BABA_ADJ["重"], bt.BABA_ADJ["不"])
+
+    def test_sign_is_opposite_to_spec(self):
+        """⚠️ 仕様は「ダートは重・不良でBT値が高く出る」と書くが南関の実測は逆。
+        補正は**足す**方向で正しい。"""
+        self.assertGreater(bt.BABA_ADJ["不"], 0)
+
+
+class TestPace(unittest.TestCase):
+    def test_dev_is_ratio_difference(self):
+        """⚠️ 前半の基準からのズレだけでは、全体が速いだけでもハイに見える。
+        前半の比と上がりの比の**差**を取ること。"""
+        # 全体が一様に3%速い＝ペースは中立
+        d = bt.pace_dev({"win_time": 97.0, "last3f_race": 38.8}, 100.0, 40.0)
+        self.assertAlmostEqual(d, 0.0, places=2)
+
+    def test_high_pace_is_negative(self):
+        """前半に寄った流れ（上がりが遅い）はマイナス。"""
+        d = bt.pace_dev({"win_time": 100.0, "last3f_race": 41.0}, 100.0, 40.0)
+        self.assertLess(d, 0)
+
+    def test_slow_pace_is_positive(self):
+        d = bt.pace_dev({"win_time": 100.0, "last3f_race": 39.0}, 100.0, 40.0)
+        self.assertGreater(d, 0)
+
+    def test_blend_off_by_default(self):
+        """⚠️ 実測でペースの偏りを −1.09 → −1.37 に**悪化**させたので既定オフ。"""
+        self.assertFalse(bt.PACE_BLEND_ON)
 
 
 class TestTrackRatio(unittest.TestCase):
