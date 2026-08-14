@@ -174,7 +174,7 @@ def _parse_run(cell: str) -> RunRecord | None:
     if not m:
         return None
     (fin, baba, fld, place, yy, mm, dd, rname, dist, _turn, surf,
-     _pop, jockey, _kin, tm, _marg, ag, wt, _umb, corner) = m.groups()
+     pop, jockey, _kin, tm, _marg, ag, wt, umb, corner) = m.groups()
     if surf == "芝":
         return None
     corner_pos = [int(x) for x in corner.split("-") if x.isdigit()]
@@ -192,6 +192,11 @@ def _parse_run(cell: str) -> RunRecord | None:
         weight=int(wt) if wt else None,
         kinryo=float(_kin) if _kin else None,
         race_name=re.sub(r"\s+", " ", (rname or "")).strip() or None,
+        # ⚠️ 人気とゲート番号は正規表現で拾っていたのに **捨てていた**。
+        #    「激走（人気を大きく上回る好走）」の判定に人気が要る（Mの法則の
+        #    硬直＝反動を見るのに必須）。枠順ショックにはゲート番号が要る。
+        popularity=int(pop) if pop else None,
+        gate=int(umb) if umb else None,
     )
 
 

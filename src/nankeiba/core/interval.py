@@ -120,7 +120,9 @@ class RunRecord:
     race_name: str | None = None        # レース名＋クラス（「負かした相手のその後」を書くのに使う）
     margin_sec: float | None = None     # 勝ち馬とのタイム差[秒]（勝ち馬は0.0）
     pace_mark: str | None = None        # そのレースのペース判定 'H'/'M'/'S'
-    race_class: str | None = None       # クラス表記（'１勝'/'ＯＰ'/'Ｇ３' など）
+    race_class: str | None = None
+    #: 当時のゲート番号（枠順ショックの判定用）。楽天の馬柱から。
+    gate: int | None = None       # クラス表記（'１勝'/'ＯＰ'/'Ｇ３' など）
 
     def win_time_sec(self) -> float | None:
         """**そのレースの勝ちタイム**を自分の走破タイムから復元する。
