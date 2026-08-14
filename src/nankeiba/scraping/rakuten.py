@@ -195,6 +195,37 @@ def _parse_run(cell: str) -> RunRecord | None:
     )
 
 
+#: クラス表記の1トークン。細分は漢数字（Ｃ２三四）と全角数字（３歳２）の両方あり。
+_CLS_TOKEN = re.compile(
+    r"(?:[ＡＢＣ][１-３]|[２-４]歳|オープン|重賞)[一二三四五六七八九十０-９]*")
+
+
+def _race_class(text: str) -> str | None:
+    """レース名の行から南関のクラス表記を取り出す。
+
+        '甘さいっぱい 梨の郷 蓮田賞 Ｃ１三'        → 'Ｃ１三'
+        'お年玉（としだま）賞 Ｃ３ ４歳選定馬'      → 'Ｃ３'
+        '一富士（いちふじ）賞 Ｂ２Ｂ３ 選定馬'      → 'Ｂ２Ｂ３'
+        '２０２４幕開け賞 ３歳２'                  → '３歳２'
+
+    ⚠️ 末尾アンカーで書くと「選定馬」「デビュー馬限定」などの後置条件で外れる
+       （実測で取得率が46%まで落ちた）。**隣接するトークンを繋いで**返す。
+    """
+    ms = list(_CLS_TOKEN.finditer(text or ""))
+    if not ms:
+        return None
+    best: list = []
+    cur = [ms[0]]
+    for a, b in zip(ms, ms[1:]):
+        if b.start() <= a.end() + 1:
+            cur.append(b)
+        else:
+            best = cur if len(cur) > len(best) else best
+            cur = [b]
+    best = cur if len(cur) > len(best) else best
+    return text[best[0].start():best[-1].end()].replace(" ", "")
+
+
 def parse_card(html: str) -> dict:
     """出馬表HTMLから header と entries(各馬の馬柱つき)を返す。
 
@@ -216,13 +247,40 @@ def parse_card(html: str) -> dict:
     # 距離: レース条件の <... class="distance"> ダ1,600m(内) を最優先(カンマ許容)。
     dist_m = re.search(r'class="distance"[^>]*>\s*[ダ芝]?\s*([\d,]{3,5})m', html) \
         or re.search(r"(?<!\d)([1-9]\d{2,3})m\s*[（(]?\s*[内外右左]", html)
+    # ⚠️ **クラスは出馬表のヘッダに載っている。**長らく馬柱の race_name から
+    #    逆引きしていたが、(日付,場,距離) が一意でないため別レースを掴む事故が
+    #    起きていた（§31）。<h2> に「レース名＋クラス」、<ul class="horseCondition">
+    #    に「サラブレッド系　一般」、<dl class="prizeMoney"> に1着賞金がある。
+    #    par をクラス別に作るには、ここを読むのが唯一正しい。
+    body = html[html.find("</head>"):] or html
+    h2 = re.search(r"<h2[^>]*>(.*?)</h2>", body, re.S)
+    h2t = _clean(h2.group(1)).replace("\u3000", " ").strip() if h2 else ""
+    # 末尾のクラス表記（Ａ１ Ｂ２三 Ｃ１三四 ２歳 ３歳 オープン …）を切り出す
+    #    ⚠️ **末尾に固定しないこと。**「Ｃ３ 選定馬」「３歳 川崎デビュー馬限定選定馬」
+    #    のように後ろへ条件が続く形が多く、末尾アンカーだと取得率が46%に落ちる。
+    #    細分は漢数字（Ｃ２三四）と全角数字（３歳２）の両方がある。
+    #    「Ｂ１二Ｂ２一」のような併合クラスは**隣接する複数トークン**なので繋げる。
+    mc = _race_class(h2t)
+    prize = re.search(r"1着([\d,]+)円", body)
     header = {
         "place": place,
         "race_no": int(rno.group(1)) if rno else None,
         "distance": int(dist_m.group(1).replace(",", "")) if dist_m else None,
         "race_name": (re.search(r'class="raceTitle"[^>]*>\s*(?:<[^>]+>\s*)*([^<]{2,30})', html) or [None, None])[1],
         "post_time": (re.search(r"発走[^0-9]*([0-2]?\d:\d\d)", html) or [None, None])[1],
+        "date": (lambda m: f"{m[1]}-{int(m[2]):02d}-{int(m[3]):02d}" if m else None)(
+            re.search(r"(20\d\d)年(\d{1,2})月(\d{1,2})日", body)),
+        "title": re.sub(r"\s*(?:[ＡＢＣ][１-３]|[２-４]歳|オープン)[一二三四五六七八九十]*\s*$",
+                        "", h2t).strip() or None,
+        "race_class": mc,
+        "condition": (re.search(r'class="horseCondition"[^>]*>\s*<li[^>]*>(.*?)</li>', body, re.S)
+                      or [None, None])[1],
+        "weather": (re.search(r"天候[：:]\s*</dt>\s*<dd[^>]*>\s*(\S+?)\s*</dd>", body) or [None, None])[1],
+        "baba": (re.search(r"[ダ芝][：:]\s*</dt>\s*<dd[^>]*>\s*(不良|稍重|重|良)", body) or [None, None])[1],
+        "prize1": int(prize.group(1).replace(",", "")) if prize else None,
     }
+    if header["condition"]:
+        header["condition"] = _clean(header["condition"]).replace("\u3000", " ")
 
     entries = []
     for m in re.finditer(r"<tr[^>]*>(.*?)</tr>", html, re.S):

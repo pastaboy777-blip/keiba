@@ -36,3 +36,7 @@ data/pedigree_stats.json
 
 # sarabure cookie(認証情報・コミット禁止)
 data/.sarabure_cookie
+
+# BT値の中間データ(キャッシュから再生成できる・50MB超)
+#   python3 scripts/bt_extract.py で作り直す
+data/bt/runs.jsonl
