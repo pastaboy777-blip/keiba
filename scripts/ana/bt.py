@@ -128,6 +128,7 @@ def parse(fn):
             kin=(float(c[5]) if re.match(r"^\d+(\.\d)?$", c[5]) else None),
             jockey=c[6], t=sec(c[7]), pas=c[14],
             agari=(float(c[15]) if re.match(r"^\d+\.\d$", c[15]) else None),
+            odds=(float(c[16]) if re.match(r"^\d+(\.\d+)?$", c[16]) else None),
             ninki=(int(c[17]) if c[17].isdigit() else None),
             weight=(int(wt.group(1)) if wt else None), dw=(int(wt.group(2)) if wt else None)))
     if len(rows) < 4:
