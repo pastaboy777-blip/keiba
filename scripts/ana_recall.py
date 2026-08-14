@@ -20,6 +20,8 @@ from nankeiba.scraping import parser as P
 CARD = "https://keiba.rakuten.co.jp/race_card/list/RACEID/{r}"
 PERF = "https://keiba.rakuten.co.jp/race_performance/list/RACEID/{r}"
 BAD = ("稍", "重", "不")
+# 減量騎手の印(楽天表記)。▲3kg / △2kg / ☆1kg / ◇1kg(女性) など。
+_KIGEN_MARKS = ("▲", "△", "☆", "◇", "★")
 WET_SIRES = {"パイロ", "サウスヴィグラス", "ヘニーヒューズ", "クロフネ", "ゴールドアリュール",
              "エスポワールシチー", "シニスターミニスター", "マジェスティックウォリアー",
              "ドレフォン", "サンダースノー", "コパノリッキー", "ホッコータルマエ", "ゴールドドリーム"}
@@ -178,9 +180,11 @@ def tataki_n(e, today):
     return 0                                       # 連続出走で休み明けが射程外
 
 
-def edges_for(e, today_dist, small_bias=True, pace=None, agari_pct=None, today=None):
+def edges_for(e, today_dist, small_bias=True, pace=None, agari_pct=None, today=None,
+              prev_c11=None):
     """馬のエッジ集合を返す（穴ファクター）。pace='ハイ'なら差し馬に想定加点。
-    agari_pct=当日出走馬内の上がりP(0〜100・小さいほど終い上位)。today=当日(叩き判定用)。"""
+    agari_pct=当日出走馬内の上がりP(0〜100・小さいほど終い上位)。today=当日(叩き判定用)。
+    prev_c11=前走レースの11秒台ラップ本数(3以上で『前走ハイレベル』点灯・呼び出し側が算出)。"""
     recs = e.recent_runs or []
     tags = set()
     cw = e.horse_weight or (recs[0].horse_weight if recs and recs[0].horse_weight else None)
@@ -240,6 +244,16 @@ def edges_for(e, today_dist, small_bias=True, pace=None, agari_pct=None, today=N
     prev_j = recs[0].jockey if recs else None
     if e.jockey and prev_j and e.jockey != prev_j and jw and jw >= 18:
         tags.add("乗替トップ騎手")  # トップ騎手への勝負乗替のみ(発火絞り＝精度シグナル)
+    # 減量乗替＝減量騎手(▲△☆◇)への乗り替わり。大井8/12-8/14 350頭の検証で、
+    # 人気薄(7番人気以下)の3着内率が 7.5%→26.1%、複勝回収379%。
+    # 減量のみ(継続騎乗)は10.5%、乗替のみ(減量なし)は4.7%で、組み合わせて初めて跳ねる。
+    if e.jockey and prev_j and e.jockey != prev_j and e.jockey[:1] in _KIGEN_MARKS:
+        tags.add("減量乗替")
+    # 前走ハイレベル＝前走レースに11秒台のラップが3本以上＝緩まない流れを最後まで走らされた組。
+    # 同検証で単体46頭・3着内30.4%・複勝回収198%(全体は23.5%/73%)。
+    # ラップはEntryから引けないため、呼び出し側(zubu_edges等)がprev_c11を渡したときだけ点灯。
+    if prev_c11 is not None and prev_c11 >= 3:
+        tags.add("前走ハイレベル")
     # 叩き3戦目以降(§20/§20-B南関1053R検証)＝単独では複勝lift1.15の弱い上積み。
     # ただしマ〜中距離帯に限ると1.34-1.41で有効・短長帯は無効(0.80-0.91)。
     # そこで「マ〜中距離 かつ 叩き3戦目以降」でのみ点灯(距離条件で精度を上げる)。
