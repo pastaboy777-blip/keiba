@@ -242,12 +242,16 @@ def edges_for(e, today_dist, small_bias=True, pace=None, agari_pct=None, today=N
     # 乗替↑＝前走と別騎手 かつ 今回が勝率の高い騎手＝厩舎の勝負気配（"エッジ無"穴を埋める新factor）
     jw = getattr(e, "jockey_win_rate", None)
     prev_j = recs[0].jockey if recs else None
-    if e.jockey and prev_j and e.jockey != prev_j and jw and jw >= 18:
+    # 出馬表は減量印付き(▲西優哉)、過去走は印なし(西優哉)で入るため、印を外してから比較する。
+    _j_now = (e.jockey or "").lstrip("".join(_KIGEN_MARKS))
+    _j_prev = (prev_j or "").lstrip("".join(_KIGEN_MARKS))
+    _norikae = bool(_j_now and _j_prev and _j_now != _j_prev)
+    if _norikae and jw and jw >= 18:
         tags.add("乗替トップ騎手")  # トップ騎手への勝負乗替のみ(発火絞り＝精度シグナル)
     # 減量乗替＝減量騎手(▲△☆◇)への乗り替わり。大井8/12-8/14 350頭の検証で、
     # 人気薄(7番人気以下)の3着内率が 7.5%→26.1%、複勝回収379%。
     # 減量のみ(継続騎乗)は10.5%、乗替のみ(減量なし)は4.7%で、組み合わせて初めて跳ねる。
-    if e.jockey and prev_j and e.jockey != prev_j and e.jockey[:1] in _KIGEN_MARKS:
+    if _norikae and (e.jockey or "")[:1] in _KIGEN_MARKS:
         tags.add("減量乗替")
     # 前走ハイレベル＝前走レースに11秒台のラップが3本以上＝緩まない流れを最後まで走らされた組。
     # 同検証で単体46頭・3着内30.4%・複勝回収198%(全体は23.5%/73%)。
