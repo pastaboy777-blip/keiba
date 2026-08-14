@@ -445,3 +445,31 @@ class TestFatigue(unittest.TestCase):
         near = M.fatigue([r2("2026-08-10", 1200, 5, [5, 5])], "2026-08-14")
         far = M.fatigue([r2("2026-06-01", 1200, 5, [5, 5])], "2026-08-14")
         self.assertGreater(near, far)
+
+
+class TestKinryoShock(unittest.TestCase):
+    def test_weight_drop_is_a_shock(self):
+        """⚠️ 斤量が軽くなること自体がショック。「乗替」とは別に数える。
+        減量騎手に乗り替わると2〜3kg落ちるが、乗替の加点だけではその
+        大きさが出ない。"""
+        prev = run(jockey="Ａ")
+        prev["kinryo"] = 55.0
+        s_no, t_no = M.shocks("大井", 1200, "Ａ", 5, 10, None, "2026-08-14",
+                              [prev], kinryo=55.0)
+        s_yes, t_yes = M.shocks("大井", 1200, "Ａ", 5, 10, None, "2026-08-14",
+                                [prev], kinryo=52.0)
+        self.assertGreater(s_yes, s_no)
+        self.assertTrue(any("斤量" in x for x in t_yes))
+
+    def test_small_drop_is_not_counted(self):
+        prev = run(jockey="Ａ")
+        prev["kinryo"] = 55.0
+        _, t = M.shocks("大井", 1200, "Ａ", 5, 10, None, "2026-08-14",
+                        [prev], kinryo=54.0)
+        self.assertFalse(any("斤量" in x for x in t))
+
+    def test_no_kinryo_is_safe(self):
+        prev = run(jockey="Ａ")
+        s, t = M.shocks("大井", 1200, "Ａ", 5, 10, None, "2026-08-14",
+                        [prev], kinryo=None)
+        self.assertIsInstance(s, float)

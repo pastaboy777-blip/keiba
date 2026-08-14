@@ -325,7 +325,13 @@ def parse_card(html: str) -> dict:
         runs = [r for c in cells if (r := _parse_run(c)) is not None]
         txt = _clean(re.sub(r"<[^>]+>", " ", row))
         sa = re.search(r"([牡牝セン]+)\s*(\d{1,2})(?!\d)", txt)
-        jk = re.search(r"(\d{2}\.\d)\s+([一-龥ぁ-んァ-ヶ]{2,4})\s*（", txt)
+        # ⚠️ **減量騎手の印（☆▲△◇）を許すこと。**印を許さない正規表現だと
+        #    「52.0 ☆中山遥 （浦和）」で切れて、**騎手も斤量も丸ごと None** に
+        #    なる。乗り替わりショックで一番効くのが減量騎手への乗り替わりなので、
+        #    そこだけ静かに落ちるという最悪の壊れ方をしていた。
+        #    斤量補正（BT値）にも効く。
+        jk = re.search(r"(\d{2}\.\d)\s+([☆★▲△◇◆]?)\s*"
+                       r"([一-龥ぁ-んァ-ヶ]{2,4})\s*（", txt)
         bd = re.search(r"(\d{4})/(\d{1,2})/(\d{1,2})生", txt)
         od = re.search(r"(\d+\.\d)\s*[（(]\s*(\d+)\s*人気", txt)
         entries.append({
@@ -334,7 +340,8 @@ def parse_card(html: str) -> dict:
             "horseid": hm.group(1),
             "sex_age": (sa.group(1) + sa.group(2)) if sa else None,
             "age": int(sa.group(2)) if sa else None,
-            "jockey": jk.group(2) if jk else None,
+            "jockey": jk.group(3) if jk else None,
+            "apprentice": bool(jk.group(2)) if jk else False,
             "kinryo": float(jk.group(1)) if jk else None,
             "birth": f"{bd.group(1)}-{int(bd.group(2)):02d}-{int(bd.group(3)):02d}" if bd else None,
             "odds": float(od.group(1)) if od else None,

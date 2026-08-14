@@ -67,7 +67,8 @@ def main() -> None:
         for e in card["entries"]:
             h = hist[e["name"]]
             st = M.state(hd["place"], hd["distance"], e.get("jockey"),
-                         e.get("umaban"), n, hd.get("race_class"), d, h)
+                         e.get("umaban"), n, hd.get("race_class"), d, h,
+                         kinryo=e.get("kinryo"))
             t3 = M.m3(h)
             f_ = fs[e["name"]]
             named = []

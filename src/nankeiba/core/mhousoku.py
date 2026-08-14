@@ -86,6 +86,9 @@ W_REST = 1.5           # 休み明け
 W_CLASSUP = 1.0        # 格上げ
 W_PLACE = 1.0          # 場替わり（メンバーが総入れ替えになる）
 W_JOCKEY = 0.8         # 乗り替わり
+W_KINRYO = 1.2         # 斤量が軽くなった（減量騎手への乗り替わりなど）
+#: 斤量減とみなす下げ幅[kg]。
+KINRYO_DROP = 2.0
 
 #: 硬直（反動）の重み[点]。**マイナス方向**に効く。
 K_AFTER_REST = 2.0     # 休み明けで激走した直後
@@ -156,7 +159,7 @@ class MState:
 
 def shocks(place: str, distance: int | None, jockey: str | None,
            gate: int | None, field_size: int | None, race_class: str | None,
-           date: str, runs) -> tuple[float, list]:
+           date: str, runs, kinryo: float | None = None) -> tuple[float, list]:
     """今回の出走に掛かっている**ショック**を数える。
 
     「有効なショックが多いほど激走の可能性が上がる」という考え方に沿って、
@@ -201,7 +204,15 @@ def shocks(place: str, distance: int | None, jockey: str | None,
 
     if _g(prev, "jockey") and jockey and _g(prev, "jockey") != jockey:
         s += W_JOCKEY
-        tags.append("乗替")
+        tags.append(f"乗替({_g(prev, 'jockey')}→{jockey})")
+
+    # ⚠️ **斤量が軽くなること自体がショック。**乗り替わりとは別に数える。
+    #    減量騎手（☆▲△）に乗り替わると 2〜3kg 落ちる。「乗替」だけでは
+    #    その大きさが出ない。南関は13.5%が減量騎手なので効く場面が多い。
+    pk = _g(prev, "kinryo")
+    if kinryo and pk and pk - kinryo >= KINRYO_DROP:
+        s += W_KINRYO
+        tags.append(f"**斤量{pk:.0f}→{kinryo:.0f}kg**（{pk - kinryo:.0f}kg減）")
 
     return s, tags
 
@@ -243,12 +254,12 @@ def stiffness(runs) -> tuple[float, list]:
 
 def state(place: str, distance: int | None, jockey: str | None,
           gate: int | None, field_size: int | None, race_class: str | None,
-          date: str, runs) -> MState:
+          date: str, runs, kinryo: float | None = None) -> MState:
     """今回の出走について鮮度と硬直を出す。`runs` は過去走（新しい順）。"""
     if not runs:
         return MState()
     f, tags = shocks(place, distance, jockey, gate, field_size,
-                     race_class, date, runs)
+                     race_class, date, runs, kinryo=kinryo)
     k, risks = stiffness(runs)
     return MState(fresh=round(f, 1), stiff=round(k, 1), shocks=tags, risks=risks)
 
