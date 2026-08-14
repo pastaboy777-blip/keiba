@@ -168,13 +168,26 @@ _RUN_RE = re.compile(
 )
 
 
+def _margin_to_sec(t: str | None) -> float | None:
+    """馬柱の着差セル（'0.3' '1.2' 'ハナ' など）を秒に。読めなければ None。"""
+    if not t:
+        return None
+    t = t.strip()
+    m = re.match(r"-?(\d+\.\d)$", t)
+    if m:
+        return float(m.group(1))
+    # 着差の言い回し。おおよその秒に直す（南関ダートの1馬身 ≒ 0.2秒）。
+    return {"ハナ": 0.0, "アタマ": 0.05, "クビ": 0.1,
+            "同着": 0.0, "大差": 3.0}.get(t)
+
+
 def _parse_run(cell: str) -> RunRecord | None:
     """1過去走セル文字列を RunRecord に。芝は None(ダート指数のため除外)。"""
     m = _RUN_RE.match(cell.strip())
     if not m:
         return None
     (fin, baba, fld, place, yy, mm, dd, rname, dist, _turn, surf,
-     pop, jockey, _kin, tm, _marg, ag, wt, umb, corner) = m.groups()
+     pop, jockey, _kin, tm, marg, ag, wt, umb, corner) = m.groups()
     if surf == "芝":
         return None
     corner_pos = [int(x) for x in corner.split("-") if x.isdigit()]
@@ -197,6 +210,10 @@ def _parse_run(cell: str) -> RunRecord | None:
         #    硬直＝反動を見るのに必須）。枠順ショックにはゲート番号が要る。
         popularity=int(pop) if pop else None,
         gate=int(umb) if umb else None,
+        # ⚠️ 着差も捨てていた。Mの法則の「接戦ストレス」（接戦だと頑張って
+        #    しまい上位馬にストレスが残る）と「圧勝＝ストレスを貯めない」の
+        #    判定に要る。勝ち馬の欄は2着との差なので符号を落として持つ。
+        margin_sec=_margin_to_sec(marg),
     )
 
 

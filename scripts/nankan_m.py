@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Mの法則の考え方で出馬表を見る（鮮度と硬直）。
+"""Mの法則の3次元で出馬表を見る。
 
     python3 scripts/nankan_m.py --date 20260814 --place 大井
     python3 scripts/nankan_m.py --date 20260814 --place 大井 --result
 
-鮮度（ショックの合計） − 硬直（前走の反動） を出す。
-**買う材料と消す材料を両方持つ**のが要点で、こちらが自力で作った点火指数
+    時間軸  鮮度（ショックの合計） − 硬直（前走の反動）
+    横軸    異端性（メンバーの中で浮いているか）＋ ペース圧力
+    中心点  M3タイプ S／C／L の推定
+
+**買う材料と消す材料を両方持つ**のが要点。こちらが自力で作った点火指数
 （`shigeki.py`）には消す側が無かった。
 
 ⚠️ 今井雅宏氏の理論そのものではない。公開情報からの独自解釈（`core/mhousoku.py`）。
@@ -30,15 +33,16 @@ def main() -> None:
     ap.add_argument("--place", required=True)
     ap.add_argument("--race", type=int)
     ap.add_argument("--result", action="store_true")
+    ap.add_argument("--all", action="store_true", help="材料の無い馬も出す")
     args = ap.parse_args()
 
     cli = rk.KeibaRakuten()
     base = cli.find_race_id(args.date, args.place, 1)[:-2]
     d = f"{args.date[:4]}-{args.date[4:6]}-{args.date[6:]}"
 
-    print(f"\n=== {args.date} {args.place}　Mの法則（鮮度 − 硬直）===")
-    print("  ショック＝距離変更／位置取り／内枠／休み明け／場替わり／乗替")
-    print("  硬直＝前走が激走（人気薄で3着内）だった直後の反動\n")
+    print(f"\n=== {args.date} {args.place}　Mの法則（3次元）===")
+    print("  時間軸=鮮度−硬直＋リズム ／ 横軸=異端性・疲労 ／ 中心点=M3")
+    print("  ★=定義のある型（短縮ショッカー／延長ライダー／逃げられなかった逃げ馬 ほか）\n")
     for rno in ([args.race] if args.race else range(1, 13)):
         rid = f"{base}{rno:02d}"
         try:
@@ -55,28 +59,69 @@ def main() -> None:
                     fin[x["name"]] = (x.get("finish"), x.get("popularity"))
             except Exception:                            # noqa: BLE001
                 pass
+        hist = {e["name"]: [r for r in (e.get("history") or [])
+                            if r.date and r.date < d] for e in card["entries"]}
+        fs = M.field_stress(hist, d, hd["place"], hd["distance"])
         n = len(card["entries"])
-        got = []
+        rows = []
         for e in card["entries"]:
-            h = [r for r in (e.get("history") or []) if r.date and r.date < d]
+            h = hist[e["name"]]
             st = M.state(hd["place"], hd["distance"], e.get("jockey"),
                          e.get("umaban"), n, hd.get("race_class"), d, h)
-            got.append((st, e))
-        got.sort(key=lambda t: -t[0].score)
-        print(f"■ {rno}R ダ{hd['distance']}m {hd.get('race_class') or ''}")
-        for st, e in got:
-            if abs(st.score) < 1.0 and not st.risks:
+            t3 = M.m3(h)
+            f_ = fs[e["name"]]
+            named = []
+            tag, got, miss = M.tanshuku_shocker(hd["distance"], "ダ", d, h)
+            if tag:
+                named.append((3.0, tag))
+            ok, g2, m2 = M.enchou_rider(hd["distance"], d, h)
+            if ok:
+                named.append((3.0, "延長ライダー"))
+            sd, sdnote = M.same_distance_shock(hd["distance"], h)
+            if sd:
+                named.append((1.5, f"{sd}（{sdnote}）"))
+            ni, ninote = M.nigerarenakatta(h, f_.pressure)
+            if ni:
+                named.append((2.5, ninote))
+            up, upnote = M.atypical_upgrade(h, hd.get("race_class"))
+            if up:
+                named.append((2.0, upnote))
+            stv, sttags = M.stress(h)
+            bonus = sum(w for w, _ in named)
+            rows.append((st.score + f_.ihen + bonus - stv, st, f_, t3, e,
+                         [x for _, x in named], sttags, stv,
+                         M.rhythm(h, d)))
+        rows.sort(key=lambda t: -t[0])
+        head = rows[0][2]
+        print(f"■ {rno}R ダ{hd['distance']}m {hd.get('race_class') or ''}"
+              f"　先行型{head.pressure}頭")
+        for tot, st, f, t3, e, named, sttags, stv, rhy in rows:
+            if not args.all and abs(tot) < 1.5 and not st.risks:
                 continue
-            f_, pop = fin.get(e["name"], (None, None))
-            res = f"{f_:>2}着{pop or '?'}人気 " if f_ else ""
-            mark = "◎" if (f_ and f_ <= 3) else ("×" if f_ else " ")
+            fi, pop = fin.get(e["name"], (None, None))
+            res = f"{fi:>2}着{pop or '?'}人気 " if fi else ""
+            mark = "◎" if (fi and fi <= 3) else ("×" if fi else " ")
             od = f"{e['odds']}倍" if e.get("odds") else ""
-            print(f" {mark}{st.score:>+5.1f} (鮮{st.fresh:.1f}/硬{st.stiff:.1f}) "
-                  f"{e['umaban']:>2} {e['name'][:13]:<14}{od:>8} {res}{st.label()}")
+            print(f" {mark}{tot:>+5.1f} [{t3.label():>6}] "
+                  f"{e['umaban']:>2} {e['name'][:13]:<14}{od:>8} {res}"
+                  f"{st.label()}")
+            det = []
+            for x in named:
+                det.append(f"★ {x}")
             if st.shocks:
-                print(f"        ショック: {' / '.join(st.shocks)}")
+                det.append("ショック: " + " / ".join(st.shocks))
+            if rhy[0] not in ("―", "一定"):
+                det.append(f"リズム: {rhy[1]}")
+            if sttags:
+                det.append(f"ストレス{stv:.1f}: " + " / ".join(sttags))
+            if f.tags:
+                det.append("異端: " + " / ".join(f.tags))
+            if f.note():
+                det.append(f.note())
             if st.risks:
-                print(f"        **硬直**: {' / '.join(st.risks)}")
+                det.append("**硬直**: " + " / ".join(st.risks))
+            for x in det:
+                print(f"        {x}")
         print()
     print("  ⚠️ 未検証。本家の理論そのものではない（公開情報からの独自解釈）。")
 
