@@ -131,15 +131,31 @@ class TestBaseTime(unittest.TestCase):
 
 
 class TestWeight(unittest.TestCase):
-    def test_dist_mult_interpolates(self):
-        self.assertAlmostEqual(bt.dist_mult(1600), 1.00)
-        self.assertGreater(bt.dist_mult(1200), bt.dist_mult(1600))
-        self.assertLess(bt.dist_mult(2600), bt.dist_mult(1600))
-        self.assertAlmostEqual(bt.dist_mult(1400), 1.075, places=3)
+    def test_dist_mult_is_flat(self):
+        """⚠️ 仕様は「短距離ほど斤量が効く」とするが実測では出なかった
+        （〜1100m +0.0083 / 1200〜1400m +0.0246 / 1800m〜 +0.0391 と
+        単調でない）。根拠が無いので一律1.0。"""
+        for d in (800, 1200, 1600, 2000, 2600):
+            self.assertAlmostEqual(bt.dist_mult(d), 1.0)
 
-    def test_dist_mult_clamps(self):
-        self.assertAlmostEqual(bt.dist_mult(500), bt.dist_mult(800))
-        self.assertAlmostEqual(bt.dist_mult(4000), bt.dist_mult(2600))
+    def test_effect_scales_with_distance(self):
+        """⚠️ 斤量の効果は**距離に比例する**（固定秒ではない）。
+        1000mあたりの秒数×距離。最初の実装は構造から間違っていた。"""
+        a = bt.weight_sec(57.0, 5, 1000) - bt.weight_sec(56.0, 5, 1000)
+        b = bt.weight_sec(57.0, 5, 2000) - bt.weight_sec(56.0, 5, 2000)
+        self.assertAlmostEqual(b, a * 2, places=6)
+
+    def test_points_per_kg_is_constant(self):
+        """距離に比例させた結果、BT点での効き目は距離によらず一定になる。"""
+        def pt(d):
+            return (bt.weight_sec(57.0, 5, d) - bt.weight_sec(56.0, 5, d)) / bt.dist_coef(d)
+        self.assertAlmostEqual(pt(1200), pt(2000), places=6)
+
+    def test_magnitude_is_measured_not_folklore(self):
+        """⚠️ 巷の「1kg＝0.1〜0.2秒」を持ち込まないこと。実測は1桁小さい。"""
+        self.assertAlmostEqual(bt.SEC_PER_KG_1000M, 0.0227, places=4)
+        one_kg_at_1600 = bt.weight_sec(57.0, 5, 1600) - bt.weight_sec(56.0, 5, 1600)
+        self.assertLess(one_kg_at_1600, 0.05)
 
     def test_heavier_is_positive(self):
         """重い斤量はプラス。走破タイムから引くと標準斤量の時計に近づく。"""
@@ -158,10 +174,13 @@ class TestWeight(unittest.TestCase):
         f = abs(bt.weight_sec(58.0, 5, 1400, ratio=0.95))
         self.assertGreater(f, n)
 
-    def test_jockey_rank(self):
-        top = abs(bt.weight_sec(58.0, 5, 1400, jockey_rank=1))
-        app = abs(bt.weight_sec(58.0, 5, 1400, jockey_rank=5))
-        self.assertLess(top, app)
+    def test_jockey_rank_is_flat(self):
+        """⚠️ 仕様は「上位騎手は斤量差を技術でカバーするので係数が小さい」と
+        するが、南関の実測は単調にならず、むしろ逆向きだった
+        （ランク1 +0.0365 / 2 +0.0452 / 3 -0.0026 / 5 +0.0424）。
+        根拠が無い係数は入れない。引数だけ残す。"""
+        vals = {bt.weight_sec(58.0, 5, 1400, jockey_rank=k) for k in (1, 2, 3, 4, 5)}
+        self.assertEqual(len(vals), 1)
 
 
 class TestAge(unittest.TestCase):
