@@ -29,6 +29,8 @@ def main() -> None:
     ap.add_argument("--place", required=True)
     ap.add_argument("--race", type=int)
     ap.add_argument("--min", type=float, default=0.0, help="この点以上だけ出す")
+    ap.add_argument("--result", action="store_true",
+                    help="結果と突き合わせる（レース確定後の振り返り用）")
     args = ap.parse_args()
 
     cli = rk.KeibaRakuten()
@@ -47,6 +49,13 @@ def main() -> None:
         hd = card["header"]
         if not hd.get("distance"):
             continue
+        fin = {}
+        if args.result:
+            try:
+                for x in rk.fetch_result(cli, rid):
+                    fin[x["name"]] = (x.get("finish"), x.get("popularity"))
+            except Exception:                            # noqa: BLE001
+                pass
         got = []
         for e in card["entries"]:
             h = [r for r in (e.get("history") or []) if r.date and r.date < d]
@@ -60,8 +69,11 @@ def main() -> None:
         print(f"■ {rno}R ダ{hd['distance']}m {hd.get('race_class') or ''}")
         for ig, e in got:
             od = f"{e['odds']}倍" if e.get("odds") else "オッズ未"
-            print(f"   {ig.score:>5.1f}点 ({ig.change:.1f}+{ig.preheat:.1f}) "
-                  f"{e['umaban']:>2} {e['name'][:13]:<14}{od:>9}  {ig.label()}")
+            f_, pop = fin.get(e["name"], (None, None))
+            res = (f"{f_:>2}着{pop or '?'}人気 " if f_ else "")
+            mark = "◎" if (f_ and f_ <= 3) else ("×" if f_ else " ")
+            print(f" {mark} {ig.score:>5.1f}点 ({ig.change:.1f}+{ig.preheat:.1f}) "
+                  f"{e['umaban']:>2} {e['name'][:13]:<14}{od:>9} {res}{ig.label()}")
             if ig.tags:
                 print(f"          変化: {' / '.join(ig.tags)}")
             if ig.warm:
