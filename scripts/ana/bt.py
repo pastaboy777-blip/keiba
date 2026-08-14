@@ -224,22 +224,32 @@ def teiryo(R):
     return {"\t".join(k): max(v.items(), key=lambda z: z[1])[0] for k, v in c.items()}
 
 
+KIN_PRIOR = 0.15       # 斤量係数の既定値（秒/kg/1000m）。データ推定が使えないときの保険
+
+
 def fit_kin_age(R, M, verbose=False):
     """斤量係数と年齢補正を、馬場比まで剥がした残差から同時に推定する。
 
-    南関の斤量は原則として性齢で決まる定量（＋見習い減量）で、
-    能力に応じて課されるハンデではない。だから残差を斤量差に回帰しても
-    「強い馬ほど重い」という逆因果が入りにくい。
-    ただし性齢そのものは能力と相関するので、年齢群を同時に入れて分離する。
+        残差(秒/1000m) ~ a * 斤量差(kg) + Σ b[馬齢群×月] + Σ c[騎手]
 
-        残差(秒/1000m) ~ a * 斤量差(kg) + Σ b[馬齢群×月]
+    ★騎手を必ず入れること。
+      南関の斤量は性齢で決まる定量なので「強い馬ほど重い」という逆因果は無い。
+      代わりに【見習い減量】という別の交絡がある。斤量差が負になるのはほぼ見習いで、
+      見習いは腕が落ちる分だけ遅い。騎手を入れずに回すと
+      「軽い＝遅い」＝「重いほど速い」と読んで係数の符号が反転する（実測 -0.105）。
+      騎手ダミーで腕を吸ってから、同じ騎手の中の斤量差だけで係数を取る。
+
+    それでも符号が負に出る場合は推定を捨てて KIN_PRIOR を使う。
+    符号が物理と逆の補正を入れると、補正しないより悪くなるため。
     """
     import numpy as np
     T = teiryo(R)
     X, y = [], []
     grp = sorted({(agegrp(h["age"], r["month"]), r["month"])
                   for r in R for h in r["rows"] if h["age"]})
+    jk = sorted({h["jockey"] for r in R for h in r["rows"] if h["jockey"]})
     gi = {g: i for i, g in enumerate(grp)}
+    ji = {j: i for i, j in enumerate(jk)}
     B = M["basa"]
     for r in R:
         if not r["klass"]:
@@ -249,16 +259,17 @@ def fit_kin_age(R, M, verbose=False):
             continue
         tr, ar = B.get(f"{r['date']}\t{r['place']}", [1.0, 1.0])
         for h in r["rows"]:
-            if not (h["t"] and h["agari"] and h["kin"] and h["age"]):
+            if not (h["t"] and h["agari"] and h["kin"] and h["age"] and h["jockey"]):
                 continue
             adj = (h["t"] - h["agari"]) / tr + h["agari"] / ar     # 2区間で馬場を剥がす
             g = (agegrp(h["age"], r["month"]), r["month"])
             base = T.get(f"{g[0]}\t{h['sex']}")
             if base is None:
                 continue
-            row = [0.0] * (1 + len(grp))
+            row = [0.0] * (1 + len(grp) + len(jk))
             row[0] = (h["kin"] - base)
             row[1 + gi[g]] = 1.0
+            row[1 + len(grp) + ji[h["jockey"]]] = 1.0
             X.append(row)
             y.append((adj - p) / (r["dist"] / 1000.0))             # 1000mあたりの秒に揃える
     if len(X) < 500:
@@ -266,15 +277,27 @@ def fit_kin_age(R, M, verbose=False):
     X = np.array(X); y = np.array(y)
     beta, *_ = np.linalg.lstsq(X, y, rcond=None)
     a = float(beta[0])
+    # 妥当域を外れた推定は採らない。南関の斤量は (性齢 × 騎手) とほぼ共線で、
+    # 騎手を統制すると斤量差の独立変動がほとんど残らず、係数が識別できない。
+    # 実測でも -0.105（騎手なし＝符号逆）→ +0.006（騎手あり＝ほぼゼロ）と、
+    # どちらも物理的にありえない値になる。無理に採らず既定値を使う。
+    used, note = a, "データ推定"
+    if not (0.05 <= a <= 0.40):
+        used, note = KIN_PRIOR, f"推定値{a:+.3f}は妥当域外（識別できず）→既定値"
     age = {f"{g[0]}\t{g[1]}": float(beta[1 + i]) for g, i in gi.items()}
+    # 年齢補正は「古馬をゼロ」に正規化する。そうしないと勝ち馬と平均馬の差や
+    # 全体オフセットまで年齢の名前で吸ってしまい、2歳・3歳の実際の差が読めない。
+    ov = [v for k, v in age.items() if k.startswith("古馬")]
+    off = st.mean(ov) if ov else 0.0
+    age = {k: v - off for k, v in age.items()}
     if verbose:
-        print(f"  斤量係数 {a:+.3f} 秒/kg/1000m  （{len(y):,}走から推定）")
-        print("  年齢補正（秒/1000m・負ほど速い側＝古馬に近い）")
+        print(f"  斤量係数 {used:+.3f} 秒/kg/1000m  （{len(y):,}走・騎手{len(jk)}人を統制／{note}）")
+        print("  年齢補正（秒/1000m・古馬を0とした差／正なら古馬より遅い）")
         for gname in ("2歳", "3歳", "古馬"):
             v = [(m, age[f"{gname}\t{m}"]) for m in range(1, 13) if f"{gname}\t{m}" in age]
             if v:
                 print(f"    {gname:<3}" + " ".join(f"{m}月{x:+.2f}" for m, x in v))
-    return dict(kin=a, teiryo=T, age=age)
+    return dict(kin=used, kin_raw=a, teiryo=T, age=age, offset=off)
 
 
 # ---------------------------------------------------------------- BT値
@@ -297,7 +320,7 @@ def bt_of(r, h, M):
     adj -= dk * KIN_FRONT + dk * (1 - KIN_FRONT)                # ② 斤量（配分は現状同値）
     ac = M["ka"]["age"].get(f"{g}\t{r['month']}", 0.0) * (r["dist"] / 1000.0)
     sa = par - adj - ac                                         # ③ 年齢
-    v = CENTER + sa / max(r["dist"] / 1000.0, DIST_FLOOR) * 10
+    v = CENTER + sa / max(r["dist"] / 1000.0, DIST_FLOOR) * 10 + M.get("anchor", 0.0)
     return round(v, 1), dict(par=round(par, 1), adj=round(adj, 1), ten_hi=tr, ag_hi=ar,
                              kin=round(dk, 2), age=round(ac, 2), sa=round(sa, 2))
 
@@ -316,6 +339,18 @@ def build(dfrom, dto, verbose=True):
         print(f"■ 馬場比 {len(M['basa'])} 開催日×場")
         print("■ 斤量・年齢")
     M["ka"] = fit_kin_age(R, M, verbose)
+    M["anchor"] = 0.0
+    # 中心値の据え方。parは【勝ちタイム】で引いてあるので、そのままだと
+    # 55＝「B2を基準タイムで勝った走り」になり、分布全体が下に寄る。
+    # 原典は「標準的な走りをした馬が中心値」なので、基準クラスの全出走馬の
+    # 中央値が55に来るよう平行移動する。ここは目盛りの原点合わせであって、
+    # 馬ごとの上下関係は一切変えない。
+    v = [bt_of(r, h, M)[0] for r in R if r["klass"] == BASE_CLASS
+         for h in r["rows"] if bt_of(r, h, M)]
+    if len(v) >= 30:
+        M["anchor"] = round(CENTER - st.median(v), 2)
+        if verbose:
+            print(f"■ 中心合わせ {BASE_CLASS}の{len(v):,}走の中央値を55へ（平行移動 {M['anchor']:+.2f}）")
     M["meta"] = dict(dfrom=dfrom, dto=dto, races=len(R), center=CENTER, base_class=BASE_CLASS)
     return M, R
 

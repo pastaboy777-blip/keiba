@@ -20,3 +20,4 @@ data/*.db
 scripts/ana/kb.conf
 scripts/ana/arc/
 scripts/ana/*.html
+scripts/ana/bt_model.json
