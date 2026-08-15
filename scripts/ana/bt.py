@@ -112,6 +112,8 @@ def parse(fn):
     laps = [float(v) for v in lap.group(1).split("-")] if lap else []
     c4m = re.search(r"4コーナー\| \|([^|]+)\|", x)
     c4 = c4m.group(1).strip() if c4m else ""
+    c3m = re.search(r"3コーナー\| \|([^|]+)\|", x)
+    c3 = c3m.group(1).strip() if c3m else ""
     rows = []
     for r in re.findall(r"<tr[^>]*>(.*?)</tr>", t, re.S):
         if "/horse/" not in r:
@@ -140,7 +142,7 @@ def parse(fn):
     return dict(date=f"{y:04d}-{m:02d}-{d:02d}", month=m, place=hd.group(4),
                 rn=int(os.path.basename(fn)[-7:-5]), dist=int(cond.group(2)),
                 baba=cond.group(3), rname=rname, klass=grade(rname), laps=laps,
-                c4=c4, rk=rank4(c4), n=len(rows),
+                c4=c4, c3=c3, rk=rank4(c4), n=len(rows),
                 ag3=ag3, ten3=(win["t"] - ag3 if win and ag3 else None),
                 wt=(win["t"] if win else None), rows=rows)
 
