@@ -196,3 +196,24 @@ class TestCardEntryProfile(unittest.TestCase):
         self.assertEqual(e["umaban"], 1)
         self.assertEqual(e["name"], "クシナダヒメ")
         self.assertEqual(e["horseid"], "2820260044")
+
+
+class ParsePlacePayoutTest(unittest.TestCase):
+    """複勝の払戻（馬番 → 円）。2026-08-16 大井7R の実データ。"""
+
+    HTML = ("<p>４角 (3,7,10)-6 ■ 払戻金 単勝 8 4,760 円 9番人気 "
+            "馬単 8-3 65,660 円 72番人気 "
+            "複勝 8 3 11 1,170 円 240 円 270 円 9番人気 3番人気 4番人気 "
+            "ワイド 3-8 8-11 3-11 3,640 円 4,780 円 780 円</p>")
+
+    def test_three(self):
+        self.assertEqual(rk.parse_place_payout(self.HTML),
+                         {8: 1170, 3: 240, 11: 270})
+
+    def test_two_horses(self):
+        """7頭以下は複勝が2頭ぶんしか無い。金額と取り違えないこと。"""
+        h = "複勝 5 2 310 円 150 円 3番人気 1番人気 ワイド 2-5 900 円"
+        self.assertEqual(rk.parse_place_payout(h), {5: 310, 2: 150})
+
+    def test_missing(self):
+        self.assertEqual(rk.parse_place_payout("<p>払戻金 単勝 8 4,760 円</p>"), {})

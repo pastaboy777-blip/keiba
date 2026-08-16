@@ -537,3 +537,22 @@ def parse_payout(html: str) -> dict | None:
         if m:
             out[key] = (m.group(1), int(m.group(2).replace(",", "")))
     return out or None
+
+
+def parse_place_payout(html: str) -> dict[int, int]:
+    """結果ページから **複勝の払戻**（馬番 → 円）を返す。取れなければ空。
+
+        '複勝 8 3 11 1,170 円 240 円 270 円 9番人気 3番人気 4番人気'
+        → {8: 1170, 3: 240, 11: 270}
+
+    ⚠️ **馬番の並びと金額の並びを、位置で対応させている。**楽天は馬番をまとめて
+       先に、金額をまとめて後に出す。7頭以下なら2頭ぶんしか無いので、
+       **短いほうに合わせて zip する**（長いほうに合わせると取り違える）。
+    """
+    txt = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", html)))
+    m = re.search(r"複勝\s*((?:\d+\s+){2,3})((?:[\d,]+\s*円\s*){2,3})", txt)
+    if not m:
+        return {}
+    umas = [int(x) for x in re.findall(r"\d+", m.group(1))]
+    yens = [int(x.replace(",", "")) for x in re.findall(r"([\d,]+)\s*円", m.group(2))]
+    return dict(zip(umas, yens))
