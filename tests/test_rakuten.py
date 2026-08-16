@@ -217,3 +217,32 @@ class ParsePlacePayoutTest(unittest.TestCase):
 
     def test_missing(self):
         self.assertEqual(rk.parse_place_payout("<p>払戻金 単勝 8 4,760 円</p>"), {})
+
+
+class JockeyNormTest(unittest.TestCase):
+    """騎手名の正規化。減量印と所属を落とさないと乗り替わり判定が壊れる。"""
+
+    def setUp(self):
+        import importlib.util
+        import os
+        p = os.path.join(os.path.dirname(__file__), "..", "scripts",
+                         "nankan_norikae.py")
+        spec = importlib.util.spec_from_file_location("nk", p)
+        self.nk = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.nk)
+
+    def test_marks_and_place(self):
+        n = self.nk.norm
+        self.assertEqual(n("☆中山遥 (浦和)"), "中山遥")
+        self.assertEqual(n("▲高橋優"), "高橋優")
+        self.assertEqual(n("和田譲 (大井)"), "和田譲")
+        self.assertEqual(n("笹川翼"), "笹川翼")
+
+    def test_same_jockey_not_split(self):
+        """同じ騎手が表記違いで別人にならないこと。"""
+        n = self.nk.norm
+        self.assertEqual(n("☆中山遥 (浦和)"), n("中山遥"))
+
+    def test_none(self):
+        self.assertIsNone(self.nk.norm(None))
+        self.assertIsNone(self.nk.norm(""))
