@@ -253,6 +253,18 @@ def edges_for(e, today_dist, small_bias=True, pace=None, agari_pct=None, today=N
     # 減量のみ(継続騎乗)は10.5%、乗替のみ(減量なし)は4.7%で、組み合わせて初めて跳ねる。
     if _norikae and (e.jockey or "")[:1] in _KIGEN_MARKS:
         tags.add("減量乗替")
+    # 追走安＝過去3走のコーナー通過順で、一度も後退していない(下げ幅0以下)。
+    # 「動ける」ではなく「置かれない」が本体。大井8/12-8/16の528頭で、
+    # 一度も下げていない159頭が3着内32.1%(全体24.2%)、人気薄69頭では単勝回収324%・複勝103%。
+    # 対照の「2つ以上下げ」は19.3%、人気薄で単22%。押し上げ型(平均-1以下)は逆に効かない。
+    # 騎手が替わっても下げ幅は変わらないため、騎乗ではなく馬の性質として扱う。
+    _drops = []
+    for pr in recs[:3]:
+        co = [v for v in (pr.corner or []) if isinstance(v, (int, float))]
+        if len(co) >= 2:
+            _drops.append(max(co[i + 1] - co[i] for i in range(len(co) - 1)))
+    if len(_drops) >= 2 and max(_drops) <= 0:
+        tags.add("追走安")
     # 前走ハイレベル＝前走レースに11秒台のラップが3本以上＝緩まない流れを最後まで走らされた組。
     # 同検証で単体46頭・3着内30.4%・複勝回収198%(全体は23.5%/73%)。
     # ラップはEntryから引けないため、呼び出し側(zubu_edges等)がprev_c11を渡したときだけ点灯。
