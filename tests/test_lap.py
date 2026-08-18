@@ -152,3 +152,22 @@ class TestPayout(unittest.TestCase):
         p = parse_payout(html)
         self.assertEqual(p["trifecta"], ("2-4-7", 384140))
         self.assertEqual(p["exacta"], ("2-4", 40400))
+
+
+class Sec800to200Test(unittest.TestCase):
+    """800m→200m の3ハロン（上がり3Fから最後の1Fを外したもの）。"""
+
+    def test_1400m_seven_furlongs(self):
+        from nankeiba.core.lap import sec_800_200
+        f = [13.0, 11.6, 11.7, 12.1, 12.6, 12.4, 13.1]     # 川崎8/18 7R
+        self.assertAlmostEqual(sec_800_200(f), 12.1 + 12.6 + 12.4, places=1)
+
+    def test_differs_from_agari3f(self):
+        from nankeiba.core.lap import sec_800_200
+        f = [13.0, 11.6, 11.7, 12.1, 12.6, 12.4, 13.1]
+        self.assertNotAlmostEqual(sec_800_200(f), sum(f[-3:]), places=1)
+
+    def test_too_short(self):
+        from nankeiba.core.lap import sec_800_200
+        self.assertIsNone(sec_800_200([12.0, 11.5, 12.2]))
+        self.assertIsNone(sec_800_200(None))
