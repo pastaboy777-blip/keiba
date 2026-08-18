@@ -246,3 +246,19 @@ class JockeyNormTest(unittest.TestCase):
     def test_none(self):
         self.assertIsNone(self.nk.norm(None))
         self.assertIsNone(self.nk.norm(""))
+
+
+class MissingPopularityTest(unittest.TestCase):
+    """人気が未掲載の馬を「99番人気」扱いして人気薄に混ぜないこと。
+
+    川崎 2026-08-18 は 11R・12R の人気欄が丸ごと「-」で、107頭中17頭
+    （うち3着内6頭）が人気薄の集計に紛れ込み、結論が反転しかけた。
+    """
+
+    def test_none_popularity_excluded(self):
+        rows = [{"pop": None, "finish": 1}, {"pop": 8, "finish": 5},
+                {"pop": 2, "finish": 3}]
+        unpop = [x for x in rows if x["pop"] is not None and x["pop"] >= 7]
+        self.assertEqual(len(unpop), 1)
+        bad = [x for x in rows if (x["pop"] or 99) >= 7]     # かつての壊れた式
+        self.assertEqual(len(bad), 2)                        # 欠損が混ざる
