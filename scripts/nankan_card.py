@@ -60,6 +60,38 @@
 
     唯一の妙味は 5R ウロボロス 9人気2着（複勝630円）で、
     これは「前が潰れうる」判定が当たった唯一のレースだった。
+
+── 状態（上がり残差の傾き）の実測 ─────────────────────────
+
+⚠️⚠️ **「傾きは原理的に測れない」と一度書いたが、それは間違いだった。**
+   私が測っていたのは「今の傾きが、次も同じ傾きで続くか」（r=-0.017）で、
+   問うべきは「傾きが、**次の水準**を当てるか」だった。後者だと効く。
+
+     直近3走の平均            → 次3走の水準  r = +0.425
+     直近3走の傾き（最小二乗）  → 同           r = +0.055
+     **平均を差し引いた偏相関**  = **+0.068**   (n=43,561)
+
+   符号も合う（平均差が下がってきている＝速くなってきている馬は次も速い）。
+
+   効き目：傾き1標準偏差(0.660秒/走)の改善 → 次3走の平均差 **0.041秒**
+           （水準1標準偏差の差は 0.321秒。**つまり水準の 1/8**）
+
+   どこで効くか（偏相関）:
+     **2歳 +0.122**（n=1,343）← 2倍強い。「状態が上がる」の実体と合う
+     3歳 +0.061 ／ 4歳以上 +0.067 ／ キャリア8走以内 +0.070
+
+   市場は織り込んでいるか:
+       傾き5分位      平均人気   3着内
+     ★改善(上位20%)    6.61     26.5%
+       やや改善        6.42     27.4%
+       横ばい          6.58     26.4%
+       やや悪化        6.69     25.5%
+     **悪化(下位20%)**  **7.16**  **21.9%**
+
+   → **改善側にエッジは無い。**人気も3着内率も横ばい群と変わらない。
+   → **悪化側が使える。**3着内が21.9%まで落ちるのに、人気は 6.58→7.16 しか
+      下がらない。**市場が下げ切っていない。**この開催で消し材料が使えたのは
+      これで3つ目（位置を下げる馬／過去が下手な騎手／状態が悪化している馬）。
 """
 
 from __future__ import annotations
@@ -84,6 +116,12 @@ NIGE_HOT = 3
 W_POS = 1.0
 #: 能力（上がり残差）の重み。残差1秒 ≒ 位置1段ぶん、として置いた初期値。
 W_ABI = 1.0
+#: 状態（上がり残差の傾き）の重み。**実測で水準の 1/8 しかないので 0.125**。
+#:   傾き1標準偏差(0.660秒/走)の改善 → 次3走の平均差 0.041秒
+#:   水準1標準偏差の差              → 同           0.321秒
+W_TREND = 0.125
+#: 傾きが「悪化」と言えるしきい値[秒/走]（下位20%の境目あたり）。
+TREND_BAD = 0.35
 
 
 def logit(p: float) -> float:
@@ -131,6 +169,28 @@ def prev_meeting_bias(cli, place: str, before: str, back: int = 40) -> dict:
 def past_agari_residual(cli, hist, name: str, diffs: dict) -> float | None:
     v = [diffs[(h.date, name)] for h in hist[:LOOKBACK] if (h.date, name) in diffs]
     return stt.mean(v) if v else None
+
+
+def trend(hist, name: str, diffs: dict) -> float | None:
+    """直近3走の上がり残差の**傾き**［秒/走］。マイナス＝速くなってきている。
+
+    ⚠️ **2点の引き算で測ってはいけない。**`最新 − 3走前` でやると、その馬の
+       水準がちょうど打ち消されてノイズしか残らない（実測 r=-0.017）。
+       3点の最小二乗で取り、**次走の「傾き」ではなく「水準」を当てるか**で
+       評価すること。それだと偏相関 +0.068 でゼロではない。
+
+    ⚠️ **効き目は水準の 1/8。**買い材料としては薄い。強いのは悪化側で、
+       下位20%は3着内 21.9%（他は25〜27%）まで落ちるのに、人気は 7.16 と
+       ほとんど下がらない（横ばい群は 6.58）。**市場が下げ切っていない。**
+    """
+    v = [diffs[(h.date, name)] for h in hist[:LOOKBACK] if (h.date, name) in diffs]
+    if len(v) < 3:
+        return None
+    v = list(reversed(v))                       # 古い順に並べ替える
+    xs = list(range(len(v)))
+    mx, my = stt.mean(xs), stt.mean(v)
+    return round(sum((a - mx) * (b - my) for a, b in zip(xs, v))
+                 / sum((a - mx) ** 2 for a in xs), 3)
 
 
 def band_of(hist) -> tuple[str | None, float | None]:
@@ -217,6 +277,7 @@ def main() -> None:
             hist = e.get("history") or []
             b, m = band_of(hist)
             a = past_agari_residual(cli, hist, e["name"], diffs)
+            tr = trend(hist, e["name"], diffs)
             if b is None:
                 continue
             s = W_POS * logit(bias.get(b, 0.25))
@@ -226,8 +287,10 @@ def main() -> None:
                 s += {"前": +0.50, "中": 0.0, "後": -0.30}[b]
             if a is not None:
                 s += W_ABI * (-a)                    # 残差はマイナスが速い
+            if tr is not None:
+                s += W_TREND * (-tr)                 # 傾きもマイナスが速い
             rows.append(dict(u=e["umaban"], name=e["name"], band=b, pos=m,
-                             ab=a, sc=round(s, 2), odds=e.get("odds"),
+                             ab=a, tr=tr, sc=round(s, 2), odds=e.get("odds"),
                              pop=e.get("popularity")))
         if len(rows) < 4:
             continue
@@ -236,8 +299,11 @@ def main() -> None:
         print(f"  ① 流れ：**{flow}**（逃げたい馬 {nn}頭 / {len(ents)}頭）")
         mark = ["◎", "○", "▲", "△", "△"]
         for i, x in enumerate(rows[:5]):
+            tmark = ("↑" if x["tr"] is not None and x["tr"] <= -TREND_BAD else
+                     "↓" if x["tr"] is not None and x["tr"] >= TREND_BAD else " ")
             print(f"  {mark[i]} {x['u']:>2} {x['name']:<12} {x['band']:<5}"
                   f"(想定{x['pos']}) 残差{('%+.2f' % x['ab']) if x['ab'] is not None else ' —  '}"
+                  f" 状態{tmark}{('%+.2f' % x['tr']) if x['tr'] is not None else ' —  '}"
                   f"  score {x['sc']:+.2f}  {x['odds']}倍({x['pop']}人気)")
         # ③ 分岐を必ず置く
         if nn >= NIGE_HOT:
