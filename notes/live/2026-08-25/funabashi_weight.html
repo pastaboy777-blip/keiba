@@ -1,0 +1,88 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+ *{margin:0;padding:0;box-sizing:border-box;font-family:'WenQuanYi Zen Hei',sans-serif;}
+ body{background:#0d4a2b;}
+ .card{width:1400px;position:relative;overflow:hidden;
+   background:radial-gradient(circle at 50% 6%,#2fa365 0%,#158a4d 26%,#0b6b38 62%,#0d4a2b 100%);padding:34px 40px 26px;}
+ .rays{position:absolute;inset:-40% -10% -10% -10%;pointer-events:none;
+   background:repeating-conic-gradient(from 0deg at 50% 10%,rgba(255,255,255,.075) 0deg 3.2deg,rgba(255,255,255,0) 3.2deg 7.4deg);}
+ .inner{position:relative;}
+ .kicker{color:#ffd83b;font-size:19px;font-weight:900;}
+ .title{color:#fff;font-size:44px;font-weight:900;margin-top:6px;text-shadow:0 3px 10px rgba(0,0,0,.28);}
+ .lead{color:#fff;font-size:19px;font-weight:700;margin-top:10px;line-height:1.6;}
+ .lead .y{color:#ffd83b;} .lead .c{color:#9fe8bf;} .lead .r{color:#ffb3b3;}
+ .sec{margin-top:20px;background:#fff;border:3px solid #ffd83b;border-radius:15px;padding:16px 22px;box-shadow:0 6px 16px rgba(0,0,0,.2);}
+ .sh{color:#0b6b38;font-size:24px;font-weight:900;margin-bottom:10px;}
+ table{width:100%;border-collapse:collapse;}
+ th{background:#0b6b38;color:#fff;font-size:18px;font-weight:900;padding:8px 8px;}
+ td{font-size:21px;font-weight:800;color:#20372c;padding:8px 8px;border-bottom:1px solid #e2efe7;text-align:center;}
+ td.l{text-align:left;}
+ tr.hi td{background:#fff6d9;}
+ tr.bad td{background:#ffeaea;color:#a11;}
+ .note{margin-top:10px;color:#3c4a42;font-size:18px;font-weight:700;line-height:1.6;}
+ .note b{color:#0b6b38;} .note b.r{color:#c92a2a;}
+ .foot{margin-top:18px;background:#062a19;border:3px solid #ffd83b;border-radius:15px;padding:15px 22px;color:#fff;font-size:20px;font-weight:800;line-height:1.6;}
+ .foot .y{color:#ffd83b;} .foot .c{color:#9fe8bf;}
+ .sig{text-align:right;color:#d6f2e2;font-size:17px;font-weight:800;margin-top:14px;}
+</style></head>
+<body><div class="card"><div class="rays"></div><div class="inner">
+
+<div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>
+<div class="title">馬体重で選ぶとどうなるか（船橋・実測）</div>
+<div class="lead"><span class="r">風のデータは持っていないので「強風の日に小型が有利か」は検証できない。</span>
+代わりに<span class="y">「船橋でズブ穴を小型から選ぶのが正しいか」</span>を、前開催8/2〜8/6と昨日8/24の
+<span class="c">555頭</span>で実測した。<span class="y">結果は逆だった。</span></div>
+
+<div class="sec">
+ <div class="sh">① 全555頭 ─ 体重帯別</div>
+ <table>
+  <tr><th>馬体重</th><th>頭数</th><th>1着</th><th>3着内</th><th>勝率</th><th>複勝率</th><th>単回収</th><th>複回収</th></tr>
+  <tr class="bad"><td class="l">〜439kg（小型）</td><td>87</td><td>6</td><td>27</td><td>6.9%</td><td>31.0%</td><td>37%</td><td>61%</td></tr>
+  <tr><td class="l">440〜469kg</td><td>173</td><td>15</td><td>54</td><td>8.7%</td><td>31.2%</td><td>49%</td><td>74%</td></tr>
+  <tr class="hi"><td class="l">470〜499kg</td><td>175</td><td>24</td><td>57</td><td>13.7%</td><td>32.6%</td><td>89%</td><td>84%</td></tr>
+  <tr class="hi"><td class="l">500kg〜（大型）</td><td>120</td><td>15</td><td>42</td><td>12.5%</td><td>35.0%</td><td>92%</td><td>93%</td></tr>
+ </table>
+ <div class="note">勝ち馬の平均体重は <b>480.6kg</b>、出走馬全体の平均は <b>473.0kg</b>。
+ <b>勝つ馬のほうが平均より重い。</b></div>
+</div>
+
+<div class="sec">
+ <div class="sh">② 6番人気以下（＝ズブ穴の対象）だけに絞ると差が決定的</div>
+ <table>
+  <tr><th>馬体重</th><th>頭数</th><th>1着</th><th>3着内</th><th>複勝率</th><th>複回収</th></tr>
+  <tr class="bad"><td class="l">〜439kg（小型）</td><td>42</td><td><b>0</b></td><td>3</td><td>7.1%</td><td>42%</td></tr>
+  <tr class="bad"><td class="l">440〜469kg</td><td>84</td><td><b>0</b></td><td>8</td><td>9.5%</td><td>55%</td></tr>
+  <tr class="hi"><td class="l">470〜499kg</td><td>75</td><td>2</td><td>10</td><td>13.3%</td><td><b>110%</b></td></tr>
+  <tr class="hi"><td class="l">500kg〜（大型）</td><td>54</td><td>2</td><td>11</td><td>20.4%</td><td><b>119%</b></td></tr>
+ </table>
+ <div class="note"><b class="r">470kg未満の人気薄は、126頭走って1着が0。</b>
+ 3着内も11頭だけで、複回収は42%と55%。
+ いっぽう<b>470kg以上は129頭で複回収110%・119%とプラス圏</b>。
+ <b class="r">この馬場では、ズブ穴を小型から選ぶのがいちばん当たらない選び方だった。</b></div>
+</div>
+
+<div class="sec">
+ <div class="sh">③ 今日の◎の馬体重（前走時）</div>
+ <table>
+  <tr><th>R</th><th>◎</th><th>体重</th><th>帯</th><th>470kg以上の差し替え候補</th></tr>
+  <tr class="bad"><td>1R</td><td class="l">④ケイズブレイヴ</td><td>436</td><td>小型</td><td class="l">①エルモ470 のみ。時計は④が上で据え置き</td></tr>
+  <tr class="hi"><td>2R</td><td class="l">⑧マルヒロデラックス</td><td><b>516</b></td><td>大型</td><td class="l">─</td></tr>
+  <tr class="hi"><td>3R</td><td class="l">⑥ドジッコ</td><td><b>502</b></td><td>大型</td><td class="l">─</td></tr>
+  <tr class="hi"><td>4R</td><td class="l">⑨ルナーサウスポール</td><td><b>473</b></td><td>470+</td><td class="l">─</td></tr>
+  <tr><td>5R</td><td class="l">⑨トーヤマノゴールド</td><td>453</td><td>440台</td><td class="l">⑩ランドフスカ472（8/4に1-1-1で1着）</td></tr>
+  <tr><td>7R</td><td class="l">⑥アルセリア</td><td>443</td><td>440台</td><td class="l"><b>⑦ワールドクライシス494</b>（現在の○を◎に）</td></tr>
+  <tr><td>8R</td><td class="l">⑧サンリコリス</td><td>460</td><td>440台</td><td class="l"><b>⑫フークアンビション491</b>（399=9.3・本物2）</td></tr>
+  <tr><td>9R</td><td class="l">⑬オスマンサス</td><td>463</td><td>440台</td><td class="l"><b>⑪レオソルジャー475</b>（8/3の上がり38.8が最速）</td></tr>
+  <tr><td>10R</td><td class="l">⑦コスタデラルス</td><td>452</td><td>440台</td><td class="l"><b>⑧ハーモニーロワ490</b>（399=9.5・本物3）</td></tr>
+  <tr class="hi"><td>11R</td><td class="l">⑤ベルガラス</td><td><b>479</b></td><td>470+</td><td class="l">─</td></tr>
+  <tr class="hi"><td>12R</td><td class="l">③ビービーシャーンス</td><td><b>483</b></td><td>470+</td><td class="l">─</td></tr>
+ </table>
+ <div class="note">◎11頭のうち<b>470kg以上は5頭</b>。小型に寄せるどころか、
+ <b class="r">440〜469kgに5頭（5R・7R・8R・9R・10R）が集まっている</b>のが今日の弱点。</div>
+</div>
+
+<div class="foot">結論。<span class="y">小型に寄せるのは、この船橋の実測とは逆方向</span>。
+風については<span class="c">データがないので何も言えない</span>が、一般に強風で煽られやすいと言われるのも小型のほう。<br>
+振るなら<span class="y">5R・7R・8R・9R・10R の5鞍で、470kg以上の馬にこの条件が向いている</span>。
+差し替えるか、◎は据え置きでヒモに470kg以上を足すか、どちらでも組み直せる。</div>
+<div class="sig">変態か、変態以外か。</div>
+</div></div></body></html>
