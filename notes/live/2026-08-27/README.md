@@ -130,3 +130,23 @@
 
 黒背景版。`funabashi_1_5.html` のCSSに `body{background:#000}` と
 `.card{background:radial-gradient(...#000)}` を上書きして生成。
+
+### 劇画タッチ版
+
+画像: `funabashi_1_5_manga.png`／HTML: `funabashi_1_5_manga.html`
+
+中身は上のズブ穴版と同じ（◎⑥／◎③／◎⑤／◎⑧）。見た目だけを劇画調にしたもの。
+
+作りの要点（システムに劇画フォントが無いので、CSSだけで寄せている）：
+
+- **太い黒フチ** … `-webkit-text-stroke` + `paint-order:stroke fill`。
+  ◎○のような細い抜きのある文字はフチが3.5px以上だと中が潰れるので、見出しは7〜22px、印は3.5pxと使い分ける
+- **「ズブ穴」の劇画ロゴ** … 118px・赤 `#e8232a`・黒フチ22px・`skewX(-9deg) rotate(-3deg)`・`text-shadow` で影を落とす
+- **集中線** … `repeating-conic-gradient` を細く（1.5deg / 5.6deg）
+- **網点（ハーフトーン）** … `radial-gradient` の点を `background-size:9px` で敷き詰め。
+  白パネルの左側にも `.corner` で重ねてコマらしさを出す
+- **爆発（星形）バッジ** … `clip-path:polygon()` を Python で生成（`star()` 関数、24点／16点）
+- **コマ枠** … `border:6px solid #000` + `box-shadow:10px 10px 0` のベタ影
+- **色数を絞る** … 黒・白・赤 `#e8232a`・黄 `#ffd400`・青 `#0d4d9c` の5色だけ
+
+読ませる本文（メモ）は劇画にせず普通のゴシックのまま。フチを付けると読めなくなるため。
