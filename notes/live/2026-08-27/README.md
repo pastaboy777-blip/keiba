@@ -145,7 +145,8 @@
 - **集中線** … `repeating-conic-gradient` を細く（1.5deg / 5.6deg）
 - **網点（ハーフトーン）** … `radial-gradient` の点を `background-size:9px` で敷き詰め。
   白パネルの左側にも `.corner` で重ねてコマらしさを出す
-- **爆発（星形）バッジ** … `clip-path:polygon()` を Python で生成（`star()` 関数、24点／16点）
+- **爆発（星形）バッジ** … `clip-path:polygon()` を Python で生成（`star()` 関数、24点／16点）。
+  右上の「南関ズブ穴」と勝負レースの「勝負」の2種類（締めの吹き出しは指示により削除）
 - **コマ枠** … `border:6px solid #000` + `box-shadow:10px 10px 0` のベタ影
 - **色数を絞る** … 黒・白・赤 `#e8232a`・黄 `#ffd400`・青 `#0d4d9c` の5色だけ
 
