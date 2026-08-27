@@ -1,0 +1,167 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+ *{margin:0;padding:0;box-sizing:border-box;font-family:'WenQuanYi Zen Hei','IPAGothic',sans-serif;}
+ body{background:#000;}
+ .card{width:1400px;position:relative;overflow:hidden;background:#12100e;padding:30px 34px 26px;}
+
+ /* 集中線 */
+ .lines{position:absolute;inset:-45% -14% -14% -14%;pointer-events:none;
+   background:repeating-conic-gradient(from 0deg at 50% 12%,
+     rgba(255,255,255,.13) 0deg 1.5deg, rgba(255,255,255,0) 1.5deg 5.6deg);}
+ /* 網点（ハーフトーン） */
+ .tone{position:absolute;inset:0;pointer-events:none;opacity:.5;
+   background-image:radial-gradient(rgba(255,255,255,.16) 1.6px, transparent 1.7px);
+   background-size:9px 9px;}
+ .inner{position:relative;}
+
+ .kicker{color:#ffd400;font-size:20px;font-weight:900;letter-spacing:2px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ .head{display:flex;align-items:center;gap:20px;margin-top:2px;height:170px;}
+ .gekiga{font-size:118px;font-weight:900;letter-spacing:-4px;line-height:1;
+   color:#e8232a;-webkit-text-stroke:22px #000;paint-order:stroke fill;
+   transform:skewX(-9deg) rotate(-3deg);
+   text-shadow:11px 11px 0 rgba(0,0,0,.85);}
+ .dateblk{flex:1;padding-left:16px;}
+ .dateblk .d1{color:#fff;font-size:46px;font-weight:900;letter-spacing:1px;
+   -webkit-text-stroke:10px #000;paint-order:stroke fill;transform:skewX(-6deg);display:inline-block;}
+ .dateblk .d2{color:#ffd400;font-size:26px;font-weight:900;margin-top:6px;
+   -webkit-text-stroke:6px #000;paint-order:stroke fill;}
+ .burst{width:164px;height:164px;flex:0 0 164px;background:#ffd400;
+   clip-path:polygon(50.00% 0.00%,55.09% 11.33%,62.94% 1.70%,64.92% 13.97%,75.00% 6.70%,73.74% 19.06%,85.36% 14.64%,80.94% 26.26%,93.30% 25.00%,86.03% 35.08%,98.30% 37.06%,88.67% 44.91%,100.00% 50.00%,88.67% 55.09%,98.30% 62.94%,86.03% 64.92%,93.30% 75.00%,80.94% 73.74%,85.36% 85.36%,73.74% 80.94%,75.00% 93.30%,64.92% 86.03%,62.94% 98.30%,55.09% 88.67%,50.00% 100.00%,44.91% 88.67%,37.06% 98.30%,35.08% 86.03%,25.00% 93.30%,26.26% 80.94%,14.64% 85.36%,19.06% 73.74%,6.70% 75.00%,13.97% 64.92%,1.70% 62.94%,11.33% 55.09%,0.00% 50.00%,11.33% 44.91%,1.70% 37.06%,13.97% 35.08%,6.70% 25.00%,19.06% 26.26%,14.64% 14.64%,26.26% 19.06%,25.00% 6.70%,35.08% 13.97%,37.06% 1.70%,44.91% 11.33%);display:flex;align-items:center;justify-content:center;
+   filter:drop-shadow(7px 7px 0 rgba(0,0,0,.8));}
+ .burst span{color:#111;font-size:31px;font-weight:900;line-height:1.1;text-align:center;
+   transform:rotate(-7deg);}
+
+ .lead{margin-top:12px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:12px 18px;color:#111;font-size:19px;font-weight:800;line-height:1.55;
+   box-shadow:9px 9px 0 rgba(0,0,0,.6);}
+ .lead .r{color:#e8232a;} .lead .b{color:#0d4d9c;}
+
+ .cols{display:flex;margin:18px 0 8px;padding:0 10px;color:#ffd400;font-size:16px;font-weight:900;
+   -webkit-text-stroke:4px #000;paint-order:stroke fill;}
+ .cR{flex:0 0 116px;} .cH{flex:0 0 434px;} .cA{flex:0 0 306px;} .cM{flex:1;}
+
+ .row{position:relative;display:flex;align-items:stretch;background:#fff;border:6px solid #000;
+   border-radius:3px;margin-bottom:14px;padding:14px 16px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .row .corner{position:absolute;left:0;top:0;bottom:0;width:116px;pointer-events:none;opacity:.45;
+   background-image:radial-gradient(rgba(0,0,0,.55) 1.5px, transparent 1.6px);background-size:7px 7px;}
+
+ .rN{flex:0 0 116px;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;}
+ .rN .n{color:#e8232a;font-size:44px;font-weight:900;line-height:1;
+   -webkit-text-stroke:7px #000;paint-order:stroke fill;transform:skewX(-8deg);}
+ .rN .d{color:#111;font-size:13px;font-weight:900;margin-top:6px;background:#ffd400;
+   border:2px solid #000;padding:1px 5px;}
+
+ .hm{flex:0 0 434px;display:flex;align-items:center;gap:10px;padding-left:8px;}
+ .at{flex:0 0 306px;display:flex;align-items:center;gap:9px;}
+ .mk{font-size:36px;font-weight:900;color:#e8232a;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .mk2{font-size:34px;font-weight:900;color:#0d4d9c;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .nm{font-size:27px;font-weight:900;color:#111;letter-spacing:0;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .nm2{font-size:25px;font-weight:900;color:#111;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .sb{width:68px;height:68px;flex:0 0 68px;background:#ffd400;clip-path:polygon(50.00% 0.00%,56.63% 16.65%,69.13% 3.81%,68.89% 21.73%,85.36% 14.64%,78.27% 31.11%,96.19% 30.87%,83.35% 43.37%,100.00% 50.00%,83.35% 56.63%,96.19% 69.13%,78.27% 68.89%,85.36% 85.36%,68.89% 78.27%,69.13% 96.19%,56.63% 83.35%,50.00% 100.00%,43.37% 83.35%,30.87% 96.19%,31.11% 78.27%,14.64% 85.36%,21.73% 68.89%,3.81% 69.13%,16.65% 56.63%,0.00% 50.00%,16.65% 43.37%,3.81% 30.87%,21.73% 31.11%,14.64% 14.64%,31.11% 21.73%,30.87% 3.81%,43.37% 16.65%);
+   display:flex;align-items:center;justify-content:center;margin-right:-4px;}
+ .sb span{color:#111;font-size:20px;font-weight:900;transform:rotate(-10deg);}
+
+ .memo{flex:1;color:#1b1b1b;font-size:14px;line-height:1.6;padding-left:14px;
+   border-left:4px solid #000;align-self:center;}
+ .memo b{color:#0d4d9c;} .memo b.r{color:#e8232a;}
+
+ .foot{position:relative;margin-top:6px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:18px 24px;color:#111;font-size:21px;font-weight:900;line-height:1.6;
+   box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .foot .r{color:#e8232a;} .foot .b{color:#0d4d9c;}
+ .yell{position:absolute;right:-6px;top:-52px;background:#ffd400;border:5px solid #000;
+   padding:6px 16px;font-size:26px;font-weight:900;color:#111;transform:rotate(-4deg);
+   box-shadow:6px 6px 0 rgba(0,0,0,.7);}
+ .sig{text-align:right;color:#ffd400;font-size:18px;font-weight:900;margin-top:20px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ /* ---- 表・囲み（劇画スキン） ---- */
+ .sec{margin-top:20px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:20px 24px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .sh{color:#111;font-size:31px;font-weight:900;margin-bottom:14px;display:inline-block;
+   transform:skewX(-5deg);border-bottom:7px solid #e8232a;padding-bottom:3px;}
+ table{width:100%;border-collapse:collapse;margin-top:8px;}
+ th{background:#111;color:#ffd400;font-size:20px;font-weight:900;padding:9px 5px;border:2px solid #000;}
+ td{font-size:22px;font-weight:800;color:#111;padding:10px 5px;border:2px solid #000;text-align:center;}
+ td.l{text-align:left;} td.lap{font-size:19px;font-family:monospace;letter-spacing:-.5px;}
+ tr.hi td{background:#ffe9a8;} tr.bad td{background:#ffdcdc;color:#a11100;} tr.win td{background:#d9ecd9;}
+ .note{margin-top:15px;color:#1b1b1b;font-size:20px;font-weight:800;line-height:1.62;}
+ .note b{color:#0d4d9c;} .note b.r{color:#e8232a;}
+ .big{margin-top:20px;background:#111;border:6px solid #ffd400;border-radius:3px;
+   padding:22px 26px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .big .bh{color:#ffd400;font-size:31px;font-weight:900;margin-bottom:15px;}
+ .big .it{color:#fff;font-size:23px;font-weight:800;line-height:1.62;margin-bottom:13px;}
+ .big .it:last-child{margin-bottom:0;}
+ .big .no{color:#ffd400;font-size:27px;font-weight:900;}
+ .big .y{color:#ffd400;} .big .c{color:#8fd9ff;} .big .r{color:#ff9b9b;}
+ .dateblk .d1{font-size:42px;}
+
+ /* ---- トリプル馬単 ---- */
+ .buy{display:flex;align-items:center;gap:14px;margin-top:12px;flex-wrap:wrap;}
+ .tick{background:#ffd400;border:5px solid #000;padding:6px 16px;font-size:30px;font-weight:900;color:#111;
+   box-shadow:6px 6px 0 rgba(0,0,0,.65);transform:skewX(-6deg);}
+ .tick.sub{background:#fff;font-size:26px;box-shadow:5px 5px 0 rgba(0,0,0,.55);}
+ .tick .rn{color:#e8232a;font-size:22px;margin-right:8px;}
+ .lbl{color:#111;font-size:23px;font-weight:900;background:#e8232a;color:#fff;padding:3px 12px;
+   border:4px solid #000;transform:skewX(-6deg);}
+ .lbl.g{background:#0d4d9c;}
+ .dateblk .d1{font-size:40px;}
+ td:first-child{white-space:nowrap;font-size:20px;text-align:left;padding-left:10px;}
+ th:first-child{width:250px;}
+ td.l{font-size:20px;}
+</style></head>
+<body><div class="card"><div class="lines"></div><div class="tone"></div><div class="inner">
+<div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>
+<div class="head"><div class="gekiga">馬単</div><div class="dateblk"><div class="d1">8/27(木) 船橋 トリプル馬単</div><div class="d2">10R・11R ／ 人気でも構わない、当てることに集中した1〜2着</div></div><div class="burst"><span>当てに<br>行く</span></div></div>
+
+<div class="lead">ズブ穴とは<span class="r">別枠</span>。こちらは<span class="r">当てに行く</span>ほうの買い目。
+昨日の船橋は<span class="b">時計が早くて、前が止まらない</span>。
+だから<span class="r">前で運べて、その距離の実績がいちばん確かな馬</span>を素直に1着に置いた。</div>
+
+<div class="sec">
+ <div class="sh">10R 鋸山特別 ダ1600・10頭 ─ ◎⑩バーリフレイバー</div>
+ <table>
+  <tr><th>馬</th><th>船橋1600の中身</th><th>通過</th><th>体重</th></tr>
+  <tr class="hi"><td><b>⑩バーリフレイバー</b></td><td class="l">8/3 <b>1:44.1で1着</b>／6/4 <b>1:43.8で1着</b>／2/13・1/21も1着。<b class="r">直近5走の船橋1600で4勝</b></td><td><b>2-2-2-2</b></td><td>515</td></tr>
+  <tr class="hi"><td><b>②グリーンダイヤル</b></td><td class="l">8/4に<b>上がり37.3で2着</b>／3/10は1着／持ち時計<b>1:43.0</b>は10頭で最速</td><td>10-9-7-5</td><td>498</td></tr>
+  <tr><td>④ヒラボクラフィット</td><td class="l">5/5に<b>1:43.1で1着</b>（10頭で最速タイ）。ただし6/4以来2か月半ぶりで前走6着</td><td><b>1-3-1-1</b></td><td>476</td></tr>
+  <tr><td>⑧タイセイバンクール</td><td class="l">6/29の重で1:43.8で1着、5/7も1:43.8で2着。1600mで崩れない</td><td>5-5-4-5</td><td>458</td></tr>
+  <tr><td>⑥クニノハッピー</td><td class="l">8/4に<b>上がり36.0</b>。10頭で断然の脚だが<b class="r">4角12番手</b>から</td><td>12-12-12-12</td><td>484</td></tr>
+ </table>
+ <div class="note"><b>1着は⑩で動かさない。</b>船橋1600を直近5走で4勝、しかも<b>8/3に1:44.1で勝ったばかり</b>。
+ 通過が<b>2-2-2-2</b>と、前が止まらない今の馬場にそのまま乗る。<br>
+ 2着は<b>②</b>。8/4に<b>4角5番手から上がり37.3で2着</b>まで来ていて、
+ 持ち時計<b>1:43.0</b>もこの10頭で最速。<b>⑩が前で粘って②が外から詰める</b>のが8/4に実際に起きた形。<br>
+ <b>④は逃げる馬</b>。⑩が2番手に付ける形になるので、<b class="r">④→⑩の並びも押さえる</b>。</div>
+ <div class="buy">
+   <div class="lbl">本線</div><div class="tick"><span class="rn">10R</span>⑩ → ②</div>
+   <div class="lbl g">押さえ</div><div class="tick sub"><span class="rn">10R</span>⑩ → ④</div>
+   <div class="tick sub"><span class="rn">10R</span>④ → ⑩</div>
+ </div>
+</div>
+
+<div class="sec">
+ <div class="sh">11R アレキサンドライトカップ ダ1700・10頭 ─ ◎③ナリスナ</div>
+ <table>
+  <tr><th>馬</th><th>中身</th><th>通過</th><th>体重／斤</th></tr>
+  <tr class="hi"><td><b>③ナリスナ</b></td><td class="l">6/3の<b>不良の船橋1600を1着</b>／5/5の船橋1500も1着／2025/10も船橋1500で1着。<b class="r">船橋は3戦3勝</b></td><td><b>1-1-1-1</b></td><td>442／54</td></tr>
+  <tr class="hi"><td><b>②アンジュルナ</b></td><td class="l">大井1800で2着／浦和1500で1着／浦和1400で1着／大井1600で1着。<b class="r">5走で3勝2着1回</b></td><td><b>1-1-1-1</b></td><td>491／<b>57</b></td></tr>
+  <tr><td>④アップタウン</td><td class="l">7/28の盛岡1700（重）で<b>上がり36.2</b>／5/14の川崎2000で1着。<b>1700mの経験あり</b></td><td>8-10-10-7</td><td>461／54</td></tr>
+  <tr><td>⑧ラップトップ</td><td class="l">JRA新潟2000で2着（上36.0）、新潟1800で<b>上33.8</b>。脚はあるが<b class="r">396kg</b></td><td>11-10-9-5</td><td>396／52</td></tr>
+ </table>
+ <div class="note"><b>③と②はどちらも4角先頭で勝ってきた馬。</b>この2頭で組む。<br>
+ 1着に取るのは<b>③</b>。<b class="r">船橋を3回走って3回とも勝っている</b>のがこの10頭で唯一で、
+ 6/3は<b>不良の1600を1-1-1-1</b>、5/5は1500を3-3-1-1。<b>今の馬場で最も形が合う</b>。<br>
+ <b>②は逃げて5走で3勝2着1回</b>と中身は互角以上だが、<b>斤57は10頭で最も重い</b>のと、
+ 崩れた1回が距離の長い2100mだった点を引いて2着に置く。<b class="r">②→③の折り返しも押さえる</b>。<br>
+ <b>③と②が並んで前に行くと、②が57kgを背負って競り合う形</b>になる。そこが崩れたときの受けが④。</div>
+ <div class="buy">
+   <div class="lbl">本線</div><div class="tick"><span class="rn">11R</span>③ → ②</div>
+   <div class="lbl g">押さえ</div><div class="tick sub"><span class="rn">11R</span>② → ③</div>
+   <div class="tick sub"><span class="rn">11R</span>③ → ④</div>
+ </div>
+</div>
+
+<div class="sig">変態か、変態以外か。 ── ②へ続く</div>
+</div></div></body></html>
