@@ -1,0 +1,161 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+ *{margin:0;padding:0;box-sizing:border-box;font-family:'WenQuanYi Zen Hei','IPAGothic',sans-serif;}
+ body{background:#000;}
+ .card{width:1400px;position:relative;overflow:hidden;background:#12100e;padding:30px 34px 26px;}
+
+ /* 集中線 */
+ .lines{position:absolute;inset:-45% -14% -14% -14%;pointer-events:none;
+   background:repeating-conic-gradient(from 0deg at 50% 12%,
+     rgba(255,255,255,.13) 0deg 1.5deg, rgba(255,255,255,0) 1.5deg 5.6deg);}
+ /* 網点（ハーフトーン） */
+ .tone{position:absolute;inset:0;pointer-events:none;opacity:.5;
+   background-image:radial-gradient(rgba(255,255,255,.16) 1.6px, transparent 1.7px);
+   background-size:9px 9px;}
+ .inner{position:relative;}
+
+ .kicker{color:#ffd400;font-size:20px;font-weight:900;letter-spacing:2px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ .head{display:flex;align-items:center;gap:20px;margin-top:2px;height:170px;}
+ .gekiga{font-size:118px;font-weight:900;letter-spacing:-4px;line-height:1;
+   color:#e8232a;-webkit-text-stroke:22px #000;paint-order:stroke fill;
+   transform:skewX(-9deg) rotate(-3deg);
+   text-shadow:11px 11px 0 rgba(0,0,0,.85);}
+ .dateblk{flex:1;padding-left:16px;}
+ .dateblk .d1{color:#fff;font-size:46px;font-weight:900;letter-spacing:1px;
+   -webkit-text-stroke:10px #000;paint-order:stroke fill;transform:skewX(-6deg);display:inline-block;}
+ .dateblk .d2{color:#ffd400;font-size:26px;font-weight:900;margin-top:6px;
+   -webkit-text-stroke:6px #000;paint-order:stroke fill;}
+ .burst{width:164px;height:164px;flex:0 0 164px;background:#ffd400;
+   clip-path:polygon(50.00% 0.00%,55.09% 11.33%,62.94% 1.70%,64.92% 13.97%,75.00% 6.70%,73.74% 19.06%,85.36% 14.64%,80.94% 26.26%,93.30% 25.00%,86.03% 35.08%,98.30% 37.06%,88.67% 44.91%,100.00% 50.00%,88.67% 55.09%,98.30% 62.94%,86.03% 64.92%,93.30% 75.00%,80.94% 73.74%,85.36% 85.36%,73.74% 80.94%,75.00% 93.30%,64.92% 86.03%,62.94% 98.30%,55.09% 88.67%,50.00% 100.00%,44.91% 88.67%,37.06% 98.30%,35.08% 86.03%,25.00% 93.30%,26.26% 80.94%,14.64% 85.36%,19.06% 73.74%,6.70% 75.00%,13.97% 64.92%,1.70% 62.94%,11.33% 55.09%,0.00% 50.00%,11.33% 44.91%,1.70% 37.06%,13.97% 35.08%,6.70% 25.00%,19.06% 26.26%,14.64% 14.64%,26.26% 19.06%,25.00% 6.70%,35.08% 13.97%,37.06% 1.70%,44.91% 11.33%);display:flex;align-items:center;justify-content:center;
+   filter:drop-shadow(7px 7px 0 rgba(0,0,0,.8));}
+ .burst span{color:#111;font-size:31px;font-weight:900;line-height:1.1;text-align:center;
+   transform:rotate(-7deg);}
+
+ .lead{margin-top:12px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:12px 18px;color:#111;font-size:19px;font-weight:800;line-height:1.55;
+   box-shadow:9px 9px 0 rgba(0,0,0,.6);}
+ .lead .r{color:#e8232a;} .lead .b{color:#0d4d9c;}
+
+ .cols{display:flex;margin:18px 0 8px;padding:0 10px;color:#ffd400;font-size:16px;font-weight:900;
+   -webkit-text-stroke:4px #000;paint-order:stroke fill;}
+ .cR{flex:0 0 116px;} .cH{flex:0 0 434px;} .cA{flex:0 0 306px;} .cM{flex:1;}
+
+ .row{position:relative;display:flex;align-items:stretch;background:#fff;border:6px solid #000;
+   border-radius:3px;margin-bottom:14px;padding:14px 16px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .row .corner{position:absolute;left:0;top:0;bottom:0;width:116px;pointer-events:none;opacity:.45;
+   background-image:radial-gradient(rgba(0,0,0,.55) 1.5px, transparent 1.6px);background-size:7px 7px;}
+
+ .rN{flex:0 0 116px;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;}
+ .rN .n{color:#e8232a;font-size:44px;font-weight:900;line-height:1;
+   -webkit-text-stroke:7px #000;paint-order:stroke fill;transform:skewX(-8deg);}
+ .rN .d{color:#111;font-size:13px;font-weight:900;margin-top:6px;background:#ffd400;
+   border:2px solid #000;padding:1px 5px;}
+
+ .hm{flex:0 0 434px;display:flex;align-items:center;gap:10px;padding-left:8px;}
+ .at{flex:0 0 306px;display:flex;align-items:center;gap:9px;}
+ .mk{font-size:36px;font-weight:900;color:#e8232a;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .mk2{font-size:34px;font-weight:900;color:#0d4d9c;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .nm{font-size:27px;font-weight:900;color:#111;letter-spacing:0;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .nm2{font-size:25px;font-weight:900;color:#111;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .sb{width:68px;height:68px;flex:0 0 68px;background:#ffd400;clip-path:polygon(50.00% 0.00%,56.63% 16.65%,69.13% 3.81%,68.89% 21.73%,85.36% 14.64%,78.27% 31.11%,96.19% 30.87%,83.35% 43.37%,100.00% 50.00%,83.35% 56.63%,96.19% 69.13%,78.27% 68.89%,85.36% 85.36%,68.89% 78.27%,69.13% 96.19%,56.63% 83.35%,50.00% 100.00%,43.37% 83.35%,30.87% 96.19%,31.11% 78.27%,14.64% 85.36%,21.73% 68.89%,3.81% 69.13%,16.65% 56.63%,0.00% 50.00%,16.65% 43.37%,3.81% 30.87%,21.73% 31.11%,14.64% 14.64%,31.11% 21.73%,30.87% 3.81%,43.37% 16.65%);
+   display:flex;align-items:center;justify-content:center;margin-right:-4px;}
+ .sb span{color:#111;font-size:20px;font-weight:900;transform:rotate(-10deg);}
+
+ .memo{flex:1;color:#1b1b1b;font-size:14px;line-height:1.6;padding-left:14px;
+   border-left:4px solid #000;align-self:center;}
+ .memo b{color:#0d4d9c;} .memo b.r{color:#e8232a;}
+
+ .foot{position:relative;margin-top:6px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:18px 24px;color:#111;font-size:21px;font-weight:900;line-height:1.6;
+   box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .foot .r{color:#e8232a;} .foot .b{color:#0d4d9c;}
+ .yell{position:absolute;right:-6px;top:-52px;background:#ffd400;border:5px solid #000;
+   padding:6px 16px;font-size:26px;font-weight:900;color:#111;transform:rotate(-4deg);
+   box-shadow:6px 6px 0 rgba(0,0,0,.7);}
+ .sig{text-align:right;color:#ffd400;font-size:18px;font-weight:900;margin-top:20px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ /* ---- 表・囲み（劇画スキン） ---- */
+ .sec{margin-top:20px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:20px 24px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .sh{color:#111;font-size:31px;font-weight:900;margin-bottom:14px;display:inline-block;
+   transform:skewX(-5deg);border-bottom:7px solid #e8232a;padding-bottom:3px;}
+ table{width:100%;border-collapse:collapse;margin-top:8px;}
+ th{background:#111;color:#ffd400;font-size:20px;font-weight:900;padding:9px 5px;border:2px solid #000;}
+ td{font-size:22px;font-weight:800;color:#111;padding:10px 5px;border:2px solid #000;text-align:center;}
+ td.l{text-align:left;} td.lap{font-size:19px;font-family:monospace;letter-spacing:-.5px;}
+ tr.hi td{background:#ffe9a8;} tr.bad td{background:#ffdcdc;color:#a11100;} tr.win td{background:#d9ecd9;}
+ .note{margin-top:15px;color:#1b1b1b;font-size:20px;font-weight:800;line-height:1.62;}
+ .note b{color:#0d4d9c;} .note b.r{color:#e8232a;}
+ .big{margin-top:20px;background:#111;border:6px solid #ffd400;border-radius:3px;
+   padding:22px 26px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .big .bh{color:#ffd400;font-size:31px;font-weight:900;margin-bottom:15px;}
+ .big .it{color:#fff;font-size:23px;font-weight:800;line-height:1.62;margin-bottom:13px;}
+ .big .it:last-child{margin-bottom:0;}
+ .big .no{color:#ffd400;font-size:27px;font-weight:900;}
+ .big .y{color:#ffd400;} .big .c{color:#8fd9ff;} .big .r{color:#ff9b9b;}
+ .dateblk .d1{font-size:42px;}
+
+ .dateblk .d1{font-size:44px;}
+ .lead{font-size:29px;line-height:1.62;}
+ .big .bh{font-size:38px;}
+ .big .it{font-size:29px;line-height:1.6;margin:20px 0;}
+ .sh{font-size:36px;}
+ td, th{font-size:24px;padding:12px 10px;}
+ td:first-child{white-space:nowrap;}
+ .note{font-size:26px;line-height:1.66;}
+ .foot{font-size:28px;line-height:1.66;}
+ tr.me td{background:#d9ecd9;}
+ .huge{font-size:48px;font-weight:900;color:#e8232a;}
+ .huge2{font-size:38px;font-weight:900;color:#0d4d9c;}
+</style></head>
+<body><div class="card"><div class="lines"></div><div class="tone"></div><div class="inner">
+<div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>
+<div class="head"><div class="gekiga">検証</div><div class="dateblk"><div class="d1">8/31(月) 大井 全12鞍 ①</div><div class="d2">決まり方 ／ 全12鞍とも良馬場</div></div><div class="burst"><span>南関<br>ズブ穴</span></div></div>
+
+<div class="lead">8/31の大井は<span class="r">朝から最後まで良馬場</span>。
+12鞍を全部並べてみると、起きていたことは<span class="b">ほぼ一つだけ</span>だった。</div>
+
+<div class="big">
+ <div class="bh">今日の大井、3つ</div>
+ <div class="it"><span class="no">1.</span> <span class="y">前が止まらなかった。</span>
+ 3着以内に入った<span class="c">36の枠のうち、4角で3番手以内にいた馬が30</span>。
+ <span class="huge">30 / 36</span>
+ <span class="r">勝ち馬も12鞍のうち9鞍が4角3番手以内</span>。</div>
+ <div class="it"><span class="no">2.</span> <span class="y">ペースは関係なかった。</span>
+ <span class="c">10Rは前半3Fが34.7という速い入り</span>なのに、
+ <span class="r">4角1番手の馬がそのまま押し切っている</span>。
+ 速くても遅くても、結局は前。</div>
+ <div class="it"><span class="no">3.</span> <span class="y">上がりが使えない砂だった。</span>
+ <span class="c">12鞍の上がり3Fは38.1〜40.8</span>。
+ <span class="r">後ろから速い脚を使って差す、という決まり方がほとんど成立していない</span>。</div>
+</div>
+
+<div class="sec">
+ <div class="sh">全12鞍のラップと、1〜3着の4角</div>
+ <table>
+  <tr><th>R</th><th>条件</th><th>前半3F</th><th>上がり3F</th><th>勝ち時計</th><th>1〜3着の4角</th><th>三連単</th></tr>
+<tr class="hi"><td><b>1R</b></td><td>1600内 13頭</td><td><b>39.4</b></td><td>40.8</td><td>1:45.1</td><td><b>2・3・1</b></td><td>408,390円</td></tr>
+<tr class="hi"><td><b>2R</b></td><td>1200外 14頭</td><td><b>35.4</b></td><td>39.6</td><td>1:15.0</td><td><b><b class="r">5</b>・2・1</b></td><td>222,470円</td></tr>
+<tr><td><b>3R</b></td><td>1400外 6頭</td><td><b>38.6</b></td><td>38.1</td><td>1:29.5</td><td><b>1・2・1</b></td><td>1,980円</td></tr>
+<tr><td><b>4R</b></td><td>1200外 6頭</td><td><b>35.5</b></td><td>38.5</td><td>1:14.0</td><td><b>1・2・3</b></td><td>930円</td></tr>
+<tr class="hi"><td><b>5R</b></td><td>1400外 12頭</td><td><b>36.6</b></td><td>40.0</td><td>1:29.0</td><td><b>1・3・6</b></td><td>71,110円</td></tr>
+<tr><td><b>6R</b></td><td>1200外 14頭</td><td><b>36.4</b></td><td>38.7</td><td>1:15.1</td><td><b>1・1・2</b></td><td>37,840円</td></tr>
+<tr class="hi"><td><b>7R</b></td><td>1600内 13頭</td><td><b>38.0</b></td><td>40.5</td><td>1:44.0</td><td><b><b class="r">5</b>・3・1</b></td><td>108,170円</td></tr>
+<tr><td><b>8R</b></td><td>1400外 14頭</td><td><b>36.6</b></td><td>38.5</td><td>1:27.2</td><td><b>2・1・2</b></td><td>5,310円</td></tr>
+<tr><td><b>9R</b></td><td>2000外 11頭</td><td><b>38.7</b></td><td>39.0</td><td>2:09.2</td><td><b>3・3・2</b></td><td>30,360円</td></tr>
+<tr><td><b>10R</b></td><td>1200外 15頭</td><td><b><b class="r">34.7</b></b></td><td>39.2</td><td>1:13.9</td><td><b>1・4・2</b></td><td>4,590円</td></tr>
+<tr class="hi"><td><b>11R</b></td><td>1400外 14頭</td><td><b>35.5</b></td><td>38.9</td><td>1:26.4</td><td><b>2・<b class="r">5</b>・1</b></td><td>98,540円</td></tr>
+<tr class="hi"><td><b>12R</b></td><td>1800外 15頭</td><td><b>37.8</b></td><td>39.3</td><td>1:55.2</td><td><b>4・1・2</b></td><td>85,080円</td></tr>
+
+ </table>
+ <div class="note"><b class="r">4角で4番手より後ろにいて3着以内に来たのは、36のうち6頭だけ。</b>
+ その6頭も<b>ほとんどが4〜6番手</b>で、<b class="r">7番手より後ろにいた馬は、1日を通して1頭も3着以内に来ていない</b>（0/29）。<br>
+ 荒れたのは<b>頭数のそろった1R・2R・7R・11R・12R</b>。
+ それでも<b class="r">その5鞍のうち、4角5番手以降から来たのは3頭だけ</b>。
+ <b>荒れたのは「後ろから来たから」ではなく、「前にいた人気薄が残ったから」</b>。</div>
+</div>
+
+<div class="sig">変態か、変態以外か。 ── ②へ続く</div>
+</div></div></body></html>
