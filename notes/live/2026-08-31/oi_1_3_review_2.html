@@ -1,0 +1,176 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+ *{margin:0;padding:0;box-sizing:border-box;font-family:'WenQuanYi Zen Hei','IPAGothic',sans-serif;}
+ body{background:#000;}
+ .card{width:1400px;position:relative;overflow:hidden;background:#12100e;padding:30px 34px 26px;}
+
+ /* 集中線 */
+ .lines{position:absolute;inset:-45% -14% -14% -14%;pointer-events:none;
+   background:repeating-conic-gradient(from 0deg at 50% 12%,
+     rgba(255,255,255,.13) 0deg 1.5deg, rgba(255,255,255,0) 1.5deg 5.6deg);}
+ /* 網点（ハーフトーン） */
+ .tone{position:absolute;inset:0;pointer-events:none;opacity:.5;
+   background-image:radial-gradient(rgba(255,255,255,.16) 1.6px, transparent 1.7px);
+   background-size:9px 9px;}
+ .inner{position:relative;}
+
+ .kicker{color:#ffd400;font-size:20px;font-weight:900;letter-spacing:2px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ .head{display:flex;align-items:center;gap:20px;margin-top:2px;height:170px;}
+ .gekiga{font-size:118px;font-weight:900;letter-spacing:-4px;line-height:1;
+   color:#e8232a;-webkit-text-stroke:22px #000;paint-order:stroke fill;
+   transform:skewX(-9deg) rotate(-3deg);
+   text-shadow:11px 11px 0 rgba(0,0,0,.85);}
+ .dateblk{flex:1;padding-left:16px;}
+ .dateblk .d1{color:#fff;font-size:46px;font-weight:900;letter-spacing:1px;
+   -webkit-text-stroke:10px #000;paint-order:stroke fill;transform:skewX(-6deg);display:inline-block;}
+ .dateblk .d2{color:#ffd400;font-size:26px;font-weight:900;margin-top:6px;
+   -webkit-text-stroke:6px #000;paint-order:stroke fill;}
+ .burst{width:164px;height:164px;flex:0 0 164px;background:#ffd400;
+   clip-path:polygon(50.00% 0.00%,55.09% 11.33%,62.94% 1.70%,64.92% 13.97%,75.00% 6.70%,73.74% 19.06%,85.36% 14.64%,80.94% 26.26%,93.30% 25.00%,86.03% 35.08%,98.30% 37.06%,88.67% 44.91%,100.00% 50.00%,88.67% 55.09%,98.30% 62.94%,86.03% 64.92%,93.30% 75.00%,80.94% 73.74%,85.36% 85.36%,73.74% 80.94%,75.00% 93.30%,64.92% 86.03%,62.94% 98.30%,55.09% 88.67%,50.00% 100.00%,44.91% 88.67%,37.06% 98.30%,35.08% 86.03%,25.00% 93.30%,26.26% 80.94%,14.64% 85.36%,19.06% 73.74%,6.70% 75.00%,13.97% 64.92%,1.70% 62.94%,11.33% 55.09%,0.00% 50.00%,11.33% 44.91%,1.70% 37.06%,13.97% 35.08%,6.70% 25.00%,19.06% 26.26%,14.64% 14.64%,26.26% 19.06%,25.00% 6.70%,35.08% 13.97%,37.06% 1.70%,44.91% 11.33%);display:flex;align-items:center;justify-content:center;
+   filter:drop-shadow(7px 7px 0 rgba(0,0,0,.8));}
+ .burst span{color:#111;font-size:31px;font-weight:900;line-height:1.1;text-align:center;
+   transform:rotate(-7deg);}
+
+ .lead{margin-top:12px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:12px 18px;color:#111;font-size:19px;font-weight:800;line-height:1.55;
+   box-shadow:9px 9px 0 rgba(0,0,0,.6);}
+ .lead .r{color:#e8232a;} .lead .b{color:#0d4d9c;}
+
+ .cols{display:flex;margin:18px 0 8px;padding:0 10px;color:#ffd400;font-size:16px;font-weight:900;
+   -webkit-text-stroke:4px #000;paint-order:stroke fill;}
+ .cR{flex:0 0 116px;} .cH{flex:0 0 434px;} .cA{flex:0 0 306px;} .cM{flex:1;}
+
+ .row{position:relative;display:flex;align-items:stretch;background:#fff;border:6px solid #000;
+   border-radius:3px;margin-bottom:14px;padding:14px 16px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .row .corner{position:absolute;left:0;top:0;bottom:0;width:116px;pointer-events:none;opacity:.45;
+   background-image:radial-gradient(rgba(0,0,0,.55) 1.5px, transparent 1.6px);background-size:7px 7px;}
+
+ .rN{flex:0 0 116px;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;}
+ .rN .n{color:#e8232a;font-size:44px;font-weight:900;line-height:1;
+   -webkit-text-stroke:7px #000;paint-order:stroke fill;transform:skewX(-8deg);}
+ .rN .d{color:#111;font-size:13px;font-weight:900;margin-top:6px;background:#ffd400;
+   border:2px solid #000;padding:1px 5px;}
+
+ .hm{flex:0 0 434px;display:flex;align-items:center;gap:10px;padding-left:8px;}
+ .at{flex:0 0 306px;display:flex;align-items:center;gap:9px;}
+ .mk{font-size:36px;font-weight:900;color:#e8232a;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .mk2{font-size:34px;font-weight:900;color:#0d4d9c;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .nm{font-size:27px;font-weight:900;color:#111;letter-spacing:0;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .nm2{font-size:25px;font-weight:900;color:#111;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .sb{width:68px;height:68px;flex:0 0 68px;background:#ffd400;clip-path:polygon(50.00% 0.00%,56.63% 16.65%,69.13% 3.81%,68.89% 21.73%,85.36% 14.64%,78.27% 31.11%,96.19% 30.87%,83.35% 43.37%,100.00% 50.00%,83.35% 56.63%,96.19% 69.13%,78.27% 68.89%,85.36% 85.36%,68.89% 78.27%,69.13% 96.19%,56.63% 83.35%,50.00% 100.00%,43.37% 83.35%,30.87% 96.19%,31.11% 78.27%,14.64% 85.36%,21.73% 68.89%,3.81% 69.13%,16.65% 56.63%,0.00% 50.00%,16.65% 43.37%,3.81% 30.87%,21.73% 31.11%,14.64% 14.64%,31.11% 21.73%,30.87% 3.81%,43.37% 16.65%);
+   display:flex;align-items:center;justify-content:center;margin-right:-4px;}
+ .sb span{color:#111;font-size:20px;font-weight:900;transform:rotate(-10deg);}
+
+ .memo{flex:1;color:#1b1b1b;font-size:14px;line-height:1.6;padding-left:14px;
+   border-left:4px solid #000;align-self:center;}
+ .memo b{color:#0d4d9c;} .memo b.r{color:#e8232a;}
+
+ .foot{position:relative;margin-top:6px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:18px 24px;color:#111;font-size:21px;font-weight:900;line-height:1.6;
+   box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .foot .r{color:#e8232a;} .foot .b{color:#0d4d9c;}
+ .yell{position:absolute;right:-6px;top:-52px;background:#ffd400;border:5px solid #000;
+   padding:6px 16px;font-size:26px;font-weight:900;color:#111;transform:rotate(-4deg);
+   box-shadow:6px 6px 0 rgba(0,0,0,.7);}
+ .sig{text-align:right;color:#ffd400;font-size:18px;font-weight:900;margin-top:20px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ /* ---- 表・囲み（劇画スキン） ---- */
+ .sec{margin-top:20px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:20px 24px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .sh{color:#111;font-size:31px;font-weight:900;margin-bottom:14px;display:inline-block;
+   transform:skewX(-5deg);border-bottom:7px solid #e8232a;padding-bottom:3px;}
+ table{width:100%;border-collapse:collapse;margin-top:8px;}
+ th{background:#111;color:#ffd400;font-size:20px;font-weight:900;padding:9px 5px;border:2px solid #000;}
+ td{font-size:22px;font-weight:800;color:#111;padding:10px 5px;border:2px solid #000;text-align:center;}
+ td.l{text-align:left;} td.lap{font-size:19px;font-family:monospace;letter-spacing:-.5px;}
+ tr.hi td{background:#ffe9a8;} tr.bad td{background:#ffdcdc;color:#a11100;} tr.win td{background:#d9ecd9;}
+ .note{margin-top:15px;color:#1b1b1b;font-size:20px;font-weight:800;line-height:1.62;}
+ .note b{color:#0d4d9c;} .note b.r{color:#e8232a;}
+ .big{margin-top:20px;background:#111;border:6px solid #ffd400;border-radius:3px;
+   padding:22px 26px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .big .bh{color:#ffd400;font-size:31px;font-weight:900;margin-bottom:15px;}
+ .big .it{color:#fff;font-size:23px;font-weight:800;line-height:1.62;margin-bottom:13px;}
+ .big .it:last-child{margin-bottom:0;}
+ .big .no{color:#ffd400;font-size:27px;font-weight:900;}
+ .big .y{color:#ffd400;} .big .c{color:#8fd9ff;} .big .r{color:#ff9b9b;}
+ .dateblk .d1{font-size:42px;}
+
+ .dateblk .d1{font-size:42px;}
+ td:first-child{white-space:nowrap;}
+ td{font-size:21px;}
+ tr.me td{background:#d9ecd9;}
+</style></head>
+<body><div class="card"><div class="lines"></div><div class="tone"></div><div class="inner">
+<div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>
+<div class="head"><div class="gekiga">検証</div><div class="dateblk"><div class="d1">8/31(月) 大井 1R〜3R ②</div><div class="d2">馬券になった9頭に共通点はあるか</div></div><div class="burst"><span>南関<br>ズブ穴</span></div></div>
+
+<div class="lead">1R〜3Rで<span class="r">3着以内に入った9頭</span>を、
+血統・厩舎・枠・年齢・騎手・馬体重で全部並べた。
+<span class="b">出走した33頭ぜんぶと突き合わせている</span>ので、
+「来た馬だけ見て後づけ」にはなっていない。<br>
+<span class="r">※調教タイムはこのデータ元から取れないため、今回は入っていない。</span></div>
+
+<div class="sec">
+ <div class="sh">馬券になった9頭</div>
+ <table>
+  <tr><th>R着</th><th>枠/馬番</th><th>馬</th><th>性齢</th><th>斤/体重</th><th>騎手</th><th>父 ／ 母父</th></tr>
+  <tr><td>1R①</td><td>8枠13</td><td>ベッティーナ</td><td><b>牝5</b></td><td>54／457 ±0</td><td>岡村健(船橋)</td><td>リオンディーズ／フレンチデピュティ</td></tr>
+  <tr class="hi"><td>1R②</td><td><b class="r">1枠1</b></td><td>トウキョーバサラ</td><td><b>牝5</b></td><td><b class="r">51</b>／393 +5</td><td><b class="r">▲杉山海</b></td><td>フリオーソ／ロージズインメイ</td></tr>
+  <tr class="win"><td>1R③</td><td>3枠3</td><td>ディーノエナジー</td><td><b>セ7</b></td><td>56／507 −2</td><td><b class="r">田中洸(小林)</b></td><td><b class="r">マジェスティックウォリアー／ゴールドアリュール</b></td></tr>
+  <tr><td>2R①</td><td>5枠7</td><td>レッドフローガ</td><td><b>セ6</b></td><td>56／461 −2</td><td>千田洋(大井)</td><td>ロードカナロア／アグネスタキオン</td></tr>
+  <tr><td>2R②</td><td>6枠10</td><td>ストロングフレイヤ</td><td><b>牝6</b></td><td>54／460 ±0</td><td>瀬川将(大井)</td><td>オルフェーヴル／キングカメハメハ</td></tr>
+  <tr class="win"><td>2R③</td><td>2枠2</td><td>ドンナドンナ</td><td><b>牝6</b></td><td>54／463 +2</td><td><b class="r">田中洸(小林)</b></td><td><b class="r">マジェスティックウォリアー／ゴールドアリュール</b></td></tr>
+  <tr><td>3R①</td><td>5枠5</td><td>ラヴァーグ</td><td><b>牝2</b></td><td>54／445</td><td>吉井章(大井)</td><td>ルヴァンスレーヴ／サウスヴィグラス</td></tr>
+  <tr class="hi"><td>3R②</td><td><b class="r">1枠1</b></td><td>レーヴダリア</td><td><b>牝2</b></td><td><b class="r">51</b>／432</td><td><b class="r">▲杉山海</b></td><td>シニスターミニスター／ジャングルポケット</td></tr>
+  <tr><td>3R③</td><td>6枠6</td><td>ライプニッツ</td><td>牡2</td><td>54／480</td><td>笹川翼(大井)</td><td>インカンテーション／コメート</td></tr>
+ </table>
+</div>
+
+<div class="sec">
+ <div class="sh">はっきり差が出た3つ</div>
+ <table>
+  <tr><th>項目</th><th>3着内／出走</th><th>中身</th></tr>
+  <tr class="hi"><td><b>牡馬</b>（1R・2Rの古馬戦）</td><td><b class="r">0 / 9</b></td><td class="l"><b>古馬の牡馬は9頭出て1頭も来ていない</b>。<br>牝は4/15、セン馬は<b class="r">2/3</b>。3Rの牡馬1頭は2歳の新馬戦</td></tr>
+  <tr class="hi"><td><b>4歳馬</b>（1R・2R）</td><td><b class="r">0 / 11</b></td><td class="l"><b>11頭出て1頭も来ていない</b>。<br>5歳2/8、<b class="r">6歳3/4</b>、7歳1/4 ── <b>6歳以上が4/8</b></td></tr>
+  <tr class="hi"><td><b>馬体重の増減</b></td><td>─</td><td class="l">3着内6頭は<b class="r">全部±5kg以内</b>、うち4頭が±2kg以内。<br>逆に<b>−8kg以上減った3頭は 10着・11着・8着</b>（◎⑦の−18kgを含む）</td></tr>
+ </table>
+ <div class="note"><b class="r">「牡の4歳」がひとつも来ていない。</b>
+ 1R⑩ゴルデューク（牡4）9着、2R①ソリタリオカズ（牡4）5着、⑤ブラックレッド（牡4）9着、
+ ⑨ブライトゲイザー（牡4）10着。<b>こちらの◎○もここに入っていた。</b><br>
+ <b>逆に来ているのは 牝5・牝5・セ7・セ6・牝6・牝6</b>。
+ <b class="r">古馬6頭は全部5歳以上で、牝かセン馬</b>。</div>
+</div>
+
+<div class="sec">
+ <div class="sh">面白いが、サンプルが2しかないもの</div>
+ <table>
+  <tr><th>項目</th><th>3着内／出走</th><th>中身</th></tr>
+  <tr class="win"><td><b>父マジェスティックウォリアー<br>×母父ゴールドアリュール</b></td><td><b class="r">2 / 2</b></td><td class="l">1R③ディーノエナジー と 2R②ドンナドンナ。<br><b class="r">父・母父が完全一致で、2頭とも3着、しかも2頭とも田中洸騎手</b></td></tr>
+  <tr class="win"><td><b>田中洸（小林所属）</b></td><td><b class="r">2 / 2</b></td><td class="l">乗った2鞍とも<b>3着</b>。<br><b>小林所属の騎手は2/2、川崎所属は0/4</b></td></tr>
+  <tr class="win"><td><b>▲杉山海</b></td><td><b class="r">2 / 3</b></td><td class="l">1R①と3R①で<b class="r">2回とも「1枠1番・斤51」で2着</b>。<br>3頭目の2R④（3枠4番・斤51）は6着</td></tr>
+ </table>
+ <div class="note"><b>この3つは数字としては目を引くが、母数が2〜3しかない。</b>
+ <b class="r">今日1日の中では「そう出た」というだけで、明日以降に効くかは別の話</b>。<br>
+ ただし<b>父マジェスティックウォリアー×母父ゴールドアリュールは、大井の砂で走る組み合わせとして辻褄は合う</b>ので、
+ <b class="r">残りの鞍に同じ配合がいたら拾っておく</b>。</div>
+</div>
+
+<div class="sec">
+ <div class="sh">共通点が「なかった」もの</div>
+ <div class="note"><b>厩舎</b>… <b class="r">9頭が9厩舎でバラバラ</b>。まとまりはない。<br>
+ <b>枠</b>… 1枠2/3・5枠2/5・6枠2/5に対して<b>4枠0/5・7枠0/4</b>だが、
+ <b class="r">1鞍あたり1〜2頭の話でしかなく、傾向と呼べる差ではない</b>。<br>
+ <b>斤量</b>… 51が1/3、54が3/11、56が2/10。<b class="r">軽いほうが有利という差は出ていない</b>。<br>
+ <b>調教</b>… このデータ元に調教タイムがないため、今回は見ていない。</div>
+</div>
+
+<div class="foot"><span class="r">残りの鞍で実際に使えるのは、上の3つのうち「牡の4歳を疑う」だけ</span>。
+<span class="b">古馬戦では牡4歳が0/11で、こちらの◎○もそこに入っていた</span>。<br>
+そのうえで<span class="r">位置取りはペースで決める</span>。
+<span class="b">前半が速くなりそうな鞍は後ろから、遅くなりそうな鞍は前から</span>。
+2Rで届いたのは<span class="r">4角9〜10番手まで</span>で、最後方（○⑪ツクシ）は流れが向いても11着だった。<br>
+<span class="r">流れが速くなる鞍で、4角中団までに付けられる牝馬かセン馬</span>にこの条件が向いている。</div>
+<div class="sig">変態か、変態以外か。</div>
+</div></div></body></html>
