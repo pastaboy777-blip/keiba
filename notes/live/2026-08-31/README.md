@@ -566,8 +566,8 @@
 
 # 8/31 大井 1鞍ずつの隊列図
 
-`oi_7r.html / .png`・`oi_8r.html / .png`
-生成: `scratchpad/mk831_1r.py 7,8`（レース番号をカンマ区切りで渡す）
+`oi_7r.html / .png`・`oi_8r.html / .png`・`oi_9r.html / .png`
+生成: `scratchpad/mk831_1r.py 7,8,9`（レース番号をカンマ区切りで渡す）
 
 **図だけの1枚**。ラップ表や結果表は載せず、3コーナーの隊列図のみ。
 
