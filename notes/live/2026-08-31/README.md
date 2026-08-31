@@ -569,6 +569,16 @@
 `oi_6r` 〜 `oi_12r`（.html と .png）── 6R・7R・8R・9R・10R・11R・12R
 生成: `scratchpad/mk831_1r.py 6,7,8,9,10,11,12`（レース番号をカンマ区切りで渡す）
 
+**7鞍を1枚にまとめたもの**: `oi_tai_6_12.html / .png`（生成: `scratchpad/mk831_all.py`）
+`tairetsu(..., small=True)` の縮小版を使い、各図を右寄せにして内ラチの位置を揃えている。
+
+### 縦に長い画像を送るときの注意
+
+`notes/live/templates/render.py` は `device_scale_factor=2` 固定。
+縦に長い1枚ものはこれだと 8000px 超・1.5MB 超になり、**SendUserFile が 400 で弾かれる**。
+`scratchpad/render1x.py <html> <png> <width> <scale>` で倍率を落として書き出すこと
+（この1枚は `1300 1.2` で約1.0MB）。
+
 **図だけの1枚**。ラップ表や結果表は載せず、3コーナーの隊列図のみ。
 
 ## 図の仕様（最終形）
