@@ -160,9 +160,15 @@ def main() -> None:
             continue
         if not ids:
             continue
+        # ⚠️⚠️ **`--race` のときはファイルを書かない。**
+        #    出力は `"w"` で開くので、1レースだけ指定して回すと**その日の
+        #    ファイルが丸ごとそのレースだけに上書きされる**（実際に 9/4 の
+        #    122頭が11Rの13頭に化けた）。`--race` は画面で見るための指定なので
+        #    書き込みは全12Rを回したときだけにする。
         path = os.path.join(OUT_DIR, f"{ymd}_{args.place}.jsonl")
         wrote = 0
-        with open(path, "w", encoding="utf-8") as f:
+        with open(path, "w", encoding="utf-8") if not args.race \
+                else open(os.devnull, "w") as f:
             for rno, rid in enumerate(ids, 1):
                 if args.race and rno != args.race:
                     continue
@@ -185,8 +191,15 @@ def main() -> None:
                           f"     時計欄 → {'  '.join(kb.CYOKYO_COLS)}\n{'='*96}")
                     show(rows, args.n)
         total += wrote
-        print(f"\n[{ymd}] {wrote}頭 → {path}", file=sys.stderr)
-    print(f"\n合計 {total}頭ぶんを {OUT_DIR}/ に書きました。", file=sys.stderr)
+        if args.race:
+            print(f"\n[{ymd}] {args.race}R のみ表示（**ファイルは書きません**）",
+                  file=sys.stderr)
+        else:
+            print(f"\n[{ymd}] {wrote}頭 → {path}", file=sys.stderr)
+    if args.race:
+        print(f"\n合計 {total}頭を表示しました（**書き込みなし**）。", file=sys.stderr)
+    else:
+        print(f"\n合計 {total}頭ぶんを {OUT_DIR}/ に書きました。", file=sys.stderr)
     print("⚠️ 調教が効くかどうかは未検証。矢印と短評は競馬ブックの判断であって"
           "実測値ではない。", file=sys.stderr)
 
