@@ -175,6 +175,23 @@ def parse(rid, force=False):
     return out
 
 
+CARD = re.compile(
+    r'<td class="umaban">(\d+)</td>.{0,1200}?<a href="/db/uma/(\d+)"[^>]*>([^<]+)</a>', re.S)
+
+
+def card_runners(rid):
+    """出馬表から出走馬を取る。
+
+    ★今走の調教がまだ公開されていない開催でも、出馬表は先に出る。
+      だから「月曜出走の馬の、過去5走の調教」は今日のうちに集められる。
+    """
+    h = get(f"{BASE}/chihou/syutuba/{rid}", os.path.join(ARC, f"syu_{rid}.html"))
+    out = {}
+    for ub, cd, nm in CARD.findall(h):
+        out.setdefault(int(ub), dict(name=nm.strip(), umacd=cd, soukan="", arrow="", rows=[]))
+    return out
+
+
 def with_history(rid, back, force=False):
     """今走の調教に、過去 back 走ぶんの調教を継ぎ足して1本の時系列にする。
 
@@ -182,6 +199,8 @@ def with_history(rid, back, force=False):
     「状態が上がってきているか」を見るには、走ごとの仕上げを並べる必要がある。
     """
     cur = parse(rid, force)
+    if not cur:                        # 今走の調教がまだ出ていない開催
+        cur = card_runners(rid)
     for ub, h in sorted(cur.items()):
         h["rows"] = [dict(r, rid=rid, cur=True) for r in h["rows"]]
         if not h["umacd"]:
