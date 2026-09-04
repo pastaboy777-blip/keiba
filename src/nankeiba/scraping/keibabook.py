@@ -726,28 +726,55 @@ def _cyokyo_work(row: str) -> dict | None:
 
     ⚠️ 時計欄は**生の文字列も残す**。坂路の本数欄に `'2回'` のような非数値が
        入ることがあり、float だけにすると黙って消える。
+
+    ⚠️⚠️ **セル数で決め打ちしないこと。**時計が無い週は7列が
+       `<td class="left" colspan="7">中間軽め</td>` の1セルに潰れ、行全体が
+       16→10セルになる。`len(c) >= 15` で弾いていたため「中間軽め」「乗込み」
+       のような**調教を課していない週の情報が丸ごと消えていた**。
+       クラス名で位置を取り、`baba` と `mawariiti` の間を時計欄とみなす。
     """
-    c = _cells(row)
-    if len(c) < 15:
+    tds = re.findall(r"<td([^>]*)>(.*?)</td>", row, re.S)
+    if len(tds) < 6:
         return None
-    raw = c[5:12]
-    date = c[2] or ""
+    cls = [re.search(r'class="([^"]*)"', a) for a, _ in tds]
+    cls = [m.group(1).split()[0] if m and m.group(1).split() else "" for m in cls]
+    txt = [_text(v) for _, v in tds]
+
+    def at(name: str, default: int) -> int:
+        return cls.index(name) if name in cls else default
+
+    def cell(name: str, default: int) -> str:
+        i = at(name, default)
+        return txt[i] if 0 <= i < len(txt) else ""
+
+    i_baba = at("baba", 4)
+    i_mawari = at("mawariiti", 12)
+    raw = txt[i_baba + 1:i_mawari]                # 時計欄（7列 or 潰れて1列）
+    note_only = None
+    if len(raw) != len(CYOKYO_COLS):
+        # 潰れている＝時計が無い週（「中間軽め」など）。**中身は捨てずに残す。**
+        note_only = " ".join(x for x in raw if x) or None
+        raw = [""] * len(CYOKYO_COLS)
+    date = cell("tukihi", 2)
     m = _DATE_RE.search(date)
     return {
-        "mark": c[0] or None,
-        "rider": c[1] or None,
+        "mark": cell("mark", 0) or None,
+        "rider": cell("norite", 1) or None,
         "date_raw": date or None,
         "month": int(m.group(1)) if m else None,
         "day": int(m.group(2)) if m else None,
         "gap": date.startswith(_GAP),          # 11日以上空いた
-        "course": c[3] or None,
-        "baba": c[4] or None,
+        "course": cell("corse", 3) or None,
+        "baba": cell("baba", 4) or None,
         "times": {k: (float(v) if re.fullmatch(r"\d+(?:\.\d+)?", v) else None)
                   for k, v in zip(CYOKYO_COLS, raw)},
         "times_raw": {k: (v or None) for k, v in zip(CYOKYO_COLS, raw)},
-        "mawari": c[12] or None,
-        "asiiro": c[13] or None,               # 一杯 / 強め / 馬なり / 追って
-        "note": c[14] or None,
+        #: 時計欄が潰れていたときの中身（「中間軽め」「乗込み」など）。
+        #: ⚠️ **これが入っている週は時計を課していない。**空欄と区別すること。
+        "no_time_note": note_only,
+        "mawari": cell("mawariiti", 12) or None,
+        "asiiro": cell("asiiro", 13) or None,  # 一杯 / 強め / 馬なり / 追って
+        "note": cell("tanpyo", 14) or None,
         "oikiri": 'class="oikiri"' in row,     # その週の追い切り（☆）
     }
 

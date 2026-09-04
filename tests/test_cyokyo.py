@@ -116,5 +116,52 @@ class ParseCyokyoTest(unittest.TestCase):
         self.assertEqual(kb.parse_cyokyo("<p>指定されたページは存在しません。</p>"), [])
 
 
+class NoTimeRowTest(unittest.TestCase):
+    """⚠️ **時計が無い週の行を落とさないこと。**
+
+    「中間軽め」の週は7つの時計欄が `<td class="left" colspan="7">` の1セルに
+    潰れ、行が16→10セルになる。セル数で弾いていたため、**調教を課していない
+    という情報が丸ごと消えていた**（大井 2026-09-04 11R のイチニチショチョウは
+    2本とも「中間軽め」で、works が空に見えていた。10人気1着）。
+    """
+
+    HTML = (
+        '<table class="default cyokyo" id="cyokyo0917598"><tbody>'
+        '<tr><td class="waku"><p class="waku5">5</p></td>'
+        '<td class="umaban">6</td>'
+        '<td class="kbamei"><a umacd="0917598">イチニチショチョウ</a></td>'
+        '<td class="tanpyo">追切り手控え</td>'
+        '<td class="yajirusi"><span>&rarr;</span></td></tr>'
+        '<tr><td class="cyokyo" colspan="5"><table class="cyokyodata"><tbody>'
+        '<tr class="time"><td class="mark"></td><td class="norite"></td>'
+        '<td class="tukihi">■</td><td class="corse"></td><td class="baba"></td>'
+        '<td class="left" colspan="7">中間軽め</td>'
+        '<td class="mawariiti"></td><td class="asiiro"></td>'
+        '<td class="tanpyo"></td><td class="movie"></td></tr>'
+        '</tbody></table></td></tr></tbody></table>'
+    )
+
+    def setUp(self):
+        self.h = kb.parse_cyokyo(self.HTML)[0]
+
+    def test_row_is_kept(self):
+        self.assertEqual(len(self.h["works"]), 1)
+
+    def test_note_is_kept(self):
+        self.assertEqual(self.h["works"][0]["no_time_note"], "中間軽め")
+
+    def test_times_are_empty_not_wrong(self):
+        """⚠️ 潰れたセルの文字列を時計欄に流し込まないこと。"""
+        w = self.h["works"][0]
+        self.assertTrue(all(v is None for v in w["times"].values()))
+        self.assertTrue(all(v is None for v in w["times_raw"].values()))
+
+    def test_normal_row_has_no_note(self):
+        """時計がある週は `no_time_note` が None。**空欄と区別できること。**"""
+        w = kb.parse_cyokyo(HTML)[0]["works"][0]
+        self.assertIsNone(w["no_time_note"])
+        self.assertEqual(w["times"]["半哩(3F)"], 52.2)
+
+
 if __name__ == "__main__":
     unittest.main()
