@@ -708,3 +708,100 @@ def parse_result_detail_cyuou(html: str) -> dict:
         "decisive": misc.get("決め手"),
         "incidents": parse_incidents(misc.get("発走状況他")),
     }
+
+
+# ---------------------------------------------------------------------------
+# 調教  /chihou/cyokyo/1/0/{race_id}
+# ---------------------------------------------------------------------------
+#: 調教テーブルの時計欄。**表側の見出しそのまま。**括弧内は坂路のときの意味。
+#: ⚠️ 坂路（例「小林坂」）では列の意味がずれる。`course` を見ずに比較しないこと。
+CYOKYO_COLS = ("1哩", "7F", "6F(坂路)", "5F(4F)", "半哩(3F)", "3F(2F)", "1F(1F)")
+#: 日付セルの `*` は「調教が11日以上空いている」印（表の凡例より）。
+_GAP = "*"
+_DATE_RE = re.compile(r"(\d{1,2})/(\d{1,2})")
+
+
+def _cyokyo_work(row: str) -> dict | None:
+    """`<tr class="time">` / `<tr class="oikiri">` 1本を dict にする。
+
+    ⚠️ 時計欄は**生の文字列も残す**。坂路の本数欄に `'2回'` のような非数値が
+       入ることがあり、float だけにすると黙って消える。
+    """
+    c = _cells(row)
+    if len(c) < 15:
+        return None
+    raw = c[5:12]
+    date = c[2] or ""
+    m = _DATE_RE.search(date)
+    return {
+        "mark": c[0] or None,
+        "rider": c[1] or None,
+        "date_raw": date or None,
+        "month": int(m.group(1)) if m else None,
+        "day": int(m.group(2)) if m else None,
+        "gap": date.startswith(_GAP),          # 11日以上空いた
+        "course": c[3] or None,
+        "baba": c[4] or None,
+        "times": {k: (float(v) if re.fullmatch(r"\d+(?:\.\d+)?", v) else None)
+                  for k, v in zip(CYOKYO_COLS, raw)},
+        "times_raw": {k: (v or None) for k, v in zip(CYOKYO_COLS, raw)},
+        "mawari": c[12] or None,
+        "asiiro": c[13] or None,               # 一杯 / 強め / 馬なり / 追って
+        "note": c[14] or None,
+        "oikiri": 'class="oikiri"' in row,     # その週の追い切り（☆）
+    }
+
+
+def parse_cyokyo(html: str) -> list[dict]:
+    """調教ページ → 1頭ずつの調教内容。**出走順（馬番順）で返す。**
+
+    返す各要素:
+        umaban / waku / name / horseid
+        tanpyo   追い切り短評（競馬ブックの一言）
+        arrow    矢印 ↗ → ↘（競馬ブックが付けた状態の向き）
+        works    調教1本ずつ（**表の並び＝古い順**）。`oikiri=True` が最終追い
+        awase    併走馬の記述（「〇〇（3歳）馬なりの内同入」など）
+
+    ⚠️ ページが未提供のときは空リストを返す（例外にしない）。開催前や
+       提供外の場では普通に起きる。
+    """
+    out: list[dict] = []
+    # 1頭 = <table class="default cyokyo" id="cyokyoXXXX"> … </table>
+    blocks = re.split(r'(?=<table class="default cyokyo")', html)
+    for b in blocks:
+        if not b.startswith('<table class="default cyokyo"'):
+            continue
+        head = b.split('<table class="cyokyodata"', 1)[0]
+        m = re.search(r'<td class="kbamei">(.*?)</td>', head, re.S)
+        if not m:
+            continue
+        name = _text(m.group(1))
+        if not name:
+            continue
+        hid = re.search(r'umacd="(\d+)"', head)
+        um = re.search(r'<td class="umaban">\s*(\d+)', head)
+        wk = re.search(r'<p class="waku\d+">\s*(\d+)', head)
+        tp = re.search(r'<td class="tanpyo">(.*?)</td>', head, re.S)
+        ya = re.search(r'<td class="yajirusi">(.*?)</td>', head, re.S)
+        works, awase = [], []
+        for row in re.findall(r'<tr class="(?:time|oikiri|awase)"[^>]*>.*?</tr>',
+                              b, re.S):
+            if 'class="awase"' in row:
+                t = _text(row)
+                if t:
+                    awase.append(t)
+                continue
+            w = _cyokyo_work(row)
+            if w:
+                works.append(w)
+        out.append({
+            "umaban": int(um.group(1)) if um else None,
+            "waku": int(wk.group(1)) if wk else None,
+            "name": name,
+            "horseid": hid.group(1) if hid else None,
+            "tanpyo": _text(tp.group(1)) or None if tp else None,
+            "arrow": _text(ya.group(1)) or None if ya else None,
+            "works": works,
+            "awase": awase,
+        })
+    return out
