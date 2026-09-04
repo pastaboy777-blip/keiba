@@ -22,10 +22,23 @@
     併せ    … 遅れ < 同入 < 先着
     ■/◇   … 競馬ブックの直近週/前週マーク（拾えた場合）
 
+★残っている弱点（読むときに割り引くこと）:
+  末3F は「累積タイムのいちばん小さい値」で拾っている。
+  だが追い切りの距離は毎回同じではないので、5F追いの3F(37秒台)と
+  4F追いの4F(45秒台)を並べてしまう回がある。
+  **3〜4秒級の変化が出たら、まず距離違いを疑う。**明細を目で見て確認すること。
+
 使い方:
-    python3 scripts/ana/cyokyo_jikei.py 2026090521150601
-    python3 scripts/ana/cyokyo_jikei.py <rid> --up          # 上げてきている馬だけ
-    python3 scripts/ana/cyokyo_jikei.py <rid> --horse ウマノナマエ
+    python3 scripts/ana/cyokyo_jikei.py 2026131005100904
+    python3 scripts/ana/cyokyo_jikei.py <rid> --back 5      # ★過去5走ぶんを繋ぐ
+    python3 scripts/ana/cyokyo_jikei.py <rid> --back 5 --up # 上げてきている馬だけ
+    python3 scripts/ana/cyokyo_jikei.py <rid> --brief       # 結論だけ
+
+URL（2026-09時点）:
+    調教   /chihou/cyokyo/1/0/{rid}   ※提供のある会場だけ。無いと302で出馬表へ
+    馬     /db/uma/{umacd}            過去走のレースIDが取れる
+レースIDは 年(4)+開催コード(6)+R(2)+MMDD(4)。**真ん中は日付順ではない**ので
+文字列比較で並べてはいけない（ymd() を使う）。
 
 前提:
     scripts/ana/kb.conf（競馬ブックのcookie）が要る。無いと302で弾かれる。
@@ -36,6 +49,7 @@ import argparse
 import os
 import re
 import subprocess
+import time
 import sys
 
 SP = os.path.dirname(os.path.abspath(__file__))
@@ -47,26 +61,60 @@ BASE = "https://p.keibabook.co.jp"
 ASHI = [("一杯", 3), ("強目", 2), ("強め", 2), ("馬なり", 1), ("馬也", 1), ("余力", 1)]
 # 併せ馬の結果
 AWASE = [("先着", 1), ("同入", 0), ("遅れ", -1)]
+# 傾きを見る窓。直近この本数だけで判定する（半年前と比べても意味がない）
+WINDOW = 4
 
 HEAD = re.compile(
     r'<td class="umaban">(\d+)</td>\s*<td class="kbamei"><a[^>]*>([^<]+)</a></td>'
     r'\s*<td class="tanpyo">([^<]*)</td>\s*<td class="yajirusi"><span[^>]*>([^<]*)</span>')
+UMACD = re.compile(r'<td class="umaban">(\d+)</td>.{0,600}?umacd="(\d+)"', re.S)
+PASTID = re.compile(r'href="/(?:chihou|cyuou)/seiseki/(\d{16})"')
 DATE = re.compile(r"^(\d{1,2})/(\d{1,2})(?:\(([月火水木金土日])\))?")
+
+# コースの系統。坂路と周回コースは時計のスケールが違うので絶対に混ぜない
+def kind(course):
+    c = course or ""
+    if "坂" in c:
+        return "坂路"
+    if "プール" in c or "游" in c:
+        return "プール"
+    return "コース"
+
+
+def get(url, out, force=False, minsize=2000):
+    os.makedirs(ARC, exist_ok=True)
+    if force or not os.path.exists(out) or os.path.getsize(out) < minsize:
+        if not os.path.exists(CONF):
+            sys.exit(f"× {CONF} がありません。競馬ブックのcookieを置いてください。")
+        subprocess.run(["curl", "-s", "-L", "-K", CONF, url, "-o", out], check=False)
+        time.sleep(0.4)                       # 相手方に負荷をかけない
+    if not os.path.exists(out):               # 提供の無いページは空で返る
+        return ""
+    return open(out, encoding="utf-8", errors="replace").read()
 
 
 def fetch(rid, force=False):
-    os.makedirs(ARC, exist_ok=True)
-    out = os.path.join(ARC, f"cyo_{rid}.html")
-    if force or not os.path.exists(out) or os.path.getsize(out) < 2000:
-        if not os.path.exists(CONF):
-            sys.exit(f"× {CONF} がありません。競馬ブックのcookieを置いてください。")
-        subprocess.run(["curl", "-s", "-L", "-K", CONF, f"{BASE}/chihou/cyokyo/1/0/{rid}",
-                        "-o", out], check=False)
-    h = open(out, encoding="utf-8", errors="replace").read()
+    h = get(f"{BASE}/chihou/cyokyo/1/0/{rid}", os.path.join(ARC, f"cyo_{rid}.html"), force)
     if "umaban" not in h:
-        sys.exit("× 調教データが取れていません。ログインが切れている可能性があります"
-                 f"（{out} を確認）。")
+        return None                            # 調教の提供が無いレース
     return h
+
+
+def ymd(rid):
+    """レースIDから開催日を取り出す。★並べ替えのキー。
+
+    IDは 年(4) + 開催コード(6) + R(2) + MMDD(4)。
+    真ん中の開催コードは日付順ではないので、IDの文字列比較で並べてはいけない。
+    """
+    return rid[:4] + rid[12:16]
+
+
+def past_rids(umacd, n, before):
+    """その馬の過去走のレースIDを、新しい順に n 本。before の日より前のものだけ。"""
+    h = get(f"{BASE}/db/uma/{umacd}", os.path.join(ARC, f"uma_{umacd}.html"), minsize=20000)
+    ids = sorted(set(PASTID.findall(h)), key=ymd, reverse=True)
+    b = ymd(before)
+    return [r for r in ids if ymd(r) < b][:n]
 
 
 def rank(text, table):
@@ -114,34 +162,81 @@ def rows_of(seg):
 
 def parse(rid, force=False):
     h = fetch(rid, force)
+    if h is None:
+        return {}
+    cd = {int(a): b for a, b in UMACD.findall(h)}
     heads = list(HEAD.finditer(h))
     out = {}
     for i, m in enumerate(heads):
         seg = h[m.end(): heads[i + 1].start() if i + 1 < len(heads) else len(h)]
-        out[int(m.group(1))] = dict(
-            name=m.group(2), soukan=m.group(3).strip(), arrow=m.group(4).strip(),
-            rows=rows_of(seg))
+        ub = int(m.group(1))
+        out[ub] = dict(name=m.group(2), soukan=m.group(3).strip(),
+                       arrow=m.group(4).strip(), umacd=cd.get(ub), rows=rows_of(seg))
     return out
 
 
+def with_history(rid, back, force=False):
+    """今走の調教に、過去 back 走ぶんの調教を継ぎ足して1本の時系列にする。
+
+    1レースぶんの調教ページには直近1〜3本しか載らない。
+    「状態が上がってきているか」を見るには、走ごとの仕上げを並べる必要がある。
+    """
+    cur = parse(rid, force)
+    for ub, h in sorted(cur.items()):
+        h["rows"] = [dict(r, rid=rid, cur=True) for r in h["rows"]]
+        if not h["umacd"]:
+            continue
+        for pr in past_rids(h["umacd"], back, rid):
+            p = parse(pr)
+            me = next((q for q in p.values() if q["name"] == h["name"]), None)
+            if me:
+                h["rows"] += [dict(r, rid=pr, cur=False) for r in me["rows"]]
+        h["rows"] = order(h["rows"])
+    return cur
+
+
+def order(rows):
+    """走をまたいで日付順に。年をまたぐ折り返しは、レースIDの年で解決する。"""
+    for r in rows:
+        y = int(r.get("rid", "0000")[:4] or 0)
+        # 調教は開催の1〜2か月前まで。開催が1〜2月で調教が11〜12月なら前年
+        rm = int(r.get("rid", "00000000000000")[12:14] or 0)
+        r["_y"] = y - 1 if (rm and rm <= 2 and r["mm"] >= 11) else y
+    rows.sort(key=lambda r: (r["_y"], r["mm"], r["dd"]))
+    return rows
+
+
 def trend(rows):
-    """変化の向き。★＝同じ脚色で時計が縮んだ（手応えが変わった） ○＝追って縮んだ"""
-    ok = [r for r in rows if r["f3"]]
-    if len(ok) < 2:
-        return None, "本数不足"
-    d3 = ok[-1]["f3"] - ok[0]["f3"]
-    da = (ok[-1]["av"] or 0) - (ok[0]["av"] or 0)
-    dw = (ok[-1]["wv"] if ok[-1]["wv"] is not None else 0) - \
-         (ok[0]["wv"] if ok[0]["wv"] is not None else 0)
-    if d3 <= -0.5 and da <= 0:
-        return "★", f"同じ脚色のまま末3Fが {abs(d3):.1f}秒 縮んだ"
-    if d3 <= -0.5 and da > 0:
-        return "○", f"追って {abs(d3):.1f}秒 縮んだ（強度を上げた分は割り引く）"
-    if d3 >= 0.5 and da >= 0:
-        return "▽", f"強く追っているのに {d3:.1f}秒 かかっている"
-    if dw > 0:
-        return "○", "時計は横ばいだが併せの結果が良化"
-    return "－", f"横ばい（末3F {d3:+.1f}秒）"
+    """変化の向き。★＝同じ脚色で時計が縮んだ（手応えが変わった） ○＝追って縮んだ
+
+    ★坂路と周回コースは時計のスケールがまるで違うので、必ず同じ系統の中だけで比べる。
+      （混ぜると 坂路24.9 → コース38.3 を「13秒悪化」と読んでしまう）
+    """
+    best = (None, "本数不足")
+    for k in ("コース", "坂路"):
+        ok = [r for r in rows if r["f3"] and kind(r["course"]) == k]
+        # ★直近だけを見る。半年前と比べても「状態が上がっている」の答えにならない
+        ok = ok[-WINDOW:]
+        if len(ok) < 2:
+            continue
+        d3 = ok[-1]["f3"] - ok[0]["f3"]
+        da = (ok[-1]["av"] or 0) - (ok[0]["av"] or 0)
+        dw = (ok[-1]["wv"] if ok[-1]["wv"] is not None else 0) - \
+             (ok[0]["wv"] if ok[0]["wv"] is not None else 0)
+        n = f"{k}{len(ok)}本"
+        if d3 <= -0.5 and da <= 0:
+            return "★", f"{n} 同じ脚色のまま末3Fが {abs(d3):.1f}秒 縮んだ"
+        if d3 <= -0.5 and da > 0:
+            cand = ("○", f"{n} 追って {abs(d3):.1f}秒 縮んだ（強度の分は割り引く）")
+        elif d3 >= 0.5 and da >= 0:
+            cand = ("▽", f"{n} 強く追っているのに {d3:.1f}秒 かかっている")
+        elif dw > 0:
+            cand = ("○", f"{n} 時計は横ばいだが併せの結果が良化")
+        else:
+            cand = ("－", f"{n} 横ばい（末3F {d3:+.1f}秒）")
+        if best[0] is None or cand[0] in ("★", "○"):
+            best = cand
+    return best
 
 
 def show(ub, h, verbose=True):
@@ -153,11 +248,16 @@ def show(ub, h, verbose=True):
         head += f" 矢印:{h['arrow']}"
     print(head)
     if verbose:
+        prev = None
         for r in h["rows"]:
+            if prev and r.get("rid") != prev:
+                print("   " + "·" * 68)          # 走の切れ目
+            prev = r.get("rid")
             t = "  ".join(f"{v:.1f}" for v in r["cum"]) or "—"
             one = f"{r['f1']:.1f}" if r["f1"] else "—"
-            print(f"   {r['mark']}{r['load']} {r['mm']:>2}/{r['dd']:<2}({r['yobi'] or '?'}) "
-                  f"{r['course'][:8]:<8}{r['baba'][:2]:<3}{t:<24}{one:>5}  "
+            print(f"   {r['mark']}{r['load']}{'*' if r.get('cur') else ' '}"
+                  f"{r.get('_y', 0) % 100:>3}/{r['mm']:>2}/{r['dd']:<2}({r['yobi'] or '?'}) "
+                  f"{r['course'][:7]:<7}{r['baba'][:2]:<3}{t:<22}{one:>5}  "
                   f"{(r['ashi'] or '—'):<5}{(r['awase'] or ''):<4}{r['note']}")
     n = len(h["rows"])
     print(f"   └ {n}本   {mk or ' '} {why}\n")
@@ -167,12 +267,20 @@ def main():
     ap = argparse.ArgumentParser(description="調教を時系列で並べ、上げてきている馬を探す")
     ap.add_argument("rid", help="競馬ブックのレースID")
     ap.add_argument("--horse")
+    ap.add_argument("--back", type=int, default=0,
+                    help="過去何走ぶんの調教を継ぎ足すか（例 5）")
     ap.add_argument("--up", action="store_true", help="★ か ○ の馬だけ")
     ap.add_argument("--brief", action="store_true", help="明細を省いて結論だけ")
     ap.add_argument("--force", action="store_true", help="キャッシュを無視して取り直す")
     a = ap.parse_args()
 
-    D = parse(a.rid, a.force)
+    if a.back:
+        print(f"  過去{a.back}走ぶんを取得中（初回はキャッシュが無いので時間がかかります）…")
+        D = with_history(a.rid, a.back, a.force)
+    else:
+        D = parse(a.rid, a.force)
+        for h in D.values():
+            h["rows"] = [dict(r, cur=True) for r in h["rows"]]
     print(f"■ {a.rid}   {len(D)}頭\n")
     print("  ★＝同じ脚色のまま時計が縮んだ（手応えが変わった）")
     print("  ○＝追って縮んだ／併せが良化   ▽＝強く追っても時計がかかる   －＝横ばい\n")
