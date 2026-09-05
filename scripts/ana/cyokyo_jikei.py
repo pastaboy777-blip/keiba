@@ -234,8 +234,10 @@ def weight_of(rid, horse):
     return None, None
 
 
+# 馬番セルから馬名リンクまでの距離は最大1738文字あった（8R）。
+# 1200で切っていたため2頭取りこぼしていたので、余裕を持たせる。
 CARD = re.compile(
-    r'<td class="umaban">(\d+)</td>.{0,1200}?<a href="/db/uma/(\d+)"[^>]*>([^<]+)</a>', re.S)
+    r'<td class="umaban">(\d+)</td>.{0,2500}?<a href="/db/uma/(\d+)"[^>]*>([^<]+)</a>', re.S)
 
 
 def card_runners(rid):
@@ -257,9 +259,17 @@ def with_history(rid, back, force=False):
     1レースぶんの調教ページには直近1〜3本しか載らない。
     「状態が上がってきているか」を見るには、走ごとの仕上げを並べる必要がある。
     """
-    cur = parse(rid, force)
-    if not cur:                        # 今走の調教がまだ出ていない開催
-        cur = card_runners(rid)
+    # ★出走馬の一覧は【出馬表】を正とする。
+    #   調教ページは追い切りの記載がある馬しか載らない（7Rは11頭中5頭だけ）。
+    #   調教ページを名簿に使うと、記載の無い馬が丸ごと消える。
+    cur = card_runners(rid)
+    train = parse(rid, force)
+    byname = {h["name"]: h for h in train.values()}
+    for ub, h in cur.items():
+        t = byname.get(h["name"])
+        if t:
+            h["rows"] = t["rows"]
+            h["soukan"], h["arrow"] = t["soukan"], t["arrow"]
     for ub, h in sorted(cur.items()):
         h["rows"] = [dict(r, rid=rid, cur=True) for r in h["rows"]]
         if not h["umacd"]:
