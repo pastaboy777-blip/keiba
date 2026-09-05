@@ -38,8 +38,14 @@ OUT = os.path.join(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))), "out")
 
 
-def collect(pre, mmdd, back, races):
-    got, t0 = {}, time.time()
+def collect(pre, mmdd, back, races, dst):
+    """★1鞍ごとにJSONへ書き出す。
+
+    以前は最後にまとめて書いていたため、途中でプロセスが落ちたときに
+    6鞍ぶんの取得が全部消えた。取れた端から保存する。
+    """
+    got = json.load(open(dst)) if os.path.exists(dst) else {}
+    t0 = time.time()
     total = len(races)
     for i, r in enumerate(races, 1):
         rid = f"{pre}{r:02d}{mmdd}"
@@ -52,6 +58,7 @@ def collect(pre, mmdd, back, races):
                                   soukan=h["soukan"], arrow=h["arrow"],
                                   mark=C.trend(h["rows"])[0], why=C.trend(h["rows"])[1],
                                   rows=h["rows"]) for ub, h in D.items()}
+        json.dump(got, open(dst, "w"), ensure_ascii=False)   # 1鞍ごとに保存
         n = sum(len(h["rows"]) for h in D.values())
         el = time.time() - t0
         eta = el / i * (total - i)
@@ -97,8 +104,7 @@ def main():
     dst = os.path.join(OUT, f"cyokyo_{a.pre}_{a.mmdd}.json")
     print(f"■ {a.pre} {a.mmdd}  {len(races)}鞍 × 近{a.back}走 を集めます")
     print(f"   取得済みはキャッシュを使うので、止めて再実行すれば続きから進みます\n")
-    got = collect(a.pre, a.mmdd, a.back, races)
-    json.dump(got, open(dst, "w"), ensure_ascii=False)
+    collect(a.pre, a.mmdd, a.back, races, dst)
     print(f"\n→ {dst}")
     report(dst)
 

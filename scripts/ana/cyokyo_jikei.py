@@ -86,7 +86,9 @@ def get(url, out, force=False, minsize=2000):
     if force or not os.path.exists(out) or os.path.getsize(out) < minsize:
         if not os.path.exists(CONF):
             sys.exit(f"× {CONF} がありません。競馬ブックのcookieを置いてください。")
-        subprocess.run(["curl", "-s", "-L", "-K", CONF, url, "-o", out], check=False)
+        # --max-time が無いと1本のハングで全体が止まる（実際に止まった）
+        subprocess.run(["curl", "-s", "-L", "--max-time", "40", "--retry", "2",
+                        "-K", CONF, url, "-o", out], check=False)
         time.sleep(0.4)                       # 相手方に負荷をかけない
     if not os.path.exists(out):               # 提供の無いページは空で返る
         return ""
