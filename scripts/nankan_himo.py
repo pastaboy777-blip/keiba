@@ -105,6 +105,20 @@ def main() -> None:
     out = open(args.jsonl, "w", encoding="utf-8") if args.jsonl else None
     filled = total = 0
 
+    def today_weight(rno: int) -> dict:
+        """当日の馬体重（結果ページから）。**発走前は空**。
+
+        ⚠️ 出馬表には馬体重が無い。当日ぶんは結果が出るまで取れないので、
+           取れなければ黙って空にする（0で埋めない）。
+        """
+        try:
+            rid = rc.find_race_id(args.date, args.place, rno)
+            res = rk.parse_result(rc.get(f"/race_performance/list/RACEID/{rid}"))
+            return {norm(r.get("name")): (r.get("weight"), r.get("weight_diff"))
+                    for r in res}
+        except Exception:                                   # noqa: BLE001
+            return {}
+
     for rno in ([args.race] if args.race else range(1, 13)):
         try:
             rid = rc.find_race_id(args.date, args.place, rno)
@@ -118,10 +132,19 @@ def main() -> None:
         print(f"\n{'='*100}\n {args.place} {args.date}  {rno}R  "
               f"{hdr.get('race_class') or ''} {hdr.get('distance') or ''}m\n{'='*100}")
         cur = index(args.date, args.place)
+        tw = today_weight(rno)
         for e in ents:
             nm = norm(e.get("name"))
             pop = f"{e['popularity']}人気" if e.get("popularity") else ""
-            print(f"\n■ {e.get('umaban') or '':>2} {e.get('name','')}　{pop}")
+            # 馬体重の推移（古い順）。**このリポジトリで唯一の検証済み材料**
+            ws = [(h.date, h.weight) for h in
+                  reversed((e.get("history") or [])[:args.n]) if h.weight]
+            w_now = tw.get(nm, (None, None))
+            line = "→".join(str(w) for _, w in ws)
+            if w_now[0]:
+                line += f"→**{w_now[0]}**"
+            print(f"\n■ {e.get('umaban') or '':>2} {e.get('name','')}　{pop}"
+                  + (f"　馬体 {line}" if line else "　馬体〈不明〉"))
             rec = {"date": args.date, "place": args.place, "race": rno,
                    "umaban": e.get("umaban"), "name": e.get("name"),
                    "pop": e.get("popularity"), "past": []}
@@ -131,9 +154,18 @@ def main() -> None:
                                     reversed((e.get("history") or [])[:args.n])]):
                 if meta is not None:
                     d = (meta.date or "").replace("-", "")
+                    # ⚠️ 馬体重の増減は**前走との差**。楽天の馬柱は増減を持たない
+                    #    ので、並べた列から自分で引く。取れなければ書かない。
+                    wt = ""
+                    if meta.weight:
+                        wt = f" 馬体{meta.weight}"
+                        pw = [w for dd, w in ws if dd < (meta.date or "")]
+                        if pw:
+                            dw = meta.weight - pw[-1]
+                            wt += f"({dw:+d})" if dw else "( 0)"
                     lab = (f"{meta.date} {meta.place} {meta.distance}m "
                            f"{meta.baba or ''} {meta.popularity or '-'}人気"
-                           f"→{meta.finish_pos or '-'}着")
+                           f"→{meta.finish_pos or '-'}着{wt}")
                     if meta.place not in NANKAN:
                         print(f"  {lab}   〈対象外・{meta.place}〉")
                         rec["past"].append({"label": lab, "state": "対象外"})
