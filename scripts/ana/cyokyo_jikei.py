@@ -71,6 +71,10 @@ UMACD = re.compile(r'<td class="umaban">(\d+)</td>.{0,600}?umacd="(\d+)"', re.S)
 PASTID = re.compile(r'href="/(?:chihou|cyuou)/seiseki/(\d{16})"')
 DATE = re.compile(r"^(\d{1,2})/(\d{1,2})(?:\(([月火水木金土日])\))?")
 
+# ハロン数ごとの時計の帯（ダート）。累積タイムは何Fぶんかが書かれていないので、
+# 値の大きさから判別する。★これをやらずに「累積の最小値＝3F」としていたため、
+#   3Fの無い追い切りで4F(45秒台)を3Fとして拾い、37秒台と比べて
+#   「5.1秒縮んだ」のような嘘の改善が大量に出た（120頭中56頭が該当した）。
 # コースの系統。坂路と周回コースは時計のスケールが違うので絶対に混ぜない
 def kind(course):
     c = course or ""
@@ -79,6 +83,21 @@ def kind(course):
     if "プール" in c or "游" in c:
         return "プール"
     return "コース"
+
+
+# ★帯は坂路と周回でまったく違う。坂路の3Fは24秒台、周回の3Fは37秒台。
+#   一律の帯にすると、坂路の4F(37秒)を3Fとして拾ってしまう。
+BAND = {"コース": (33.0, 46.0), "坂路": (20.0, 30.0), "プール": (0.0, 0.0)}
+
+
+def f3_of(cum, course=None):
+    """累積タイムの列から【3Fの時計】だけを取り出す。無ければ None。
+
+    累積タイムには何Fぶんかが書かれていないので、値の大きさで判別する。
+    """
+    lo, hi = BAND.get(kind(course), BAND["コース"])
+    v = [x for x in (cum or []) if lo <= x <= hi]
+    return min(v) if v else None
 
 
 def get(url, out, force=False, minsize=2000):
@@ -147,7 +166,7 @@ def rows_of(seg):
                      and not re.match(r"^[0-9/()]+$", c)), "")
         out.append(dict(mm=int(m.group(1)), dd=int(m.group(2)), yobi=m.group(3) or "",
                         course=blk[1] if len(blk) > 1 else "", baba=blk[2] if len(blk) > 2 else "",
-                        cum=cum, f3=(cum[-1] if cum else None), f1=f1,
+                        cum=cum, f3=f3_of(cum, blk[1] if len(blk) > 1 else ""), f1=f1,
                         ashi=ash, av=av, awase=aw, wv=wv, note=note[:22],
                         mark=("■" if "■" in joined else ("◇" if "◇" in joined else " ")),
                         load=("☆" if "☆" in joined else " ")))
@@ -294,35 +313,56 @@ def order(rows):
     return rows
 
 
-def trend(rows):
+def main_work(rows):
+    """1走の仕上げを代表する【本追い】を1本だけ選ぶ。
+
+    ★これをやらないと、同じ走の「乗り込み」と「本追い」が別々に並び、
+      走をまたいだ比較が壊れる。実例（ナガタエース）:
+          2/23 [59.4, 44.9] 馬なり  ← 乗り込み。1ハロン15.0秒
+          8/17 [69.0,53.0,39.7] 馬なり ← 本追い。1ハロン13.2秒
+      どちらも「馬なり」なので脚色では分けられず、
+      「同じ脚色のまま5.2秒縮んだ」という嘘の改善が出た。
+
+    本追い＝その走のなかで最も速い1本。乗り込みは必ず遅いので落ちる。
+    """
+    ok = [r for r in rows if r["f3"]]
+    return min(ok, key=lambda r: r["f3"]) if ok else None
+
+
+def trend(rows, window=None):
     """変化の向き。★＝同じ脚色で時計が縮んだ（手応えが変わった） ○＝追って縮んだ
 
-    ★坂路と周回コースは時計のスケールがまるで違うので、必ず同じ系統の中だけで比べる。
-      （混ぜると 坂路24.9 → コース38.3 を「13秒悪化」と読んでしまう）
+    ★走ごとに本追いを1本だけ取り、走をまたいで比べる。
+      坂路と周回は時計のスケールが違うので、必ず同じ系統の中だけで。
     """
+    g = {}
+    for r in rows:
+        g.setdefault(r.get("rid", ""), []).append(r)
+    reps = [main_work(v) for v in g.values()]
+    reps = [r for r in reps if r]
+    reps.sort(key=lambda r: (r.get("_y", 0), r["mm"], r["dd"]))
+
     best = (None, "本数不足")
     for k in ("コース", "坂路"):
-        ok = [r for r in rows if r["f3"] and kind(r["course"]) == k]
-        # ★直近だけを見る。半年前と比べても「状態が上がっている」の答えにならない
-        ok = ok[-WINDOW:]
+        ok = [r for r in reps if kind(r["course"]) == k][-(window or WINDOW):]
         if len(ok) < 2:
             continue
         d3 = ok[-1]["f3"] - ok[0]["f3"]
         da = (ok[-1]["av"] or 0) - (ok[0]["av"] or 0)
         dw = (ok[-1]["wv"] if ok[-1]["wv"] is not None else 0) - \
              (ok[0]["wv"] if ok[0]["wv"] is not None else 0)
-        n = f"{k}{len(ok)}本"
+        n = f"{k}{len(ok)}走"
         if d3 <= -0.5 and da <= 0:
-            return "★", f"{n} 同じ脚色のまま末3Fが {abs(d3):.1f}秒 縮んだ"
+            return "\u2605", f"{n} 同じ脚色のまま本追いが {abs(d3):.1f}秒 縮んだ"
         if d3 <= -0.5 and da > 0:
-            cand = ("○", f"{n} 追って {abs(d3):.1f}秒 縮んだ（強度の分は割り引く）")
+            cand = ("\u25cb", f"{n} 追って {abs(d3):.1f}秒 縮んだ（強度の分は割り引く）")
         elif d3 >= 0.5 and da >= 0:
-            cand = ("▽", f"{n} 強く追っているのに {d3:.1f}秒 かかっている")
+            cand = ("\u25bd", f"{n} 強く追っているのに {d3:.1f}秒 かかっている")
         elif dw > 0:
-            cand = ("○", f"{n} 時計は横ばいだが併せの結果が良化")
+            cand = ("\u25cb", f"{n} 時計は横ばいだが併せの結果が良化")
         else:
-            cand = ("－", f"{n} 横ばい（末3F {d3:+.1f}秒）")
-        if best[0] is None or cand[0] in ("★", "○"):
+            cand = ("\uff0d", f"{n} 横ばい（本追い {d3:+.1f}秒）")
+        if best[0] is None or cand[0] in ("\u2605", "\u25cb"):
             best = cand
     return best
 

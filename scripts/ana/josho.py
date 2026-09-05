@@ -49,7 +49,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from cyokyo_jikei import kind
+from cyokyo_jikei import kind, f3_of
 
 MIN_RUNS = 3          # 上昇度を出すのに要る追い切り本数
 RECENT = 1            # 「直近」として扱う本数
@@ -62,11 +62,12 @@ def load(paths):
         for rid, hs in D.items():
             for ub, h in hs.items():
                 for i, q in enumerate(h["rows"]):
-                    if not q.get("f3"):
+                    f3 = f3_of(q.get("cum"), q.get("course"))     # 保存済みJSONも作り直さず判定し直す
+                    if not f3:
                         continue
                     rows.append(dict(
                         horse=h["name"], race=rid, ub=int(ub),
-                        f3=float(q["f3"]), ashi=q.get("ashi") or "不明",
+                        f3=float(f3), ashi=q.get("ashi") or "不明",
                         kind=kind(q.get("course")), baba=(q.get("baba") or "不明")[:2],
                         nleg=len(q.get("cum") or []),      # 累積の本数＝追った距離の代理
                         y=q.get("_y", 0), mm=q["mm"], dd=q["dd"]))

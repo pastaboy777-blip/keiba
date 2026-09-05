@@ -67,8 +67,21 @@ def collect(pre, mmdd, back, races, dst):
     return got
 
 
+def refresh(D):
+    """保存済みJSONの判定を、いまのコードで計算し直す。
+
+    パーサを直したあと、取り直さずに結論だけ更新できるようにするため。
+    """
+    for rid, hs in D.items():
+        for h in hs.values():
+            for q in h["rows"]:
+                q["f3"] = C.f3_of(q.get("cum"), q.get("course"))
+            h["mark"], h["why"] = C.trend(h["rows"])
+    return D
+
+
 def report(path):
-    D = json.load(open(path))
+    D = refresh(json.load(open(path)))
     star = []
     for rid, hs in sorted(D.items()):
         r = int(rid[10:12])
@@ -90,7 +103,7 @@ def linked(path, only=None):
     走の切れ目が見えないと「前走の仕上げ」と「今回の仕上げ」を比べられない。
     ここが分かって初めて『上げてきているか』を目で読める。
     """
-    D = json.load(open(path))
+    D = refresh(json.load(open(path)))
     for rid, hs in sorted(D.items(), key=lambda x: int(x[0][10:12])):
         print(f"\n{'='*76}\n■ {int(rid[10:12])}R\n{'='*76}")
         for ub, h in sorted(hs.items(), key=lambda x: int(x[0])):
