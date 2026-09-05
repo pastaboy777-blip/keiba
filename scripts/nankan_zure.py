@@ -278,11 +278,14 @@ def main() -> None:
             for x in past:
                 s = x["star"]
                 p = pick(s) if s else None
+                # ⚠️ `s.get(...)` は **None を返す**（コースや脚色が空の週がある）。
+                #    `f"{None:<7}"` は TypeError になるので、必ず `or ''` を挟む。
                 print(f"      {'○' if (x['finish'] or 99) <= 3 else '×'} {x['date']} "
-                      f"{str(x['finish'] or '-'):>2}着  {(s.get('course') if s else ''):<7}"
-                      f"{(s.get('baba') if s else ''):<3}"
+                      f"{str(x['finish'] or '-'):>2}着  "
+                      f"{((s.get('course') or '') if s else ''):<7}"
+                      f"{((s.get('baba') or '') if s else ''):<3}"
                       f"{(f'{p[0]} {p[1]:.1f}' if p else '時計なし'):<16}"
-                      f"{(s.get('asiiro') if s else ''):<5}"
+                      f"{((s.get('asiiro') or '') if s else ''):<5}"
                       f"{'併走' if x['awase'] else ''}")
             if now:
                 p = pick(now)
