@@ -106,8 +106,10 @@ def linked(path, only=None):
             for k in ks:
                 m = C.race_meta(k)
                 tag = "今走" if k == rid else f"{len(ks)-1-ks.index(k)}走前"
+                w, dw = (None, None) if k == rid else C.weight_of(k, h["name"])
+                wt = f"  馬体重 {w}({dw})" if w else ""
                 print(f"  ┌ {tag:<5} {m['y']%100}/{m['mm']:>2}/{m['dd']:<2} "
-                      f"{m['place']}{m['r']}R {m['name'][:22]}")
+                      f"{m['place']}{m['r']}R {m['name'][:20]}{wt}")
                 for q in byrace[k]:
                     t = "  ".join(f"{v:.1f}" for v in q["cum"]) or "—"
                     one = f"{q['f1']:.1f}" if q["f1"] else "—"

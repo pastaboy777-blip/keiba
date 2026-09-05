@@ -197,6 +197,43 @@ def race_meta(rid):
                 place=m.group(4), r=int(m.group(5)), name=m.group(6).strip())
 
 
+SEI = re.compile(r'<td class="umaban">(\d+)</td>(.*?)(?=<td class="umaban">|</table>)', re.S)
+
+
+def weights(rid):
+    """成績ページから 馬番→(馬名, 馬体重, 増減, 着順) を取る。
+
+    列の並び（2026-09時点）:
+      0着順 1My印 2本紙 3枠番 4馬番 5馬名 6性齢 7重量 8- 9騎手 10タイム
+      11着差 12通過順位 13内外 14前半3F 15上り3F 16人気 17単勝 18馬体重 19増減
+    馬番のセルから数えるので、ここでは 0=馬番 になる。
+    """
+    h = get(f"{BASE}/chihou/seiseki/{rid}", os.path.join(ARC, f"sei_{rid}.html"))
+    out = {}
+    for m in SEI.finditer(h):
+        c = [re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", x)).strip()
+             for x in re.findall(r"<td[^>]*>(.*?)</td>", m.group(2), re.S)]
+        if len(c) < 15:
+            continue
+        w = next((x for x in c[12:] if re.fullmatch(r"\d{3}", x)), None)
+        j = c.index(w) if w else None
+        dw = c[j + 1] if j is not None and j + 1 < len(c) else None
+        out[m.group(1)] = dict(name=c[0] if c else "", w=int(w) if w else None,
+                               dw=dw if dw and re.fullmatch(r"[+-±]?\d+", dw) else None)
+    return out
+
+
+def weight_of(rid, horse):
+    """その走での馬体重と増減。馬名で引く。"""
+    try:
+        for v in weights(rid).values():
+            if v["name"] == horse:
+                return v["w"], v["dw"]
+    except Exception:
+        pass
+    return None, None
+
+
 CARD = re.compile(
     r'<td class="umaban">(\d+)</td>.{0,1200}?<a href="/db/uma/(\d+)"[^>]*>([^<]+)</a>', re.S)
 
