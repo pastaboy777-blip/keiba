@@ -177,6 +177,26 @@ def parse(rid, force=False):
     return out
 
 
+META = re.compile(r"調教\s*\|\s*(20\d\d)年(\d+)月(\d+)日"
+                  r"(浦和|船橋|大井|川崎|門別|盛岡|水沢|金沢|笠松|名古屋|園田|姫路|高知|佐賀)"
+                  r"(\d+)R([^|<]{0,40})")
+
+
+def race_meta(rid):
+    """そのレースの 日付・会場・R・レース名 を返す。
+
+    調教ページのタイトルに全部入っているので、追加の取得は要らない
+    （キャッシュ済みのHTMLから読むだけ）。
+    """
+    h = get(f"{BASE}/chihou/cyokyo/1/0/{rid}", os.path.join(ARC, f"cyo_{rid}.html"))
+    m = META.search(h)
+    if not m:
+        return dict(y=int(rid[:4]), mm=int(rid[12:14]), dd=int(rid[14:16]),
+                    place="?", r=int(rid[10:12]), name="")
+    return dict(y=int(m.group(1)), mm=int(m.group(2)), dd=int(m.group(3)),
+                place=m.group(4), r=int(m.group(5)), name=m.group(6).strip())
+
+
 CARD = re.compile(
     r'<td class="umaban">(\d+)</td>.{0,1200}?<a href="/db/uma/(\d+)"[^>]*>([^<]+)</a>', re.S)
 

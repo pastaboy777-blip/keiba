@@ -84,6 +84,42 @@ def report(path):
     print("  ※ ○ は「強く追えば速くなる」ぶんを含む。★のほうが情報として強い")
 
 
+def linked(path, only=None):
+    """1頭ずつ、【走ごとに区切って】調教を紐づけて出す。
+
+    走の切れ目が見えないと「前走の仕上げ」と「今回の仕上げ」を比べられない。
+    ここが分かって初めて『上げてきているか』を目で読める。
+    """
+    D = json.load(open(path))
+    for rid, hs in sorted(D.items(), key=lambda x: int(x[0][10:12])):
+        print(f"\n{'='*76}\n■ {int(rid[10:12])}R\n{'='*76}")
+        for ub, h in sorted(hs.items(), key=lambda x: int(x[0])):
+            if only and only not in h["name"]:
+                continue
+            print(f"\n{int(ub):>2}番 {h['name']}"
+                  + (f"   総評:{h['soukan']}" if h["soukan"] else "")
+                  + (f" 矢印:{h['arrow']}" if h["arrow"] else ""))
+            byrace = {}
+            for q in h["rows"]:
+                byrace.setdefault(q.get("rid", rid), []).append(q)
+            ks = sorted(byrace, key=C.ymd)
+            for k in ks:
+                m = C.race_meta(k)
+                tag = "今走" if k == rid else f"{len(ks)-1-ks.index(k)}走前"
+                print(f"  ┌ {tag:<5} {m['y']%100}/{m['mm']:>2}/{m['dd']:<2} "
+                      f"{m['place']}{m['r']}R {m['name'][:22]}")
+                for q in byrace[k]:
+                    t = "  ".join(f"{v:.1f}" for v in q["cum"]) or "—"
+                    one = f"{q['f1']:.1f}" if q["f1"] else "—"
+                    print(f"  │  {q['mark']}{q['load']} {q['mm']:>2}/{q['dd']:<2}"
+                          f"({q['yobi'] or '?'}) {q['course'][:7]:<7}{q['baba'][:2]:<3}"
+                          f"{t:<22}{one:>5}  {(q['ashi'] or '—'):<5}"
+                          f"{(q['awase'] or ''):<4}{q['note']}")
+            if not byrace:
+                print("  （調教の記載なし）")
+            print(f"  └ {len(h['rows'])}本   {h['mark'] or ' '} {h['why']}")
+
+
 def main():
     ap = argparse.ArgumentParser(description="1開催ぶんの調教を近N走まで集める")
     ap.add_argument("--pre", help="レースIDの先頭10桁（開催コード）")
@@ -91,8 +127,12 @@ def main():
     ap.add_argument("--back", type=int, default=5)
     ap.add_argument("--races", default="1-12", help="例 1-12 / 3-6")
     ap.add_argument("--report", help="集め終わったJSONを読んで要約する")
+    ap.add_argument("--linked", help="JSONを読んで、1頭ずつ走ごとに紐づけて出す")
+    ap.add_argument("--horse", help="--linked のとき1頭に絞る")
     a = ap.parse_args()
 
+    if a.linked:
+        return linked(a.linked, a.horse)
     if a.report:
         return report(a.report)
     if not (a.pre and a.mmdd):
