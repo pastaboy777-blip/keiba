@@ -163,8 +163,12 @@ def main() -> None:
            if os.path.exists(COOKIE) else kb.KeibabookClient(""))
 
     # ── ② 開催日ごとに索引を作る（ここが重い。キャッシュで再開できる）
+    # ⚠️⚠️ **新しい順に引く。**古い順だと 2024年の開催から埋まり、いちばん要る
+    #    前走・前々走（直近）が最後になる。途中で止まると「☆が今回しか無い」
+    #    状態のまま使えない。実際それで13頭中0頭しか判定できなかった。
+    #    追い切りどうしの比較は**直近2走がそろえば成立する**ので、そこから埋める。
     idx: dict[tuple[str, str], dict] = {}
-    for k, (d, p) in enumerate(sorted(need), 1):
+    for k, (d, p) in enumerate(sorted(need, reverse=True), 1):
         idx[(d, p)] = index_meeting(cli, d, p)
         print(f"  [{k}/{len(need)}] {d} {p} → {len(idx[(d,p)])}頭", file=sys.stderr)
 
