@@ -142,7 +142,10 @@ def score_bar(value: float, lo: float, hi: float, width: int = 20) -> str:
 
 # ---------------------------------------------------------------- 各シーン
 
-def scene_title() -> None:
+PLACE_ROMAJI = {"大井": "ooi", "川崎": "kawasaki", "船橋": "funabashi", "浦和": "urawa"}
+
+
+def scene_title(place: str) -> None:
     print()
     for line in [
         f"{S.bold}{S.cyan}  南関競馬 予測エンジン{S.reset}",
@@ -151,7 +154,8 @@ def scene_title() -> None:
         print(line)
         pause(0.3)
     print()
-    type_out(f"{S.dim}  $ python3 -m nankeiba.run --place kawasaki{S.reset}", delay=0.03)
+    romaji = PLACE_ROMAJI.get(place, place)
+    type_out(f"{S.dim}  $ python3 -m nankeiba.run --place {romaji}{S.reset}", delay=0.03)
     pause(0.6)
 
 
@@ -385,7 +389,7 @@ def scene_outro() -> None:
 
 # ---------------------------------------------------------------- レース1本の題材作り
 
-def pick_showcase_race(races, *, min_history: int = 4):
+def pick_showcase_race(races, *, place: str | None = None, min_history: int = 4):
     """履歴が十分たまった時点のレースを1本選び、その時点の過去走だけを返す。
 
     run_backtest と同じ順序で履歴を積み上げるので、リークは無い。
@@ -394,7 +398,8 @@ def pick_showcase_race(races, *, min_history: int = 4):
     races = sorted(races, key=lambda r: r.date)
     chosen = None
     for race in races:
-        if chosen is None and len(race.entries) >= 8:
+        if (chosen is None and len(race.entries) >= 8
+                and (place is None or race.place == place)):
             past = {e.num(): list(history.get(e.horse_id, [])) for e in race.entries}
             if all(len(v) >= min_history for v in past.values()):
                 chosen = (race, past)
@@ -421,6 +426,9 @@ def main() -> None:
     ap.add_argument("--width", type=int, default=WIDTH, help="表示幅(桁)")
     ap.add_argument("--races", type=int, default=600, help="合成レース数")
     ap.add_argument("--seed", type=int, default=7, help="乱数シード")
+    ap.add_argument("--place", default="川崎",
+                    choices=["大井", "川崎", "船橋", "浦和"],
+                    help="題材にする競馬場")
     args = ap.parse_args()
 
     SPEED = 0.0 if args.instant else max(0.1, args.speed)
@@ -429,12 +437,13 @@ def main() -> None:
 
     random.seed(args.seed)
 
-    scene_title()
+    scene_title(args.place)
     races, jockeys, trainers = scene_collect(args.races)
 
-    picked = pick_showcase_race(races)
+    picked = pick_showcase_race(races, place=args.place)
     if picked is None:
-        print("題材にできるレースが見つかりませんでした(--races を増やしてください)")
+        print(f"{args.place}で題材にできるレースが見つかりませんでした"
+              "(--races を増やしてください)")
         return
     race, past = picked
 
