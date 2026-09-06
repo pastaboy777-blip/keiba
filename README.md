@@ -47,6 +47,7 @@
 
 ```bash
 python3 scripts/demo.py            # 合成データでエンドツーエンド・デモ
+python3 scripts/show.py            # 上と同じ内容を画面録画向けに演出表示
 python3 scripts/train.py           # データから重みを学習し、未来レースで検証
 python3 -m unittest discover -s tests -v
 ```
@@ -54,6 +55,21 @@ python3 -m unittest discover -s tests -v
 デモは南関の合成シーズンを生成し、「観点ありEVモデル」と「素朴な人気順買い」の
 回収率を比較する。合成データでは市場が間隔・叩きを軽視する盲点を再現しており、
 観点ありモデルがそれを突けることを示す。
+
+### 画面録画用デモ (`scripts/show.py`)
+
+`demo.py` と同じ計算を、**動画で見て分かる**ように演出して流す。収集 → 特徴量 →
+スコア → 確率 → 期待値判定 → バックテスト → 人気順買いとの比較、を順に描画する。
+出力する数値は `demo.py` と完全に一致する(演出のみ追加)。
+
+```bash
+python3 scripts/show.py             # 標準速度(約90秒)
+python3 scripts/show.py --speed 2   # 倍速
+python3 scripts/show.py --instant   # 演出なし(CI・動作確認用)
+python3 scripts/show.py --width 52  # 表示幅を変える(スマホ縦動画向け)
+```
+
+ターミナルを幅64桁前後にしておくと、スマホの縦動画でも文字が読める。
 
 > ⚠️ **重要**: 合成データは「コードとロジックが正しく機能すること」の検証用。
 > 合成上のエッジは小さく乱数に敏感で、実戦の利益を保証しない。
