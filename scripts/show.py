@@ -228,10 +228,11 @@ def scene_probability(strengths: dict) -> dict:
     header("④ 確率変換", "Plackett-Luce モデル → 三連複の的中確率")
     probs = pb.trio_probabilities(strengths)
     top = sorted(probs.items(), key=lambda kv: kv[1], reverse=True)[:6]
+    peak = top[0][1] if top else 1.0
     for combo, p in top:
         label = "-".join(str(c) for c in combo)
-        bar_w = int(p * 320)
-        bar = "▇" * min(24, max(1, bar_w))
+        # 上位同士の差が小さいので、最大値を基準に相対表示する
+        bar = "▇" * max(1, round(24 * p / peak))
         print(f"  {pad(label, 12)} {S.magenta}{p * 100:>5.2f}%{S.reset}  {S.magenta}{bar}{S.reset}")
         pause(0.14)
     pause(0.5)
