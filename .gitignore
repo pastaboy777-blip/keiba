@@ -43,3 +43,6 @@ data/bt/runs.jsonl
 
 # 競馬ブックの調教（会員コンテンツ由来・コミット禁止）
 data/cyokyo/
+
+# 馬場の物差し（走査の出力・実行のたびに再生成される）
+data/baba_*.jsonl
