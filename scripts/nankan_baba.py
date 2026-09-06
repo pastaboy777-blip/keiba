@@ -107,9 +107,14 @@ def main() -> None:
             if not dist:
                 continue
             la = lap.analyze(res, dist, rk.parse_lap(raw))
-            rows = [{"p": (x["corner_pos"] or [None])[-1], "f": x["finish"]}
-                    for x in res if x.get("corner_pos") and x.get("finish")]
-            rows = [x for x in rows if x["p"]]
+            # ⚠️⚠️ **`parse_result` は通過順を持っていない。**本文の別ブロックに
+            #    ある「コーナー通過順位」を `rk.corner4` で拾う。これを忘れると
+            #    決着傾向が**全レース「測れない」**になる（実際に146レース全部が
+            #    そうなった）。
+            c4 = rk.corner4(raw)
+            rows = [{"p": c4[x["umaban"]], "f": x["finish"]}
+                    for x in res
+                    if x.get("umaban") in c4 and x.get("finish")]
             win = next((x for x in res if x.get("finish") == 1), None)
             rec = {
                 "date": ymd, "place": args.place, "race": rno, "baba": baba,

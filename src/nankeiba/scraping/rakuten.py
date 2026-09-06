@@ -556,3 +556,66 @@ def parse_place_payout(html: str) -> dict[int, int]:
     umas = [int(x) for x in re.findall(r"\d+", m.group(1))]
     yens = [int(x.replace(",", "")) for x in re.findall(r"([\d,]+)\s*円", m.group(2))]
     return dict(zip(umas, yens))
+
+
+#: 結果ページの「コーナー通過順位」の見出し。全角・半角の数字が混ざる。
+_CORNER_LABELS = (("向正面", "向正面"), ("１角", "1角"), ("2角", "2角"),
+                  ("２角", "2角"), ("1角", "1角"), ("３角", "3角"),
+                  ("3角", "3角"), ("４角", "4角"), ("4角", "4角"))
+_CORNER_BLOCK = re.compile(r"コーナー通過順位(.*?)(?:■|払戻)", re.S)
+
+
+def parse_corners(html: str) -> dict[str, dict[int, int]]:
+    """結果ページの **コーナー通過順位** を `{'4角': {馬番: 順位}}` の形で返す。
+
+        ■ コーナー通過順位
+          向正面 10,5,12,3,1,4,2,8,9,7,11,6
+          ３角   5,(10,12),(3,4),1,(2,9),11,(6,8),7
+          ４角   10,5,1,3,12,2,4,(6,9),8,11,7
+
+    ⚠️⚠️ **`parse_result` は通過順を持っていない。**結果の行にあるのは着順・
+       タイム・推定上がり・人気などだけで、コーナー通過順は本文の別ブロックに
+       ある。これを拾わないと「4角位置」が結果ページからは一切取れず、
+       決着傾向の実測（`nankan_ana.measured_bias`）が**全レース「測れない」**
+       になる（川崎の不良・重 146レースで実際にそうなった）。
+
+    ⚠️ **括弧は横並び＝同順。**`(6,9)` は同じ順位で、次の馬はその頭数ぶん飛ばす。
+       括弧内の並びは**内→外**であって着順ではない。
+       順位付けは `keibabook.parse_corner_order` と同じ規則にしてある。
+
+    ⚠️ コーナーが無い短距離（川崎900mなど）や、通過順が非公開のレースでは
+       空 dict を返す。**0 で埋めないこと。**
+    """
+    m = _CORNER_BLOCK.search(re.sub(r"<[^>]+>", " ", unescape(html)))
+    if not m:
+        return {}
+    body = re.sub(r"\s+", " ", m.group(1))
+    out: dict[str, dict[int, int]] = {}
+    # 見出しの位置で切って、それぞれの数字列を読む
+    marks = [(mm.start(), mm.group(1)) for mm in
+             re.finditer(r"(向正面|[１２３４1234]角)", body)]
+    for i, (st, label) in enumerate(marks):
+        end = marks[i + 1][0] if i + 1 < len(marks) else len(body)
+        seg = body[st + len(label):end]
+        pos: dict[int, int] = {}
+        rank = 1
+        for grp, solo in re.findall(r"\(([^)]*)\)|(\d+)", seg):
+            nums = [int(x) for x in re.findall(r"\d+", grp or solo)]
+            if not nums:
+                continue
+            for u in nums:
+                pos.setdefault(u, rank)
+            rank += len(nums)
+        if pos:
+            key = dict(_CORNER_LABELS).get(label, label)
+            out[key] = pos
+    return out
+
+
+def corner4(html: str) -> dict[int, int]:
+    """**最終コーナー**の `{馬番: 順位}`。4角が無ければ3角、それも無ければ空。
+
+    ⚠️ 川崎900mのようにコーナーが少ないレースがある。**無いものを0にしない。**
+    """
+    c = parse_corners(html)
+    return c.get("4角") or c.get("3角") or {}
