@@ -1,0 +1,176 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+ *{margin:0;padding:0;box-sizing:border-box;font-family:'WenQuanYi Zen Hei','IPAGothic',sans-serif;}
+ body{background:#000;}
+ .card{width:1400px;position:relative;overflow:hidden;background:#12100e;padding:30px 34px 26px;}
+
+ /* 集中線 */
+ .lines{position:absolute;inset:-45% -14% -14% -14%;pointer-events:none;
+   background:repeating-conic-gradient(from 0deg at 50% 12%,
+     rgba(255,255,255,.13) 0deg 1.5deg, rgba(255,255,255,0) 1.5deg 5.6deg);}
+ /* 網点（ハーフトーン） */
+ .tone{position:absolute;inset:0;pointer-events:none;opacity:.5;
+   background-image:radial-gradient(rgba(255,255,255,.16) 1.6px, transparent 1.7px);
+   background-size:9px 9px;}
+ .inner{position:relative;}
+
+ .kicker{color:#ffd400;font-size:20px;font-weight:900;letter-spacing:2px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ .head{display:flex;align-items:center;gap:20px;margin-top:2px;height:170px;}
+ .gekiga{font-size:118px;font-weight:900;letter-spacing:-4px;line-height:1;
+   color:#e8232a;-webkit-text-stroke:22px #000;paint-order:stroke fill;
+   transform:skewX(-9deg) rotate(-3deg);
+   text-shadow:11px 11px 0 rgba(0,0,0,.85);}
+ .dateblk{flex:1;padding-left:16px;}
+ .dateblk .d1{color:#fff;font-size:46px;font-weight:900;letter-spacing:1px;
+   -webkit-text-stroke:10px #000;paint-order:stroke fill;transform:skewX(-6deg);display:inline-block;}
+ .dateblk .d2{color:#ffd400;font-size:26px;font-weight:900;margin-top:6px;
+   -webkit-text-stroke:6px #000;paint-order:stroke fill;}
+ .burst{width:164px;height:164px;flex:0 0 164px;background:#ffd400;
+   clip-path:polygon(50.00% 0.00%,55.09% 11.33%,62.94% 1.70%,64.92% 13.97%,75.00% 6.70%,73.74% 19.06%,85.36% 14.64%,80.94% 26.26%,93.30% 25.00%,86.03% 35.08%,98.30% 37.06%,88.67% 44.91%,100.00% 50.00%,88.67% 55.09%,98.30% 62.94%,86.03% 64.92%,93.30% 75.00%,80.94% 73.74%,85.36% 85.36%,73.74% 80.94%,75.00% 93.30%,64.92% 86.03%,62.94% 98.30%,55.09% 88.67%,50.00% 100.00%,44.91% 88.67%,37.06% 98.30%,35.08% 86.03%,25.00% 93.30%,26.26% 80.94%,14.64% 85.36%,19.06% 73.74%,6.70% 75.00%,13.97% 64.92%,1.70% 62.94%,11.33% 55.09%,0.00% 50.00%,11.33% 44.91%,1.70% 37.06%,13.97% 35.08%,6.70% 25.00%,19.06% 26.26%,14.64% 14.64%,26.26% 19.06%,25.00% 6.70%,35.08% 13.97%,37.06% 1.70%,44.91% 11.33%);display:flex;align-items:center;justify-content:center;
+   filter:drop-shadow(7px 7px 0 rgba(0,0,0,.8));}
+ .burst span{color:#111;font-size:31px;font-weight:900;line-height:1.1;text-align:center;
+   transform:rotate(-7deg);}
+
+ .lead{margin-top:12px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:12px 18px;color:#111;font-size:19px;font-weight:800;line-height:1.55;
+   box-shadow:9px 9px 0 rgba(0,0,0,.6);}
+ .lead .r{color:#e8232a;} .lead .b{color:#0d4d9c;}
+
+ .cols{display:flex;margin:18px 0 8px;padding:0 10px;color:#ffd400;font-size:16px;font-weight:900;
+   -webkit-text-stroke:4px #000;paint-order:stroke fill;}
+ .cR{flex:0 0 116px;} .cH{flex:0 0 434px;} .cA{flex:0 0 306px;} .cM{flex:1;}
+
+ .row{position:relative;display:flex;align-items:stretch;background:#fff;border:6px solid #000;
+   border-radius:3px;margin-bottom:14px;padding:14px 16px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .row .corner{position:absolute;left:0;top:0;bottom:0;width:116px;pointer-events:none;opacity:.45;
+   background-image:radial-gradient(rgba(0,0,0,.55) 1.5px, transparent 1.6px);background-size:7px 7px;}
+
+ .rN{flex:0 0 116px;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;}
+ .rN .n{color:#e8232a;font-size:44px;font-weight:900;line-height:1;
+   -webkit-text-stroke:7px #000;paint-order:stroke fill;transform:skewX(-8deg);}
+ .rN .d{color:#111;font-size:13px;font-weight:900;margin-top:6px;background:#ffd400;
+   border:2px solid #000;padding:1px 5px;}
+
+ .hm{flex:0 0 434px;display:flex;align-items:center;gap:10px;padding-left:8px;}
+ .at{flex:0 0 306px;display:flex;align-items:center;gap:9px;}
+ .mk{font-size:36px;font-weight:900;color:#e8232a;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .mk2{font-size:34px;font-weight:900;color:#0d4d9c;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .nm{font-size:27px;font-weight:900;color:#111;letter-spacing:0;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .nm2{font-size:25px;font-weight:900;color:#111;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .sb{width:68px;height:68px;flex:0 0 68px;background:#ffd400;clip-path:polygon(50.00% 0.00%,56.63% 16.65%,69.13% 3.81%,68.89% 21.73%,85.36% 14.64%,78.27% 31.11%,96.19% 30.87%,83.35% 43.37%,100.00% 50.00%,83.35% 56.63%,96.19% 69.13%,78.27% 68.89%,85.36% 85.36%,68.89% 78.27%,69.13% 96.19%,56.63% 83.35%,50.00% 100.00%,43.37% 83.35%,30.87% 96.19%,31.11% 78.27%,14.64% 85.36%,21.73% 68.89%,3.81% 69.13%,16.65% 56.63%,0.00% 50.00%,16.65% 43.37%,3.81% 30.87%,21.73% 31.11%,14.64% 14.64%,31.11% 21.73%,30.87% 3.81%,43.37% 16.65%);
+   display:flex;align-items:center;justify-content:center;margin-right:-4px;}
+ .sb span{color:#111;font-size:20px;font-weight:900;transform:rotate(-10deg);}
+
+ .memo{flex:1;color:#1b1b1b;font-size:14px;line-height:1.6;padding-left:14px;
+   border-left:4px solid #000;align-self:center;}
+ .memo b{color:#0d4d9c;} .memo b.r{color:#e8232a;}
+
+ .foot{position:relative;margin-top:6px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:18px 24px;color:#111;font-size:21px;font-weight:900;line-height:1.6;
+   box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .foot .r{color:#e8232a;} .foot .b{color:#0d4d9c;}
+ .yell{position:absolute;right:-6px;top:-52px;background:#ffd400;border:5px solid #000;
+   padding:6px 16px;font-size:26px;font-weight:900;color:#111;transform:rotate(-4deg);
+   box-shadow:6px 6px 0 rgba(0,0,0,.7);}
+ .sig{text-align:right;color:#ffd400;font-size:18px;font-weight:900;margin-top:20px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ /* ---- 表・囲み（劇画スキン） ---- */
+ .sec{margin-top:20px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:20px 24px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .sh{color:#111;font-size:31px;font-weight:900;margin-bottom:14px;display:inline-block;
+   transform:skewX(-5deg);border-bottom:7px solid #e8232a;padding-bottom:3px;}
+ table{width:100%;border-collapse:collapse;margin-top:8px;}
+ th{background:#111;color:#ffd400;font-size:20px;font-weight:900;padding:9px 5px;border:2px solid #000;}
+ td{font-size:22px;font-weight:800;color:#111;padding:10px 5px;border:2px solid #000;text-align:center;}
+ td.l{text-align:left;} td.lap{font-size:19px;font-family:monospace;letter-spacing:-.5px;}
+ tr.hi td{background:#ffe9a8;} tr.bad td{background:#ffdcdc;color:#a11100;} tr.win td{background:#d9ecd9;}
+ .note{margin-top:15px;color:#1b1b1b;font-size:20px;font-weight:800;line-height:1.62;}
+ .note b{color:#0d4d9c;} .note b.r{color:#e8232a;}
+ .big{margin-top:20px;background:#111;border:6px solid #ffd400;border-radius:3px;
+   padding:22px 26px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .big .bh{color:#ffd400;font-size:31px;font-weight:900;margin-bottom:15px;}
+ .big .it{color:#fff;font-size:23px;font-weight:800;line-height:1.62;margin-bottom:13px;}
+ .big .it:last-child{margin-bottom:0;}
+ .big .no{color:#ffd400;font-size:27px;font-weight:900;}
+ .big .y{color:#ffd400;} .big .c{color:#8fd9ff;} .big .r{color:#ff9b9b;}
+ .dateblk .d1{font-size:42px;}
+
+ .dateblk .d1{font-size:42px;}
+ .lead{font-size:31px;line-height:1.58;}
+ .sh{font-size:35px;}
+ td, th{font-size:27px;padding:13px 11px;}
+ td:first-child{white-space:nowrap;}
+ .note{font-size:28px;line-height:1.58;}
+ .foot{font-size:30px;line-height:1.58;}
+ .big .bh{font-size:34px;} .big .it{font-size:28px;} .big .no{font-size:31px;}
+</style></head>
+<body><div class="card"><div class="lines"></div><div class="tone"></div><div class="inner">
+<div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>
+<div class="head"><div class="gekiga">川崎</div><div class="dateblk"><div class="d1">重の川崎 ── バイアス ③</div><div class="d2">距離別と、明日への当てはめ</div></div><div class="burst"><span>3ヶ月<br>228鞍</span></div></div>
+
+<div class="lead"><span class="r">明日9/7は 1400mが7鞍・900mが3鞍</span>。
+<span class="b">重のデータで母数がいちばん厚い2つの距離</span>。</div>
+
+<div class="sec">
+ <div class="sh">重・距離別（4角1〜3番手の成績）</div>
+ <table>
+  <tr><th>距離</th><th>鞍数</th><th>3着以内</th><th>率</th><th>1着</th></tr>
+  <tr class="hi"><td><b>900m</b></td><td>16鞍</td><td>32/48</td><td><b class="r">66.7%</b></td><td><b class="r">13/16</b></td></tr>
+  <tr class="hi"><td><b>1400m</b></td><td>25鞍</td><td>50/75</td><td><b class="r">66.7%</b></td><td><b class="r">23/25</b></td></tr>
+  <tr><td>1600m</td><td>5鞍</td><td>9/15</td><td>60.0%</td><td>4/5</td></tr>
+  <tr><td>2000m</td><td>6鞍</td><td>10/18</td><td>55.6%</td><td>5/6</td></tr>
+  <tr class="bad"><td><b>1500m</b></td><td>10鞍</td><td>14/30</td><td><b class="r">46.7%</b></td><td>8/10</td></tr>
+ </table>
+ <div class="note"><b class="r">900mと1400mは、4角3番手以内が3着内66.7%で、勝ち馬は16鞍中13鞍・25鞍中23鞍。</b><br>
+ <b>1500mだけが46.7%で、前の優位がはっきり落ちる</b>。
+ <b class="r">1500はスタート位置が違って隊列が決まりにくいので、別物として扱う</b>。</div>
+</div>
+
+<div class="sec">
+ <div class="sh">距離 × 枠</div>
+ <table>
+  <tr><th>距離</th><th>内1〜2枠</th><th>3〜5枠</th><th>外6〜8枠</th></tr>
+  <tr class="hi"><td><b>900m</b></td><td><b class="r">15/31（48%）1着7</b></td><td>10/52（19%）1着3</td><td>23/79（29%）1着6</td></tr>
+  <tr class="hi"><td><b>1400m</b></td><td><b class="r">21/48（44%）1着6</b></td><td>27/88（31%）1着10</td><td>27/113（24%）1着9</td></tr>
+  <tr><td>1500m</td><td>6/20（30%）1着3</td><td>10/36（28%）1着2</td><td>14/57（25%）1着5</td></tr>
+ </table>
+ <div class="note"><b class="r">900mは内1〜2枠が48%に対して3〜5枠が19%。この落ち込みが3ヶ月でいちばん大きい。</b><br>
+ <b>900mは1周しない短距離で、内を取れるかがそのまま出る</b>。<br>
+ <b class="r">1400mも内1〜2枠が44%で、外に行くほど下がる</b>。</div>
+</div>
+
+<div class="big">
+ <div class="bh">不良についての注意</div>
+ <div class="it"><span class="r">この3ヶ月の川崎に不良は1鞍もない</span>。
+ <span class="c">なので「不良の川崎のバイアス」というデータは、ここには存在しない</span>。</div>
+ <div class="it"><span class="y">ただし方向は読める</span>。
+ <span class="c">9/4の大井で、雨で砂が湿って締まったとき、同じコースの勝ち時計が
+ 1600mで0.9秒・1400mで1.2秒速くなるのを実測している</span>。
+ <span class="r">砂は水を含むほど締まって時計が出て、前が止まりにくくなる</span>。</div>
+ <div class="it"><span class="y">だから不良は、重の数字をさらに前へ寄せた形と見るのが自然</span>。
+ <span class="r">ただしこれは推定であって、川崎の不良で確かめた数字ではない</span>。</div>
+ <div class="it"><span class="c">当日は 1R・2Rの勝ち時計を、この3ヶ月の同距離・重の勝ち時計と比べる</span>。
+ <span class="y">速ければ前有利がさらに強い、遅ければ重と同じ扱いでいい</span>。</div>
+</div>
+
+<div class="sec">
+ <div class="sh">明日9/7(月)の番組</div>
+ <table>
+  <tr><th>距離</th><th>該当レース</th><th>重での前有利</th></tr>
+  <tr class="hi"><td><b>1400m</b></td><td>1R・2R・4R・5R・6R・10R・11R（7鞍）</td><td><b class="r">強い</b>（1着23/25鞍）</td></tr>
+  <tr class="hi"><td><b>900m</b></td><td>3R・9R・12R（3鞍）</td><td><b class="r">強い</b>（1着13/16鞍）</td></tr>
+  <tr class="bad"><td>1500m</td><td>7R（1鞍）</td><td><b class="r">弱い</b>（46.7%）</td></tr>
+  <tr><td>1600m</td><td>8R（1鞍）</td><td>中くらい（60.0%）</td></tr>
+ </table>
+ <div class="note"><b class="r">12鞍のうち10鞍が、重で前有利がはっきり出ている距離。</b><br>
+ <b>7Rの1500だけは、位置以外の材料も入れて組む</b>。</div>
+</div>
+
+<div class="foot"><span class="r">◎は「内1〜2枠 × 4角3番手以内 × 上がり3位以内」</span>。<br>
+<span class="b">外7〜8枠は前に行ける馬だけ。後ろになる外枠は88頭で3着内1頭なので消す</span>。<br>
+<span class="r">3着づけに内枠の中団を1枚（43.3%）</span>。
+<span class="b">1R・2Rの勝ち時計で、重より速いかどうかを必ず確認してから後半に入る</span>。</div>
+<div class="sig">変態か、変態以外か。</div>
+</div></div></body></html>
