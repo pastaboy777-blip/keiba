@@ -94,6 +94,11 @@ HARD = {"馬なり": 0, "稍強め": 1, "強め": 2, "仕掛け": 2, "末強め"
         "追って": 3, "末一杯": 3, "稍一杯": 3, "一杯": 4, "直一杯": 4}
 #: 時計がこれだけ自分の分布から外れたら逸脱とみなす（標準偏差の倍数）。
 Z = 1.0
+#: σの下限[秒]。⚠️⚠️ **これが無いと σ が壊れる。**過去3本がたまたま
+#: 37.7/37.8/38.1 のように揃うと σ=0.2 になり、3秒の差が **+18.4σ** に化ける
+#: （川崎 2026-09-10 2R マニーシーンで実際に出た）。手動計測の調教時計に
+#: 0.2秒の再現性は無いので、**計測のばらつきぶんを下限として敷く**。
+SD_FLOOR = 0.5
 
 
 def norm(s: str | None) -> str:
@@ -168,7 +173,8 @@ def profile(past: list[dict]) -> dict:
         "asiiro": Counter(asi).most_common(1)[0][0] if asi else None,
         "col": col,
         "mu": stt.mean(secs) if len(secs) >= 3 else None,
-        "sd": (stt.pstdev(secs) if len(secs) >= 3 and stt.pstdev(secs) > 0 else None),
+        # ⚠️ σ には下限を敷く（SD_FLOOR）。小さすぎる σ は z を無意味に膨らませる。
+        "sd": (max(stt.pstdev(secs), SD_FLOOR) if len(secs) >= 3 else None),
         "secs": secs,
         "works_med": (stt.median([x["nworks"] for x in past]) if past else None),
         "awase_rate": (sum(1 for x in past if x["awase"]) / len(past)) if past else 0.0,
