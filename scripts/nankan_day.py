@@ -70,7 +70,16 @@ def run(args: list[str], why: str) -> int:
 
 
 def fetch_cyokyo(place: str, date: str) -> int:
-    """その日の全12Rの調教をキャッシュに確保する。**Cookie 必須。**"""
+    """その日の全12Rの調教をキャッシュに確保する。**Cookie 必須。**
+
+    ⚠️⚠️ **「ページが取れた」と「調教が載っている」は別物。**競馬ブックは
+       調教を**順次**公開する。開催前日でも、各レース馬番1だけ載っていて
+       残りが空、という状態がある（川崎 2026-09-11 を前日に取ったら
+       12レースとも **1頭ずつ**しか入っていなかった。ページは20KBで
+       `cyokyodata` も存在するので、**ページ数で数えると「12/12R 確保」と
+       出てしまう**）。
+       → **頭数で数える。**少なければ「まだ揃っていない」と言う。
+    """
     from nankeiba.scraping import keibabook as kb
     if not os.path.exists(COOKIE):
         print(f"⚠️⚠️ {COOKIE} がありません。**調教は今日しか取れません。**\n"
@@ -95,15 +104,32 @@ def fetch_cyokyo(place: str, date: str) -> int:
             continue
         if hdr.get("place") != place:
             continue
-        n = 0
+        n = thin = 0
         for rno, rid in enumerate(v, 1):
             try:
-                t = cli.get(f"/chihou/cyokyo/1/0/{rid}")
+                t = cli.get(f"/chihou/cyokyo/1/0/{rid}", use_cache=False)
             except Exception:                               # noqa: BLE001
                 continue
-            ok = NG not in t and "cyokyodata" in t
-            n += ok
-            print(f"   {rno:>2}R {'○' if ok else '× まだ出ていない'}")
+            if NG in t or "cyokyodata" not in t:
+                print(f"   {rno:>2}R × まだ出ていない")
+                continue
+            horses = kb.parse_cyokyo(t)
+            # ⚠️ **頭数で数える。**1〜2頭なら公開の途中。
+            if len(horses) <= 2:
+                thin += 1
+                print(f"   {rno:>2}R △ **{len(horses)}頭しか載っていない**（公開の途中）")
+                continue
+            key = re.sub(r"[^0-9A-Za-z]+", "_",
+                         f"/chihou/cyokyo/1/0/{rid}").strip("_")
+            with open(f"data/cache/keibabook/{key}.html", "w",
+                      encoding="utf-8") as f:
+                f.write(t)
+            n += 1
+            print(f"   {rno:>2}R ○ {len(horses)}頭")
+        if thin:
+            print(f"⚠️⚠️ **{thin}レースが公開の途中です。**時間をおいて "
+                  f"before をもう一度回してください。\n"
+                  f"   （途中のものはキャッシュに残していません）", file=sys.stderr)
         return n
     print(f"⚠️ {date} に {place} の開催が見つかりません", file=sys.stderr)
     return 0
