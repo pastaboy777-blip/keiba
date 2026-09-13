@@ -96,6 +96,12 @@
  .big .no{color:#ffd400;font-size:27px;font-weight:900;}
  .big .y{color:#ffd400;} .big .c{color:#8fd9ff;} .big .r{color:#ff9b9b;}
  .dateblk .d1{font-size:42px;}
+
+.two{display:flex;gap:16px;align-items:flex-start}
+.two .sec{margin-top:20px}
+.two .c-l{flex:1 1 58%;min-width:0}
+.two .c-r{flex:1 1 42%;min-width:0}
+table.tight th,table.tight td{padding:4px 6px;font-size:20px;line-height:1.25}
 </style></head>
 <body><div class="card"><div class="lines"></div><div class="tone"></div><div class="inner">
 <div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>
@@ -184,90 +190,80 @@
  <span class="c">年齢×体重では、6歳以上 かつ 439kg以下 の13頭で3着内2頭・勝ちゼロ。<b>年を取って小さい馬は買えない。</b></span></div>
 </div>
 
-<div class="sec">
+<div class="two">
+<div class="sec c-l">
  <div class="sh">騎手（12騎乗以上）</div>
  <table>
-  <tr><th>騎手</th><th>騎乗</th><th>勝</th><th>3着内</th><th>複勝率</th><th>6番人気以下での3着内</th><th>1着の平均人気</th></tr>
+  <tr><th>騎手</th><th>騎乗</th><th>勝</th><th>3着内</th><th>複勝率</th><th>6番人気以下<br>での3着内</th><th>1着の<br>平均人気</th></tr>
   <tr class="win"><td><b>安藤洋</b></td><td>23</td><td>5</td><td>12</td><td><b class="r">52%</b></td><td><b class="r">3</b></td><td>1.6</td></tr>
-  <tr class="win"><td><b>笹川翼</b></td><td>36</td><td>4</td><td>17</td><td><b>47%</b></td><td>0</td><td>1.5</td></tr>
+  <tr class="win"><td><b>笹川翼</b></td><td>36</td><td>4</td><td>17</td><td><b>47%</b></td><td>―</td><td>1.5</td></tr>
   <tr class="win"><td><b>本田重</b></td><td>24</td><td>5</td><td>11</td><td><b>46%</b></td><td><b class="r">4</b></td><td><b>3.2</b></td></tr>
   <tr><td>☆中山遥</td><td>21</td><td>1</td><td>8</td><td>38%</td><td>2</td><td>3.0</td></tr>
   <tr class="win"><td><b>藤本現</b></td><td>34</td><td>1</td><td>12</td><td>35%</td><td>2</td><td><b class="r">5.0</b></td></tr>
-  <tr><td>吉井章</td><td>26</td><td>2</td><td>9</td><td>35%</td><td>0</td><td>1.5</td></tr>
-  <tr><td>和田譲</td><td>31</td><td>6</td><td>10</td><td>32%</td><td>0</td><td>1.8</td></tr>
+  <tr><td>吉井章</td><td>26</td><td>2</td><td>9</td><td>35%</td><td>―</td><td>1.5</td></tr>
+  <tr><td>中村尚</td><td>15</td><td>3</td><td>5</td><td>33%</td><td>―</td><td>1.3</td></tr>
+  <tr><td>和田譲</td><td>31</td><td>6</td><td>10</td><td>32%</td><td>―</td><td>1.8</td></tr>
   <tr><td>岡村健</td><td>16</td><td>4</td><td>5</td><td>31%</td><td>1</td><td>4.0</td></tr>
   <tr class="win"><td><b>達城龍</b></td><td>32</td><td>1</td><td>10</td><td>31%</td><td>1</td><td><b class="r">5.0</b></td></tr>
-  <tr class="bad"><td>▲高橋優</td><td>16</td><td>1</td><td>2</td><td>12%</td><td>2</td><td>6.0</td></tr>
-  <tr class="bad"><td>町田直／▲小野俊</td><td>各12</td><td>0</td><td>各1</td><td><b class="r">8%</b></td><td>0</td><td>―</td></tr>
-  <tr class="bad"><td>東原悠／☆谷内貫</td><td>14／16</td><td>0／1</td><td>各1</td><td><b class="r">7%／6%</b></td><td>1／0</td><td>―</td></tr>
+  <tr><td>ゴンサ</td><td>26</td><td>3</td><td>8</td><td>31%</td><td>―</td><td>2.0</td></tr>
+  <tr><td>藤田凌</td><td>29</td><td>2</td><td>7</td><td>24%</td><td>―</td><td>3.0</td></tr>
+  <tr><td>▲西優哉</td><td>25</td><td>2</td><td>6</td><td>24%</td><td>―</td><td>3.0</td></tr>
+  <tr><td>野畑凌</td><td>27</td><td>2</td><td>6</td><td>22%</td><td>1</td><td>1.5</td></tr>
+  <tr class="bad"><td>▲高橋優</td><td>16</td><td>1</td><td>2</td><td><b class="r">12%</b></td><td>2</td><td>6.0</td></tr>
+  <tr class="bad"><td>町田直</td><td>12</td><td>0</td><td>1</td><td><b class="r">8%</b></td><td>―</td><td>―</td></tr>
+  <tr class="bad"><td>▲小野俊</td><td>12</td><td>0</td><td>1</td><td><b class="r">8%</b></td><td>―</td><td>―</td></tr>
+  <tr class="bad"><td>東原悠</td><td>14</td><td>0</td><td>1</td><td><b class="r">7%</b></td><td>1</td><td>―</td></tr>
+  <tr class="bad"><td>☆谷内貫</td><td>16</td><td>1</td><td>1</td><td><b class="r">6%</b></td><td>―</td><td>2.0</td></tr>
  </table>
  <div class="note"><b class="r">複勝率が高い騎手と、人気薄で持ってくる騎手は別。</b>
- <b>安藤洋・本田重は両方。藤本現と達城龍は複勝率こそ31〜35%だが、勝った時の平均人気が5.0でいちばん高い。</b>
+ <b>安藤洋・本田重は両方。藤本現と達城龍は複勝率31〜35%だが、勝った時の平均人気が5.0でいちばん高い。</b>
  <span class="c">笹川翼・吉井章・和田譲は複勝率は高いが、6番人気以下での3着内がゼロ。人気を背負って順当に来るタイプ。</span></div>
 </div>
 
-<div class="sec">
- <div class="sh">厩舎（12頭以上）</div>
- <table>
-  <tr><th>厩舎</th><th>頭数</th><th>勝</th><th>3着内</th><th>複勝率</th><th>6番人気以下での3着内</th></tr>
-  <tr class="win"><td><b>吉井竜</b></td><td>12</td><td>1</td><td>7</td><td><b class="r">58%</b></td><td><b>2</b></td></tr>
-  <tr class="win"><td><b>井上弘</b></td><td>15</td><td>3</td><td>8</td><td><b>53%</b></td><td>1</td></tr>
-  <tr class="win"><td><b>福永敏</b></td><td>19</td><td><b class="r">7</b></td><td>8</td><td>42%</td><td>0</td></tr>
-  <tr><td>的場直</td><td>17</td><td>2</td><td>7</td><td>41%</td><td>1</td></tr>
-  <tr><td>藤田輝</td><td>15</td><td>0</td><td>6</td><td>40%</td><td>1</td></tr>
-  <tr><td>澤佳宏／高橋清／中道啓</td><td>15／12／12</td><td>2／1／1</td><td>5／4／4</td><td>33%</td><td>0</td></tr>
-  <tr><td>上杉昌</td><td>19</td><td>4</td><td>6</td><td>32%</td><td>0</td></tr>
-  <tr class="win"><td><b>市村誠</b></td><td>15</td><td>2</td><td>4</td><td>27%</td><td><b>2</b></td></tr>
-  <tr class="bad"><td>高岩孝／嶋田幸</td><td>12／14</td><td>各1</td><td>各1</td><td><b class="r">8%／7%</b></td><td>1／1</td></tr>
-  <tr class="bad"><td>小野晋／栗田裕／渡部則</td><td>15／16／12</td><td>0</td><td>1／1／0</td><td><b class="r">7%／6%／0%</b></td><td>1／0／0</td></tr>
+<div class="sec c-r">
+ <div class="sh">厩舎（12頭以上・34厩舎すべて）</div>
+ <table class="tight">
+  <tr><th>厩舎</th><th>頭</th><th>勝</th><th>3着内</th><th>複勝率</th><th>穴</th></tr>
+  <tr class="win"><td><b>吉井竜</b></td><td>12</td><td>1</td><td>7</td><td><b class="r">58%</b></td><td><b class="r">2</b></td></tr>
+  <tr class="win"><td><b>井上弘</b></td><td>15</td><td>3</td><td>8</td><td><b class="r">53%</b></td><td>1</td></tr>
+  <tr class="win"><td><b>福永敏</b></td><td>19</td><td>7</td><td>8</td><td><b class="r">42%</b></td><td>―</td></tr>
+  <tr class="win"><td><b>的場直</b></td><td>17</td><td>2</td><td>7</td><td><b class="r">41%</b></td><td>1</td></tr>
+  <tr class="win"><td><b>藤田輝</b></td><td>15</td><td>0</td><td>6</td><td><b class="r">40%</b></td><td>1</td></tr>
+  <tr><td><b>高橋清</b></td><td>12</td><td>1</td><td>4</td><td>33%</td><td>―</td></tr>
+  <tr><td><b>澤佳宏</b></td><td>15</td><td>2</td><td>5</td><td>33%</td><td>―</td></tr>
+  <tr><td><b>中道啓</b></td><td>12</td><td>1</td><td>4</td><td>33%</td><td>―</td></tr>
+  <tr><td><b>上杉昌</b></td><td>19</td><td>4</td><td>6</td><td>32%</td><td>―</td></tr>
+  <tr><td><b>橋本馬</b></td><td>16</td><td>1</td><td>5</td><td>31%</td><td>1</td></tr>
+  <tr><td><b>渡邉和</b></td><td>22</td><td>3</td><td>6</td><td>27%</td><td>―</td></tr>
+  <tr><td><b>蛯名雄</b></td><td>15</td><td>1</td><td>4</td><td>27%</td><td><b class="r">3</b></td></tr>
+  <tr><td><b>市村誠</b></td><td>15</td><td>2</td><td>4</td><td>27%</td><td><b class="r">2</b></td></tr>
+  <tr><td><b>佐宗応</b></td><td>15</td><td>2</td><td>4</td><td>27%</td><td><b class="r">2</b></td></tr>
+  <tr><td><b>鈴木啓</b></td><td>16</td><td>0</td><td>4</td><td>25%</td><td><b class="r">2</b></td></tr>
+  <tr><td><b>米田英</b></td><td>12</td><td>0</td><td>3</td><td>25%</td><td>―</td></tr>
+  <tr><td><b>月岡健</b></td><td>12</td><td>0</td><td>3</td><td>25%</td><td>1</td></tr>
+  <tr><td><b>鷹見浩</b></td><td>21</td><td>0</td><td>5</td><td>24%</td><td>1</td></tr>
+  <tr><td><b>松浦裕</b></td><td>17</td><td>2</td><td>4</td><td>24%</td><td>1</td></tr>
+  <tr><td><b>朝倉実</b></td><td>13</td><td>1</td><td>3</td><td>23%</td><td>―</td></tr>
+  <tr><td><b>村上頼</b></td><td>18</td><td>2</td><td>4</td><td>22%</td><td>―</td></tr>
+  <tr><td><b>佐野謙</b></td><td>15</td><td>0</td><td>3</td><td>20%</td><td>1</td></tr>
+  <tr><td><b>阪本一</b></td><td>18</td><td>1</td><td>3</td><td>17%</td><td>―</td></tr>
+  <tr><td><b>納谷和</b></td><td>12</td><td>0</td><td>2</td><td>17%</td><td>―</td></tr>
+  <tr><td><b>田中人</b></td><td>12</td><td>1</td><td>2</td><td>17%</td><td>―</td></tr>
+  <tr><td><b>久保隆</b></td><td>12</td><td>0</td><td>2</td><td>17%</td><td>―</td></tr>
+  <tr><td><b>立花伸</b></td><td>14</td><td>0</td><td>2</td><td>14%</td><td>―</td></tr>
+  <tr class="bad"><td><b>堀千亜</b></td><td>15</td><td>0</td><td>2</td><td><b class="r">13%</b></td><td>1</td></tr>
+  <tr class="bad"><td><b>宗形竹</b></td><td>17</td><td>0</td><td>2</td><td><b class="r">12%</b></td><td>1</td></tr>
+  <tr class="bad"><td><b>高岩孝</b></td><td>12</td><td>1</td><td>1</td><td><b class="r">8%</b></td><td>1</td></tr>
+  <tr class="bad"><td><b>嶋田幸</b></td><td>14</td><td>1</td><td>1</td><td><b class="r">7%</b></td><td>1</td></tr>
+  <tr class="bad"><td><b>小野晋</b></td><td>15</td><td>0</td><td>1</td><td><b class="r">7%</b></td><td>1</td></tr>
+  <tr class="bad"><td><b>栗田裕</b></td><td>16</td><td>0</td><td>1</td><td><b class="r">6%</b></td><td>―</td></tr>
+  <tr class="bad"><td><b>渡部則</b></td><td>12</td><td>0</td><td>0</td><td><b class="r">0%</b></td><td>―</td></tr>
  </table>
- <div class="note"><b class="r">福永敏厩舎は19頭で7勝（勝率37%）。この開催で突出している。</b>
- <b>市村誠は複勝率27%と並だが、4頭の3着内のうち2頭が6番人気以下。穴を出す厩舎。</b>
- <span class="c">嶋田幸・高岩孝は複勝率が最低クラスなのに、来た1頭がどちらも人気薄（平均9〜10番人気）。数は少ないが飛ぶときに飛ぶ。</span></div>
+ <div class="note"><b>「穴」＝6番人気以下での3着内。</b>
+ <b class="r">福永敏は19頭7勝（勝率37%）で突出。だが穴はゼロ。</b>
+ <b class="r">蛯名雄は複勝率27%で、3着内4頭のうち3頭が6番人気以下。この開催でいちばん穴を出した厩舎。</b>
+ <span class="c">市村誠・佐宗応・鈴木啓・吉井竜も穴2。下位5厩舎（高岩孝〜渡部則）は69頭で3着内4頭。</span></div>
 </div>
-
-<div class="sec">
- <div class="sh">血統 ─ 父（9頭以上）</div>
- <table>
-  <tr><th>父</th><th>頭数</th><th>勝</th><th>3着内</th><th>複勝率</th><th>6番人気以下での3着内</th></tr>
-  <tr class="win"><td><b>ダノンレジェンド</b></td><td>14</td><td>3</td><td>10</td><td><b class="r">71%</b></td><td><b>2</b></td></tr>
-  <tr class="win"><td><b>マジェスティックウォリアー</b></td><td>13</td><td>2</td><td>6</td><td>46%</td><td><b>2</b></td></tr>
-  <tr class="win"><td><b>ゴールドドリーム</b></td><td>13</td><td>0</td><td>6</td><td>46%</td><td><b>2</b></td></tr>
-  <tr><td>ホッコータルマエ</td><td>13</td><td>1</td><td>5</td><td>38%</td><td>0</td></tr>
-  <tr><td>シニスターミニスター</td><td>16</td><td>2</td><td>6</td><td>38%</td><td>0</td></tr>
-  <tr><td>ルヴァンスレーヴ</td><td>19</td><td>3</td><td>7</td><td>37%</td><td>0</td></tr>
-  <tr class="win"><td><b>インカンテーション</b></td><td>10</td><td>2</td><td>3</td><td>30%</td><td>1</td></tr>
-  <tr><td>エスポワールシチー</td><td>16</td><td>1</td><td>4</td><td>25%</td><td>0</td></tr>
-  <tr><td>モーニン</td><td>17</td><td>0</td><td>4</td><td>24%</td><td>0</td></tr>
-  <tr class="bad"><td><b>コパノリッキー</b></td><td>11</td><td>0</td><td><b class="r">0</b></td><td><b class="r">0%</b></td><td>0</td></tr>
-  <tr class="bad"><td><b>アジアエクスプレス</b></td><td>11</td><td>0</td><td><b class="r">0</b></td><td><b class="r">0%</b></td><td>0</td></tr>
-  <tr class="bad"><td><b>サトノアラジン</b></td><td>9</td><td>0</td><td><b class="r">0</b></td><td><b class="r">0%</b></td><td>0</td></tr>
- </table>
- <div class="note"><b class="r">ダノンレジェンド産駒は14頭で3着内10頭。この開催の父でいちばん濃い。</b>
- <b>逆にコパノリッキー・アジアエクスプレス・サトノアラジンは合計31頭走って3着内ゼロ。</b>
- <span class="c">インカンテーションは10頭で3着内3頭だが、勝った2頭の平均人気が6.0。数は出ないが出たときが大きい。</span></div>
-</div>
-
-<div class="sec">
- <div class="sh">血統 ─ 母父（9頭以上）</div>
- <table>
-  <tr><th>母父</th><th>頭数</th><th>勝</th><th>3着内</th><th>複勝率</th><th>6番人気以下での3着内</th></tr>
-  <tr class="win"><td><b>キングカメハメハ</b></td><td>20</td><td>4</td><td>9</td><td><b class="r">45%</b></td><td><b>3</b></td></tr>
-  <tr><td>ロージズインメイ</td><td>9</td><td>0</td><td>4</td><td>44%</td><td>1</td></tr>
-  <tr><td>サウスヴィグラス</td><td>18</td><td>2</td><td>7</td><td>39%</td><td>0</td></tr>
-  <tr class="win"><td><b>ゴールドアリュール</b></td><td>26</td><td>0</td><td>9</td><td>35%</td><td><b class="r">4</b></td></tr>
-  <tr class="win"><td><b>ワイルドラッシュ</b></td><td>9</td><td>2</td><td>3</td><td>33%</td><td><b>2</b></td></tr>
-  <tr><td>ネオユニヴァース／クロフネ</td><td>15／12</td><td>2／1</td><td>5／4</td><td>33%</td><td>0</td></tr>
-  <tr><td>ディープインパクト</td><td>28</td><td>3</td><td>8</td><td>29%</td><td>1</td></tr>
-  <tr><td>ステイゴールド</td><td>16</td><td>1</td><td>4</td><td>25%</td><td>0</td></tr>
-  <tr class="bad"><td>ハーツクライ</td><td>17</td><td>0</td><td>3</td><td><b class="r">18%</b></td><td>0</td></tr>
-  <tr class="bad"><td>ブライアンズタイム</td><td>13</td><td>0</td><td>2</td><td><b class="r">15%</b></td><td>0</td></tr>
-  <tr class="bad"><td>マンハッタンカフェ</td><td>10</td><td>0</td><td>1</td><td><b class="r">10%</b></td><td>0</td></tr>
-  <tr class="bad"><td><b>エンパイアメーカー</b></td><td>12</td><td>0</td><td>1</td><td><b class="r">8%</b></td><td>0</td></tr>
- </table>
- <div class="note"><b class="r">母父ゴールドアリュールは26頭で勝ちゼロなのに3着内9頭、うち4頭が6番人気以下。勝ち切らないが馬券に絡む。</b>
- <b>母父キングカメハメハは20頭で4勝・3着内9頭。勝った4頭の平均人気1.2で、こちらは人気で来る。</b>
- <span class="c">母父ワイルドラッシュは9頭中3頭が3着内で、うち2頭が6番人気以下。勝った2頭の平均人気6.5。</span></div>
 </div>
 
 <div class="big">
