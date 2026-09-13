@@ -1,0 +1,330 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+ *{margin:0;padding:0;box-sizing:border-box;font-family:'WenQuanYi Zen Hei','IPAGothic',sans-serif;}
+ body{background:#000;}
+ .card{width:1400px;position:relative;overflow:hidden;background:#12100e;padding:30px 34px 26px;}
+
+ /* 集中線 */
+ .lines{position:absolute;inset:-45% -14% -14% -14%;pointer-events:none;
+   background:repeating-conic-gradient(from 0deg at 50% 12%,
+     rgba(255,255,255,.13) 0deg 1.5deg, rgba(255,255,255,0) 1.5deg 5.6deg);}
+ /* 網点（ハーフトーン） */
+ .tone{position:absolute;inset:0;pointer-events:none;opacity:.5;
+   background-image:radial-gradient(rgba(255,255,255,.16) 1.6px, transparent 1.7px);
+   background-size:9px 9px;}
+ .inner{position:relative;}
+
+ .kicker{color:#ffd400;font-size:20px;font-weight:900;letter-spacing:2px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ .head{display:flex;align-items:center;gap:20px;margin-top:2px;height:170px;}
+ .gekiga{font-size:118px;font-weight:900;letter-spacing:-4px;line-height:1;
+   color:#e8232a;-webkit-text-stroke:22px #000;paint-order:stroke fill;
+   transform:skewX(-9deg) rotate(-3deg);
+   text-shadow:11px 11px 0 rgba(0,0,0,.85);}
+ .dateblk{flex:1;padding-left:16px;}
+ .dateblk .d1{color:#fff;font-size:46px;font-weight:900;letter-spacing:1px;
+   -webkit-text-stroke:10px #000;paint-order:stroke fill;transform:skewX(-6deg);display:inline-block;}
+ .dateblk .d2{color:#ffd400;font-size:26px;font-weight:900;margin-top:6px;
+   -webkit-text-stroke:6px #000;paint-order:stroke fill;}
+ .burst{width:164px;height:164px;flex:0 0 164px;background:#ffd400;
+   clip-path:polygon(50.00% 0.00%,55.09% 11.33%,62.94% 1.70%,64.92% 13.97%,75.00% 6.70%,73.74% 19.06%,85.36% 14.64%,80.94% 26.26%,93.30% 25.00%,86.03% 35.08%,98.30% 37.06%,88.67% 44.91%,100.00% 50.00%,88.67% 55.09%,98.30% 62.94%,86.03% 64.92%,93.30% 75.00%,80.94% 73.74%,85.36% 85.36%,73.74% 80.94%,75.00% 93.30%,64.92% 86.03%,62.94% 98.30%,55.09% 88.67%,50.00% 100.00%,44.91% 88.67%,37.06% 98.30%,35.08% 86.03%,25.00% 93.30%,26.26% 80.94%,14.64% 85.36%,19.06% 73.74%,6.70% 75.00%,13.97% 64.92%,1.70% 62.94%,11.33% 55.09%,0.00% 50.00%,11.33% 44.91%,1.70% 37.06%,13.97% 35.08%,6.70% 25.00%,19.06% 26.26%,14.64% 14.64%,26.26% 19.06%,25.00% 6.70%,35.08% 13.97%,37.06% 1.70%,44.91% 11.33%);display:flex;align-items:center;justify-content:center;
+   filter:drop-shadow(7px 7px 0 rgba(0,0,0,.8));}
+ .burst span{color:#111;font-size:31px;font-weight:900;line-height:1.1;text-align:center;
+   transform:rotate(-7deg);}
+
+ .lead{margin-top:12px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:12px 18px;color:#111;font-size:19px;font-weight:800;line-height:1.55;
+   box-shadow:9px 9px 0 rgba(0,0,0,.6);}
+ .lead .r{color:#e8232a;} .lead .b{color:#0d4d9c;}
+
+ .cols{display:flex;margin:18px 0 8px;padding:0 10px;color:#ffd400;font-size:16px;font-weight:900;
+   -webkit-text-stroke:4px #000;paint-order:stroke fill;}
+ .cR{flex:0 0 116px;} .cH{flex:0 0 434px;} .cA{flex:0 0 306px;} .cM{flex:1;}
+
+ .row{position:relative;display:flex;align-items:stretch;background:#fff;border:6px solid #000;
+   border-radius:3px;margin-bottom:14px;padding:14px 16px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .row .corner{position:absolute;left:0;top:0;bottom:0;width:116px;pointer-events:none;opacity:.45;
+   background-image:radial-gradient(rgba(0,0,0,.55) 1.5px, transparent 1.6px);background-size:7px 7px;}
+
+ .rN{flex:0 0 116px;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;}
+ .rN .n{color:#e8232a;font-size:44px;font-weight:900;line-height:1;
+   -webkit-text-stroke:7px #000;paint-order:stroke fill;transform:skewX(-8deg);}
+ .rN .d{color:#111;font-size:13px;font-weight:900;margin-top:6px;background:#ffd400;
+   border:2px solid #000;padding:1px 5px;}
+
+ .hm{flex:0 0 434px;display:flex;align-items:center;gap:10px;padding-left:8px;}
+ .at{flex:0 0 306px;display:flex;align-items:center;gap:9px;}
+ .mk{font-size:36px;font-weight:900;color:#e8232a;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .mk2{font-size:34px;font-weight:900;color:#0d4d9c;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .nm{font-size:27px;font-weight:900;color:#111;letter-spacing:0;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .nm2{font-size:25px;font-weight:900;color:#111;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .sb{width:68px;height:68px;flex:0 0 68px;background:#ffd400;clip-path:polygon(50.00% 0.00%,56.63% 16.65%,69.13% 3.81%,68.89% 21.73%,85.36% 14.64%,78.27% 31.11%,96.19% 30.87%,83.35% 43.37%,100.00% 50.00%,83.35% 56.63%,96.19% 69.13%,78.27% 68.89%,85.36% 85.36%,68.89% 78.27%,69.13% 96.19%,56.63% 83.35%,50.00% 100.00%,43.37% 83.35%,30.87% 96.19%,31.11% 78.27%,14.64% 85.36%,21.73% 68.89%,3.81% 69.13%,16.65% 56.63%,0.00% 50.00%,16.65% 43.37%,3.81% 30.87%,21.73% 31.11%,14.64% 14.64%,31.11% 21.73%,30.87% 3.81%,43.37% 16.65%);
+   display:flex;align-items:center;justify-content:center;margin-right:-4px;}
+ .sb span{color:#111;font-size:20px;font-weight:900;transform:rotate(-10deg);}
+
+ .memo{flex:1;color:#1b1b1b;font-size:14px;line-height:1.6;padding-left:14px;
+   border-left:4px solid #000;align-self:center;}
+ .memo b{color:#0d4d9c;} .memo b.r{color:#e8232a;}
+
+ .foot{position:relative;margin-top:6px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:18px 24px;color:#111;font-size:21px;font-weight:900;line-height:1.6;
+   box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .foot .r{color:#e8232a;} .foot .b{color:#0d4d9c;}
+ .yell{position:absolute;right:-6px;top:-52px;background:#ffd400;border:5px solid #000;
+   padding:6px 16px;font-size:26px;font-weight:900;color:#111;transform:rotate(-4deg);
+   box-shadow:6px 6px 0 rgba(0,0,0,.7);}
+ .sig{text-align:right;color:#ffd400;font-size:18px;font-weight:900;margin-top:20px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ /* ---- 表・囲み（劇画スキン） ---- */
+ .sec{margin-top:20px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:20px 24px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .sh{color:#111;font-size:31px;font-weight:900;margin-bottom:14px;display:inline-block;
+   transform:skewX(-5deg);border-bottom:7px solid #e8232a;padding-bottom:3px;}
+ table{width:100%;border-collapse:collapse;margin-top:8px;}
+ th{background:#111;color:#ffd400;font-size:20px;font-weight:900;padding:9px 5px;border:2px solid #000;}
+ td{font-size:22px;font-weight:800;color:#111;padding:10px 5px;border:2px solid #000;text-align:center;}
+ td.l{text-align:left;} td.lap{font-size:19px;font-family:monospace;letter-spacing:-.5px;}
+ tr.hi td{background:#ffe9a8;} tr.bad td{background:#ffdcdc;color:#a11100;} tr.win td{background:#d9ecd9;}
+ .note{margin-top:15px;color:#1b1b1b;font-size:20px;font-weight:800;line-height:1.62;}
+ .note b{color:#0d4d9c;} .note b.r{color:#e8232a;}
+ .big{margin-top:20px;background:#111;border:6px solid #ffd400;border-radius:3px;
+   padding:22px 26px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .big .bh{color:#ffd400;font-size:31px;font-weight:900;margin-bottom:15px;}
+ .big .it{color:#fff;font-size:23px;font-weight:800;line-height:1.62;margin-bottom:13px;}
+ .big .it:last-child{margin-bottom:0;}
+ .big .no{color:#ffd400;font-size:27px;font-weight:900;}
+ .big .y{color:#ffd400;} .big .c{color:#8fd9ff;} .big .r{color:#ff9b9b;}
+ .dateblk .d1{font-size:42px;}
+</style></head>
+<body><div class="card"><div class="lines"></div><div class="tone"></div><div class="inner">
+<div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>
+<div class="head"><div class="gekiga">大井</div><div class="dateblk"><div class="d1">ローテーション・血統・騎手・厩舎・馬体重・年齢</div><div class="d2">前開催60鞍690頭／馬券になった180頭の側から見る</div></div><div class="burst"><span>6項目<br>分解</span></div></div>
+
+<div class="lead"><span class="b">前開催60鞍・690頭のうち、3着内に入った180頭を「どういう馬だったか」で割った。</span>
+<span class="r">見るのは率じゃない。<b>馬券になった馬の何%がそれだったか</b>を、出走全体の比率と並べる。</span>
+<span class="b">ズレている項目だけが、意味を持つ。</span></div>
+
+<div class="sec">
+ <div class="sh">ローテーション ─ 出走間隔</div>
+ <table>
+  <tr><th>間隔</th><th>3着内180頭に<br>占める割合</th><th>出走690頭に<br>占める割合</th><th>ズレ</th><th>3着内率</th></tr>
+  <tr><td>中14〜20日</td><td>56%（100頭）</td><td>64%</td><td><b class="r">−8</b></td><td>23%</td></tr>
+  <tr><td>中21〜27日</td><td>10%（18頭）</td><td>10%</td><td>±0</td><td>27%</td></tr>
+  <tr class="win"><td><b>中28〜44日</b></td><td>7%（12頭）</td><td>6%</td><td><b>+1</b></td><td><b>29%</b></td></tr>
+  <tr class="win"><td><b>中45〜59日</b></td><td>3%（5頭）</td><td>2%</td><td><b>+1</b></td><td><b>31%</b></td></tr>
+  <tr class="win"><td><b>中60〜89日</b></td><td>6%（11頭）</td><td>4%</td><td><b class="r">+2</b></td><td><b class="r">39%</b></td></tr>
+  <tr class="win"><td><b>中90日以上</b></td><td>12%（22頭）</td><td>10%</td><td><b>+2</b></td><td><b>33%</b></td></tr>
+ </table>
+ <div class="note"><b class="r">中60日以上の休み明けは94頭で3着内33頭（35%）、勝ちは16。60鞍のうち16鞍を休み明けが勝っている。</b>
+ <b>川崎とは逆。大井は使い込んだ馬より、間隔の空いた馬が走る。</b>
+ <span class="c">休み明けの中身：前走3着以内だった28頭は3着内64%、前走6着以下の47頭は19%。<b>休み明けは前走の着順で割れる。</b></span></div>
+</div>
+
+<div class="sec">
+ <div class="sh">ローテーション ─ 距離替わり</div>
+ <table>
+  <tr><th>替わり方</th><th>3着内に占める割合</th><th>出走全体</th><th>ズレ</th><th>3着内率</th></tr>
+  <tr class="win"><td><b>同距離</b></td><td><b>59%（107頭）</b></td><td>54%</td><td><b>+5</b></td><td><b>29%</b></td></tr>
+  <tr><td>延長（+200以内）</td><td>13%（23頭）</td><td>15%</td><td>−2</td><td>22%</td></tr>
+  <tr><td>延長（+300以上）</td><td>5%（9頭）</td><td>6%</td><td>−1</td><td>21%</td></tr>
+  <tr><td>短縮（−200以内）</td><td>13%（23頭）</td><td>14%</td><td>−1</td><td>24%</td></tr>
+  <tr class="bad"><td><b>短縮（−300以上）</b></td><td><b class="r">3%（5頭）</b></td><td>7%</td><td><b class="r">−4</b></td><td><b class="r">11%</b></td></tr>
+ </table>
+ <div class="note"><b class="r">大幅な距離短縮は効かない。−300以上の46頭で3着内はたった5頭。</b>
+ <b>大井は「同じ距離を続けて使っている馬」が中心。距離をいじった馬ではない。</b></div>
+</div>
+
+<div class="sec">
+ <div class="sh">間隔 × 距離替わり</div>
+ <table>
+  <tr><th>組み合わせ</th><th>頭数</th><th>3着内率</th></tr>
+  <tr class="win"><td><b>中28日以上 × 同距離</b></td><td>86頭</td><td><b class="r">36%</b></td></tr>
+  <tr class="win"><td>中28日以上 × 短縮</td><td>33頭</td><td><b>33%</b></td></tr>
+  <tr><td>中27日以内 × 同距離</td><td>289頭</td><td>26%</td></tr>
+  <tr><td>中28日以上 × 延長</td><td>33頭</td><td>24%</td></tr>
+  <tr><td>中27日以内 × 延長</td><td>112頭</td><td>22%</td></tr>
+  <tr class="bad"><td><b>中27日以内 × 短縮</b></td><td>112頭</td><td><b class="r">15%</b></td></tr>
+ </table>
+ <div class="note"><b class="r">いちばん上（36%）といちばん下（15%）で2.4倍。掛け合わせると差が開く。</b>
+ <b>「間隔が空いた × 同じ距離」が大井の芯。「詰めて使って距離を詰めた」が最も来ない。</b></div>
+</div>
+
+<div class="sec">
+ <div class="sh">馬体重</div>
+ <table>
+  <tr><th>馬体重</th><th>3着内に占める割合</th><th>出走全体</th><th>ズレ</th><th>3着内率</th><th>勝ち</th></tr>
+  <tr class="bad"><td>419kg以下</td><td>2%（4頭）</td><td>4%</td><td><b class="r">−2</b></td><td><b class="r">13%</b></td><td>1</td></tr>
+  <tr class="bad"><td>420〜439kg</td><td>6%（10頭）</td><td>9%</td><td><b class="r">−3</b></td><td><b class="r">16%</b></td><td>1</td></tr>
+  <tr><td>440〜459kg</td><td>18%（33頭）</td><td>21%</td><td>−3</td><td>23%</td><td>12</td></tr>
+  <tr class="win"><td><b>460〜479kg</b></td><td><b>31%（56頭）</b></td><td>26%</td><td><b class="r">+5</b></td><td><b>32%</b></td><td><b>21</b></td></tr>
+  <tr><td>480〜499kg</td><td>19%（35頭）</td><td>20%</td><td>−1</td><td>26%</td><td>11</td></tr>
+  <tr class="win"><td><b>500〜519kg</b></td><td><b>18%（32頭）</b></td><td>13%</td><td><b class="r">+5</b></td><td><b class="r">35%</b></td><td>10</td></tr>
+  <tr><td>520kg以上</td><td>6%（10頭）</td><td>7%</td><td>−1</td><td>20%</td><td>4</td></tr>
+ </table>
+ <div class="note"><b class="r">460〜519kgのゾーンが、3着内の49%を占めている（出走全体では39%）。</b>
+ <b>439kg以下は出走の13%いて、3着内は8%、勝ちは60鞍で2つだけ。</b>
+ <span class="c">距離別の中央値は1200で468kg、1400で473kg、1600で475kg、1800で474kg。<b>距離が延びても求められる体は変わらない。</b></span></div>
+</div>
+
+<div class="sec">
+ <div class="sh">年齢</div>
+ <table>
+  <tr><th>年齢</th><th>3着内に占める割合</th><th>出走全体</th><th>ズレ</th><th>3着内率</th><th>勝ち</th></tr>
+  <tr class="win"><td><b>2歳</b></td><td><b>17%（30頭）</b></td><td>10%</td><td><b class="r">+7</b></td><td><b class="r">42%</b></td><td>10</td></tr>
+  <tr><td>3歳</td><td>27%（48頭）</td><td>29%</td><td>−2</td><td>24%</td><td>17</td></tr>
+  <tr class="bad"><td>4歳</td><td>21%（38頭）</td><td>26%</td><td><b class="r">−5</b></td><td><b class="r">21%</b></td><td>9</td></tr>
+  <tr class="win"><td><b>5歳</b></td><td><b>21%（38頭）</b></td><td>16%</td><td><b class="r">+5</b></td><td><b>35%</b></td><td><b>15</b></td></tr>
+  <tr><td>6歳</td><td>9%（17頭）</td><td>10%</td><td>−1</td><td>25%</td><td>6</td></tr>
+  <tr class="bad"><td>7歳</td><td>4%（8頭）</td><td>6%</td><td>−2</td><td>21%</td><td>2</td></tr>
+  <tr class="bad"><td><b>8歳以上</b></td><td><b class="r">1%（1頭）</b></td><td>4%</td><td><b class="r">−3</b></td><td><b class="r">4%</b></td><td>1</td></tr>
+ </table>
+ <div class="note"><b class="r">馬券になった馬でいちばんズレているのが2歳（+7）と5歳（+5）。4歳がいちばんマイナス（−5）。</b>
+ <b>8歳以上は27頭走って3着内1頭。ここは機械的に消せる。</b>
+ <span class="c">年齢×体重では、6歳以上 かつ 439kg以下 の13頭で3着内2頭・勝ちゼロ。<b>年を取って小さい馬は買えない。</b></span></div>
+</div>
+
+<div class="sec">
+ <div class="sh">騎手（12騎乗以上）</div>
+ <table>
+  <tr><th>騎手</th><th>騎乗</th><th>勝</th><th>3着内</th><th>複勝率</th><th>6番人気以下での3着内</th><th>1着の平均人気</th></tr>
+  <tr class="win"><td><b>安藤洋</b></td><td>23</td><td>5</td><td>12</td><td><b class="r">52%</b></td><td><b class="r">3</b></td><td>1.6</td></tr>
+  <tr class="win"><td><b>笹川翼</b></td><td>36</td><td>4</td><td>17</td><td><b>47%</b></td><td>0</td><td>1.5</td></tr>
+  <tr class="win"><td><b>本田重</b></td><td>24</td><td>5</td><td>11</td><td><b>46%</b></td><td><b class="r">4</b></td><td><b>3.2</b></td></tr>
+  <tr><td>☆中山遥</td><td>21</td><td>1</td><td>8</td><td>38%</td><td>2</td><td>3.0</td></tr>
+  <tr class="win"><td><b>藤本現</b></td><td>34</td><td>1</td><td>12</td><td>35%</td><td>2</td><td><b class="r">5.0</b></td></tr>
+  <tr><td>吉井章</td><td>26</td><td>2</td><td>9</td><td>35%</td><td>0</td><td>1.5</td></tr>
+  <tr><td>和田譲</td><td>31</td><td>6</td><td>10</td><td>32%</td><td>0</td><td>1.8</td></tr>
+  <tr><td>岡村健</td><td>16</td><td>4</td><td>5</td><td>31%</td><td>1</td><td>4.0</td></tr>
+  <tr class="win"><td><b>達城龍</b></td><td>32</td><td>1</td><td>10</td><td>31%</td><td>1</td><td><b class="r">5.0</b></td></tr>
+  <tr class="bad"><td>▲高橋優</td><td>16</td><td>1</td><td>2</td><td>12%</td><td>2</td><td>6.0</td></tr>
+  <tr class="bad"><td>町田直／▲小野俊</td><td>各12</td><td>0</td><td>各1</td><td><b class="r">8%</b></td><td>0</td><td>―</td></tr>
+  <tr class="bad"><td>東原悠／☆谷内貫</td><td>14／16</td><td>0／1</td><td>各1</td><td><b class="r">7%／6%</b></td><td>1／0</td><td>―</td></tr>
+ </table>
+ <div class="note"><b class="r">複勝率が高い騎手と、人気薄で持ってくる騎手は別。</b>
+ <b>安藤洋・本田重は両方。藤本現と達城龍は複勝率こそ31〜35%だが、勝った時の平均人気が5.0でいちばん高い。</b>
+ <span class="c">笹川翼・吉井章・和田譲は複勝率は高いが、6番人気以下での3着内がゼロ。人気を背負って順当に来るタイプ。</span></div>
+</div>
+
+<div class="sec">
+ <div class="sh">厩舎（12頭以上）</div>
+ <table>
+  <tr><th>厩舎</th><th>頭数</th><th>勝</th><th>3着内</th><th>複勝率</th><th>6番人気以下での3着内</th></tr>
+  <tr class="win"><td><b>吉井竜</b></td><td>12</td><td>1</td><td>7</td><td><b class="r">58%</b></td><td><b>2</b></td></tr>
+  <tr class="win"><td><b>井上弘</b></td><td>15</td><td>3</td><td>8</td><td><b>53%</b></td><td>1</td></tr>
+  <tr class="win"><td><b>福永敏</b></td><td>19</td><td><b class="r">7</b></td><td>8</td><td>42%</td><td>0</td></tr>
+  <tr><td>的場直</td><td>17</td><td>2</td><td>7</td><td>41%</td><td>1</td></tr>
+  <tr><td>藤田輝</td><td>15</td><td>0</td><td>6</td><td>40%</td><td>1</td></tr>
+  <tr><td>澤佳宏／高橋清／中道啓</td><td>15／12／12</td><td>2／1／1</td><td>5／4／4</td><td>33%</td><td>0</td></tr>
+  <tr><td>上杉昌</td><td>19</td><td>4</td><td>6</td><td>32%</td><td>0</td></tr>
+  <tr class="win"><td><b>市村誠</b></td><td>15</td><td>2</td><td>4</td><td>27%</td><td><b>2</b></td></tr>
+  <tr class="bad"><td>高岩孝／嶋田幸</td><td>12／14</td><td>各1</td><td>各1</td><td><b class="r">8%／7%</b></td><td>1／1</td></tr>
+  <tr class="bad"><td>小野晋／栗田裕／渡部則</td><td>15／16／12</td><td>0</td><td>1／1／0</td><td><b class="r">7%／6%／0%</b></td><td>1／0／0</td></tr>
+ </table>
+ <div class="note"><b class="r">福永敏厩舎は19頭で7勝（勝率37%）。この開催で突出している。</b>
+ <b>市村誠は複勝率27%と並だが、4頭の3着内のうち2頭が6番人気以下。穴を出す厩舎。</b>
+ <span class="c">嶋田幸・高岩孝は複勝率が最低クラスなのに、来た1頭がどちらも人気薄（平均9〜10番人気）。数は少ないが飛ぶときに飛ぶ。</span></div>
+</div>
+
+<div class="sec">
+ <div class="sh">血統 ─ 父（9頭以上）</div>
+ <table>
+  <tr><th>父</th><th>頭数</th><th>勝</th><th>3着内</th><th>複勝率</th><th>6番人気以下での3着内</th></tr>
+  <tr class="win"><td><b>ダノンレジェンド</b></td><td>14</td><td>3</td><td>10</td><td><b class="r">71%</b></td><td><b>2</b></td></tr>
+  <tr class="win"><td><b>マジェスティックウォリアー</b></td><td>13</td><td>2</td><td>6</td><td>46%</td><td><b>2</b></td></tr>
+  <tr class="win"><td><b>ゴールドドリーム</b></td><td>13</td><td>0</td><td>6</td><td>46%</td><td><b>2</b></td></tr>
+  <tr><td>ホッコータルマエ</td><td>13</td><td>1</td><td>5</td><td>38%</td><td>0</td></tr>
+  <tr><td>シニスターミニスター</td><td>16</td><td>2</td><td>6</td><td>38%</td><td>0</td></tr>
+  <tr><td>ルヴァンスレーヴ</td><td>19</td><td>3</td><td>7</td><td>37%</td><td>0</td></tr>
+  <tr class="win"><td><b>インカンテーション</b></td><td>10</td><td>2</td><td>3</td><td>30%</td><td>1</td></tr>
+  <tr><td>エスポワールシチー</td><td>16</td><td>1</td><td>4</td><td>25%</td><td>0</td></tr>
+  <tr><td>モーニン</td><td>17</td><td>0</td><td>4</td><td>24%</td><td>0</td></tr>
+  <tr class="bad"><td><b>コパノリッキー</b></td><td>11</td><td>0</td><td><b class="r">0</b></td><td><b class="r">0%</b></td><td>0</td></tr>
+  <tr class="bad"><td><b>アジアエクスプレス</b></td><td>11</td><td>0</td><td><b class="r">0</b></td><td><b class="r">0%</b></td><td>0</td></tr>
+  <tr class="bad"><td><b>サトノアラジン</b></td><td>9</td><td>0</td><td><b class="r">0</b></td><td><b class="r">0%</b></td><td>0</td></tr>
+ </table>
+ <div class="note"><b class="r">ダノンレジェンド産駒は14頭で3着内10頭。この開催の父でいちばん濃い。</b>
+ <b>逆にコパノリッキー・アジアエクスプレス・サトノアラジンは合計31頭走って3着内ゼロ。</b>
+ <span class="c">インカンテーションは10頭で3着内3頭だが、勝った2頭の平均人気が6.0。数は出ないが出たときが大きい。</span></div>
+</div>
+
+<div class="sec">
+ <div class="sh">血統 ─ 母父（9頭以上）</div>
+ <table>
+  <tr><th>母父</th><th>頭数</th><th>勝</th><th>3着内</th><th>複勝率</th><th>6番人気以下での3着内</th></tr>
+  <tr class="win"><td><b>キングカメハメハ</b></td><td>20</td><td>4</td><td>9</td><td><b class="r">45%</b></td><td><b>3</b></td></tr>
+  <tr><td>ロージズインメイ</td><td>9</td><td>0</td><td>4</td><td>44%</td><td>1</td></tr>
+  <tr><td>サウスヴィグラス</td><td>18</td><td>2</td><td>7</td><td>39%</td><td>0</td></tr>
+  <tr class="win"><td><b>ゴールドアリュール</b></td><td>26</td><td>0</td><td>9</td><td>35%</td><td><b class="r">4</b></td></tr>
+  <tr class="win"><td><b>ワイルドラッシュ</b></td><td>9</td><td>2</td><td>3</td><td>33%</td><td><b>2</b></td></tr>
+  <tr><td>ネオユニヴァース／クロフネ</td><td>15／12</td><td>2／1</td><td>5／4</td><td>33%</td><td>0</td></tr>
+  <tr><td>ディープインパクト</td><td>28</td><td>3</td><td>8</td><td>29%</td><td>1</td></tr>
+  <tr><td>ステイゴールド</td><td>16</td><td>1</td><td>4</td><td>25%</td><td>0</td></tr>
+  <tr class="bad"><td>ハーツクライ</td><td>17</td><td>0</td><td>3</td><td><b class="r">18%</b></td><td>0</td></tr>
+  <tr class="bad"><td>ブライアンズタイム</td><td>13</td><td>0</td><td>2</td><td><b class="r">15%</b></td><td>0</td></tr>
+  <tr class="bad"><td>マンハッタンカフェ</td><td>10</td><td>0</td><td>1</td><td><b class="r">10%</b></td><td>0</td></tr>
+  <tr class="bad"><td><b>エンパイアメーカー</b></td><td>12</td><td>0</td><td>1</td><td><b class="r">8%</b></td><td>0</td></tr>
+ </table>
+ <div class="note"><b class="r">母父ゴールドアリュールは26頭で勝ちゼロなのに3着内9頭、うち4頭が6番人気以下。勝ち切らないが馬券に絡む。</b>
+ <b>母父キングカメハメハは20頭で4勝・3着内9頭。勝った4頭の平均人気1.2で、こちらは人気で来る。</b>
+ <span class="c">母父ワイルドラッシュは9頭中3頭が3着内で、うち2頭が6番人気以下。勝った2頭の平均人気6.5。</span></div>
+</div>
+
+<div class="big">
+ <div class="bh">ここまでを一行ずつに</div>
+ <div class="it"><span class="no">1.</span> <span class="y">大井は「間隔が空いて、同じ距離を使う馬」。</span>
+ <span class="c">中28日以上 × 同距離が36%、中27日以内 × 短縮が15%。<b class="r">この2つで2.4倍ひらく。</b></span>
+ <span class="b">川崎の「使い込んで仕上がった馬」とは逆の見方になる。</span></div>
+ <div class="it"><span class="no">2.</span> <span class="y">体は460〜519kg。439kg以下は消す。</span>
+ <span class="c">460〜519kgが3着内の49%（出走では39%）。439kg以下は60鞍で2勝しかしていない。</span></div>
+ <div class="it"><span class="no">3.</span> <span class="y">年齢は2歳と5歳が浮いて、4歳が沈む。8歳以上は消す。</span>
+ <span class="c">2歳は3着内率42%、5歳は35%。4歳は26%走って21%しか来ていない。8歳以上は27頭で3着内1頭。</span></div>
+ <div class="it"><span class="no">4.</span> <span class="y">人気薄を持ってくる騎手は限られる。</span>
+ <span class="c"><b class="r">本田重4・安藤洋3・☆中山遥2・藤本現2・▲高橋優2。</b>この5人で6番人気以下の3着内の半分近くを占める。</span>
+ <span class="b">笹川翼・吉井章・和田譲は複勝率は高いが、人気薄では来ていない。</span></div>
+ <div class="it"><span class="no">5.</span> <span class="y">厩舎は福永敏が勝ち切り、市村誠が穴を出す。</span>
+ <span class="c">福永敏は19頭で7勝。市村誠は3着内4頭のうち2頭が6番人気以下。</span></div>
+ <div class="it"><span class="no">6.</span> <span class="y">血統は父ダノンレジェンド、母父ゴールドアリュール。</span>
+ <span class="c">父ダノンレジェンドは複勝率71%。<b class="r">母父ゴールドアリュールは勝ちゼロで3着内9頭・うち穴4頭。頭ではなくヒモ。</b></span>
+ <span class="b">父コパノリッキー・アジアエクスプレス・サトノアラジンは31頭で3着内ゼロ。</span></div>
+</div>
+
+<div class="sec">
+ <div class="sh">9/14 7R以降 ─ この6項目が重なっている馬</div>
+ <table>
+  <tr><th>R</th><th>重なりが多い順</th></tr>
+  <tr class="win"><td><b>7R</b></td><td><b class="r">⑦ルビーギャラクシー</b>（中11・同距離・503kg・4歳・吉井章・父ゴールドドリーム）<br>
+  ⑪ザゴート（中28・同距離）／⑫キャットデイ（同距離・澤佳宏厩舎）<br>
+  <span class="c">消し寄り：⑥アジアンゴールド（短縮・435kg・父アジアエクスプレス）／⑤パレルモフレイバー（7歳）</span></td></tr>
+  <tr class="win"><td><b>8R</b></td><td><b class="r">④アイアンバイブル</b>（休み明け中119・同距離・508kg・本田重・福永敏厩舎）<br>
+  <b class="r">⑤モナミ</b>（休み明け中207・486kg・和田譲・父ホッコータルマエ・母父ワイルドラッシュ）<br>
+  ①ヨリナスウィート（休み明け中118・同距離・495kg・父シニスターミニスター）／⑥カーラエスメラルダ（同距離・5歳・安藤洋）<br>
+  <span class="c">消し寄り：⑨ウエノマルサンダー（386kg）／③エスカラムサ（1600m→800m幅の大幅短縮）</span></td></tr>
+  <tr><td><b>9R</b></td><td>⑦ヨシノリラ（休み明け中137・同距離・494kg）／⑥ベクトルマッハ（516kg・上杉昌厩舎）<br>
+  ①コイゴロモ（同距離・母父ゴールドアリュール）／⑩ペイルムーン（5歳・達城龍）<br>
+  <span class="c">消し寄り：④トーセンアマンダ・⑪エムオーナイナー・⑨ゴールデンオージャ（いずれも8歳）／⑤ジルクン（421kg）</span></td></tr>
+  <tr class="win"><td><b>10R</b></td><td><b class="r">⑤シンクグッド</b>（515kg・5歳・福永敏厩舎）<br>
+  ①ケンオーシャン（藤本現・高橋清厩舎・父ホッコータルマエ）／③ノンフィクション（同距離・3歳・吉井章・的場直厩舎）<br>
+  ②ツートンショコラ（497kg・5歳・和田譲）<br>
+  <span class="c">消し寄り：⑥マイネルイージス（7歳）／⑩エコロタイタン（7歳・父コパノリッキー）</span></td></tr>
+  <tr class="win"><td><b>11R</b></td><td><b class="r">⑯グラスグリード</b>（中30・同距離・472kg・笹川翼・上杉昌厩舎・父ホッコータルマエ）<br>
+  <b class="r">①シャープムスタング</b>（中54・475kg・安藤洋・母父クロフネ）／<b class="r">⑤ゴールデンクラウン</b>（休み明け中325・515kg・5歳・父シニスターミニスター）<br>
+  ③オリージネアリア（本田重・福永敏厩舎・母父ゴールドアリュール）／⑮ナインエスクァイア（休み明け中98・483kg・和田譲・母父ゴールドアリュール）<br>
+  ⑬コーラルキング（中31・同距離・487kg）／⑪ココナッツガーデン（父ダノンレジェンド・母父ワイルドラッシュ）<br>
+  <span class="c">消し寄り：⑩スミソニアン（8歳）／⑭ベンテイガ（7歳・母父ブライアンズタイム）</span></td></tr>
+  <tr class="win"><td><b>12R</b></td><td>⑨ニシノシークレット（509kg・達城龍・市村誠厩舎・母父サウスヴィグラス）／⑫ロンギングタイム（508kg・吉井章・的場直厩舎）<br>
+  ②ベイビーゲート（本田重・父シニスターミニスター）／⑧ハイケンス（中29・同距離・5歳）<br>
+  <span class="c">消し寄り：⑪オーサムデアラー（+400の延長・父マインドユアビスケッツ）／①⑦⑩（436〜439kg）</span></td></tr>
+ </table>
+ <div class="note"><b class="r">8Rは10頭中4頭が中118日以上の休み明け。大井でいちばん効く形が、いちばん濃く出ている鞍。</b>
+ <b>11Rは16頭立てで、間隔・体重・血統・騎手のどれかが重なる馬が7頭いる。</b>
+ <span class="c">9Rは8歳が3頭。前開催で8歳以上は27頭走って3着内1頭だった。</span></div>
+</div>
+
+<div class="big">
+ <div class="bh">組むときに</div>
+ <div class="it"><span class="no">◆</span> <span class="y">この条件が向いている。</span></div>
+</div>
+
+<div class="sig">変態か、変態以外か。</div>
+</div></div></body></html>
