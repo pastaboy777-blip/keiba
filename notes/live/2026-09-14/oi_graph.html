@@ -1,0 +1,154 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+ *{margin:0;padding:0;box-sizing:border-box;font-family:'WenQuanYi Zen Hei','IPAGothic',sans-serif;}
+ body{background:#000;}
+ .card{width:1400px;position:relative;overflow:hidden;background:#12100e;padding:30px 34px 26px;}
+
+ /* 集中線 */
+ .lines{position:absolute;inset:-45% -14% -14% -14%;pointer-events:none;
+   background:repeating-conic-gradient(from 0deg at 50% 12%,
+     rgba(255,255,255,.13) 0deg 1.5deg, rgba(255,255,255,0) 1.5deg 5.6deg);}
+ /* 網点（ハーフトーン） */
+ .tone{position:absolute;inset:0;pointer-events:none;opacity:.5;
+   background-image:radial-gradient(rgba(255,255,255,.16) 1.6px, transparent 1.7px);
+   background-size:9px 9px;}
+ .inner{position:relative;}
+
+ .kicker{color:#ffd400;font-size:20px;font-weight:900;letter-spacing:2px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ .head{display:flex;align-items:center;gap:20px;margin-top:2px;height:170px;}
+ .gekiga{font-size:118px;font-weight:900;letter-spacing:-4px;line-height:1;
+   color:#e8232a;-webkit-text-stroke:22px #000;paint-order:stroke fill;
+   transform:skewX(-9deg) rotate(-3deg);
+   text-shadow:11px 11px 0 rgba(0,0,0,.85);}
+ .dateblk{flex:1;padding-left:16px;}
+ .dateblk .d1{color:#fff;font-size:46px;font-weight:900;letter-spacing:1px;
+   -webkit-text-stroke:10px #000;paint-order:stroke fill;transform:skewX(-6deg);display:inline-block;}
+ .dateblk .d2{color:#ffd400;font-size:26px;font-weight:900;margin-top:6px;
+   -webkit-text-stroke:6px #000;paint-order:stroke fill;}
+ .burst{width:164px;height:164px;flex:0 0 164px;background:#ffd400;
+   clip-path:polygon(50.00% 0.00%,55.09% 11.33%,62.94% 1.70%,64.92% 13.97%,75.00% 6.70%,73.74% 19.06%,85.36% 14.64%,80.94% 26.26%,93.30% 25.00%,86.03% 35.08%,98.30% 37.06%,88.67% 44.91%,100.00% 50.00%,88.67% 55.09%,98.30% 62.94%,86.03% 64.92%,93.30% 75.00%,80.94% 73.74%,85.36% 85.36%,73.74% 80.94%,75.00% 93.30%,64.92% 86.03%,62.94% 98.30%,55.09% 88.67%,50.00% 100.00%,44.91% 88.67%,37.06% 98.30%,35.08% 86.03%,25.00% 93.30%,26.26% 80.94%,14.64% 85.36%,19.06% 73.74%,6.70% 75.00%,13.97% 64.92%,1.70% 62.94%,11.33% 55.09%,0.00% 50.00%,11.33% 44.91%,1.70% 37.06%,13.97% 35.08%,6.70% 25.00%,19.06% 26.26%,14.64% 14.64%,26.26% 19.06%,25.00% 6.70%,35.08% 13.97%,37.06% 1.70%,44.91% 11.33%);display:flex;align-items:center;justify-content:center;
+   filter:drop-shadow(7px 7px 0 rgba(0,0,0,.8));}
+ .burst span{color:#111;font-size:31px;font-weight:900;line-height:1.1;text-align:center;
+   transform:rotate(-7deg);}
+
+ .lead{margin-top:12px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:12px 18px;color:#111;font-size:19px;font-weight:800;line-height:1.55;
+   box-shadow:9px 9px 0 rgba(0,0,0,.6);}
+ .lead .r{color:#e8232a;} .lead .b{color:#0d4d9c;}
+
+ .cols{display:flex;margin:18px 0 8px;padding:0 10px;color:#ffd400;font-size:16px;font-weight:900;
+   -webkit-text-stroke:4px #000;paint-order:stroke fill;}
+ .cR{flex:0 0 116px;} .cH{flex:0 0 434px;} .cA{flex:0 0 306px;} .cM{flex:1;}
+
+ .row{position:relative;display:flex;align-items:stretch;background:#fff;border:6px solid #000;
+   border-radius:3px;margin-bottom:14px;padding:14px 16px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .row .corner{position:absolute;left:0;top:0;bottom:0;width:116px;pointer-events:none;opacity:.45;
+   background-image:radial-gradient(rgba(0,0,0,.55) 1.5px, transparent 1.6px);background-size:7px 7px;}
+
+ .rN{flex:0 0 116px;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;}
+ .rN .n{color:#e8232a;font-size:44px;font-weight:900;line-height:1;
+   -webkit-text-stroke:7px #000;paint-order:stroke fill;transform:skewX(-8deg);}
+ .rN .d{color:#111;font-size:13px;font-weight:900;margin-top:6px;background:#ffd400;
+   border:2px solid #000;padding:1px 5px;}
+
+ .hm{flex:0 0 434px;display:flex;align-items:center;gap:10px;padding-left:8px;}
+ .at{flex:0 0 306px;display:flex;align-items:center;gap:9px;}
+ .mk{font-size:36px;font-weight:900;color:#e8232a;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .mk2{font-size:34px;font-weight:900;color:#0d4d9c;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .nm{font-size:27px;font-weight:900;color:#111;letter-spacing:0;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .nm2{font-size:25px;font-weight:900;color:#111;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .sb{width:68px;height:68px;flex:0 0 68px;background:#ffd400;clip-path:polygon(50.00% 0.00%,56.63% 16.65%,69.13% 3.81%,68.89% 21.73%,85.36% 14.64%,78.27% 31.11%,96.19% 30.87%,83.35% 43.37%,100.00% 50.00%,83.35% 56.63%,96.19% 69.13%,78.27% 68.89%,85.36% 85.36%,68.89% 78.27%,69.13% 96.19%,56.63% 83.35%,50.00% 100.00%,43.37% 83.35%,30.87% 96.19%,31.11% 78.27%,14.64% 85.36%,21.73% 68.89%,3.81% 69.13%,16.65% 56.63%,0.00% 50.00%,16.65% 43.37%,3.81% 30.87%,21.73% 31.11%,14.64% 14.64%,31.11% 21.73%,30.87% 3.81%,43.37% 16.65%);
+   display:flex;align-items:center;justify-content:center;margin-right:-4px;}
+ .sb span{color:#111;font-size:20px;font-weight:900;transform:rotate(-10deg);}
+
+ .memo{flex:1;color:#1b1b1b;font-size:14px;line-height:1.6;padding-left:14px;
+   border-left:4px solid #000;align-self:center;}
+ .memo b{color:#0d4d9c;} .memo b.r{color:#e8232a;}
+
+ .foot{position:relative;margin-top:6px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:18px 24px;color:#111;font-size:21px;font-weight:900;line-height:1.6;
+   box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .foot .r{color:#e8232a;} .foot .b{color:#0d4d9c;}
+ .yell{position:absolute;right:-6px;top:-52px;background:#ffd400;border:5px solid #000;
+   padding:6px 16px;font-size:26px;font-weight:900;color:#111;transform:rotate(-4deg);
+   box-shadow:6px 6px 0 rgba(0,0,0,.7);}
+ .sig{text-align:right;color:#ffd400;font-size:18px;font-weight:900;margin-top:20px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ /* ---- 表・囲み（劇画スキン） ---- */
+ .sec{margin-top:20px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:20px 24px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .sh{color:#111;font-size:31px;font-weight:900;margin-bottom:14px;display:inline-block;
+   transform:skewX(-5deg);border-bottom:7px solid #e8232a;padding-bottom:3px;}
+ table{width:100%;border-collapse:collapse;margin-top:8px;}
+ th{background:#111;color:#ffd400;font-size:20px;font-weight:900;padding:9px 5px;border:2px solid #000;}
+ td{font-size:22px;font-weight:800;color:#111;padding:10px 5px;border:2px solid #000;text-align:center;}
+ td.l{text-align:left;} td.lap{font-size:19px;font-family:monospace;letter-spacing:-.5px;}
+ tr.hi td{background:#ffe9a8;} tr.bad td{background:#ffdcdc;color:#a11100;} tr.win td{background:#d9ecd9;}
+ .note{margin-top:15px;color:#1b1b1b;font-size:20px;font-weight:800;line-height:1.62;}
+ .note b{color:#0d4d9c;} .note b.r{color:#e8232a;}
+ .big{margin-top:20px;background:#111;border:6px solid #ffd400;border-radius:3px;
+   padding:22px 26px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .big .bh{color:#ffd400;font-size:31px;font-weight:900;margin-bottom:15px;}
+ .big .it{color:#fff;font-size:23px;font-weight:800;line-height:1.62;margin-bottom:13px;}
+ .big .it:last-child{margin-bottom:0;}
+ .big .no{color:#ffd400;font-size:27px;font-weight:900;}
+ .big .y{color:#ffd400;} .big .c{color:#8fd9ff;} .big .r{color:#ff9b9b;}
+ .dateblk .d1{font-size:42px;}
+
+.gwrap{background:#fff;border:3px solid #111;border-radius:6px;padding:18px 22px 14px;margin:14px 0}
+.gt{font-size:26px;font-weight:900;color:#111;border-bottom:5px solid #e8232a;display:inline-block;padding-bottom:3px;margin-bottom:10px}
+.gnote{font-size:19px;line-height:1.7;color:#111;margin-top:8px}
+.gnote .r{color:#e8232a;font-weight:900}
+svg{display:block;max-width:100%}
+</style></head>
+<body><div class="card"><div class="lines"></div><div class="tone"></div><div class="inner">
+<div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>
+<div class="head"><div class="gekiga">大井</div><div class="dateblk"><div class="d1">前開催を図にする ─ 初日の月曜</div><div class="d2">8/31〜9/4の60鞍／9/14も同じ初日の月曜</div></div><div class="burst"><span>グラフ<br>1枚</span></div></div>
+
+<div class="lead"><span class="b">前開催（8/31〜9/4・60鞍）を図にした。</span>
+<span class="r">9/14は8/31と同じ「初日の月曜」。初日は5日間でいちばん前有利が弱かった。</span></div>
+
+<div class="gwrap">
+ <div class="gt">① 開催日ごとの前有利 ── 4角3番手以内が勝った率</div>
+ <svg viewBox="0 0 1240 330" width="1240" height="330"><rect x="0" y="0" width="1240" height="330" fill="#fff"/><line x1="150" y1="266.0" x2="1210" y2="266.0" stroke="#ddd" stroke-width="2"/><text x="136" y="275.0" font-size="22" fill="#666" text-anchor="end">0%</text><line x1="150" y1="218.8" x2="1210" y2="218.8" stroke="#ddd" stroke-width="2"/><text x="136" y="227.8" font-size="22" fill="#666" text-anchor="end">20%</text><line x1="150" y1="171.6" x2="1210" y2="171.6" stroke="#ddd" stroke-width="2"/><text x="136" y="180.6" font-size="22" fill="#666" text-anchor="end">40%</text><line x1="150" y1="124.4" x2="1210" y2="124.4" stroke="#ddd" stroke-width="2"/><text x="136" y="133.4" font-size="22" fill="#666" text-anchor="end">60%</text><line x1="150" y1="77.2" x2="1210" y2="77.2" stroke="#ddd" stroke-width="2"/><text x="136" y="86.2" font-size="22" fill="#666" text-anchor="end">80%</text><line x1="150" y1="30.0" x2="1210" y2="30.0" stroke="#ddd" stroke-width="2"/><text x="136" y="39.0" font-size="22" fill="#666" text-anchor="end">100%</text><rect x="190.3" y="107.9" width="131.4" height="158.1" fill="#e8232a"/><text x="256.0" y="97.9" font-size="26" font-weight="900" fill="#e8232a" text-anchor="middle">67%</text><text x="256.0" y="300.0" font-size="24" font-weight="700" fill="#111" text-anchor="middle">8/31
+月・初日</text><text x="256.0" y="326.0" font-size="20" fill="#666" text-anchor="middle">8/12鞍</text><rect x="402.3" y="70.1" width="131.4" height="195.9" fill="#1f4e9c"/><text x="468.0" y="60.1" font-size="26" font-weight="900" fill="#1f4e9c" text-anchor="middle">83%</text><text x="468.0" y="300.0" font-size="24" font-weight="700" fill="#111" text-anchor="middle">9/1 火</text><text x="468.0" y="326.0" font-size="20" fill="#666" text-anchor="middle">10/12</text><rect x="614.3" y="89.0" width="131.4" height="177.0" fill="#1f4e9c"/><text x="680.0" y="79.0" font-size="26" font-weight="900" fill="#1f4e9c" text-anchor="middle">75%</text><text x="680.0" y="300.0" font-size="24" font-weight="700" fill="#111" text-anchor="middle">9/2 水</text><text x="680.0" y="326.0" font-size="20" fill="#666" text-anchor="middle">9/12</text><rect x="826.3" y="48.9" width="131.4" height="217.1" fill="#1f7a3d"/><text x="892.0" y="38.9" font-size="26" font-weight="900" fill="#1f7a3d" text-anchor="middle">92%</text><text x="892.0" y="300.0" font-size="24" font-weight="700" fill="#111" text-anchor="middle">9/3 木</text><text x="892.0" y="326.0" font-size="20" fill="#666" text-anchor="middle">11/12</text><rect x="1038.3" y="89.0" width="131.4" height="177.0" fill="#1f4e9c"/><text x="1104.0" y="79.0" font-size="26" font-weight="900" fill="#1f4e9c" text-anchor="middle">75%</text><text x="1104.0" y="300.0" font-size="24" font-weight="700" fill="#111" text-anchor="middle">9/4 金</text><text x="1104.0" y="326.0" font-size="20" fill="#666" text-anchor="middle">9/12</text><line x1="150" y1="266.0" x2="1210" y2="266.0" stroke="#111" stroke-width="3"/></svg>
+ <div class="gnote"><span class="r">初日の8/31が67%で最低。3日目の9/3が92%で最高。</span>
+ 開催が進んで砂が締まるほど前が残る形になっている。<b>9/14は初日。</b></div>
+</div>
+
+<div class="gwrap">
+ <div class="gt">② 4角位置別の3着内率（690頭）</div>
+ <svg viewBox="0 0 1240 330" width="1240" height="330"><rect x="0" y="0" width="1240" height="330" fill="#fff"/><line x1="150" y1="266.0" x2="1210" y2="266.0" stroke="#ddd" stroke-width="2"/><text x="136" y="275.0" font-size="22" fill="#666" text-anchor="end">0%</text><line x1="150" y1="218.8" x2="1210" y2="218.8" stroke="#ddd" stroke-width="2"/><text x="136" y="227.8" font-size="22" fill="#666" text-anchor="end">14%</text><line x1="150" y1="171.6" x2="1210" y2="171.6" stroke="#ddd" stroke-width="2"/><text x="136" y="180.6" font-size="22" fill="#666" text-anchor="end">28%</text><line x1="150" y1="124.4" x2="1210" y2="124.4" stroke="#ddd" stroke-width="2"/><text x="136" y="133.4" font-size="22" fill="#666" text-anchor="end">42%</text><line x1="150" y1="77.2" x2="1210" y2="77.2" stroke="#ddd" stroke-width="2"/><text x="136" y="86.2" font-size="22" fill="#666" text-anchor="end">56%</text><line x1="150" y1="30.0" x2="1210" y2="30.0" stroke="#ddd" stroke-width="2"/><text x="136" y="39.0" font-size="22" fill="#666" text-anchor="end">70%</text><rect x="178.8" y="83.9" width="93.9" height="182.1" fill="#1f7a3d"/><text x="225.7" y="73.9" font-size="26" font-weight="900" fill="#1f7a3d" text-anchor="middle">54%</text><text x="225.7" y="300.0" font-size="24" font-weight="700" fill="#111" text-anchor="middle">1番手</text><text x="225.7" y="326.0" font-size="20" fill="#666" text-anchor="middle">112頭</text><rect x="330.2" y="100.8" width="93.9" height="165.2" fill="#1f7a3d"/><text x="377.1" y="90.8" font-size="26" font-weight="900" fill="#1f7a3d" text-anchor="middle">49%</text><text x="377.1" y="300.0" font-size="24" font-weight="700" fill="#111" text-anchor="middle">2番手</text><text x="377.1" y="326.0" font-size="20" fill="#666" text-anchor="middle">37頭</text><rect x="481.6" y="60.3" width="93.9" height="205.7" fill="#1f7a3d"/><text x="528.6" y="50.3" font-size="26" font-weight="900" fill="#1f7a3d" text-anchor="middle">61%</text><text x="528.6" y="300.0" font-size="24" font-weight="700" fill="#111" text-anchor="middle">3番手</text><text x="528.6" y="326.0" font-size="20" fill="#666" text-anchor="middle">56頭</text><rect x="633.1" y="141.3" width="93.9" height="124.7" fill="#1f4e9c"/><text x="680.0" y="131.3" font-size="26" font-weight="900" fill="#1f4e9c" text-anchor="middle">37%</text><text x="680.0" y="300.0" font-size="24" font-weight="700" fill="#111" text-anchor="middle">4番手</text><text x="680.0" y="326.0" font-size="20" fill="#666" text-anchor="middle">59頭</text><rect x="784.5" y="215.4" width="93.9" height="50.6" fill="#e8232a"/><text x="831.4" y="205.4" font-size="26" font-weight="900" fill="#e8232a" text-anchor="middle">15%</text><text x="831.4" y="300.0" font-size="24" font-weight="700" fill="#111" text-anchor="middle">5番手</text><text x="831.4" y="326.0" font-size="20" fill="#666" text-anchor="middle">62頭</text><rect x="935.9" y="208.7" width="93.9" height="57.3" fill="#e8232a"/><text x="982.9" y="198.7" font-size="26" font-weight="900" fill="#e8232a" text-anchor="middle">17%</text><text x="982.9" y="300.0" font-size="24" font-weight="700" fill="#111" text-anchor="middle">6-8番手</text><text x="982.9" y="326.0" font-size="20" fill="#666" text-anchor="middle">155頭</text><rect x="1087.3" y="249.1" width="93.9" height="16.9" fill="#e8232a"/><text x="1134.3" y="239.1" font-size="26" font-weight="900" fill="#e8232a" text-anchor="middle">5%</text><text x="1134.3" y="300.0" font-size="24" font-weight="700" fill="#111" text-anchor="middle">9番手〜</text><text x="1134.3" y="326.0" font-size="20" fill="#666" text-anchor="middle">209頭</text><line x1="150" y1="266.0" x2="1210" y2="266.0" stroke="#111" stroke-width="3"/></svg>
+ <div class="gnote"><span class="r">断層は4番手と5番手の間。37%から15%へ半分以下に落ちる。</span>
+ 最良は3番手の61%で、ハナ（54%）より上。<b>大井は「ハナ絶対」ではない。</b></div>
+</div>
+
+<div class="gwrap">
+ <div class="gt">③ 8/31（月・初日）7R以降の前半3F・後半3F</div>
+ <svg viewBox="0 0 1240 360" width="1240" height="360"><rect width="1240" height="360" fill="#fff"/><line x1="150" y1="272.0" x2="1210" y2="272.0" stroke="#ddd" stroke-width="2"/><text x="136" y="281.0" font-size="22" fill="#666" text-anchor="end">34.0</text><line x1="150" y1="214.0" x2="1210" y2="214.0" stroke="#ddd" stroke-width="2"/><text x="136" y="223.0" font-size="22" fill="#666" text-anchor="end">35.8</text><line x1="150" y1="156.0" x2="1210" y2="156.0" stroke="#ddd" stroke-width="2"/><text x="136" y="165.0" font-size="22" fill="#666" text-anchor="end">37.5</text><line x1="150" y1="98.0" x2="1210" y2="98.0" stroke="#ddd" stroke-width="2"/><text x="136" y="107.0" font-size="22" fill="#666" text-anchor="end">39.2</text><line x1="150" y1="40.0" x2="1210" y2="40.0" stroke="#ddd" stroke-width="2"/><text x="136" y="49.0" font-size="22" fill="#666" text-anchor="end">41.0</text><rect x="186.4" y="139.4" width="49.5" height="132.6" fill="#1f4e9c"/><text x="211.1" y="130.4" font-size="23" font-weight="900" fill="#1f4e9c" text-anchor="middle">38.0</text><rect x="240.8" y="56.6" width="49.5" height="215.4" fill="#e8232a"/><text x="265.5" y="47.6" font-size="23" font-weight="900" fill="#e8232a" text-anchor="middle">40.5</text><text x="238.3" y="316.0" font-size="26" font-weight="900" fill="#111" text-anchor="middle">7R</text><text x="238.3" y="344.0" font-size="20" fill="#666" text-anchor="middle">ダ1600</text><rect x="363.1" y="185.8" width="49.5" height="86.2" fill="#1f4e9c"/><text x="387.8" y="176.8" font-size="23" font-weight="900" fill="#1f4e9c" text-anchor="middle">36.6</text><rect x="417.5" y="122.9" width="49.5" height="149.1" fill="#e8232a"/><text x="442.2" y="113.9" font-size="23" font-weight="900" fill="#e8232a" text-anchor="middle">38.5</text><text x="415.0" y="316.0" font-size="26" font-weight="900" fill="#111" text-anchor="middle">8R</text><text x="415.0" y="344.0" font-size="20" fill="#666" text-anchor="middle">ダ1400</text><rect x="539.7" y="116.2" width="49.5" height="155.8" fill="#1f4e9c"/><text x="564.5" y="107.2" font-size="23" font-weight="900" fill="#1f4e9c" text-anchor="middle">38.7</text><rect x="594.1" y="106.3" width="49.5" height="165.7" fill="#e8232a"/><text x="618.9" y="97.3" font-size="23" font-weight="900" fill="#e8232a" text-anchor="middle">39.0</text><text x="591.7" y="316.0" font-size="26" font-weight="900" fill="#111" text-anchor="middle">9R</text><text x="591.7" y="344.0" font-size="20" fill="#666" text-anchor="middle">ダ2000</text><rect x="716.4" y="248.8" width="49.5" height="23.2" fill="#1f4e9c"/><text x="741.1" y="239.8" font-size="23" font-weight="900" fill="#1f4e9c" text-anchor="middle">34.7</text><rect x="770.8" y="99.7" width="49.5" height="172.3" fill="#e8232a"/><text x="795.5" y="90.7" font-size="23" font-weight="900" fill="#e8232a" text-anchor="middle">39.2</text><text x="768.3" y="316.0" font-size="26" font-weight="900" fill="#111" text-anchor="middle">10R</text><text x="768.3" y="344.0" font-size="20" fill="#666" text-anchor="middle">ダ1200</text><rect x="893.1" y="222.3" width="49.5" height="49.7" fill="#1f4e9c"/><text x="917.8" y="213.3" font-size="23" font-weight="900" fill="#1f4e9c" text-anchor="middle">35.5</text><rect x="947.5" y="109.6" width="49.5" height="162.4" fill="#e8232a"/><text x="972.2" y="100.6" font-size="23" font-weight="900" fill="#e8232a" text-anchor="middle">38.9</text><text x="945.0" y="316.0" font-size="26" font-weight="900" fill="#111" text-anchor="middle">11R</text><text x="945.0" y="344.0" font-size="20" fill="#666" text-anchor="middle">ダ1400</text><rect x="1069.7" y="146.1" width="49.5" height="125.9" fill="#1f4e9c"/><text x="1094.5" y="137.1" font-size="23" font-weight="900" fill="#1f4e9c" text-anchor="middle">37.8</text><rect x="1124.1" y="96.3" width="49.5" height="175.7" fill="#e8232a"/><text x="1148.9" y="87.3" font-size="23" font-weight="900" fill="#e8232a" text-anchor="middle">39.3</text><text x="1121.7" y="316.0" font-size="26" font-weight="900" fill="#111" text-anchor="middle">12R</text><text x="1121.7" y="344.0" font-size="20" fill="#666" text-anchor="middle">ダ1800</text><line x1="150" y1="272.0" x2="1210" y2="272.0" stroke="#111" stroke-width="3"/><rect x="810" y="10" width="26" height="26" fill="#1f4e9c"/><text x="844" y="32" font-size="24" font-weight="700" fill="#111">前半3F</text><rect x="990" y="10" width="26" height="26" fill="#e8232a"/><text x="1024" y="32" font-size="24" font-weight="700" fill="#111">後半3F</text></svg>
+ <div class="gnote"><span class="r">10Rは前半34.7で飛ばして後半39.2。11Rは前半35.5で後半38.9。</span>
+ どちらも同距離の中央値より前半が0.6〜1.2秒速い。<b>9Rだけが前半38.7・後半39.0でほぼ同じ。</b></div>
+</div>
+
+<div class="gwrap">
+ <div class="gt">④ 前後差（後半3F − 前半3F）と、その鞍で来た位置</div>
+ <svg viewBox="0 0 1240 300" width="1240" height="300"><rect width="1240" height="300" fill="#fff"/><line x1="150" y1="172.5" x2="1210" y2="172.5" stroke="#ddd" stroke-width="2"/><text x="136" y="181.5" font-size="22" fill="#666" text-anchor="end">-2.8</text><line x1="150" y1="125.0" x2="1210" y2="125.0" stroke="#111" stroke-width="3"/><text x="136" y="134.0" font-size="22" fill="#666" text-anchor="end">+0.0</text><line x1="150" y1="77.5" x2="1210" y2="77.5" stroke="#ddd" stroke-width="2"/><text x="136" y="86.5" font-size="22" fill="#666" text-anchor="end">+2.8</text><rect x="189.8" y="82.8" width="97.2" height="42.2" fill="#e8232a"/><text x="238.3" y="72.8" font-size="26" font-weight="900" fill="#e8232a" text-anchor="middle">+2.5</text><text x="238.3" y="264.0" font-size="26" font-weight="900" fill="#111" text-anchor="middle">7R</text><text x="238.3" y="290.0" font-size="19" fill="#666" text-anchor="middle">4角9番手が勝ち</text><rect x="366.4" y="92.9" width="97.2" height="32.1" fill="#e8232a"/><text x="415.0" y="82.9" font-size="26" font-weight="900" fill="#e8232a" text-anchor="middle">+1.9</text><text x="415.0" y="264.0" font-size="26" font-weight="900" fill="#111" text-anchor="middle">8R</text><text x="415.0" y="290.0" font-size="19" fill="#666" text-anchor="middle">4角2番手が勝ち</text><rect x="543.1" y="119.9" width="97.2" height="5.1" fill="#e8232a"/><text x="591.7" y="109.9" font-size="26" font-weight="900" fill="#e8232a" text-anchor="middle">+0.3</text><text x="591.7" y="264.0" font-size="26" font-weight="900" fill="#111" text-anchor="middle">9R</text><text x="591.7" y="290.0" font-size="19" fill="#666" text-anchor="middle">淀みない流れ</text><rect x="719.8" y="49.0" width="97.2" height="76.0" fill="#e8232a"/><text x="768.3" y="39.0" font-size="26" font-weight="900" fill="#e8232a" text-anchor="middle">+4.5</text><text x="768.3" y="264.0" font-size="26" font-weight="900" fill="#111" text-anchor="middle">10R</text><text x="768.3" y="290.0" font-size="19" fill="#666" text-anchor="middle">4角7番手が2着</text><rect x="896.4" y="67.6" width="97.2" height="57.4" fill="#e8232a"/><text x="945.0" y="57.6" font-size="26" font-weight="900" fill="#e8232a" text-anchor="middle">+3.4</text><text x="945.0" y="264.0" font-size="26" font-weight="900" fill="#111" text-anchor="middle">11R</text><text x="945.0" y="290.0" font-size="19" fill="#666" text-anchor="middle">4角10番手が2着</text><rect x="1073.1" y="99.7" width="97.2" height="25.3" fill="#e8232a"/><text x="1121.7" y="89.7" font-size="26" font-weight="900" fill="#e8232a" text-anchor="middle">+1.5</text><text x="1121.7" y="264.0" font-size="26" font-weight="900" fill="#111" text-anchor="middle">12R</text><text x="1121.7" y="290.0" font-size="19" fill="#666" text-anchor="middle">4角7番手が勝ち</text></svg>
+ <div class="gnote"><span class="r">差が大きいほど、前が飛ばして後半に垂れた鞍。</span>
+ <b>+2.5以上の7R・10R・11Rは、いずれも4角7〜10番手の馬が勝ち負けした。</b>
+ 差が小さい9R（+0.3）は4角3〜4番手で順当に決まった。</div>
+</div>
+
+<div class="big">
+ <div class="bh">9/14に当てると</div>
+ <div class="it"><span class="no">1.</span> <span class="y">初日は前有利が最も弱い。前一辺倒で組むと取りこぼす。</span></div>
+ <div class="it"><span class="no">2.</span> <span class="y">前半が速くなりそうな鞍だけ、後ろを買う。</span>
+ <span class="c">今日の想定で前走ハナが多いのは<b class="r">11R（16頭立てで5頭）</b>と<b class="r">8R（10頭立てで3頭）</b>。</span>
+ <span class="b">8/31の10R・11Rと同じ形になりやすい。</span></div>
+ <div class="it"><span class="no">3.</span> <span class="y">それ以外の鞍は4番手以内から。5番手以降は率が半分以下になる。</span></div>
+ <div class="it"><span class="no">4.</span> <span class="y">この条件が向いている。</span></div>
+</div>
+
+<div class="sig">変態か、変態以外か。</div>
+</div></div></body></html>
