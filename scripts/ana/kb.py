@@ -339,3 +339,35 @@ def at(hist, place: str, dist: int, base=None):
     f = lambda h: (place in (h["place"] or "") and dist_of(h["dist"]) == dist
                    and (base is None or to_date(h["date"]) < base))
     return record(hist, f)
+
+
+def zone_of(d: int) -> str:
+    """距離帯。短(≦1200) / マ(1300-1700) / 長(≧1800)。"""
+    return "短" if d <= 1200 else ("マ" if d <= 1700 else "長")
+
+
+def at_zone(hist, dist: int, base=None):
+    """同じ距離帯・**全場**の成績。
+
+    ★場で絞ってはいけない（穴9）。重賞路線の馬は場をまたぐ。
+      2026-09-16 東京記念（大井2400m）で、セラフィックコールを at() は
+      「大井2400m 0走」と出した。実際には船橋2400mのJpn2で2着(差0.1)がある。
+      リベイクフルシティも「+600m延長」と出たが、大井2600mを走って2着している。
+      場で絞ると、いちばん重い実績がまるごと消える。
+    """
+    z = zone_of(dist)
+    f = lambda h: (dist_of(h["dist"]) and zone_of(dist_of(h["dist"])) == z
+                   and (base is None or to_date(h["date"]) < base))
+    return record(hist, f)
+
+
+def best_at_zone(hist, dist: int, base=None):
+    """同じ距離帯・全場で、いちばん良かった1走を返す（重賞優先で新しいもの）。"""
+    z = zone_of(dist)
+    v = [h for h in hist
+         if dist_of(h["dist"]) and zone_of(dist_of(h["dist"])) == z
+         and (base is None or to_date(h["date"]) < base)
+         and h["chaku"].isdigit()]
+    if not v:
+        return None
+    return min(v, key=lambda h: (int(h["chaku"]), -int(h["n"] or 0)))

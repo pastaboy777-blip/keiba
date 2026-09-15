@@ -10,6 +10,8 @@
   ④ 道悪（重＋不良）の成績
   ⑤ 馬体重と増減      ★発走直前まで出ない。--force で取り直す
   ⑥ レース平均からの馬体重差 ★「大きい馬」ではなく「この鞍で大きい馬」
+  ⑦ 同じ距離帯・**全場**の成績と、その帯での最高着順
+     ★場で絞ると重賞路線の実績が消える（kb.at_zone の説明を読むこと）
 
 ★⑥を絶対値でなく相対で出す理由（2026-09-15 大井・終日不良）:
     勝ち馬の馬体重は、そのレースの平均より 1600m以上で +18.3kg、
@@ -123,9 +125,12 @@ def main():
         pd = kb.dist_of(last["dist"]) if last else None
         n1, w1, t1 = kb.at(h, a.place, td, base)
         n2, w2, t2 = kb.wet(h, base)
+        nz = kb.at_zone(h, td, base)          # ★全場・同じ距離帯（場で絞らない）
+        bz = kb.best_at_zone(h, td, base)
         ar = None if a.no_agari else agari_rank(h, base, tz)
         rec.append(dict(x=x, gap=kb.interval(h, base), pd=pd, last=last,
                         cond=(n1, w1, t1), wet=(n2, w2, t2), ar=ar,
+                        zone=nz, best=bz,
                         unknown=(not h) or bool(x.get("partial"))))
 
     # ★ 間隔が浮いている馬（機械的に。主観で外さない）
@@ -149,14 +154,17 @@ def main():
               f"（最重 {max(ws)} / 最軽 {min(ws)}）")
 
     print(f"\n  {'★':<2}{'番':>2} {'馬名':<15}{'人気':>3}{'単勝':>7}{'体重':>7}{'平均差':>7}"
-          f"{'間隔':>6}{'距離':>6}  {a.place+str(td)+'m':<12}{'道悪':<12}"
-          f"{'直近の上がり順位('+tz+')'}")
+          f"{'間隔':>6}{'距離':>6}  {a.place+str(td)+'m':<12}{'全場'+tz+'帯':<13}{'道悪':<12}"
+          f"{'この距離帯の最高着'}")
     for r in sorted(rec, key=lambda z: int(z["x"]["nin"]) if (z["x"]["nin"] or "").isdigit() else 99):
         x = r["x"]
         dd = f"{td - r['pd']:+d}" if r["pd"] else "—"
         ar = r["ar"]
         arl = (f"{ar['date']} {ar['dist']}m {ar['n']}頭 {ar['chaku']}着 "
                f"→ 上り{ar['rank']}/{ar['nag']}位") if ar else "—"
+        b = r["best"]
+        bzl = (f"{b['date'][2:]} {b['place'][:4]} {b['klass'] or '':<4}{b['dist']} "
+               f"{b['n']}頭{b['chaku']}着" + (f"  / {arl}" if ar else "")) if b else arl
         rel = (f"{int(x['w'])-avg:+.0f}kg"
                if avg and (x["w"] or "").isdigit() and int(x["w"]) > 100 else "—")
         mk = "★" if id(r) in star else ""
@@ -167,7 +175,8 @@ def main():
               f"{(x['w'] or '-'):>5}{(x['dw'] or ''):>4}{rel:>7}"
               f"{(str(r['gap'])+'日' if r['gap'] else '—'):>6}{dd:>6}  "
               f"{'{}走{}勝{}好走'.format(*r['cond']):<12}"
-              f"{'{}走{}勝{}好走'.format(*r['wet']):<12}{arl}")
+              f"{'{}走{}勝{}好走'.format(*r['zone']):<13}"
+              f"{'{}走{}勝{}好走'.format(*r['wet']):<12}{bzl}")
 
     unk = [r["x"]["name"] for r in rec if r["unknown"]]
     print("\n  ★＝そのレースで間隔が長いほうから2頭。**買い目から機械的に外さない**")
