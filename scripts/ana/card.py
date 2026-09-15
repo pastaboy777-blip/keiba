@@ -27,6 +27,13 @@
     それを「極端すぎる」という主観で買い目から外して、外した。
     → 間隔が上位2番目までの馬には★が付く。**★は消さない**、が使い方。
 
+★履歴が引けない馬を切らないこと（2026-09-15 6R / 2026-09-14 11R）:
+    クイーンアン（中央から転入・履歴が別体系）3.5倍 → 1着。消した。
+    ナインエスクァイア（履歴が引けず）3.7倍 → 1着。相手から外した。
+    **2日連続で、同じ理由で、同じ結果。**「データが無い」を「弱い」として扱っていた。
+    転入初戦は“この条件での比較対象がいない”だけで、能力とは別の話。
+    → 履歴が引けない馬・行が壊れた馬には「?」が付く。**? も ★ と同じく残す。**
+
 ★⑤（同日 6R）:
     勝ったクイーンアンは +29kg（462→491）。中央の芝18頭立て14着からの転入。
     馬体重は出馬表では空欄で、発走直前に入る。1回取って終わりにすると見落とす。
@@ -118,7 +125,8 @@ def main():
         n2, w2, t2 = kb.wet(h, base)
         ar = None if a.no_agari else agari_rank(h, base, tz)
         rec.append(dict(x=x, gap=kb.interval(h, base), pd=pd, last=last,
-                        cond=(n1, w1, t1), wet=(n2, w2, t2), ar=ar))
+                        cond=(n1, w1, t1), wet=(n2, w2, t2), ar=ar,
+                        unknown=(not h) or bool(x.get("partial"))))
 
     # ★ 間隔が浮いている馬（機械的に。主観で外さない）
     g = sorted((r for r in rec if r["gap"]), key=lambda r: -r["gap"])
@@ -132,7 +140,9 @@ def main():
     print(f"  ▸ 距離: 延長 {ext}頭 / 短縮 {sho}頭 / 同距離 {len(rec)-ext-sho}頭")
 
     # ⑥ レース平均からの馬体重差。「大きい馬」でなく「この鞍で大きい馬」を出す
-    ws = [int(r["x"]["w"]) for r in rec if (r["x"]["w"] or "").isdigit()]
+    #    ★0kg や空欄を平均に混ぜない（混ぜると全馬の差が壊れる）
+    ws = [int(r["x"]["w"]) for r in rec
+          if (r["x"]["w"] or "").isdigit() and int(r["x"]["w"]) > 100]
     avg = st.mean(ws) if ws else None
     if avg:
         print(f"  ▸ 馬体重: レース平均 {avg:.0f}kg"
@@ -147,15 +157,23 @@ def main():
         ar = r["ar"]
         arl = (f"{ar['date']} {ar['dist']}m {ar['n']}頭 {ar['chaku']}着 "
                f"→ 上り{ar['rank']}/{ar['nag']}位") if ar else "—"
-        rel = (f"{int(x['w'])-avg:+.0f}kg" if avg and (x["w"] or "").isdigit() else "—")
-        print(f"  {'★' if id(r) in star else ' ':<2}{x['ub']:>2} {x['name']:<15}"
+        rel = (f"{int(x['w'])-avg:+.0f}kg"
+               if avg and (x["w"] or "").isdigit() and int(x["w"]) > 100 else "—")
+        mk = "★" if id(r) in star else ""
+        if r["unknown"]:
+            mk += "?"
+        print(f"  {mk:<2}{x['ub']:>2} {x['name']:<15}"
               f"{(x['nin'] or '-'):>3}{(x['odds'] or '-'):>7}"
               f"{(x['w'] or '-'):>5}{(x['dw'] or ''):>4}{rel:>7}"
               f"{(str(r['gap'])+'日' if r['gap'] else '—'):>6}{dd:>6}  "
               f"{'{}走{}勝{}好走'.format(*r['cond']):<12}"
               f"{'{}走{}勝{}好走'.format(*r['wet']):<12}{arl}")
 
+    unk = [r["x"]["name"] for r in rec if r["unknown"]]
     print("\n  ★＝そのレースで間隔が長いほうから2頭。**買い目から機械的に外さない**")
+    if unk:
+        print(f"  ?＝履歴が引けない/行が壊れた馬（{len(unk)}頭: {'・'.join(unk)}）")
+        print("     転入初戦などで比較対象がいないだけ。**弱いという意味ではない。切らない**")
     print("  ※重みは置いていません。数えただけです。")
 
 

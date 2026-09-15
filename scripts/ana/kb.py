@@ -11,9 +11,12 @@
     「フェスティヴルディ 道悪3走0勝1好走」と出した。実際は不良4走4勝4好走だった。
     → WET / HEAVY を使う。自前で文字列を並べない。
 
-穴2 成績ページの列数が 19 と 20 で揺れる
-    減量印（☆▲△★）のセルが有る日と無い日がある。位置決め打ちは壊れる。
-    → seiseki() が吸収する。
+穴2 列位置を決め打ちしない（★これが一番やられる）
+    出馬表の予想家の欄（「大木尚」「善林浩」…）は **開催や場によって本数が変わる**。
+    成績の本文行には、見出しに無いセルが1つ入る（重量の直後の減量印）。
+    決め打ちすると、ある日は通るのに別の日だけ静かにずれる。
+    9/14の大井11Rは、レース後の出馬表で1頭だけ行が崩れて馬名欄に着順が入った。
+    → syutuba()/seiseki() は **見出し行から列名で引く**。増えても減っても合う。
 
 穴3 日程ページから会場を拾うとき
     HTMLのタグを消しただけでは改行と空白が残り、会場名が窓から外れる。
@@ -28,10 +31,10 @@
     rid = 年(4)+開催コード(6)+R(2)+MMDD(4)。真ん中6桁は日付順ではない。
     → 並べ替えキーは ymd()＝年+MMDD。文字列そのままの比較は禁止。
 
-穴6 成績ページの列ずれは「枠番から先すべて」
-    当日ページは19列。過去ページは『本紙』欄が1つ多い20列。ずれるのは枠番以降。
-    騎手から先にだけ足すと、**馬名の欄に馬番が入る**。名前で引き当てる処理が
-    すべて静かに空振りする（9/15はこれで上がり順位が全部 None になった）。
+穴6 名前で引き当てる処理は、ずれても例外を出さない
+    馬名の欄に馬番が入っても Python は落ちない。ただ全件ヒットしなくなるだけ。
+    9/15はこれで上がり順位が全頭 None になり、しばらく気づかなかった。
+    → 取ったあとに **件数を必ず突き合わせる**（出馬表の頭数＝成績の頭数）。
 
 穴7 通過順位・前半3F は【開催当日しか生値で出ない】
     有料欄だと思い込んでいたが違う。**時間が経つとマスクされる**。
@@ -162,42 +165,111 @@ def meta(html: str) -> dict:
     return out
 
 
+def _header(html: str, must: str) -> tuple[list[str], int] | tuple[None, None]:
+    """表の見出し行を探して、正規化した列名の並びを返す。
+
+    ★列位置を決め打ちしてはいけない（穴2）。出馬表の予想家の欄（「大木尚」「善林浩」…）は
+      **開催や場によって本数が変わる**。決め打ちすると、ある日は通るのに別の日だけ
+      静かにずれる。見出しから引けば、増えても減っても勝手に合う。
+    """
+    for tr in _TR.finditer(html):
+        c = [re.sub(r"\s+", "", x) for x in cells(tr.group(1))]
+        if must in c:
+            return c, 0
+    return None, None
+
+
+def _idx(head: list[str], *names) -> int | None:
+    for n in names:
+        if n in head:
+            return head.index(n)
+    return None
+
+
 def syutuba(rid: str, force: bool = False) -> tuple[dict, list[dict]]:
     """出馬表 → (レース条件, 出走馬)。馬体重は発走直前まで空欄なので force で取り直す。"""
     h = get(f"/chihou/syutuba/{rid}", f"syu_{rid}.html", force=force)
+    head, _ = _header(h, "馬名")
+    if not head:
+        return meta(h), []
+    I = {k: _idx(head, *v) for k, v in dict(
+        waku=("枠番",), ub=("馬番",), name=("馬名",), sex=("性齢",), jk=("騎手",),
+        kin=("斤量",), stable=("厩舎",), w=("馬体重(kg)", "馬体重"), dw=("増減",),
+        odds=("単勝",), nin=("人気",)).items()}
+    if I["ub"] is None or I["name"] is None:
+        return meta(h), []
     out = []
     for tr in _TR.finditer(h):
         c = cells(tr.group(1))
-        if len(c) < 20 or not c[1].isdigit():
+        m = re.search(r'/db/uma/(\w+)[^>]*>(?:<[^>]+>)*([^<]+)', tr.group(1))
+        if not m or len(c) < len(head):
             continue
-        m = re.search(r"/db/uma/(\w+)", tr.group(1))
-        out.append(dict(waku=c[0], ub=int(c[1]), name=c[8].replace("★", "").strip(),
-                        sex=c[10], jk=c[12], kin=c[13], stable=c[14],
-                        w=c[16] or None, dw=c[17] or None,
-                        odds=c[18] or None, nin=c[19] or None,
-                        umacd=m.group(1) if m else None))
+        # ★馬名リンクの文字と、名前の列が一致するかを必ず確かめる（穴2）。
+        #   合わなければ1つずらして再確認する。黙って通すと1頭ぶん行が壊れる。
+        real = m.group(2).replace("★", "").strip()
+        # 名前の列が本当に名前か。ずれていれば1つだけ寄せて再確認する。
+        off = 0
+        if real and I["name"] < len(c) and real not in c[I["name"]]:
+            off = next((d for d in (1, -1)
+                        if 0 <= I["name"] + d < len(c) and real in c[I["name"] + d]), None)
+            if off is None:
+                continue
+        g = lambda k: (c[I[k] + off] if I[k] is not None and 0 <= I[k] + off < len(c) else "")
+        if not g("ub").isdigit():
+            continue
+        # ★セルが結合されている行がまれにある（騎手と斤量が1つになる等）。
+        #   列数が合わないぶんは信用しないが、**行ごと落とすことはしない**。
+        #   落とすと、その馬が検討そのものから消える。9/14の大井11Rで1頭消えた。
+        bad = len(c) != len(head)
+        out.append(dict(waku=g("waku"), ub=int(g("ub")), name=real,
+                        sex=g("sex"),
+                        jk=None if bad else g("jk"), kin=None if bad else g("kin"),
+                        stable=None if bad else g("stable"),
+                        w=None if bad else (g("w") or None),
+                        dw=None if bad else (g("dw") or None),
+                        odds=None if bad else (g("odds") or None),
+                        nin=None if bad else (g("nin") or None),
+                        partial=bad, umacd=m.group(1)))
     return meta(h), out
 
 
 def seiseki(rid: str, force: bool = False) -> tuple[dict, list[dict]]:
-    """成績 → (レース条件, 着順どおりの行)。★列数 19/20 の揺れを吸収する（穴2）。"""
+    """成績 → (レース条件, 着順どおりの行)。
+
+    ★成績の本文行には、見出しに無いセルが1つ入る（重量の直後の減量印）。
+      見出しから引いたうえで、重量より右の列だけ +1 する。
+    """
     h = get(f"/chihou/seiseki/{rid}", f"sei_{rid}.html", force=force)
+    head, _ = _header(h, "馬名")
+    if not head:
+        return meta(h), []
+    I = {k: _idx(head, *v) for k, v in dict(
+        chaku=("着順",), waku=("枠番",), ub=("馬番",), name=("馬名",), sex=("性齢",),
+        kin=("重量",), jk=("騎手",), time=("タイム",), sa=("着差",), pas=("通過順位",),
+        first3=("前半3F",), agari=("上り3F",), nin=("単人気", "人気"),
+        odds=("単勝オッズ", "単勝"), w=("馬体重",), dw=("増減",)).items()}
+    if I["chaku"] is None or I["name"] is None:
+        return meta(h), []
+    kin = I["kin"] if I["kin"] is not None else 10**6
     out = []
     for tr in _TR.finditer(h):
         c = cells(tr.group(1))
-        if len(c) < 19 or not c[0].isdigit():
+        if len(c) != len(head) + 1 or not c[I["chaku"]].isdigit():
             continue
-        # ★当日ページは19列。過去ページは「本紙」欄がもう1つ入って20列。
-        #   ずれるのは【枠番から先すべて】。jk 以降だけに足すと 馬名が馬番になる。
-        o = 0 if len(c) == 19 else 1
+        def g(k):
+            j = I[k]
+            if j is None:
+                return ""
+            j += 1 if j > kin else 0
+            return c[j] if j < len(c) else ""
         m = re.search(r"/db/uma/(\w+)", tr.group(1))
-        out.append(dict(chaku=int(c[0]), waku=c[2 + o], ub=c[3 + o], name=c[4 + o],
-                        sex=c[5 + o], kin=c[6 + o],
-                        jk=c[8 + o], time=c[9 + o], sa=c[10 + o],
-                        pas=None if masked(c[11 + o]) else c[11 + o],
-                        first3=fnum(c[12 + o]), agari=fnum(c[13 + o]),
-                        nin=c[14 + o] or None, odds=fnum(c[15 + o]),
-                        w=c[16 + o] or None, dw=c[17 + o] or None,
+        out.append(dict(chaku=int(g("chaku")), waku=g("waku"), ub=g("ub"),
+                        name=g("name"), sex=g("sex"), kin=g("kin"), jk=g("jk"),
+                        time=g("time"), sa=g("sa"),
+                        pas=None if masked(g("pas")) else g("pas"),
+                        first3=fnum(g("first3")), agari=fnum(g("agari")),
+                        nin=g("nin") or None, odds=fnum(g("odds")),
+                        w=g("w") or None, dw=g("dw") or None,
                         umacd=m.group(1) if m else None))
     return meta(h), out
 

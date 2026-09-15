@@ -98,7 +98,29 @@ def main():
         v = [slots[j] for j in range(i, len(slots), 3)]
         if v:
             print(f"   {lab} の上がり順位 平均 {st.mean(v):.1f}位")
-    print("   → 8割を超えるなら、軸は『この馬場で上がりを使えるか』に寄せる")
+    # ★上がり順位を主変数にしてよいかの判定（2026-09-14 で裏目に出たので入れた）
+    import statistics as _st
+    spans = []
+    for r, m, rows, rk in done:
+        ag = [x["agari"] for x in rows if x["agari"]]
+        spans.append(max(ag) - min(ag))
+    rate = top3 / len(slots)
+    span = _st.mean(spans)
+    if rate >= 0.80 and span >= 4.0:
+        v = ("主変数にしてよい",
+             "軸は『この馬場で上がりを使えるか』に寄せる")
+    elif rate >= 0.70:
+        v = ("補助にとどめる",
+             "**着順と併せて読む。上がり順位だけで人気馬を落とさない**")
+    else:
+        v = ("使わない", "前が止まっていない。位置取りと当条件で読む")
+    print(f"\n   判定: 上がり3位以内 {rate*100:.0f}% / 上がり幅 平均{span:.1f}秒"
+          f"  →  **{v[0]}**")
+    print(f"        {v[1]}")
+    print("   ※多頭数(12頭超)の1400m以下は、この判定に関わらず上がり順位を使わない。")
+    print("     2026-09-14 大井11R（1400m 16頭）は 1着が上り7位・3着が上り9位だった。")
+    print("   ※上がり順位は『差した馬』を拾い『前で粘って勝った馬』を落とす。")
+    print("     前走を1着でも上がり順位が下位なら、それは弱さではなく前にいた証拠。")
 
     # ② 人気
     print(f"\n■ ② 1番人気")
