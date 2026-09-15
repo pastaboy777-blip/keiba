@@ -77,6 +77,34 @@ def _judge(balance: float) -> tuple[str, str, str]:
     return "M", "平均ペース", "紛れ少・地力勝負"
 
 
+def has_partial_first(furlongs, distance: int) -> bool:
+    """ラップ列の**先頭が端数区間**か。
+
+    ⚠️⚠️ **200mの倍数でない距離は、最初の区間が50mや100m。**
+       1500m = 100m + 7F、1650m = 50m + 8F、2100m = 100m + 10F。
+       楽天のハロンタイムはその端数を先頭に1つ置くので、本数は `距離//200 + 1`
+       になる。ここを1ハロンとして足すと**テン3Fが壊れる**：
+
+           川崎1500m  5.9-11.4-13.0-14.0-…
+               誤 5.9+11.4+13.0 = 30.3秒 ← 600mを30秒＝時速72km。あり得ない
+               正 11.4+13.0+14.0 = 38.4秒
+
+       川崎1500mは主要距離なので、**テン3Fとペース判定が長期間まちがっていた**
+       （2026-09-15 発見）。上がり3Fは末尾から取るので影響を受けない。
+    """
+    if not furlongs or not distance:
+        return False
+    return distance % 200 != 0 and len(furlongs) == distance // 200 + 1
+
+
+def head_furlongs(furlongs, distance: int, n: int) -> list:
+    """先頭から `n` ハロン。**端数区間があれば飛ばす。**"""
+    f = list(furlongs or [])
+    if has_partial_first(f, distance):
+        f = f[1:]
+    return f[:n]
+
+
 def analyze(result: list[dict], distance: int, laps: dict | None = None) -> LapAnalysis:
     """parse_result と距離、任意で parse_lap の実測ラップから分析を返す。"""
     if not result or not distance:
@@ -94,7 +122,7 @@ def analyze(result: list[dict], distance: int, laps: dict | None = None) -> LapA
     # 1) 実測ハロンタイム優先
     if laps and laps.get("furlongs") and len(laps["furlongs"]) >= 6:
         furlongs = laps["furlongs"]
-        ten3f = round(sum(furlongs[:3]), 1)
+        ten3f = round(sum(head_furlongs(furlongs, distance, 3)), 1)
         last3f = laps.get("agari3f") or round(sum(furlongs[-3:]), 1)
         balance = round(ten3f - last3f, 1)
         pace, plabel, bias = _judge(balance)

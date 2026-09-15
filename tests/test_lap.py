@@ -171,3 +171,43 @@ class Sec800to200Test(unittest.TestCase):
         from nankeiba.core.lap import sec_800_200
         self.assertIsNone(sec_800_200([12.0, 11.5, 12.2]))
         self.assertIsNone(sec_800_200(None))
+
+
+class PartialFirstFurlongTest(unittest.TestCase):
+    """⚠️ **200mの倍数でない距離は、先頭が端数区間。**
+
+    1500m = 100m + 7F、1650m = 50m + 8F、2100m = 100m + 10F。
+    そこを1ハロンとして足すと、川崎1500mのテン3Fが 30.3秒（時速72km）になる。
+    """
+
+    KAWASAKI_1500 = [5.9, 11.4, 13.0, 14.0, 12.3, 13.3, 13.7, 13.6]
+    OI_1200 = [12.9, 11.3, 11.8, 12.8, 13.9, 13.4]
+
+    def test_detects_partial(self):
+        self.assertTrue(lap.has_partial_first(self.KAWASAKI_1500, 1500))
+
+    def test_no_partial_on_round_distance(self):
+        self.assertFalse(lap.has_partial_first(self.OI_1200, 1200))
+
+    def test_head_skips_partial(self):
+        self.assertEqual(lap.head_furlongs(self.KAWASAKI_1500, 1500, 3),
+                         [11.4, 13.0, 14.0])
+
+    def test_head_keeps_first_on_round_distance(self):
+        self.assertEqual(lap.head_furlongs(self.OI_1200, 1200, 3),
+                         [12.9, 11.3, 11.8])
+
+    def test_ten3f_is_fixed(self):
+        """30.3秒（誤）→ 38.4秒（正）。"""
+        r = [{"umaban": 1, "finish": 1, "time_sec": 97.2, "agari": 40.6}]
+        a = lap.analyze(r, 1500, {"furlongs": self.KAWASAKI_1500})
+        self.assertAlmostEqual(a.ten3f, 38.4, places=1)
+
+    def test_round_distance_unchanged(self):
+        r = [{"umaban": 1, "finish": 1, "time_sec": 76.1, "agari": 40.1}]
+        a = lap.analyze(r, 1200, {"furlongs": self.OI_1200})
+        self.assertAlmostEqual(a.ten3f, 36.0, places=1)
+
+    def test_wrong_length_is_not_treated_as_partial(self):
+        """⚠️ 本数が合わないときは触らない（欠損ラップを端数と誤認しない）。"""
+        self.assertFalse(lap.has_partial_first([11.4, 13.0, 14.0], 1500))
