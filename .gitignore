@@ -25,3 +25,7 @@ scripts/ana/bt_model.json
 # 収集ツールの実行ログと出力（生成物なのでコミットしない）
 out_*.log
 out/
+
+# 収集した中間ファイル
+out/
+out_*.log
