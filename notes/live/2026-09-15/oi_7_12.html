@@ -1,0 +1,92 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+ *{margin:0;padding:0;box-sizing:border-box;font-family:'WenQuanYi Zen Hei','IPAGothic',sans-serif;}
+ body{background:#000;}
+ .card{width:1400px;position:relative;overflow:hidden;background:#12100e;padding:30px 34px 26px;}
+
+ /* 集中線 */
+ .lines{position:absolute;inset:-45% -14% -14% -14%;pointer-events:none;
+   background:repeating-conic-gradient(from 0deg at 50% 12%,
+     rgba(255,255,255,.13) 0deg 1.5deg, rgba(255,255,255,0) 1.5deg 5.6deg);}
+ /* 網点（ハーフトーン） */
+ .tone{position:absolute;inset:0;pointer-events:none;opacity:.5;
+   background-image:radial-gradient(rgba(255,255,255,.16) 1.6px, transparent 1.7px);
+   background-size:9px 9px;}
+ .inner{position:relative;}
+
+ .kicker{color:#ffd400;font-size:20px;font-weight:900;letter-spacing:2px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ .head{display:flex;align-items:center;gap:20px;margin-top:2px;height:170px;}
+ .gekiga{font-size:118px;font-weight:900;letter-spacing:-4px;line-height:1;
+   color:#e8232a;-webkit-text-stroke:22px #000;paint-order:stroke fill;
+   transform:skewX(-9deg) rotate(-3deg);
+   text-shadow:11px 11px 0 rgba(0,0,0,.85);}
+ .dateblk{flex:1;padding-left:16px;}
+ .dateblk .d1{color:#fff;font-size:46px;font-weight:900;letter-spacing:1px;
+   -webkit-text-stroke:10px #000;paint-order:stroke fill;transform:skewX(-6deg);display:inline-block;}
+ .dateblk .d2{color:#ffd400;font-size:26px;font-weight:900;margin-top:6px;
+   -webkit-text-stroke:6px #000;paint-order:stroke fill;}
+ .burst{width:164px;height:164px;flex:0 0 164px;background:#ffd400;
+   clip-path:polygon(50.00% 0.00%,55.09% 11.33%,62.94% 1.70%,64.92% 13.97%,75.00% 6.70%,73.74% 19.06%,85.36% 14.64%,80.94% 26.26%,93.30% 25.00%,86.03% 35.08%,98.30% 37.06%,88.67% 44.91%,100.00% 50.00%,88.67% 55.09%,98.30% 62.94%,86.03% 64.92%,93.30% 75.00%,80.94% 73.74%,85.36% 85.36%,73.74% 80.94%,75.00% 93.30%,64.92% 86.03%,62.94% 98.30%,55.09% 88.67%,50.00% 100.00%,44.91% 88.67%,37.06% 98.30%,35.08% 86.03%,25.00% 93.30%,26.26% 80.94%,14.64% 85.36%,19.06% 73.74%,6.70% 75.00%,13.97% 64.92%,1.70% 62.94%,11.33% 55.09%,0.00% 50.00%,11.33% 44.91%,1.70% 37.06%,13.97% 35.08%,6.70% 25.00%,19.06% 26.26%,14.64% 14.64%,26.26% 19.06%,25.00% 6.70%,35.08% 13.97%,37.06% 1.70%,44.91% 11.33%);display:flex;align-items:center;justify-content:center;
+   filter:drop-shadow(7px 7px 0 rgba(0,0,0,.8));}
+ .burst span{color:#111;font-size:31px;font-weight:900;line-height:1.1;text-align:center;
+   transform:rotate(-7deg);}
+
+ .lead{margin-top:12px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:12px 18px;color:#111;font-size:19px;font-weight:800;line-height:1.55;
+   box-shadow:9px 9px 0 rgba(0,0,0,.6);}
+ .lead .r{color:#e8232a;} .lead .b{color:#0d4d9c;}
+
+ .cols{display:flex;margin:18px 0 8px;padding:0 10px;color:#ffd400;font-size:16px;font-weight:900;
+   -webkit-text-stroke:4px #000;paint-order:stroke fill;}
+ .cR{flex:0 0 116px;} .cH{flex:0 0 434px;} .cA{flex:0 0 306px;} .cM{flex:1;}
+
+ .row{position:relative;display:flex;align-items:stretch;background:#fff;border:6px solid #000;
+   border-radius:3px;margin-bottom:14px;padding:14px 16px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .row .corner{position:absolute;left:0;top:0;bottom:0;width:116px;pointer-events:none;opacity:.45;
+   background-image:radial-gradient(rgba(0,0,0,.55) 1.5px, transparent 1.6px);background-size:7px 7px;}
+
+ .rN{flex:0 0 116px;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;}
+ .rN .n{color:#e8232a;font-size:44px;font-weight:900;line-height:1;
+   -webkit-text-stroke:7px #000;paint-order:stroke fill;transform:skewX(-8deg);}
+ .rN .d{color:#111;font-size:13px;font-weight:900;margin-top:6px;background:#ffd400;
+   border:2px solid #000;padding:1px 5px;}
+
+ .hm{flex:0 0 434px;display:flex;align-items:center;gap:10px;padding-left:8px;}
+ .at{flex:0 0 306px;display:flex;align-items:center;gap:9px;}
+ .mk{font-size:36px;font-weight:900;color:#e8232a;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .mk2{font-size:34px;font-weight:900;color:#0d4d9c;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .nm{font-size:27px;font-weight:900;color:#111;letter-spacing:0;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .nm2{font-size:25px;font-weight:900;color:#111;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .sb{width:68px;height:68px;flex:0 0 68px;background:#ffd400;clip-path:polygon(50.00% 0.00%,56.63% 16.65%,69.13% 3.81%,68.89% 21.73%,85.36% 14.64%,78.27% 31.11%,96.19% 30.87%,83.35% 43.37%,100.00% 50.00%,83.35% 56.63%,96.19% 69.13%,78.27% 68.89%,85.36% 85.36%,68.89% 78.27%,69.13% 96.19%,56.63% 83.35%,50.00% 100.00%,43.37% 83.35%,30.87% 96.19%,31.11% 78.27%,14.64% 85.36%,21.73% 68.89%,3.81% 69.13%,16.65% 56.63%,0.00% 50.00%,16.65% 43.37%,3.81% 30.87%,21.73% 31.11%,14.64% 14.64%,31.11% 21.73%,30.87% 3.81%,43.37% 16.65%);
+   display:flex;align-items:center;justify-content:center;margin-right:-4px;}
+ .sb span{color:#111;font-size:20px;font-weight:900;transform:rotate(-10deg);}
+
+ .memo{flex:1;color:#1b1b1b;font-size:14px;line-height:1.6;padding-left:14px;
+   border-left:4px solid #000;align-self:center;}
+ .memo b{color:#0d4d9c;} .memo b.r{color:#e8232a;}
+
+ .foot{position:relative;margin-top:6px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:18px 24px;color:#111;font-size:21px;font-weight:900;line-height:1.6;
+   box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .foot .r{color:#e8232a;} .foot .b{color:#0d4d9c;}
+ .yell{position:absolute;right:-6px;top:-52px;background:#ffd400;border:5px solid #000;
+   padding:6px 16px;font-size:26px;font-weight:900;color:#111;transform:rotate(-4deg);
+   box-shadow:6px 6px 0 rgba(0,0,0,.7);}
+ .sig{text-align:right;color:#ffd400;font-size:18px;font-weight:900;margin-top:20px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+</style></head>
+<body><div class="card"><div class="lines"></div><div class="tone"></div><div class="inner">
+<div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>
+<div class="head"><div class="gekiga">ズブ穴</div><div class="dateblk"><div class="d1">9/15(火) 大井 7R〜12R</div><div class="d2">2日目 ／ 不良 ／ 前が止まって中団から届いている</div></div><div class="burst"><span>ズブ穴<br>6鞍</span></div></div>
+<div class="lead"><span class="r">今日は不良。昨日の稍重とは砂がまるで違う。</span><span class="b">1R〜4Rの勝ち馬の4角は5番手・4番手・2番手・1番手。昨日は12鞍のうち7鞍が4角1番手だったのに、今日は中団から差した馬が勝っている。</span><br><span class="r">前半が速くて後半が落ちる。4Rは前半36.0から後半41.2まで5秒以上垂れて、前に行った3頭の上がりが46〜47秒台になった。</span><span class="b">そして上がり4位以下は12頭で3着内2頭、7位以下は20頭でゼロ。</span><span class="r">終いの数字を持った馬が、中団から。それが今日の形だ。</span></div>
+<div class="cols"><div class="cR">R</div><div class="cH">◎ 本命</div><div class="cA">○ 相手</div><div class="cM">この馬をどう見たか</div></div>
+<div class="row"><div class="corner"></div><div class="rN"><div class="n">7R</div><div class="d">ダ1200<br>13頭</div></div><div class="hm"><span class="mk">◎</span><span class="nm">⑩ファジーエンジェル</span></div><div class="at"><span class="mk2">○</span><span class="nm2">⑬アースフレンドリー</span></div><div class="memo"><b class="r">下地の数字11.9はこの鞍のトップ。</b><b>牝3で484kg、7枠、中33日。13頭でこの体と間隔を持っているのはこの馬だけ。</b><b class="r">稍重の1200を4角9番手から上がり37.5。渋った砂で後ろから数字を出している。</b>前走は9番人気8着。4角14・11・9番手。<br>○⑬は<b class="r">下地10.2で鞍内2位、中身の濃さは3つで最多。</b><b>440kg。不良の1200で上がり39.7、稍重の1200では38.4。</b>前走は10番人気5着。<br><b class="r">ヒモは①アメージングヨシノと⑤ホーリーモミジ。</b><b>①は該当5つで最多、不良の1200を4角2番手から3着がある。⑤は524kgでこの鞍の最重量、稍重の1200で3着。</b></div></div>
+<div class="row"><div class="corner"></div><div class="rN"><div class="n">8R</div><div class="d">ダ1600<br>11頭</div></div><div class="hm"><div class="sb"><span>勝負</span></div><span class="mk">◎</span><span class="nm">④キミオウ</span></div><div class="at"><span class="mk2">○</span><span class="nm2">②ロココ</span></div><div class="memo"><b class="r">541kg。この鞍でいちばん大きく、下地の数字11.5もトップ。</b><b>牡3、4枠、中13日。</b><b class="r">稍重の1200を4角10番手から上がり37.9で勝っている。不良の1200でも4角13番手から37.8。渋った砂で、後ろから二度とも37秒台。</b>前走は10番人気10着で、今日も人気は落ちる。<br>○②は<b class="r">該当項目6つでこの鞍の最多。重の1500を4角1番手から2着。</b><b>449kg、2枠、中35日。</b>前走は6番人気4着。<br><b class="r">ヒモは⑩ヤスールと⑨ジュリ。</b><b>⑩は下地9.5で該当4つ、稍重の1400で2着。⑨は上がり35秒台を持つ唯一の馬で中51日。</b></div></div>
+<div class="row"><div class="corner"></div><div class="rN"><div class="n">9R</div><div class="d">ダ1200<br>10頭</div></div><div class="hm"><span class="mk">◎</span><span class="nm">⑨ラインメテオラ</span></div><div class="at"><span class="mk2">○</span><span class="nm2">⑩アーメダバード</span></div><div class="memo"><b class="r">該当項目5つはこの鞍で最多。</b><b>牡3で491kg、8枠、中13日。4角8・3・3番手。</b><b class="r">後ろから運んで、そこから前に押し上げられる。今日の砂で効く形。</b>前走は2番人気4着。<br>○⑩は<b class="r">536kg。この鞍でいちばん大きい。</b><b>該当4つ、4角15・12・3番手。</b>前走は7番人気16着で、人気は落ちる。<br><b class="r">ヒモは⑤ショーンバローズと②シーフレッシュ。</b><b>⑤は下地の数字が鞍内で上位、⑥は該当4つで不良の1200を4角1番手から6着がある。</b></div></div>
+<div class="row"><div class="corner"></div><div class="rN"><div class="n">10R</div><div class="d">ダ2400<br>13頭</div></div><div class="hm"><span class="mk">◎</span><span class="nm">⑪デスタン</span></div><div class="at"><span class="mk2">○</span><span class="nm2">⑦カレーウドン</span></div><div class="memo"><b class="r">該当項目5つはこの鞍で最多。下地の数字9.7も上位。</b><b>牡4、7枠、中11日。4角11・5・11番手。</b><b class="r">差しと強差しと道悪、三つが同時に付いているのはこの馬だけ。</b>429kgと小さいのが唯一の気掛かり。前走は1800で2番人気5着。<br>○⑦は<b class="r">503kg。下地8.3で中身の濃さも3つ。</b><b>牡5、5枠。4角10・7・12番手。</b>前走は1600で3番人気5着。<br><b class="r">ヒモは③ストライクノワールと⑫ショーシャンク。</b><b class="r">③は前走がこの2400を不良で走って6番人気2着。13頭でこの距離を知っているのはこの馬だけで、中98日。</b><b>⑫は該当4つで464kg。</b></div></div>
+<div class="row"><div class="corner"></div><div class="rN"><div class="n">11R</div><div class="d">ダ1600<br>10頭</div></div><div class="hm"><span class="mk">◎</span><span class="nm">③ムットクルフェ</span></div><div class="at"><span class="mk2">○</span><span class="nm2">④デンテブリランテ</span></div><div class="memo"><b class="r">該当項目7つ。この鞍で断トツに多い。下地の数字14.2も2番目。</b><b>セン5で494kg、3枠、中12日。1800mから1600mへ。</b><b class="r">差し、強差し、持続、道悪。今日の砂で要るものが全部付いている。</b>前走は3番人気6着。<br>○④は<b class="r">下地の数字19.5と中身4つが、どちらもこの鞍のトップ。</b><b>牡3で507kg、4枠、中33日。1800mから1600mへ。</b>前走は4番人気6着。<br><b class="r">ヒモは⑦ペルセヴェランテと⑧ブレスワード。</b><b>⑦は506kgで該当5つ、道悪の裏づけが二つ。⑧も該当5つで493kg、前走は1800を3番人気で勝っている。</b></div></div>
+<div class="row"><div class="corner"></div><div class="rN"><div class="n">12R</div><div class="d">ダ1200<br>14頭</div></div><div class="hm"><div class="sb"><span>勝負</span></div><span class="mk">◎</span><span class="nm">⑫フェスティヴルディ</span></div><div class="at"><span class="mk2">○</span><span class="nm2">⑪ニシノデフィレ</span></div><div class="memo"><b class="r">507kg。該当5つで、下地の数字11.7も上位。</b><b>牡5、7枠、中14日。</b><b class="r">道悪の裏づけが二つ付いている。14頭のなかで、体と数字と砂の適性が全部そろうのはこの馬だけ。</b>前走は同じ1200で4番人気5着。<br>○⑪は<b class="r">下地の数字13.9がこの鞍のトップ。中身の濃さも3つ。</b><b>セン7で497kg、7枠。</b>前走は10番人気6着。<br><b class="r">ヒモは⑭アポロリヤムと④ノーブルジーク。</b><b>⑭は該当7つで最多、前走は同じ1200を6番人気で勝っている。④は該当6つ・中身3つで495kg、1400mから1200mへ。</b></div></div>
+<div class="foot"><b>1R〜4Rで4角4〜6番手が3着内57%、4角1〜3番手は31%、7番手以降は14%。</b><b class="r">砂が乾いて締まってくれば前が残り始める。後半は一鞍ごとにラップを見直す。</b></div>
+<div class="sig">変態か、変態以外か。</div>
+</div></div></body></html>
