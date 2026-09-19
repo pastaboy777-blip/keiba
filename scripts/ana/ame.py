@@ -61,6 +61,17 @@ def agari(h):
     return out
 
 
+def odds(x):
+    """単勝の表示。★keibabookは大穴を『☆』で伏せる。未発表ではない（穴11）。
+
+    各鞍で数字が出ている上限を見ると 43〜48倍どまりで、それ以上が全部☆になる。
+    ＝**☆は「50倍以上」。** これを「オッズ未発表」と読むと、
+    いちばん人気のない馬＝いちばん穴の馬を、検討から落としてしまう。
+    """
+    v = x.get("odds")
+    return "50倍超" if (v or "").strip() in ("☆", "★") else (v or "-")
+
+
 def wet_rec(h, base=None):
     """道悪（稍を除く 重・不）の (走数, 勝, 3着内)。★略記の「不」を落とさない（kb.WET）。"""
     rs = [r for r in h if r["baba"] in kb.HEAVY
@@ -138,7 +149,7 @@ def show(m, rec, minhit):
     for r in sorted(hits, key=lambda z: -len(z["hit"])):
         x = r["x"]
         sd = f"±{r['sd']:.2f}" if r["sd"] is not None else "—"
-        print(f"  {x['ub']:>3} {x['name']:<17}{(x['odds'] or '-'):>7}"
+        print(f"  {x['ub']:>3} {x['name']:<17}{odds(x):>7}"
               f"{(str(r['w']) if r['w'] else '—'):>6}{(str(r['age']) if r['age'] else '—'):>4}"
               f"{sd:>9}{r['dv']:>3}{r['bv']:>4}  " + " / ".join(r["hit"])
               + (f"   道悪{r['wet'][0]}走{r['wet'][1]}勝{r['wet'][2]}好走" if r["wet"][0] else "   道悪未経験"))
