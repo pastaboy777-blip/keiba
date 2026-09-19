@@ -36,6 +36,11 @@
     9/15はこれで上がり順位が全頭 None になり、しばらく気づかなかった。
     → 取ったあとに **件数を必ず突き合わせる**（出馬表の頭数＝成績の頭数）。
 
+穴8 HTML実体参照をほどかないと、見出しが見つからず全行が消える
+    中央（/cyuou/）は見出しが「馬&emsp;名」「騎&emsp;手」。ほどかないと "馬名" と
+    一致しない。地方（/chihou/）では出ないので、地方だけ見ていると気づけない。
+    → cells() が html.unescape する。
+
 穴7 通過順位・前半3F は【開催当日しか生値で出ない】
     有料欄だと思い込んでいたが違う。**時間が経つとマスクされる**。
     競馬ブックの結果ページは開催直後だけ通過順を生値で出し、その後 `****` になる。
@@ -51,6 +56,7 @@ cookie:
 """
 from __future__ import annotations
 
+import html as _html
 import os
 import re
 import subprocess
@@ -102,7 +108,14 @@ def text(html: str) -> str:
 
 
 def cells(tr: str) -> list[str]:
-    return [re.sub(r"\s+", " ", _TAG.sub(" ", x)).strip() for x in _TD.findall(tr)]
+    """1行ぶんのセル。★HTML実体参照を必ずほどく（穴8）。
+
+    中央（/cyuou/）の出馬表は見出しが「馬&emsp;名」「騎&emsp;手」と実体参照入り。
+    ほどかないと "馬名" と一致せず、見出しが見つからず **全行が黙って落ちる**。
+    2026-09-20 のWIN5 5鞍が「0頭」と出たのがこれ。例外は出ない。
+    """
+    return [re.sub(r"\s+", " ", _TAG.sub(" ", _html.unescape(x))).strip()
+            for x in _TD.findall(tr)]
 
 
 def rows(html: str):
