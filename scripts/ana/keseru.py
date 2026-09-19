@@ -31,6 +31,12 @@
     F 重い         馬体重がレース平均+15kg以上（発表後のみ）
     G 格          その鞍の条件より**上の格**で3着内がある（中央のみ）
 
+脚質（4角）は理由にしない。**事実として横に出すだけ。**
+    rel = (4角の位置−1)/(頭数−1)。0=先頭 1=最後方。近走の平均。
+    その日の勝ち馬の rel と見比べて使う（nichi 側で測る）。
+    2026-09-14/15/16 の大井は勝ち馬 0.05/0.07/0.08 で完全な前残り。
+    2026-09-19 の中央は 中山0.18・阪神0.27、芝だけなら両場とも0.13だった。
+
     ★Gが無いと中央では害になる。好走率だけの条件は、G1を使われている馬の
       好走率を低く見積もる。2026-09-20 オールカマーで、有馬記念・エリザベス
       女王杯・前年オールカマーの勝ち馬レガレイラを「消す」側に置いた。
@@ -78,7 +84,12 @@ def leg(rid: str, base, place_hint: str | None = None, force: bool = False):
         last = kb.last_run(h, base)
         na, wa, ta = kb.at(h, place, td, base, surface=sfc)          # A 当条件
         nz, wz, tz = kb.at_zone(h, td, base, surface=sfc)            # B 同距離帯・全場（あとで相対化）
+        ks = kb.kyakushitsu(x["umacd"], n=6) if x["umacd"] else []
+        ks = [k for k in ks if k["rel"] is not None
+              and (k["surface"] == sfc or not [z for z in ks if z["surface"] == sfc])]
         rec.append(dict(x=x, h=h, gap=kb.interval(h, base), last=last,
+                        rel=(st.mean([k["rel"] for k in ks]) if ks else None),
+                        nks=len(ks),
                         cond=(na, wa, ta), zone=(nz, wz, tz),
                         bg=kb.best_grade(h, base),
                         pd=kb.dist_of(last["dist"]) if last else None,
@@ -140,18 +151,25 @@ def show(rid, m, rec, tag=""):
     note = "" if len(cut) >= max(2, len(rec) // 4) else "   ★この鞍は絞れていない"
     print(f"  ▸ 消せない {len(keep)}頭 / 消せる {len(cut)}頭{note}")
     print()
-    print(f"  {'番':>3} {'馬名':<17}{'騎手':<8}{'単勝':>7}{'体重':>6}{'差':>7}  消せない理由")
+    rr = [r["rel"] for r in rec if r["rel"] is not None]
+    if rr:
+        print(f"  ▸ 4角の位置: この鞍の平均 {st.mean(rr):.2f}"
+              f"（0=先頭 1=最後方／近走の平均。**理由には使わない。事実として見る**）")
+    print(f"\n  {'番':>3} {'馬名':<17}{'騎手':<8}{'単勝':>7}{'4角':>6}{'型':<7}消せない理由")
     for r in sorted(keep, key=lambda z: kb.fnum(z["x"]["odds"]) or 999):
         x = r["x"]
-        d = (f"{int(x['w'])-r['avg']:+.0f}kg"
-             if r["avg"] and (x["w"] or "").isdigit() else "—")
+        rel = r["rel"]
+        tag = ("—" if rel is None else "逃先" if rel <= 0.25 else
+               "好位" if rel <= 0.45 else "中団" if rel <= 0.70 else "後方")
         print(f"  {x['ub']:>3} {x['name']:<17}{(x['jk'] or ''):<8}{(x['odds'] or '-'):>7}"
-              f"{(x['w'] or '-'):>6}{d:>7}  " + " / ".join(r["why"]))
+              f"{(f'{rel:.2f}' if rel is not None else '—'):>6} {tag:<6}" + " / ".join(r["why"]))
     if cut:
         print(f"\n  ── 理由ゼロ（消す） ──")
         for r in sorted(cut, key=lambda z: kb.fnum(z["x"]["odds"]) or 999):
             x = r["x"]
-            print(f"  {x['ub']:>3} {x['name']:<17}{(x['jk'] or ''):<8}{(x['odds'] or '-'):>7}")
+            rel = f"{r['rel']:.2f}" if r["rel"] is not None else "—"
+            print(f"  {x['ub']:>3} {x['name']:<17}{(x['jk'] or ''):<8}"
+                  f"{(x['odds'] or '-'):>7}{rel:>6}")
     print()
 
 

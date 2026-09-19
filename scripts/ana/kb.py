@@ -36,6 +36,12 @@
     9/15はこれで上がり順位が全頭 None になり、しばらく気づかなかった。
     → 取ったあとに **件数を必ず突き合わせる**（出馬表の頭数＝成績の頭数）。
 
+穴10 cookie を付けると【別のページが返る】ところがある
+    /db/uma/ は cookie 有りだと『完全データ』に化け、1走が1行の別形式になる。
+    既存のパーサは黙って0件を返し、履歴が全頭ゼロになる（例外は出ない）。
+    → uma()/sire() は nocookie=True で取る。
+      通過順つきの履歴が要るときは kyakushitsu()（完全データ側）を使う。
+
 穴9 馬場の種類（芝/ダート/障）を決め打ちしない
     地方だけ見て meta() を「ダート・右外」前提で書いていた。中央は芝が来るので
     dist も course も None になり、**芝のレースが丸ごと読めない**。
@@ -85,14 +91,20 @@ _TD = re.compile(r"<t[dh][^>]*>(.*?)</t[dh]>", re.S)
 
 # ────────────────────────── 取得 ──────────────────────────
 
-def get(path: str, name: str, force: bool = False, minsize: int = 2000) -> str:
-    """BASE+path を取って中身を返す。取れなければ空文字（例外を投げない）。"""
+def get(path: str, name: str, force: bool = False, minsize: int = 2000,
+        nocookie: bool = False) -> str:
+    """BASE+path を取って中身を返す。取れなければ空文字（例外を投げない）。
+
+    ★nocookie=True は「cookieを付けると別ページが返る」ところで使う（穴10）。
+      /db/uma/ は cookie 有りだと『完全データ』に化け、1走1行の別形式になる。
+      気づかずに使うと履歴が全頭ゼロになり、**例外は出ない**。
+    """
     os.makedirs(CACHE, exist_ok=True)
     out = os.path.join(CACHE, name)
     if not force and os.path.exists(out) and os.path.getsize(out) > minsize:
         return open(out, encoding="utf-8", errors="replace").read()
     cmd = ["curl", "-s", "-L", "--max-time", "40", "--retry", "2"]
-    if os.path.exists(CONF):
+    if os.path.exists(CONF) and not nocookie:
         cmd += ["-K", CONF]                      # cookie があれば有料欄も開く
     cmd += [BASE + path, "-o", out]
     subprocess.run(cmd, check=False)
@@ -318,7 +330,7 @@ def seiseki(rid: str, force: bool = False) -> tuple[dict, list[dict]]:
 
 def uma(umacd: str, force: bool = False) -> list[dict]:
     """馬ページ → 競走成績（古い順）。馬場欄は 良/稍/重/不 の1文字（★穴1）。"""
-    h = get(f"/db/uma/{umacd}", f"uma_{umacd}.html", force=force)
+    h = get(f"/db/uma/{umacd}", f"uma_{umacd}.html", force=force, nocookie=True)
     out = []
     for tr in _TR.finditer(h):
         c = cells(tr.group(1))
@@ -334,7 +346,7 @@ def uma(umacd: str, force: bool = False) -> list[dict]:
 
 
 def sire(umacd: str) -> str | None:
-    h = get(f"/db/uma/{umacd}", f"uma_{umacd}.html")
+    h = get(f"/db/uma/{umacd}", f"uma_{umacd}.html", nocookie=True)
     m = re.search(r"父\s*</t[dh]>\s*<t[dh][^>]*>(.*?)</t[dh]>", h, re.S)
     return _TAG.sub("", m.group(1)).replace("▶", "").strip() if m else None
 
@@ -386,6 +398,42 @@ def best_grade(hist, base=None, within=3):
         if best is None or cand > (best[0], -best[1]):
             best = (g, int(h["chaku"]), h["date"], h["race"])
     return best
+
+
+_FULL = re.compile(r"(\d+)頭.*?([\d.]+)\((\d+)人気\).*?((?:[①-⑳]|\d+)(?:\s+(?:[①-⑳]|\d+))*)\s+\S*\s*(\d+)着")
+_CIR = {c: str(i + 1) for i, c in enumerate("①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳")}
+
+
+def kyakushitsu(umacd: str, force: bool = False, n: int = 6):
+    """『完全データ』ページ（cookie 必須）から、近走の4角位置を取る。
+
+    返すのは [{date, dist, n, chaku, c4, rel}]。rel は 0=先頭 1=最後方。
+    ★通過順は丸数字（①②…）が混ざる。必ず数字に直してから使う。
+    """
+    h = get(f"/db/uma/{umacd}", f"umafull_{umacd}.html", force=force)
+    out = []
+    for tr in _TR.finditer(h):
+        c = cells(tr.group(1))
+        if len(c) < 6 or not re.match(r"\d{4}年\d+月\d+日", c[0]):
+            continue
+        head, blob = c[0], c[-1]
+        m = _FULL.search(blob)
+        if not m:
+            continue
+        field = int(m.group(1))
+        pas = [int(_CIR.get(ch, ch)) for ch in m.group(4).split()
+               if _CIR.get(ch, ch).isdigit()]
+        if not pas:
+            continue
+        d = re.search(r"(\d{3,4})m", head)
+        dt_ = re.match(r"(\d{4})年(\d+)月(\d+)日", head)
+        out.append(dict(date=f"{dt_.group(1)}/{int(dt_.group(2)):02d}/{int(dt_.group(3)):02d}",
+                        dist=int(d.group(1)) if d else None,
+                        surface="芝" if "芝" in head else ("障" if "障" in head else "ダ"),
+                        n=field, chaku=int(m.group(5)), c4=pas[-1],
+                        rel=(pas[-1] - 1) / (field - 1) if field > 1 else None))
+    out.sort(key=lambda r: r["date"])
+    return out[-n:]
 
 
 def surface_of(s: str | None) -> str | None:
