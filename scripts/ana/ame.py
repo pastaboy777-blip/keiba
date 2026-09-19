@@ -91,15 +91,20 @@ def leg(rid, base, force=False):
     n = len(rec)
     cut = max(1, n // 3)
 
-    # ①小型：近走馬体重が軽いほう1/3
+    # ①小型：近走馬体重が軽いほう1/3。
+    # ★体重が団子の鞍では立てない（全馬±10kg以内なら「小型」という区別が成立しない）。
     ws = sorted((r for r in rec if r["w"]), key=lambda r: r["w"])
-    small = {id(r) for r in ws[:cut]}
-    # ③高齢：年齢が高いほう1/3（同い年は同じ扱いになるよう閾値で切る）
-    ages = sorted({r["age"] for r in rec if r["age"]}, reverse=True)
-    thr = ages[min(len(ages) - 1, 0)] if ages else None
+    small = ({id(r) for r in ws[:cut]}
+             if len(ws) >= 3 and ws[-1]["w"] - ws[0]["w"] >= 20 else set())
+    # ③高齢：年齢が高いほう1/3。
+    # ★全馬が同い年の鞍（2歳戦など）では**発火させない**。
+    #   2歳未勝利で「高齢2歳」と出た。相対化しても、散らばりがゼロなら希少性は生まれない。
+    #   相対化は「順位を付ける」ことであって、「差があること」までは保証しない。
     need = sorted((r["age"] for r in rec if r["age"]), reverse=True)
     thr = need[min(cut - 1, len(need) - 1)] if need else None
-    old = {id(r) for r in rec if r["age"] and thr and r["age"] >= thr}
+    lo_age = min(need) if need else None
+    old = ({id(r) for r in rec if r["age"] and thr and r["age"] >= thr > lo_age}
+           if need and max(need) > lo_age else set())
     # ④上がりが一定：ばらつきが小さいほう1/3（3本以上ある馬の中で）
     sds = sorted((r for r in rec if r["sd"] is not None), key=lambda r: r["sd"])
     flat = {id(r) for r in sds[:cut]}
