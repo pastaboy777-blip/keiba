@@ -36,6 +36,11 @@
     9/15はこれで上がり順位が全頭 None になり、しばらく気づかなかった。
     → 取ったあとに **件数を必ず突き合わせる**（出馬表の頭数＝成績の頭数）。
 
+穴9 馬場の種類（芝/ダート/障）を決め打ちしない
+    地方だけ見て meta() を「ダート・右外」前提で書いていた。中央は芝が来るので
+    dist も course も None になり、**芝のレースが丸ごと読めない**。
+    → surface を必ず持つ。パスも area() で中央/地方を見分ける（桁数で分かる）。
+
 穴8 HTML実体参照をほどかないと、見出しが見つからず全行が消える
     中央（/cyuou/）は見出しが「馬&emsp;名」「騎&emsp;手」。ほどかないと "馬名" と
     一致しない。地方（/chihou/）では出ないので、地方だけ見ていると気づけない。
@@ -160,17 +165,40 @@ def rid_of(pre: str, r: int, date: str) -> str:
     return f"{pre}{r:02d}{date[4:]}"
 
 
+def area(rid: str) -> str:
+    """rid の桁数で 中央/地方 を見分ける。
+
+    地方 = 年(4)+開催コード(6)+R(2)+MMDD(4) = 16桁
+    中央 = 開催コード(10)+R(2)            = 12桁
+    ★どちらも同じ関数で読めるようにするため、パスはここだけで決める。
+    """
+    return "cyuou" if len(rid) == 12 else "chihou"
+
+
 def meta(html: str) -> dict:
-    """出馬表・成績ページの見出しから レース条件を取る。"""
+    """出馬表・成績ページの見出しから レース条件を取る。
+
+    ★馬場の種類（芝/ダート/障）を必ず持つ（穴9）。
+      地方だけ見ていたときは「ダート・右外」と決め打ちしていたが、
+      中央は「2200m (芝Ｃ・右外)」「1200m (芝Ｂ・右内)」のように芝が来る。
+      決め打ちのままだと dist も course も None になり、**芝のレースが丸ごと読めない**。
+      2026-09-20 のWIN5は5鞍中2鞍が芝だった。
+    """
     t = text(html)
-    m = re.search(r"発走 (\d+:\d+).{0,90}?(\d{3,4})m \(ダート・([^)]+)\)(?: ([^ ]+))?", t)
+    m = re.search(r"発走 (\d+:\d+) (.{0,140}?)(\d{3,4})m "
+                  r"\((芝[^・)]*|ダート|ダ|障[^・)]*)・([^)]+)\)(?: ([^ ]+))?", t)
     ttl = re.search(r"<title>(.*?)</title>", html, re.S)
-    out = dict(start=None, dist=None, course=None, baba=None,
+    out = dict(start=None, dist=None, surface=None, course=None, baba=None,
+               cond=None, grade=None,
                title=(ttl.group(1).strip() if ttl else ""))
     if m:
-        out.update(start=m.group(1), dist=int(m.group(2)), course=m.group(3))
-        w = m.group(4) or ""
-        b = re.search(r"(良|稍重|重|不良)", w)
+        sfc = m.group(4)
+        out.update(start=m.group(1), cond=m.group(2).strip(), dist=int(m.group(3)),
+                   surface=("芝" if sfc.startswith("芝")
+                            else "障" if sfc.startswith("障") else "ダ"),
+                   course=sfc + "・" + m.group(5),
+                   grade=grade_of(m.group(2)))
+        b = re.search(r"(良|稍重|重|不良)", m.group(6) or "")
         out["baba"] = b.group(1) if b else None
     if not out["baba"]:
         b = re.search(r"(?:晴|曇|雨|小雨|雪)・(良|稍重|重|不良)", t)
@@ -201,7 +229,7 @@ def _idx(head: list[str], *names) -> int | None:
 
 def syutuba(rid: str, force: bool = False) -> tuple[dict, list[dict]]:
     """出馬表 → (レース条件, 出走馬)。馬体重は発走直前まで空欄なので force で取り直す。"""
-    h = get(f"/chihou/syutuba/{rid}", f"syu_{rid}.html", force=force)
+    h = get(f"/{area(rid)}/syutuba/{rid}", f"syu_{rid}.html", force=force)
     head, _ = _header(h, "馬名")
     if not head:
         return meta(h), []
@@ -252,7 +280,7 @@ def seiseki(rid: str, force: bool = False) -> tuple[dict, list[dict]]:
     ★成績の本文行には、見出しに無いセルが1つ入る（重量の直後の減量印）。
       見出しから引いたうえで、重量より右の列だけ +1 する。
     """
-    h = get(f"/chihou/seiseki/{rid}", f"sei_{rid}.html", force=force)
+    h = get(f"/{area(rid)}/seiseki/{rid}", f"sei_{rid}.html", force=force)
     head, _ = _header(h, "馬名")
     if not head:
         return meta(h), []
@@ -317,6 +345,58 @@ def dist_of(s: str | None):
     return int(m.group(1)) if m else None
 
 
+GRADE = ["新馬", "未勝利", "1勝", "2勝", "3勝", "（Ｌ）", "OP", "G3", "G2", "G1"]
+_GI = {g: i for i, g in enumerate(GRADE)}
+
+
+def grade_of(klass: str | None) -> int | None:
+    """クラス欄を格の高さ（大きいほど上）に直す。中央のみ意味がある。
+
+    ★格を入れずに好走率だけで測ってはいけない（穴10）。
+      G1で7着と3勝クラスで7着は同じではない。2026-09-20 のオールカマーで、
+      好走率だけの条件は **有馬記念・エリザベス女王杯・前年オールカマーの
+      勝ち馬レガレイラを「消す」側に置いた**。格が無い道具は中央では害になる。
+    """
+    if not klass:
+        return None
+    k = (klass.replace("ＧⅠ", "G1").replace("ＧⅡ", "G2").replace("ＧⅢ", "G3")
+              .replace("ＧI", "G1").replace("ＧII", "G2").replace("ＧIII", "G3")
+              .replace("１勝", "1勝").replace("２勝", "2勝").replace("３勝", "3勝")
+              .strip())
+    for g in reversed(GRADE):
+        if g in k or (g == "OP" and "オープン" in k):
+            return _GI[g]
+    if "Jpn1" in k: return _GI["G1"]
+    if "Jpn2" in k: return _GI["G2"]
+    if "Jpn3" in k: return _GI["G3"]
+    return None
+
+
+def best_grade(hist, base=None, within=3):
+    """(最高格, その格での最高着順, 日付) ── within 着以内に限る。"""
+    best = None
+    for h in hist:
+        if base and to_date(h["date"]) >= base:
+            continue
+        g = grade_of(h.get("klass"))
+        if g is None or not h["chaku"].isdigit() or int(h["chaku"]) > within:
+            continue
+        cand = (g, -int(h["chaku"]))
+        if best is None or cand > (best[0], -best[1]):
+            best = (g, int(h["chaku"]), h["date"], h["race"])
+    return best
+
+
+def surface_of(s: str | None) -> str | None:
+    """馬ページの距離欄（"ダ1200" "芝1400" "障2970"）から 芝/ダ/障 を取る。
+
+    ★芝とダートを混ぜて数えない（穴9）。中央は同じ馬が芝とダートを行き来する。
+    """
+    if not s:
+        return None
+    return "芝" if s.startswith("芝") else ("障" if s.startswith("障") else "ダ")
+
+
 def to_date(s: str) -> dt.date:
     y, m, d = s.split("/")
     return dt.date(int(y), int(m), int(d))
@@ -347,9 +427,10 @@ def wet(hist, base=None):
     return record(hist, f)
 
 
-def at(hist, place: str, dist: int, base=None):
-    """同じ場・同じ距離の成績。"""
+def at(hist, place: str, dist: int, base=None, surface=None):
+    """同じ場・同じ距離（＋指定があれば同じ馬場種別）の成績。"""
     f = lambda h: (place in (h["place"] or "") and dist_of(h["dist"]) == dist
+                   and (surface is None or surface_of(h["dist"]) == surface)
                    and (base is None or to_date(h["date"]) < base))
     return record(hist, f)
 
@@ -359,7 +440,7 @@ def zone_of(d: int) -> str:
     return "短" if d <= 1200 else ("マ" if d <= 1700 else "長")
 
 
-def at_zone(hist, dist: int, base=None):
+def at_zone(hist, dist: int, base=None, surface=None):
     """同じ距離帯・**全場**の成績。
 
     ★場で絞ってはいけない（穴9）。重賞路線の馬は場をまたぐ。
@@ -370,15 +451,17 @@ def at_zone(hist, dist: int, base=None):
     """
     z = zone_of(dist)
     f = lambda h: (dist_of(h["dist"]) and zone_of(dist_of(h["dist"])) == z
+                   and (surface is None or surface_of(h["dist"]) == surface)
                    and (base is None or to_date(h["date"]) < base))
     return record(hist, f)
 
 
-def best_at_zone(hist, dist: int, base=None):
+def best_at_zone(hist, dist: int, base=None, surface=None):
     """同じ距離帯・全場で、いちばん良かった1走を返す（重賞優先で新しいもの）。"""
     z = zone_of(dist)
     v = [h for h in hist
          if dist_of(h["dist"]) and zone_of(dist_of(h["dist"])) == z
+         and (surface is None or surface_of(h["dist"]) == surface)
          and (base is None or to_date(h["date"]) < base)
          and h["chaku"].isdigit()]
     if not v:
