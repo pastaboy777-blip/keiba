@@ -249,7 +249,7 @@ def syutuba(rid: str, force: bool = False) -> tuple[dict, list[dict]]:
     I = {k: _idx(head, *v) for k, v in dict(
         waku=("枠番",), ub=("馬番",), name=("馬名",), sex=("性齢",), jk=("騎手",),
         kin=("斤量",), stable=("厩舎",), w=("馬体重(kg)", "馬体重"), dw=("増減",),
-        odds=("単勝",), nin=("人気",)).items()}
+        odds=("単勝",), nin=("人気",), bli=("ブリンカ", "ブリンカー")).items()}
     if I["ub"] is None or I["name"] is None:
         return meta(h), []
     out = []
@@ -276,7 +276,7 @@ def syutuba(rid: str, force: bool = False) -> tuple[dict, list[dict]]:
         #   落とすと、その馬が検討そのものから消える。9/14の大井11Rで1頭消えた。
         bad = len(c) != len(head)
         out.append(dict(waku=g("waku"), ub=int(g("ub")), name=real,
-                        sex=g("sex"),
+                        sex=g("sex"), bli=("B" in g("bli")),
                         jk=None if bad else g("jk"), kin=None if bad else g("kin"),
                         stable=None if bad else g("stable"),
                         w=None if bad else (g("w") or None),
