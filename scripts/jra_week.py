@@ -314,6 +314,38 @@ def main() -> None:
                   f"{L['pop']}人気{(str(L['finish'])+'着') if L['finish'] else '着外'}"
                   f"　→ {r['weeks']:.1f}週")
 
+    # ── ③' **前走で好走したか × 間隔。** ───────────────────
+    #    ユーザーの読み（2026-09-20）:「好走して競馬場の影響を7週受けると好走した」
+    #
+    #    ⚠️ ③の「激走」は**人気薄(5人気以下)で3着内**に絞っていたので n=25/16
+    #       しか無かった。ここは**人気を問わず3着内**に広げる。こちらが本題。
+    #
+    #    ⚠️ 馬柱の着順は Ranking_N クラスにしか無く1〜3着にしか付かないので、
+    #       `finish is None` ＝ 4着以下。**ちょうど「3着内か否か」で割れる。**
+    def good(r) -> bool | None:
+        return None if not r["last"] else (r["last"]["finish"] is not None)
+
+    def longrest(r) -> bool | None:
+        return None if r["weeks"] is None else (r["weeks"] >= STIFF_WEEKS)
+
+    print("\n■ **前走で3着内だったか × 間隔**（「好走して7週あけると好走」）")
+    print(f"  {'':<26}{'出走':>6}{'3着内':>7}{'率':>8}{'1着':>6}"
+          f"{'人気薄(6人気以下)':>18}")
+    for glab, gv in (("前走3着内", True), ("前走は着外", False)):
+        for wlab, wv in ((f"{STIFF_WEEKS:.0f}週以上あけた", True),
+                         (f"{STIFF_WEEKS:.0f}週未満", False)):
+            g = [r for r in rows if good(r) is gv and longrest(r) is wv]
+            print(f"  {glab:<14}×{wlab:<11}{cell(g)}")
+    print(f"  {'全体':<26}{cell(rows)}")
+    for pl in sorted({r["place"] for r in rows}):
+        print(f"  ── {pl} だけ ──")
+        for glab, gv in (("前走3着内", True), ("前走は着外", False)):
+            for wlab, wv in ((f"{STIFF_WEEKS:.0f}週以上", True),
+                             (f"{STIFF_WEEKS:.0f}週未満", False)):
+                g = [r for r in rows if r["place"] == pl
+                     and good(r) is gv and longrest(r) is wv]
+                print(f"  {glab:<14}×{wlab:<11}{cell(g)}")
+
     # ── ④ **競馬場ごとに割る。** ─────────────────────────
     #    ⚠️⚠️ **競馬場を混ぜたまま読んではいけない。**この週の「7週以上あけて
     #       競馬場も替わった」馬はほとんどが阪神で、前走は小倉・札幌・函館に偏る。
