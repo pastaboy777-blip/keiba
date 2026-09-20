@@ -76,7 +76,8 @@ def collect(pre, place, base, top=3):
                  if code.get(ub) else [])
             wk = ((base - kb.to_date(h[-1]["date"])).days / 7) if h else None
             pl, pln = lon_of(h[-1]["place"]) if h else (None, None)
-            pas = (x.get("pas") or "").split()
+            # ★通過順には丸数字（①②…）が混ざる。必ず数字に直す（kb.kyakushitsu と同じ罠）
+            pas = [kb._CIR.get(c, c) for c in (x.get("pas") or "").split()]
             c4 = int(pas[-1]) if pas and pas[-1].isdigit() else None
             rel = (c4 - 1) / (n - 1) if c4 and n > 1 else None
             dw = (int(x["w"]) - avg) if avg and (x["w"] or "").isdigit() else None
