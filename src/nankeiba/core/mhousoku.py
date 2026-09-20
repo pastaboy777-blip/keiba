@@ -98,6 +98,26 @@ K_PEAK = 1.0           # 単純に前走が激走だった
 
 #: 休み明けとみなす日数。
 REST_DAYS = 60
+#: **硬直が抜ける週数。**（ユーザー指定 2026-09-20）
+#:
+#: ⚠️⚠️ **硬直には時定数が要る。**Mの法則は「激走の後に反動が来る」とだけ言い、
+#:    **いつまで続くか**を言わない。そのため `stiffness()` は長らく
+#:    「前走が激走なら常に減点」だった。**休み明けで間隔が空いた馬まで
+#:    減点していた**ことになる。
+#:
+#:    7週という値は中島理論の磁場（移動後7週で元の磁場が切れる）から借りた。
+#:    ユーザーがモリノセピアの馬柱でこの形を見つけた:
+#:
+#:        2026-04-12 福島 9人気3着（激走）→ **10.9週** → 06-27 福島 7人気3着  好走
+#:        2026-06-27 福島 7人気3着（激走）→  **4.1週** → 07-26 新潟 4人気7着  凡走
+#:
+#:    ⚠️ **これは磁場ではない。**経度をひとつも使っていない。場所を消しても
+#:       同じ予測が出る。**「激走の直後に詰めて使うと反動」という間隔の話**で、
+#:       磁場仮説がこの予測に足しているものは何も無い。
+#:
+#:    ⚠️ **7週という値そのものは検証していない。**中島理論から借りただけで、
+#:       南関で測った値ではない。5週でも9週でも同じ形になる可能性がある。
+STIFF_WEEKS = 7.0
 #: 「激走」＝この人気以下で3着内。
 GEKISO_POP = 5
 #: 内枠とみなす割合（頭数に対する枠の位置）。
@@ -217,19 +237,29 @@ def shocks(place: str, distance: int | None, jockey: str | None,
     return s, tags
 
 
-def stiffness(runs) -> tuple[float, list]:
+def stiffness(runs, today: str | None = None) -> tuple[float, list]:
     """**硬直**（反動）リスク。前走で無理をした直後か。
 
     ⚠️ Mの法則で硬直は「休み明けの激走」「苦手な距離での無理な走り」
        「強引なショックでの激走」の**後**に起こるとされる。
        つまり**激走そのものが次走の減点材料**になる。
        買う材料しか持たない指数は、ここで必ず外す。
+
+    ⚠️⚠️ **`today` を渡すと時定数が効く。**激走から `STIFF_WEEKS`（7週）を
+       越えていれば反動は抜けたものとして0を返す。渡さなければ従来どおり
+       「前走が激走なら常に減点」で、**休み明けの馬まで減点してしまう**。
+       呼ぶ側は必ず今走の日付を渡すこと。
     """
     if len(runs) < 2:
         return 0.0, []
     last, rest = runs[0], runs[1:]
     if not is_gekiso(last):
         return 0.0, []
+    # ⚠️ 時定数。間隔が空いていれば反動は残らない。
+    since = _days(today, _g(last, "date")) if today else None
+    if since is not None and since > STIFF_WEEKS * 7:
+        return 0.0, [f"前走は激走だが{since/7:.1f}週前"
+                     f"（{STIFF_WEEKS:.0f}週超）＝反動は抜けている"]
     s, risks = K_PEAK, [f"前走が激走（{_g(last, 'popularity')}人気"
                         f"{_g(last, 'finish_pos')}着）"]
 
@@ -260,7 +290,9 @@ def state(place: str, distance: int | None, jockey: str | None,
         return MState()
     f, tags = shocks(place, distance, jockey, gate, field_size,
                      race_class, date, runs, kinryo=kinryo)
-    k, risks = stiffness(runs)
+    # ⚠️ **今走の日付を渡す。**渡さないと硬直の時定数が効かず、休み明けの馬まで
+    #    「前走が激走」だけで減点される。
+    k, risks = stiffness(runs, today=date)
     return MState(fresh=round(f, 1), stiff=round(k, 1), shocks=tags, risks=risks)
 
 

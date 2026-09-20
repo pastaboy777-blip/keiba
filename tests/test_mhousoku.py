@@ -114,6 +114,39 @@ class TestStiffness(unittest.TestCase):
                             + [run(date="2026-01-01")] * 2)[0]
         self.assertGreater(after, plain)
 
+    def test_stiffness_expires_after_seven_weeks(self):
+        """⚠️⚠️ **硬直には時定数が要る。**（ユーザー指定 2026-09-20）
+
+        Mの法則は「激走の後に反動が来る」とだけ言い、**いつまで続くか**を
+        言わない。そのため長らく「前走が激走なら常に減点」で、**休み明けで
+        間隔が空いた馬まで減点していた**。7週を越えたら抜けるようにした。
+        """
+        runs = [run(finish_pos=3, popularity=9, date="2026-06-27")] \
+            + [run(date="2026-04-12")] * 2
+        # 4.1週後 → まだ反動が残る
+        soon, _ = M.stiffness(runs, today="2026-07-26")
+        # 10.9週後 → 抜けている
+        late, note = M.stiffness(runs, today="2026-09-12")
+        self.assertGreater(soon, 0.0)
+        self.assertEqual(late, 0.0)
+        self.assertTrue(any("抜けている" in x for x in note))
+
+    def test_without_today_the_time_constant_is_off(self):
+        """`today` を渡さなければ従来どおり（後方互換）。"""
+        runs = [run(finish_pos=3, popularity=9, date="2020-01-01")] \
+            + [run(date="2019-12-01")] * 2
+        self.assertGreater(M.stiffness(runs)[0], 0.0)
+
+    def test_state_passes_today_through(self):
+        """⚠️ `state()` は今走の日付を `stiffness()` に渡すこと。
+        渡し忘れると休み明けの馬が「前走が激走」だけで減点される。"""
+        runs = [run(finish_pos=3, popularity=9, date="2026-06-27")] \
+            + [run(date="2026-04-12")] * 2
+        soon = M.state("大井", 1200, "Ａ", 3, 10, None, "2026-07-26", runs)
+        late = M.state("大井", 1200, "Ａ", 3, 10, None, "2026-09-12", runs)
+        self.assertGreater(soon.stiff, 0.0)
+        self.assertEqual(late.stiff, 0.0)
+
     def test_gekiso_at_odd_distance_is_worse(self):
         same = M.stiffness([run(finish_pos=2, popularity=9, distance=1200)]
                            + [run(distance=1200)] * 3)[0]
