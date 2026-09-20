@@ -23,6 +23,19 @@ Mの法則は「激走の後に反動が来る」とだけ言い、**いつま�
    3着内率は全体で約 3/頭数 になるので、**帯ごとの3着内率を全出走馬で
    比べる**こと。この道具は全出走馬を取ってから馬券圏内を数える。
 
+⚠️⚠️ **「磁場」という言葉は使わない。**（ユーザー指定 2026-09-20）
+   測れているのは「**前走と同じ競馬場か**」だけなので、そう書く。経度差2度の
+   抽象を被せても何も足さない。今週の中央618頭で実測:
+
+       経度2度超 動いた   32/134 = 23.9%   ／  2度以内  85/362 = 23.5%   ← +0.4pt
+       7週以上あけた     61/234 = 26.1%   ／  7週未満  56/262 = 21.4%   ← **+4.7pt**
+
+⚠️⚠️ **「競馬場が替わった」は変数になっていない。**JRAの開催ローテーションの
+   結果、7週以上あけた馬はほぼ全部が別の競馬場から来る（実測：中山 118頭中
+   **110頭(93%)**、阪神 116頭中 **97頭(84%)**）。ほぼ定数なので差が出ない。
+   さらに競馬場ごとに割ると向きが**逆になる**（中山 +14.8pt ／ 阪神 −6.9pt）。
+   **混ぜたままなら開催カレンダーの形を見ているだけ。**
+
 ⚠️ **恒久ルール5に触れないこと。**見るのは**今週の開催**だけ。過去開催を
    まとめた回収率・勝率の集計はしない。`--dates` に今週以外を渡さない。
 
@@ -174,6 +187,19 @@ def classify(runs: list, date: str) -> tuple[str, float | None, dict | None]:
     return ("激走→7週以内" if w <= STIFF_WEEKS else "激走→7週超"), w, last
 
 
+def cell(g: list) -> str:
+    """1マス分：出走／3着内／率／1着／人気薄(6人気以下)の3着内。"""
+    if not g:
+        return f"{0:>6}{'—':>7}{'—':>8}{'—':>6}{'—':>18}"
+    im = [r for r in g if r["finish"] <= 3]
+    w1 = [r for r in g if r["finish"] == 1]
+    ana = [r for r in g if r["pop"] and r["pop"] >= 6]
+    anam = [r for r in ana if r["finish"] <= 3]
+    a = f"{len(anam)}/{len(ana)}" + (f" ({len(anam)/len(ana)*100:.0f}%)" if ana else "")
+    return (f"{len(g):>6}{len(im):>7}{len(im)/len(g)*100:>7.1f}%"
+            f"{len(w1):>6}{a:>18}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="今週の中央を間隔で仕分ける")
     ap.add_argument("--dates", required=True, help="YYYYMMDD,YYYYMMDD")
@@ -247,40 +273,25 @@ def main() -> None:
     print(f"  {'全体':<14}{len(rows):>6}{len(inmoney):>7}{base:>7.1f}%"
           f"{len([r for r in rows if r['finish']==1]):>6}")
 
-    # ── ③ 間隔 × 場が変わったか ───────────────────────────
-    #    ⚠️⚠️ **これを「磁場が変わった」と呼んではいけない。**前走の競馬場と今走の
-    #       競馬場が2度超離れていても、それは**遠征**であって引っ越しではない。
-    #       中島理論の時定数は7週で、遠征は数日。`scripts/nankan_jiba.py` の②。
-    #       ただし**7週以上空いている馬は放牧に出ている可能性が高く**、その放牧先が
-    #       どこかは**どのデータにも載っていない**。だからここで測れるのは
-    #       「**場が変わったか**」までで、磁場そのものではない。
-    import importlib.util
-    _s = importlib.util.spec_from_file_location(
-        "nankan_jiba", os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                    "nankan_jiba.py"))
-    JB = importlib.util.module_from_spec(_s)
-    _s.loader.exec_module(JB)
-
-    def cell(g: list) -> str:
-        if not g:
-            return f"{0:>6}{'':>7}{'':>8}{'':>6}{'':>18}"
-        im = [r for r in g if r["finish"] <= 3]
-        w1 = [r for r in g if r["finish"] == 1]
-        ana = [r for r in g if r["pop"] and r["pop"] >= 6]
-        anam = [r for r in ana if r["finish"] <= 3]
-        a = f"{len(anam)}/{len(ana)}" + (f" ({len(anam)/len(ana)*100:.0f}%)" if ana else "")
-        return (f"{len(g):>6}{len(im):>7}{len(im)/len(g)*100:>7.1f}%"
-                f"{len(w1):>6}{a:>18}")
-
-    far = [r for r in rows if r["last"]
-           and JB.same_field(r["last"]["place"], r["place"]) is False]
-    near = [r for r in rows if r["last"]
-            and JB.same_field(r["last"]["place"], r["place"]) is True]
-    print("\n■ **間隔 × 前走から場が動いたか**"
-          "（⚠️ 場の移動＝遠征。中島の磁場とは別物。下の注記を読むこと）")
+    # ── ③ 間隔 × 競馬場が変わったか ─────────────────────────
+    #    ⚠️⚠️ **「磁場」という言葉は使わない。**（ユーザー指定 2026-09-20）
+    #       中島理論の磁場は「どこで暮らしたか」で、経度差2度を閾値にする。
+    #       だが今週の中央618頭で測ると、**経度は何も足していなかった**:
+    #
+    #           経度2度超 動いた   32/134 = 23.9%
+    #           2度以内          85/362 = 23.5%   ← 差 +0.4pt。ゼロ
+    #           （7週以上あけた   61/234 = 26.1% vs 7週未満 21.4%。**こちらは効く**）
+    #
+    #       そもそも前走と今走の競馬場が離れていても、それは**遠征**であって
+    #       引っ越しではない（中島の時定数は7週、遠征は数日）。放牧先はどの
+    #       データにも載っていない。**測れているのは「競馬場が変わったか」だけ**
+    #       なので、そう書く。経度の抽象化を被せない。
+    same = [r for r in rows if r["last"] and r["last"]["place"] == r["place"]]
+    diff = [r for r in rows if r["last"] and r["last"]["place"] != r["place"]]
+    print("\n■ **間隔 × 前走と同じ競馬場か**")
     print(f"  {'':<26}{'出走':>6}{'3着内':>7}{'率':>8}{'1着':>6}"
           f"{'人気薄(6人気以下)':>18}")
-    for label, pool in (("経度2度超 動いた", far), ("同じ磁場のまま", near)):
+    for label, pool in (("前走と同じ競馬場", same), ("別の競馬場", diff)):
         for wlab, sel in ((f"{STIFF_WEEKS:.0f}週以上あけた",
                            lambda r: r["weeks"] is not None and r["weeks"] >= STIFF_WEEKS),
                           (f"{STIFF_WEEKS:.0f}週未満",
@@ -289,22 +300,56 @@ def main() -> None:
             print(f"  {label:<14}×{wlab:<11}{cell(g)}")
     print(f"  {'全体':<26}{cell(rows)}")
 
-    hit = [r for r in far if r["finish"] <= 3 and r["weeks"] is not None
+    hit = [r for r in diff if r["finish"] <= 3 and r["weeks"] is not None
            and r["weeks"] >= STIFF_WEEKS]
     if hit:
-        print(f"\n■ **{STIFF_WEEKS:.0f}週以上あけて、場も2度超動いて、馬券になった馬** "
+        print(f"\n■ **{STIFF_WEEKS:.0f}週以上あけて、競馬場も替わって、馬券になった馬** "
               f"{len(hit)}頭")
         for r in sorted(hit, key=lambda x: x["pop"] or 99, reverse=True):
             L = r["last"]
             print(f"  {r['date'][4:6]}/{r['date'][6:]} {r['place']}{r['rno']:>2}R "
                   f"{r['name']:<13}{r['finish']}着"
                   f"{(str(r['pop'])+'人気') if r['pop'] else '':>7}"
-                  f"　前走 {L['date']} {L['place']}"
-                  f"（{JB.gap(L['place'], r['place']):.1f}度）"
+                  f"　前走 {L['date']} {L['place']} "
                   f"{L['pop']}人気{(str(L['finish'])+'着') if L['finish'] else '着外'}"
                   f"　→ {r['weeks']:.1f}週")
 
-    # ── ④ 「激走→7週以内」に入りながら馬券になった馬（理論が外した馬）──
+    # ── ④ **競馬場ごとに割る。** ─────────────────────────
+    #    ⚠️⚠️ **競馬場を混ぜたまま読んではいけない。**この週の「7週以上あけて
+    #       競馬場も替わった」馬はほとんどが阪神で、前走は小倉・札幌・函館に偏る。
+    #       **小倉/札幌/函館は7月で終わる夏開催**なので、「夏に走って秋に阪神へ
+    #       戻る」馬は自動的に (a) 間隔が空き (b) 競馬場が替わる。
+    #       つまり混ぜたままの数字は**開催カレンダーの形**を見ている疑いが強い。
+    #       競馬場ごとに割って、同じ向きが出るかを必ず確かめること。
+    print("\n■ **競馬場ごと**（混ぜたままだと開催カレンダーの形を見てしまう）")
+    for pl in sorted({r["place"] for r in rows}):
+        pr = [r for r in rows if r["place"] == pl]
+        print(f"\n  ── {pl}　{len({(r['date'], r['rno']) for r in pr})}レース"
+              f"／{len(pr)}頭 ──")
+        print(f"  {'':<26}{'出走':>6}{'3着内':>7}{'率':>8}{'1着':>6}"
+              f"{'人気薄(6人気以下)':>18}")
+        for lab, sel in ((f"{STIFF_WEEKS:.0f}週以上あけた",
+                          lambda r: r["weeks"] is not None and r["weeks"] >= STIFF_WEEKS),
+                         (f"{STIFF_WEEKS:.0f}週未満",
+                          lambda r: r["weeks"] is not None and r["weeks"] < STIFF_WEEKS)):
+            g = [r for r in pr if sel(r)]
+            print(f"  {lab:<26}{cell(g)}")
+        for lab, ok in (("うち競馬場が替わった", False), ("うち前走と同じ競馬場", True)):
+            g = [r for r in pr if r["last"] and r["weeks"] is not None
+                 and r["weeks"] >= STIFF_WEEKS
+                 and (r["last"]["place"] == pl) is ok]
+            print(f"  {STIFF_WEEKS:.0f}週以上 {lab:<19}{cell(g)}")
+        print(f"  {'この場の全体':<26}{cell(pr)}")
+        src = {}
+        for r in pr:
+            if r["last"] and r["weeks"] is not None and r["weeks"] >= STIFF_WEEKS:
+                src[r["last"]["place"]] = src.get(r["last"]["place"], 0) + 1
+        if src:
+            print(f"  {STIFF_WEEKS:.0f}週以上あけた馬の前走の場: "
+                  + "、".join(f"{k}{v}" for k, v in
+                              sorted(src.items(), key=lambda x: -x[1])))
+
+    # ── ⑤ 「激走→7週以内」に入りながら馬券になった馬（理論が外した馬）──
     ng = [r for r in inmoney if r["band"] == "激走→7週以内"]
     if ng:
         print(f"\n■ **理論が外した馬**（反動が出るはずが馬券になった）{len(ng)}頭")
