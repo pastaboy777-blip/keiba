@@ -72,6 +72,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from nankeiba.core import mhousoku as M                   # noqa: E402
 
 CACHE = "data/cache/netkeiba"
+#: 開催ごとの記録。**前向きに積むための置き場**（恒久ルール4）。
+LOG_DIR = "data/jra_week"
 SLEEP = 1.0
 UA = "Mozilla/5.0 (compatible; keiba-research/1.0)"
 #: 「激走」＝この人気以下で3着内。mhousoku と揃える。
@@ -187,6 +189,50 @@ def classify(runs: list, date: str) -> tuple[str, float | None, dict | None]:
     return ("激走→7週以内" if w <= STIFF_WEEKS else "激走→7週超"), w, last
 
 
+#: 人気帯。**ここで割らないと市場が織り込んだものを「発見」してしまう。**
+POP_BANDS = (("1〜3人気", 1, 3), ("4〜5人気", 4, 5),
+             ("6〜9人気", 6, 9), ("10人気以下", 10, 99))
+
+
+def by_pop(a: list, b: list, la: str, lb: str) -> None:
+    """2群を人気帯ごとに比べる。**これがこの道具でいちばん大事な関数。**
+
+    ⚠️⚠️ **全体の率だけで判断してはいけない。**2026-09-20 の実測で、
+       「その競馬場で3着内の好走歴がある」は全体で **+9.1pt (+1.93SE)** と
+       いちばん強く見えたが、人気帯で割ると:
+
+           1〜3人気 −3.1pt ／ 4〜5人気 −2.9pt ／ 6〜9人気 −1.8pt ／ 10人気以下 −6.1pt
+
+       **4帯すべてマイナス。**+9.1pt は「好走歴のある馬が人気帯に偏っている」
+       だけの見かけだった（シンプソンのパラドックス）。コース実績は市場が
+       織り込み済みで、むしろ買われすぎ。
+
+       同じ検査を「前走3着内 × 7週以上」に掛けると4帯すべてプラスで残った。
+       **全体の差ではなく、帯ごとに同じ向きが出るかで判断すること。**
+    """
+    import math
+    print(f"  {'人気帯':<12}{la:>18}{lb:>18}{'差':>9}{'SE':>8}")
+    for lab, lo, hi in POP_BANDS:
+        A = [r for r in a if r["pop"] and lo <= r["pop"] <= hi]
+        B = [r for r in b if r["pop"] and lo <= r["pop"] <= hi]
+        if not A or not B:
+            print(f"  {lab:<12}{cellp(A):>18}{cellp(B):>18}{'—':>9}{'—':>8}")
+            continue
+        x, y = sum(1 for r in A if r["finish"] <= 3), sum(1 for r in B if r["finish"] <= 3)
+        p1, p2 = x / len(A), y / len(B)
+        se = math.sqrt(p1 * (1 - p1) / len(A) + p2 * (1 - p2) / len(B))
+        z = (p1 - p2) / se if se else 0.0
+        print(f"  {lab:<12}{cellp(A):>18}{cellp(B):>18}"
+              f"{(p1-p2)*100:>+8.1f}pt{z:>+7.2f}")
+
+
+def cellp(g: list) -> str:
+    if not g:
+        return "n=0"
+    im = sum(1 for r in g if r["finish"] <= 3)
+    return f"{im/len(g)*100:>5.1f}% ({im}/{len(g)})"
+
+
 def cell(g: list) -> str:
     """1マス分：出走／3着内／率／1着／人気薄(6人気以下)の3着内。"""
     if not g:
@@ -202,9 +248,30 @@ def cell(g: list) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="今週の中央を間隔で仕分ける")
-    ap.add_argument("--dates", required=True, help="YYYYMMDD,YYYYMMDD")
+    ap.add_argument("--dates", help="YYYYMMDD,YYYYMMDD")
     ap.add_argument("--place", help="場を絞る（中山 など）")
+    ap.add_argument("--pool", action="store_true",
+                    help="**これまでに記録した開催を全部まとめて読む**")
     args = ap.parse_args()
+    if not (args.dates or args.pool):
+        ap.error("--dates か --pool のどちらかが要る")
+
+    # ⚠️ **--pool は過去開催の一括検証ではない。**恒久ルール5が禁じているのは
+    #    「n万頭で測ったら効かなかった」を持ち出すこと。ここで読むのは
+    #    **自分が毎週その場で記録してきた開催だけ**で、ルール4（正直な記録）の側。
+    #    1開催では 0.87SE にしかならないので、**前向きに積む以外に道が無い**。
+    if args.pool:
+        import glob
+        import json
+        rows = []
+        for f in sorted(glob.glob(os.path.join(LOG_DIR, "*.jsonl"))):
+            rows += [json.loads(x) for x in open(f, encoding="utf-8") if x.strip()]
+        if args.place:
+            rows = [r for r in rows if r["place"] == args.place]
+        print(f"  記録済みの開催を {len(glob.glob(os.path.join(LOG_DIR,'*.jsonl')))}"
+              f"ファイル読みました（{len(rows)}頭）", file=sys.stderr)
+        report(rows)
+        return
 
     rows: list = []
     for date in args.dates.split(","):
@@ -229,19 +296,40 @@ def main() -> None:
             for um, r in res.items():
                 p = past.get(um) or {}
                 band, w, last = classify(p.get("runs") or [], date)
+                # ⚠️ **その競馬場で過去に3着内に走ったことがあるか**（コース実績）。
+                #    全体では最も強く見えるが、人気帯で割ると4帯とも消える。
+                #    `by_pop()` の docstring を読むこと。比較用に必ず持つ。
                 rows.append({"date": date, "place": place, "rno": rno, "um": um,
                              "name": r["name"], "finish": r["finish"],
                              "pop": r["pop"], "band": band, "weeks": w,
-                             "last": last, "wdiff": p.get("wdiff")})
+                             "last": last, "wdiff": p.get("wdiff"),
+                             "course_good": any(
+                                 x["place"] == place and x["finish"]
+                                 for x in (p.get("runs") or []))})
             print(f"  {date} {place}{rno:>2}R ○ {len(res)}頭", file=sys.stderr, flush=True)
 
     if not rows:
         print("取れませんでした", file=sys.stderr)
         return
 
+    # ⚠️ **その場で記録する。**1開催では 0.87SE にしかならないので、
+    #    前向きに積む以外に道が無い。--pool でまとめて読む。
+    import json
+    os.makedirs(LOG_DIR, exist_ok=True)
+    lp = os.path.join(LOG_DIR, args.dates.replace(",", "_") + ".jsonl")
+    with open(lp, "w", encoding="utf-8") as f:
+        for r in rows:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    print(f"  記録 → {lp}（{len(rows)}頭）", file=sys.stderr)
+    report(rows)
+
+
+def report(rows: list) -> None:
+    """集計と表示。--pool でも同じものを通す。"""
+    dates = ",".join(sorted({r["date"] for r in rows}))
     n_race = len({(r["date"], r["place"], r["rno"]) for r in rows})
     inmoney = [r for r in rows if r["finish"] <= 3]
-    print(f"\n{'='*92}\n 今週の中央　{args.dates}　{n_race}レース／{len(rows)}頭"
+    print(f"\n{'='*92}\n 中央　{dates}　{n_race}レース／{len(rows)}頭"
           f"　馬券になった馬 {len(inmoney)}頭\n{'='*92}")
 
     # ── ① 馬券になった馬を、前走からの間隔で仕分ける ──
@@ -345,6 +433,17 @@ def main() -> None:
                 g = [r for r in rows if r["place"] == pl
                      and good(r) is gv and longrest(r) is wv]
                 print(f"  {glab:<14}×{wlab:<11}{cell(g)}")
+
+    # ── ③'' **人気帯で割る。ここが判定の本体。** ──────────────
+    print(f"\n■ **前走3着内の馬を人気帯で割る**"
+          f"（全体の差ではなく、**帯ごとに同じ向きが出るか**で判断する）")
+    by_pop([r for r in rows if good(r) and longrest(r)],
+           [r for r in rows if good(r) and longrest(r) is False],
+           f"{STIFF_WEEKS:.0f}週以上あけた", f"{STIFF_WEEKS:.0f}週未満")
+    print("\n  ⚠️ 比較用：**その競馬場での好走歴**（全体では最も強く見えるが…）")
+    by_pop([r for r in rows if r["course_good"]],
+           [r for r in rows if not r["course_good"]],
+           "その場で好走歴あり", "好走歴なし")
 
     # ── ④ **競馬場ごとに割る。** ─────────────────────────
     #    ⚠️⚠️ **競馬場を混ぜたまま読んではいけない。**この週の「7週以上あけて
