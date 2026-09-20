@@ -80,6 +80,15 @@ UA = "Mozilla/5.0 (compatible; keiba-research/1.0)"
 GEKISO_POP = M.GEKISO_POP
 #: 硬直が抜ける週数。mhousoku と揃える。
 STIFF_WEEKS = M.STIFF_WEEKS
+#: 開催地の地区。**所属トレセンと違えば「遠征」**（ユーザー指定 2026-09-20）。
+#: ⚠️ 中島理論の磁場とは別物。磁場は「どこで暮らしたか」で時定数が7週だが、
+#:    こちらは**所属と開催地がふだんから離れている**という定常的な関係。
+#:    札幌・函館はどちらのトレセンからも遠いので「北」として遠征扱いにしない。
+AREA = {"中山": "関東", "東京": "関東", "福島": "関東", "新潟": "関東",
+        "京都": "関西", "阪神": "関西", "中京": "関西", "小倉": "関西",
+        "札幌": "北", "函館": "北"}
+#: 所属トレセン → 地区。
+BELONG = {"美浦": "関東", "栗東": "関西"}
 #: JRA 場コード。
 JYO = {"01": "札幌", "02": "函館", "03": "福島", "04": "新潟", "05": "東京",
        "06": "中山", "07": "中京", "08": "京都", "09": "阪神", "10": "小倉"}
@@ -151,8 +160,11 @@ def parse_result(h: str) -> dict:
         c = [_txt(x) for x in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
         if len(c) < 11 or not c[0].isdigit() or not c[2].isdigit():
             continue
+        # ⚠️ [13] は「美浦 加藤征」の形。**所属はここにしか無い。**
+        bel = c[13].split()[0] if len(c) > 13 and c[13] else None
         out[int(c[2])] = {"finish": int(c[0]), "name": c[3],
-                          "pop": int(c[9]) if c[9].isdigit() else None}
+                          "pop": int(c[9]) if c[9].isdigit() else None,
+                          "belong": bel if bel in BELONG else None}
     return out
 
 
@@ -303,6 +315,11 @@ def main() -> None:
                              "name": r["name"], "finish": r["finish"],
                              "pop": r["pop"], "band": band, "weeks": w,
                              "last": last, "wdiff": p.get("wdiff"),
+                             "belong": r.get("belong"),
+                             # **所属と逆の地区で走るか。**
+                             "away": (r.get("belong") in BELONG
+                                      and AREA.get(place) is not None
+                                      and BELONG[r["belong"]] != AREA[place]),
                              "course_good": any(
                                  x["place"] == place and x["finish"]
                                  for x in (p.get("runs") or []))})
@@ -440,6 +457,30 @@ def report(rows: list) -> None:
     by_pop([r for r in rows if good(r) and longrest(r)],
            [r for r in rows if good(r) and longrest(r) is False],
            f"{STIFF_WEEKS:.0f}週以上あけた", f"{STIFF_WEEKS:.0f}週未満")
+    # ⚠️ **爆走＝人気薄での好走。**「3着内率」とは別の的。ユーザー指定
+    #    （2026-09-20）「チャレンジャーの立場を取りやすく爆走」を測るには、
+    #    分母を**5人気以下で出走した馬**に絞り、そこから3着内に来た割合を見る。
+    ch = [r for r in rows if r["pop"] and r["pop"] >= GEKISO_POP]
+    def bak(g):
+        if not g:
+            return "n=0"
+        k = sum(1 for r in g if r["finish"] <= 3)
+        return f"{k/len(g)*100:>5.1f}% ({k}/{len(g)})"
+    print(f"\n■ **爆走率**（分母＝{GEKISO_POP}人気以下で出走した {len(ch)}頭 "
+          f"／ 全体 {bak(ch)}）")
+    r8 = lambda r: r["weeks"] is not None and r["weeks"] >= STIFF_WEEKS + 1
+    for lab, f in (
+            (f"中{STIFF_WEEKS:.0f}週以上あけた", r8),
+            ("所属と逆の地区で走る", lambda r: r["away"]),
+            (f"**中{STIFF_WEEKS:.0f}週以上 × 逆の地区**",
+             lambda r: r8(r) and r["away"]),
+            (f"中{STIFF_WEEKS:.0f}週以上 × 同じ地区",
+             lambda r: r8(r) and not r["away"]),
+            ("前走で負けている", lambda r: r["last"] and r["last"]["finish"] is None),
+            ("前走と違う競馬場",
+             lambda r: r["last"] and r["last"]["place"] != r["place"])):
+        print(f"  {lab:<34}{bak([r for r in ch if f(r)])}")
+
     print("\n  ⚠️ 比較用：**その競馬場での好走歴**（全体では最も強く見えるが…）")
     by_pop([r for r in rows if r["course_good"]],
            [r for r in rows if not r["course_good"]],
