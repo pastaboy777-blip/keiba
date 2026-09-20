@@ -1,0 +1,327 @@
+#!/usr/bin/env python3
+"""**今週の中央（JRA）で馬券になった馬を、前走からの間隔で仕分ける。**
+
+    python3 scripts/jra_week.py --dates 20260919,20260920
+    python3 scripts/jra_week.py --dates 20260919 --place 中山
+
+netkeiba の公開ページだけで動く（Cookie 不要）。
+
+── 何を確かめる道具か ──────────────────────────────
+
+**硬直（激走の反動）に時定数はあるか。**
+
+Mの法則は「激走の後に反動が来る」とだけ言い、**いつまで続くか**を言わない。
+ユーザーがモリノセピアの馬柱で7週という形を見つけた（2026-09-20）:
+
+    2026-04-12 福島 9人気3着（激走）→ **10.9週** → 06-27 福島 7人気3着  好走
+    2026-06-27 福島 7人気3着（激走）→  **4.1週** → 07-26 新潟 4人気7着  凡走
+
+これを今週の中央で当てる。`src/nankeiba/core/mhousoku.py` の `STIFF_WEEKS`
+（＝7.0週）が、この道具で測る対象そのもの。
+
+⚠️⚠️ **「馬券になった馬」だけを見てはいけない。**分母が無いと何も言えない。
+   3着内率は全体で約 3/頭数 になるので、**帯ごとの3着内率を全出走馬で
+   比べる**こと。この道具は全出走馬を取ってから馬券圏内を数える。
+
+⚠️ **恒久ルール5に触れないこと。**見るのは**今週の開催**だけ。過去開催を
+   まとめた回収率・勝率の集計はしない。`--dates` に今週以外を渡さない。
+
+── データ源 ────────────────────────────────────
+
+    レース一覧  race.netkeiba.com/top/race_list_sub.html?kaisai_date=YYYYMMDD
+    馬柱       race.netkeiba.com/race/shutuba_past.html?race_id=...
+    結果       race.netkeiba.com/race/result.html?race_id=...
+
+⚠️ **馬柱ページ（shutuba_past）は1ページで全馬の過去走が取れる。**馬ごとの
+   成績ページ（db.netkeiba.com/horse/{id}/）は**成績表を返さなくなっている**
+   （2026-09 時点。プロフィール表だけが入っている）。馬単位で取りに行くと
+   1レース24頭×48レース＝1000ページ超になる上、そもそも取れない。
+
+⚠️ 馬柱の過去走セルに**着順は文字として入っていない**。`<td class="Past
+   Ranking_N">` の **N が着順**で、**1〜3着にしか付かない**。つまり
+   「クラスが付いている＝馬券圏内」。激走の判定にはこれで足りる。
+
+⚠️ 節度を持って取得すること（`SLEEP` 秒あけ、キャッシュする）。
+"""
+
+from __future__ import annotations
+
+import argparse
+import html
+import os
+import re
+import sys
+import time
+import urllib.request
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+from nankeiba.core import mhousoku as M                   # noqa: E402
+
+CACHE = "data/cache/netkeiba"
+SLEEP = 1.0
+UA = "Mozilla/5.0 (compatible; keiba-research/1.0)"
+#: 「激走」＝この人気以下で3着内。mhousoku と揃える。
+GEKISO_POP = M.GEKISO_POP
+#: 硬直が抜ける週数。mhousoku と揃える。
+STIFF_WEEKS = M.STIFF_WEEKS
+#: JRA 場コード。
+JYO = {"01": "札幌", "02": "函館", "03": "福島", "04": "新潟", "05": "東京",
+       "06": "中山", "07": "中京", "08": "京都", "09": "阪神", "10": "小倉"}
+
+
+def get(url: str, key: str) -> str:
+    """取得してキャッシュする。**同じページを二度取りに行かない。**"""
+    os.makedirs(CACHE, exist_ok=True)
+    p = os.path.join(CACHE, re.sub(r"[^0-9A-Za-z]+", "_", key).strip("_") + ".html")
+    if os.path.exists(p):
+        return open(p, encoding="utf-8", errors="replace").read()
+    req = urllib.request.Request(url, headers={"User-Agent": UA,
+                                               "Referer": "https://race.netkeiba.com/"})
+    raw = urllib.request.urlopen(req, timeout=30).read()
+    try:
+        t = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        t = raw.decode("euc_jp", errors="replace")
+    open(p, "w", encoding="utf-8").write(t)
+    time.sleep(SLEEP)
+    return t
+
+
+def _txt(s: str) -> str:
+    return " ".join(html.unescape(re.sub(r"<[^>]*>", " ", s)).split())
+
+
+def race_ids(date: str) -> list[str]:
+    h = get(f"https://race.netkeiba.com/top/race_list_sub.html?kaisai_date={date}",
+            f"racelist_{date}")
+    return sorted(set(re.findall(r"race_id=(\d{12})", h)))
+
+
+def parse_past(h: str) -> dict:
+    """馬柱ページ → {馬番: {name, weight_diff, runs:[{date,place,pop,inmoney}]}}
+
+    ⚠️ 着順は `Ranking_N` クラスにしか無く、**1〜3着にしか付かない**。
+    """
+    out: dict = {}
+    for row in re.findall(r'<tr[^>]*class="[^"]*HorseList.*?</tr>', h, re.S):
+        um = re.search(r'<td[^>]*class="Waku[^"]*"[^>]*>.*?</td>\s*'
+                       r'<td[^>]*>\s*(\d+)\s*</td>', row, re.S)
+        nm = re.search(r'/horse/\d+/?"[^>]*>\s*([^<]{2,24}?)\s*<', row, re.S)
+        if not (um and nm):
+            continue
+        info = re.search(r'class="Horse_Info".*?</td>', row, re.S)
+        wd = re.search(r"(\d{3})kg\s*\(([-+]?\d+)\)", _txt(info.group(0)) if info else "")
+        runs = []
+        for cls, cell in re.findall(r'<td[^>]*class="(Past[^"]*)"[^>]*>(.*?)</td>',
+                                    row, re.S):
+            d = re.search(r"<span>([\d.]+)&nbsp;(\S+?)</span>", cell)
+            if not d:
+                continue
+            pop = re.search(r"(\d+)頭.*?(\d+)人", _txt(cell))
+            rk = re.search(r"Ranking_(\d+)", cls)
+            runs.append({"date": d.group(1).replace(".", "-"), "place": d.group(2),
+                         "field": int(pop.group(1)) if pop else None,
+                         "pop": int(pop.group(2)) if pop else None,
+                         "finish": int(rk.group(1)) if rk else None})
+        out[int(um.group(1))] = {"name": nm.group(1), "runs": runs,
+                                 "wdiff": int(wd.group(2)) if wd else None}
+    return out
+
+
+def parse_result(h: str) -> dict:
+    """結果ページ → {馬番: {finish, name, pop}}"""
+    out: dict = {}
+    for row in re.findall(r'<tr[^>]*class="[^"]*HorseList.*?</tr>', h, re.S):
+        c = [_txt(x) for x in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
+        if len(c) < 11 or not c[0].isdigit() or not c[2].isdigit():
+            continue
+        out[int(c[2])] = {"finish": int(c[0]), "name": c[3],
+                          "pop": int(c[9]) if c[9].isdigit() else None}
+    return out
+
+
+def weeks_between(a: str, b: str) -> float | None:
+    """'2026-06-27' と '20260919' の週数。"""
+    import datetime as dt
+    try:
+        d1 = dt.date(*map(int, a.split("-")))
+        d2 = dt.date(int(b[:4]), int(b[4:6]), int(b[6:]))
+        return (d2 - d1).days / 7.0
+    except (ValueError, TypeError):
+        return None
+
+
+def classify(runs: list, date: str) -> tuple[str, float | None, dict | None]:
+    """前走が激走か、そこから何週かで帯に分ける。
+
+    返す帯:
+        "激走→7週以内"   前走が人気薄で3着内、かつ詰めて使った＝**反動が出る側**
+        "激走→7週超"     反動は抜けた側
+        "前走ふつう"      激走していない
+        "判定不能"        前走が読めない
+    """
+    if not runs:
+        return "判定不能", None, None
+    last = runs[0]
+    w = weeks_between(last["date"], date)
+    if w is None:
+        return "判定不能", None, last
+    gek = bool(last.get("finish") and last["finish"] <= 3
+               and last.get("pop") and last["pop"] >= GEKISO_POP)
+    if not gek:
+        return "前走ふつう", w, last
+    return ("激走→7週以内" if w <= STIFF_WEEKS else "激走→7週超"), w, last
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="今週の中央を間隔で仕分ける")
+    ap.add_argument("--dates", required=True, help="YYYYMMDD,YYYYMMDD")
+    ap.add_argument("--place", help="場を絞る（中山 など）")
+    args = ap.parse_args()
+
+    rows: list = []
+    for date in args.dates.split(","):
+        for rid in race_ids(date):
+            place = JYO.get(rid[4:6], rid[4:6])
+            if args.place and place != args.place:
+                continue
+            rno = int(rid[10:12])
+            try:
+                past = parse_past(get(
+                    f"https://race.netkeiba.com/race/shutuba_past.html?race_id={rid}",
+                    f"past_{rid}"))
+                res = parse_result(get(
+                    f"https://race.netkeiba.com/race/result.html?race_id={rid}",
+                    f"res_{rid}"))
+            except Exception as e:                          # noqa: BLE001
+                print(f"  {date} {place}{rno}R × {e}", file=sys.stderr)
+                continue
+            if not res:
+                print(f"  {date} {place}{rno}R × 結果がまだ出ていない", file=sys.stderr)
+                continue
+            for um, r in res.items():
+                p = past.get(um) or {}
+                band, w, last = classify(p.get("runs") or [], date)
+                rows.append({"date": date, "place": place, "rno": rno, "um": um,
+                             "name": r["name"], "finish": r["finish"],
+                             "pop": r["pop"], "band": band, "weeks": w,
+                             "last": last, "wdiff": p.get("wdiff")})
+            print(f"  {date} {place}{rno:>2}R ○ {len(res)}頭", file=sys.stderr, flush=True)
+
+    if not rows:
+        print("取れませんでした", file=sys.stderr)
+        return
+
+    n_race = len({(r["date"], r["place"], r["rno"]) for r in rows})
+    inmoney = [r for r in rows if r["finish"] <= 3]
+    print(f"\n{'='*92}\n 今週の中央　{args.dates}　{n_race}レース／{len(rows)}頭"
+          f"　馬券になった馬 {len(inmoney)}頭\n{'='*92}")
+
+    # ── ① 馬券になった馬を、前走からの間隔で仕分ける ──
+    print("\n■ 馬券圏内の馬　前走からの間隔")
+    for b in ("激走→7週以内", "激走→7週超", "前走ふつう", "判定不能"):
+        g = [r for r in inmoney if r["band"] == b]
+        if not g:
+            continue
+        ws = [r["weeks"] for r in g if r["weeks"] is not None]
+        med = f"　中央値{sorted(ws)[len(ws)//2]:.1f}週" if ws else ""
+        print(f"  {b:<12} {len(g):>3}頭（{len(g)/len(inmoney)*100:>4.1f}%）{med}")
+
+    # ── ② ⚠️ 分母つきで比べる。ここが本体 ──
+    print("\n■ **帯ごとの3着内率**（分母＝全出走馬。ここを見ないと何も言えない）")
+    print(f"  {'帯':<14}{'出走':>6}{'3着内':>7}{'率':>8}{'1着':>6}"
+          f"{'人気薄(6人気以下)の3着内':>26}")
+    base = len(inmoney) / len(rows) * 100
+    for b in ("激走→7週以内", "激走→7週超", "前走ふつう", "判定不能"):
+        g = [r for r in rows if r["band"] == b]
+        if not g:
+            continue
+        im = [r for r in g if r["finish"] <= 3]
+        w1 = [r for r in g if r["finish"] == 1]
+        ana = [r for r in g if r["pop"] and r["pop"] >= 6]
+        anam = [r for r in ana if r["finish"] <= 3]
+        print(f"  {b:<14}{len(g):>6}{len(im):>7}{len(im)/len(g)*100:>7.1f}%"
+              f"{len(w1):>6}{f'{len(anam)}/{len(ana)}':>16}"
+              f"{f'({len(anam)/len(ana)*100:.1f}%)' if ana else '':>10}")
+    print(f"  {'全体':<14}{len(rows):>6}{len(inmoney):>7}{base:>7.1f}%"
+          f"{len([r for r in rows if r['finish']==1]):>6}")
+
+    # ── ③ 間隔 × 場が変わったか ───────────────────────────
+    #    ⚠️⚠️ **これを「磁場が変わった」と呼んではいけない。**前走の競馬場と今走の
+    #       競馬場が2度超離れていても、それは**遠征**であって引っ越しではない。
+    #       中島理論の時定数は7週で、遠征は数日。`scripts/nankan_jiba.py` の②。
+    #       ただし**7週以上空いている馬は放牧に出ている可能性が高く**、その放牧先が
+    #       どこかは**どのデータにも載っていない**。だからここで測れるのは
+    #       「**場が変わったか**」までで、磁場そのものではない。
+    import importlib.util
+    _s = importlib.util.spec_from_file_location(
+        "nankan_jiba", os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "nankan_jiba.py"))
+    JB = importlib.util.module_from_spec(_s)
+    _s.loader.exec_module(JB)
+
+    def cell(g: list) -> str:
+        if not g:
+            return f"{0:>6}{'':>7}{'':>8}{'':>6}{'':>18}"
+        im = [r for r in g if r["finish"] <= 3]
+        w1 = [r for r in g if r["finish"] == 1]
+        ana = [r for r in g if r["pop"] and r["pop"] >= 6]
+        anam = [r for r in ana if r["finish"] <= 3]
+        a = f"{len(anam)}/{len(ana)}" + (f" ({len(anam)/len(ana)*100:.0f}%)" if ana else "")
+        return (f"{len(g):>6}{len(im):>7}{len(im)/len(g)*100:>7.1f}%"
+                f"{len(w1):>6}{a:>18}")
+
+    far = [r for r in rows if r["last"]
+           and JB.same_field(r["last"]["place"], r["place"]) is False]
+    near = [r for r in rows if r["last"]
+            and JB.same_field(r["last"]["place"], r["place"]) is True]
+    print("\n■ **間隔 × 前走から場が動いたか**"
+          "（⚠️ 場の移動＝遠征。中島の磁場とは別物。下の注記を読むこと）")
+    print(f"  {'':<26}{'出走':>6}{'3着内':>7}{'率':>8}{'1着':>6}"
+          f"{'人気薄(6人気以下)':>18}")
+    for label, pool in (("経度2度超 動いた", far), ("同じ磁場のまま", near)):
+        for wlab, sel in ((f"{STIFF_WEEKS:.0f}週以上あけた",
+                           lambda r: r["weeks"] is not None and r["weeks"] >= STIFF_WEEKS),
+                          (f"{STIFF_WEEKS:.0f}週未満",
+                           lambda r: r["weeks"] is not None and r["weeks"] < STIFF_WEEKS)):
+            g = [r for r in pool if sel(r)]
+            print(f"  {label:<14}×{wlab:<11}{cell(g)}")
+    print(f"  {'全体':<26}{cell(rows)}")
+
+    hit = [r for r in far if r["finish"] <= 3 and r["weeks"] is not None
+           and r["weeks"] >= STIFF_WEEKS]
+    if hit:
+        print(f"\n■ **{STIFF_WEEKS:.0f}週以上あけて、場も2度超動いて、馬券になった馬** "
+              f"{len(hit)}頭")
+        for r in sorted(hit, key=lambda x: x["pop"] or 99, reverse=True):
+            L = r["last"]
+            print(f"  {r['date'][4:6]}/{r['date'][6:]} {r['place']}{r['rno']:>2}R "
+                  f"{r['name']:<13}{r['finish']}着"
+                  f"{(str(r['pop'])+'人気') if r['pop'] else '':>7}"
+                  f"　前走 {L['date']} {L['place']}"
+                  f"（{JB.gap(L['place'], r['place']):.1f}度）"
+                  f"{L['pop']}人気{(str(L['finish'])+'着') if L['finish'] else '着外'}"
+                  f"　→ {r['weeks']:.1f}週")
+
+    # ── ④ 「激走→7週以内」に入りながら馬券になった馬（理論が外した馬）──
+    ng = [r for r in inmoney if r["band"] == "激走→7週以内"]
+    if ng:
+        print(f"\n■ **理論が外した馬**（反動が出るはずが馬券になった）{len(ng)}頭")
+        for r in sorted(ng, key=lambda x: x["weeks"] or 9):
+            L = r["last"]
+            print(f"  {r['date'][4:6]}/{r['date'][6:]} {r['place']}{r['rno']:>2}R "
+                  f"{r['name']:<12}{r['finish']}着"
+                  f"{(str(r['pop'])+'人気') if r['pop'] else '':>6}"
+                  f"　前走 {L['date']} {L['place']} {L['pop']}人気{L['finish']}着"
+                  f"　→ {r['weeks']:.1f}週")
+
+    print(f"\n{'─'*92}")
+    print("⚠️ **今週の開催だけを見ている**（恒久ルール5）。過去開催の一括検証はしない。\n"
+          "⚠️ 7週という値は中島理論から借りたもので、**まだ測っていない**。"
+          "この出力は値を決めるためのものではなく、\n   今週それが効いていたかを"
+          "正直に記録するためのもの。", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()
