@@ -61,8 +61,8 @@ td.l{text-align:left;font-weight:800}
   <div class="tile"><div class="n">9<small>%</small></div><div class="l">643鞍のうち<br>不良は61鞍だけ</div></div>
   <div class="tile"><div class="n">0.05</div><div class="l">不良の勝ち馬の<br>4角平均位置（0＝先頭）</div></div>
   <div class="tile"><div class="n">74<small>%</small></div><div class="l">不良で<br>4角先頭の馬の勝率</div></div>
-  <div class="tile"><div class="n">41<small>%</small></div><div class="l">不良の1番人気<br>勝率（荒れない）</div></div>
-  <div class="tile"><div class="n">56<small>%</small></div><div class="l">不良で内half の<br>3着内シェア</div></div>
+  <div class="tile"><div class="n">60<small>%</small></div><div class="l"><b>8番人気以下でも</b><br>4角で前なら3着内</div></div>
+  <div class="tile"><div class="n">1<small>%</small></div><div class="l">4角で後ろだと<br>人気でも馬券にならない</div></div>
 </div>
 
 <div class="sh">① 4角先頭の馬の勝率<span>良 と 不良 を並べる</span></div>
@@ -84,17 +84,37 @@ td.l{text-align:left;font-weight:800}
   <div class="note">全距離の「74%」は、この2つに引っ張られた数字です。<b>混ぜて読むと「不良は前有利」で終わりますが、1400mと2000mでは不良でも良と変わりません。</b><br>※ただし <b>1500m不良は11鞍、800m不良は10鞍</b>。10鞍で9勝と6勝の差は偶然でも出ます。断定はできません。</div>
 </div>
 
-<div class="sh">③ 荒れない<span>道悪は荒れる、という通説は出ていない</span></div>
+<div class="sh">③ 人気より「4角の位置」<span>人気薄でも前なら来る。人気でも後ろなら来ない</span></div>
 <div class="card">
-  <div class="two">
-    <div style="flex:1">
-      <div class="bar"><div class="lb">1番人気 勝率 良</div><div class="tr"><div class="fl g1" style="width:39%"></div></div><div class="vv g1v">39%</div></div>
-      <div class="bar"><div class="lb">1番人気 勝率 不良</div><div class="tr"><div class="fl g2" style="width:41%"></div></div><div class="vv g2v">41%</div></div>
-      <div class="bar"><div class="lb">3着内 良</div><div class="tr"><div class="fl g1" style="width:72%"></div></div><div class="vv g1v">72%</div></div>
-      <div class="bar"><div class="lb">3着内 不良</div><div class="tr"><div class="fl g2" style="width:74%"></div></div><div class="vv g2v">74%</div></div>
+  <table>
+    <tr><th style="text-align:left">不良 639頭</th><th>4角 前（rel≤0.25）</th><th>中（0.25〜0.6）</th><th>後（0.6超）</th></tr>
+    <tr><td class="l">1〜3番人気</td><td class="big up">82%<br><span style="font-size:11.5px;color:#8a7256">114頭</span></td><td>36%<br><span style="font-size:11.5px;color:#8a7256">45頭</span></td><td style="color:#2f6fb0;font-weight:900">8%<br><span style="font-size:11.5px;color:#8a7256">26頭</span></td></tr>
+    <tr><td class="l">4〜7番人気</td><td class="big up">62%<br><span style="font-size:11.5px;color:#8a7256">55頭</span></td><td>18%<br><span style="font-size:11.5px;color:#8a7256">109頭</span></td><td style="color:#2f6fb0;font-weight:900">1%<br><span style="font-size:11.5px;color:#8a7256">82頭</span></td></tr>
+    <tr><td class="l">8番人気以下</td><td class="big up">60%<br><span style="font-size:11.5px;color:#8a7256">20頭</span></td><td>12%<br><span style="font-size:11.5px;color:#8a7256">59頭</span></td><td style="color:#2f6fb0;font-weight:900">1%<br><span style="font-size:11.5px;color:#8a7256">129頭</span></td></tr>
+  </table>
+  <div class="note"><b>8番人気以下でも、4角で前にいれば60%。後ろだと1%。</b>逆に<b>1〜3番人気でも、後ろにいたら8%。</b>
+  人気の差（82%→60%）より、位置の差（60%→1%）のほうがはるかに大きい。<br>
+  <b>この鞍で前に行けるかどうかが、ほぼすべてを決めています。</b></div>
+  <div class="two" style="margin-top:16px">
+    <div style="flex:1;background:#fbf3f1;border-radius:10px;padding:14px 16px">
+      <div style="font-size:14px;font-weight:900;color:#c0392b;margin-bottom:7px">不良で穴をあけた20頭（8番人気以下で馬券）の顔</div>
+      <div style="font-size:13.5px;line-height:1.8;color:#33291c">
+        <b>20頭中16頭が4角4番手以内</b>（1番手が6頭）<br>
+        <b>前走は5着が最多の6頭</b> ── 負けているが大敗ではない<br>
+        <b>前走も13頭が7番人気以下</b> ── 見放されたまま2走目で来る<br>
+        <b>中10〜36日が16頭</b> ── 極端な休み明けは2頭だけ<br>
+        <b>14頭が前走と同じ騎手</b>（乗り替わりは6頭）</div>
+    </div>
+    <div style="flex:1;background:#eef2f7;border-radius:10px;padding:14px 16px">
+      <div style="font-size:14px;font-weight:900;color:#2f6fb0;margin-bottom:7px">乗り替わりは「人気馬を消す」材料</div>
+      <div style="font-size:13.5px;line-height:1.8;color:#33291c">
+        1〜3番人気 … 継続 <b>60%</b> ／ 乗替 <b>52%</b><br>
+        4〜7番人気 … 継続 27% ／ 乗替 24%<br>
+        8番人気以下 … 継続 8% ／ 乗替 8%　<b>差なし</b><br>
+        <span style="color:#8a7256">不良に限ると 継続34% 対 乗替23% と差が倍に。<br>
+        ただし<b>人気薄では何の情報も持たない</b>ので、穴探しには使えない。</span></div>
     </div>
   </div>
-  <div class="note"><b>1番人気が4割勝ち、4分の3が馬券になる。</b>不良でも良と変わりません。下級条件が中心の場では、馬場が荒れても<b>能力差がそのまま出る</b>ということです。</div>
 </div>
 
 <div class="sh">④ 効いているのは馬場ではなく、調教だった<span>追い切り短評で9倍の差</span></div>
@@ -149,7 +169,7 @@ td.l{text-align:left;font-weight:800}
 </div>
 
 <div class="foot">
-<b>使える形</b>　浦和の不良は「荒れる条件」ではなく<b>「前と内がさらに固まる条件」</b>。1番人気は信頼してよい。<br>
+<b>使える形</b>　浦和の不良は「荒れる条件」ではなく<b>「前と内がさらに固まる条件」</b>。そして<b>人気より4角の位置</b>。<br>
 4角で先頭に立てる馬を探す ── ただし<b>1400mと2000mでは不良を特別扱いしない</b>。むしろ<b>4〜7番人気を追い切り短評で割り、母父で割る</b>ほうが差が大きい。<br>
 ※このデータは2025/9/22〜2026/8/12の浦和55日・643鞍のみ。他場・他期間には当てはめていません。血統は<b>2,387頭・延べ99%</b>で確定。
 </div>
