@@ -1,0 +1,131 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+ *{margin:0;padding:0;box-sizing:border-box;font-family:'WenQuanYi Zen Hei','IPAGothic',sans-serif;}
+ body{background:#000;}
+ .card{width:1400px;position:relative;overflow:hidden;background:#12100e;padding:30px 34px 26px;}
+
+ /* 集中線 */
+ .lines{position:absolute;inset:-45% -14% -14% -14%;pointer-events:none;
+   background:repeating-conic-gradient(from 0deg at 50% 12%,
+     rgba(255,255,255,.13) 0deg 1.5deg, rgba(255,255,255,0) 1.5deg 5.6deg);}
+ /* 網点（ハーフトーン） */
+ .tone{position:absolute;inset:0;pointer-events:none;opacity:.5;
+   background-image:radial-gradient(rgba(255,255,255,.16) 1.6px, transparent 1.7px);
+   background-size:9px 9px;}
+ .inner{position:relative;}
+
+ .kicker{color:#ffd400;font-size:20px;font-weight:900;letter-spacing:2px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ .head{display:flex;align-items:center;gap:20px;margin-top:2px;height:170px;}
+ .gekiga{font-size:118px;font-weight:900;letter-spacing:-4px;line-height:1;
+   color:#e8232a;-webkit-text-stroke:22px #000;paint-order:stroke fill;
+   transform:skewX(-9deg) rotate(-3deg);
+   text-shadow:11px 11px 0 rgba(0,0,0,.85);}
+ .dateblk{flex:1;padding-left:16px;}
+ .dateblk .d1{color:#fff;font-size:46px;font-weight:900;letter-spacing:1px;
+   -webkit-text-stroke:10px #000;paint-order:stroke fill;transform:skewX(-6deg);display:inline-block;}
+ .dateblk .d2{color:#ffd400;font-size:26px;font-weight:900;margin-top:6px;
+   -webkit-text-stroke:6px #000;paint-order:stroke fill;}
+ .burst{width:164px;height:164px;flex:0 0 164px;background:#ffd400;
+   clip-path:polygon(50.00% 0.00%,55.09% 11.33%,62.94% 1.70%,64.92% 13.97%,75.00% 6.70%,73.74% 19.06%,85.36% 14.64%,80.94% 26.26%,93.30% 25.00%,86.03% 35.08%,98.30% 37.06%,88.67% 44.91%,100.00% 50.00%,88.67% 55.09%,98.30% 62.94%,86.03% 64.92%,93.30% 75.00%,80.94% 73.74%,85.36% 85.36%,73.74% 80.94%,75.00% 93.30%,64.92% 86.03%,62.94% 98.30%,55.09% 88.67%,50.00% 100.00%,44.91% 88.67%,37.06% 98.30%,35.08% 86.03%,25.00% 93.30%,26.26% 80.94%,14.64% 85.36%,19.06% 73.74%,6.70% 75.00%,13.97% 64.92%,1.70% 62.94%,11.33% 55.09%,0.00% 50.00%,11.33% 44.91%,1.70% 37.06%,13.97% 35.08%,6.70% 25.00%,19.06% 26.26%,14.64% 14.64%,26.26% 19.06%,25.00% 6.70%,35.08% 13.97%,37.06% 1.70%,44.91% 11.33%);display:flex;align-items:center;justify-content:center;
+   filter:drop-shadow(7px 7px 0 rgba(0,0,0,.8));}
+ .burst span{color:#111;font-size:31px;font-weight:900;line-height:1.1;text-align:center;
+   transform:rotate(-7deg);}
+
+ .lead{margin-top:12px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:12px 18px;color:#111;font-size:19px;font-weight:800;line-height:1.55;
+   box-shadow:9px 9px 0 rgba(0,0,0,.6);}
+ .lead .r{color:#e8232a;} .lead .b{color:#0d4d9c;}
+
+ .cols{display:flex;margin:18px 0 8px;padding:0 10px;color:#ffd400;font-size:16px;font-weight:900;
+   -webkit-text-stroke:4px #000;paint-order:stroke fill;}
+ .cR{flex:0 0 116px;} .cH{flex:0 0 434px;} .cA{flex:0 0 306px;} .cM{flex:1;}
+
+ .row{position:relative;display:flex;align-items:stretch;background:#fff;border:6px solid #000;
+   border-radius:3px;margin-bottom:14px;padding:14px 16px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .row .corner{position:absolute;left:0;top:0;bottom:0;width:116px;pointer-events:none;opacity:.45;
+   background-image:radial-gradient(rgba(0,0,0,.55) 1.5px, transparent 1.6px);background-size:7px 7px;}
+
+ .rN{flex:0 0 116px;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;}
+ .rN .n{color:#e8232a;font-size:44px;font-weight:900;line-height:1;
+   -webkit-text-stroke:7px #000;paint-order:stroke fill;transform:skewX(-8deg);}
+ .rN .d{color:#111;font-size:13px;font-weight:900;margin-top:6px;background:#ffd400;
+   border:2px solid #000;padding:1px 5px;}
+
+ .hm{flex:0 0 434px;display:flex;align-items:center;gap:10px;padding-left:8px;}
+ .at{flex:0 0 306px;display:flex;align-items:center;gap:9px;}
+ .mk{font-size:36px;font-weight:900;color:#e8232a;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .mk2{font-size:34px;font-weight:900;color:#0d4d9c;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .nm{font-size:27px;font-weight:900;color:#111;letter-spacing:0;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .nm2{font-size:25px;font-weight:900;color:#111;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .sb{width:68px;height:68px;flex:0 0 68px;background:#ffd400;clip-path:polygon(50.00% 0.00%,56.63% 16.65%,69.13% 3.81%,68.89% 21.73%,85.36% 14.64%,78.27% 31.11%,96.19% 30.87%,83.35% 43.37%,100.00% 50.00%,83.35% 56.63%,96.19% 69.13%,78.27% 68.89%,85.36% 85.36%,68.89% 78.27%,69.13% 96.19%,56.63% 83.35%,50.00% 100.00%,43.37% 83.35%,30.87% 96.19%,31.11% 78.27%,14.64% 85.36%,21.73% 68.89%,3.81% 69.13%,16.65% 56.63%,0.00% 50.00%,16.65% 43.37%,3.81% 30.87%,21.73% 31.11%,14.64% 14.64%,31.11% 21.73%,30.87% 3.81%,43.37% 16.65%);
+   display:flex;align-items:center;justify-content:center;margin-right:-4px;}
+ .sb span{color:#111;font-size:20px;font-weight:900;transform:rotate(-10deg);}
+
+ .memo{flex:1;color:#1b1b1b;font-size:14px;line-height:1.6;padding-left:14px;
+   border-left:4px solid #000;align-self:center;}
+ .memo b{color:#0d4d9c;} .memo b.r{color:#e8232a;}
+
+ .foot{position:relative;margin-top:6px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:18px 24px;color:#111;font-size:21px;font-weight:900;line-height:1.6;
+   box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .foot .r{color:#e8232a;} .foot .b{color:#0d4d9c;}
+ .yell{position:absolute;right:-6px;top:-52px;background:#ffd400;border:5px solid #000;
+   padding:6px 16px;font-size:26px;font-weight:900;color:#111;transform:rotate(-4deg);
+   box-shadow:6px 6px 0 rgba(0,0,0,.7);}
+ .sig{text-align:right;color:#ffd400;font-size:18px;font-weight:900;margin-top:20px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ /* ---- 表・囲み（劇画スキン） ---- */
+ .sec{margin-top:20px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:20px 24px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .sh{color:#111;font-size:31px;font-weight:900;margin-bottom:14px;display:inline-block;
+   transform:skewX(-5deg);border-bottom:7px solid #e8232a;padding-bottom:3px;}
+ table{width:100%;border-collapse:collapse;margin-top:8px;}
+ th{background:#111;color:#ffd400;font-size:20px;font-weight:900;padding:9px 5px;border:2px solid #000;}
+ td{font-size:22px;font-weight:800;color:#111;padding:10px 5px;border:2px solid #000;text-align:center;}
+ td.l{text-align:left;} td.lap{font-size:19px;font-family:monospace;letter-spacing:-.5px;}
+ tr.hi td{background:#ffe9a8;} tr.bad td{background:#ffdcdc;color:#a11100;} tr.win td{background:#d9ecd9;}
+ .note{margin-top:15px;color:#1b1b1b;font-size:20px;font-weight:800;line-height:1.62;}
+ .note b{color:#0d4d9c;} .note b.r{color:#e8232a;}
+ .big{margin-top:20px;background:#111;border:6px solid #ffd400;border-radius:3px;
+   padding:22px 26px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .big .bh{color:#ffd400;font-size:31px;font-weight:900;margin-bottom:15px;}
+ .big .it{color:#fff;font-size:23px;font-weight:800;line-height:1.62;margin-bottom:13px;}
+ .big .it:last-child{margin-bottom:0;}
+ .big .no{color:#ffd400;font-size:27px;font-weight:900;}
+ .big .y{color:#ffd400;} .big .c{color:#8fd9ff;} .big .r{color:#ff9b9b;}
+ .dateblk .d1{font-size:42px;}
+
+.gwrap{background:#fff;border:3px solid #111;border-radius:6px;padding:16px 20px 14px;margin:14px 0}
+.gt{font-size:31px;font-weight:900;color:#111;border-bottom:5px solid #e8232a;display:inline-block;padding-bottom:3px;margin-bottom:12px}
+.gnote{font-size:21px;line-height:1.7;color:#111;margin-top:10px;font-weight:800}
+.gnote .r{color:#e8232a;font-weight:900}
+.gnote .b{color:#1f4e9c;font-weight:900}
+.gnote .c{color:#555;font-weight:700}
+table.t{width:100%;border-collapse:collapse;font-size:22px}
+table.t th{background:#111;color:#fff;font-weight:900;padding:9px 8px;font-size:21px;border:2px solid #111}
+table.t td{border:2px solid #bbb;padding:10px 10px;font-weight:800;color:#111;vertical-align:middle}
+table.t td.d{background:#111;color:#fff;font-size:26px;font-weight:900;text-align:center;width:130px;border:2px solid #111}
+table.t td.buy{background:#fdeaea}
+table.t td.cut{background:#f1f1f1;color:#555}
+table.t .r{color:#e8232a;font-weight:900}
+table.t .b{color:#1f4e9c;font-weight:900}
+table.t .n{font-size:19px;color:#777;font-weight:700}
+.bigbox{background:#e8232a;color:#fff;border:4px solid #111;border-radius:6px;padding:14px 20px;margin:12px 0}
+.bigbox .h{font-size:26px;font-weight:900;letter-spacing:1px}
+.bigbox .v{font-size:56px;font-weight:900;line-height:1.1;margin:4px 0}
+.bigbox .s{font-size:20px;font-weight:800;line-height:1.6}
+.cols2{display:flex;gap:16px}
+.cols2>div{flex:1 1 50%;min-width:0}
+ul.k{margin:4px 0 0 0;padding:0;list-style:none}
+ul.k li{font-size:22px;font-weight:800;line-height:1.55;padding:6px 0 6px 30px;position:relative;border-bottom:1px dashed #ccc}
+ul.k li:before{content:'';position:absolute;left:4px;top:15px;width:14px;height:14px;background:#e8232a}
+ul.k.x li:before{background:#b9bcc4}
+ul.k .n{font-size:19px;color:#777;font-weight:700}
+</style></head>
+<body><div class="card"><div class="lines"></div><div class="tone"></div><div class="inner">
+<div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>
+<div class="head"><div class="gekiga">不良</div><div class="dateblk"><div class="d1">浦和 道悪 ── 今日から使う一枚</div><div class="d2">2025/6/23〜2026/5/29 ／ 道悪132鞍1434頭 ／ 人気で補正</div></div><div class="burst"><span>浦和<br>不良</span></div></div>
+<div class="lead">浦和の道悪は<span class="r">距離ごとに別物</span>。「渋ったら重い馬」は<span class="b">800mと1400mだけ</span>の話で、1500mでは消え、2000mでは逆になる。<span class="r">枠は見なくていい。</span></div>
+<div class="gwrap"><div class="gt">距離で中身が変わる ── まずここを見る</div><table class="t"><tr><th style="width:130px">距離</th><th style="width:190px">道悪の母数</th><th>買う側</th><th>消す側</th></tr><tr><td class="d">800<div style="font-size:17px;font-weight:800;opacity:.75">m</div></td><td style="text-align:center">223頭 / 29.6%</td><td class="buy"><span class="r">490kg以上</span> 36.8%（57頭・<span class="r">+9.4pt</span>）<br><span class="r">前走4角1〜3番手</span> 53.8%（65頭・<span class="r">+7.0pt</span>）</td><td class="cut"><span class="b">430〜459kg</span> 23.4%（−5.8pt）<br><span class="b">前走4角7番手以降</span> <span class="r">11.6%</span>（86頭・−5.6pt）</td></tr><tr><td class="d">1400<div style="font-size:17px;font-weight:800;opacity:.75">m</div></td><td style="text-align:center">650頭 / 27.2%</td><td class="buy"><span class="r">490kg以上</span> 38.6%（166頭・<span class="r">+5.3pt</span>）<br><span class="r">前走4角7番手以降</span> 18.1%（298頭・+1.8pt）<span class="n">※良では−1.2pt</span></td><td class="cut"><span class="b">430〜459kg</span> <span class="r">16.6%</span>（175頭・<span class="r">−6.0pt</span>）<span class="n">※良では+1.3pt</span><br><span class="b">前走4角1〜3番手</span> 38.5%（−4.4pt）</td></tr><tr><td class="d">1500<div style="font-size:17px;font-weight:800;opacity:.75">m</div></td><td style="text-align:center">337頭 / 27.6%</td><td class="buy"><span class="r">前走4角4〜6番手</span> 36.7%（90頭・<span class="r">+8.0pt</span>）<span class="n">※良では+0.7pt</span></td><td class="cut"><span class="b">前走4角7番手以降</span> 14.1%（142頭・−2.2pt）<br><span class="c">馬体重は効かない（490〜29.1% / 430〜459 27.6%）</span></td></tr><tr><td class="d">2000<div style="font-size:17px;font-weight:800;opacity:.75">m</div></td><td style="text-align:center">183頭 / 26.2%</td><td class="buy"><span class="r">前走4角1〜3番手</span> 51.2%（43頭・+1.6pt）<br><span class="r">430〜459kg</span> 30.6%（49頭・+3.5pt）</td><td class="cut"><span class="b">前走4角7番手以降</span> 15.2%（105頭・−1.1pt）<br><span class="c">ここだけ重い馬が効かない（490〜26.3%・−1.8pt）</span></td></tr></table><div class="gnote">道悪(不良26鞍＋重106鞍)を距離で割った。<span class="r">馬体重が効くのは800mと1400mだけ</span>。1500mでは490kg以上29.1%・430〜459kg27.6%で差がなく、2000mはむしろ軽いほうが上（+3.5pt）。<span class="b">脚質も距離で逆になる</span>──800mと2000mは前、1400mは道悪だけ後ろが浮き（+1.8pt / 良は−1.2pt）、1500mは中団が+8.0pt。カッコ内のptは人気から出した期待値との差。</div></div><div class="gwrap"><div class="gt">穴の一本</div><div class="bigbox"><div class="h">穴で取るならこの一本</div><div class="v">16.9%</div><div class="s">道悪 × <b>7番人気以下</b> × <b>460kg以上</b> × <b>中7週超</b>　71頭で3着内12（母数8.4%の2倍）<br>的中12頭の人気は 7・7・7・7・8・8・9・9・9・9・10・12番人気／想定オッズ 18.5〜139.5倍・うち3頭が1着<br><span style="opacity:.85">※12本のうち7本が2026年2/25〜2/28の同一開催。11日のうち6日には散っているが、色は残っている可能性がある</span></div></div></div><div class="gwrap"><div class="gt">消す側 ／ 見なくていい側 ／ 上積みのある人</div><div class="cols2"><div><div style="font-size:24px;font-weight:900;color:#e8232a;margin-bottom:6px">全距離で消せる</div><ul class="k"><li>300m以上の距離延長　<span class="n">161頭 14.3%（−4.1pt）</span></li><li>中2週以内　<span class="n">−3.6pt。人気薄では 116頭 5.2%</span></li><li>前走も不良だった馬　<span class="n">56頭 23.2%（−8.5pt）</span></li><li>10番人気以下　<span class="n">不良49頭で3着内1（2%）</span></li><li>平山真厩舎 −11.8pt ／ 箕輪武厩舎 −7.8pt</li><li>及川烈 −11.6pt ／ 室陽一 −6.1pt</li></ul></div><div><div style="font-size:24px;font-weight:900;color:#555;margin-bottom:6px">見なくていい</div><ul class="k x"><li>枠　<span class="n">不良の外25% / 良の外26%。日別で8%〜100%に振れる</span></li><li>川崎からの遠征　<span class="n">278頭 ±0.0pt。良でも+0.4pt</span></li><li>船橋から　<span class="n">349頭 −2.0pt。むしろ不利側</span></li><li>「道悪実績」　<span class="n">前走も不良は−8.5pt。経験は保証にならない</span></li></ul><div style="font-size:24px;font-weight:900;color:#e8232a;margin:14px 0 6px">上積みのある人</div><ul class="k"><li>厩舎 宇野博 +12.1pt（61頭45.9%）／水野貴 +11.7pt（63頭52.4%）</li><li>厩舎 薮口一 +6.1pt　<span class="n">道悪16.0%・良9.9%。人気薄で拾う対象</span></li><li>騎手 野畑凌 +7.6pt（66頭45.5%）／見越彬 +8.1pt／高橋哲 +7.6pt</li></ul></div></div></div><div class="gwrap"><div class="gt">手順</div><ul class="k"><li><b>1.</b> 距離を見る。<span class="r">800mと1400mは馬体重、1500mは中団、2000mは前</span>。この4つは中身が違う</li><li><b>2.</b> 消す。300m以上の延長・中2週以内・前走も不良。<span class="c">1400mなら430〜459kgも消す（175頭16.6%）</span></li><li><b>3.</b> 残った中から、460kg以上×中7週超の7番人気以下を1頭</li><li><b>4.</b> 枠は見ない。当日の出方を見てから、必要なら足す</li></ul></div><div class="gwrap"><div class="gt">データの素性</div><div class="gnote">浦和 2025年6月23日〜2026年5月29日／全671鞍7141頭。うち<span class="b">不良26鞍281頭（4日分）・重106鞍1153頭</span>を合わせて「道悪」とした。不良だけでは距離別に割れないため。<br>率はそのままだと「どの馬に乗ったか」で決まるので、<span class="b">道悪の人気別3着内率（1人気79%・3人気48%・6人気18%・10人気4%）</span>から期待値を出し、実績との差を<span class="r">上振れ(pt)</span>とした。良・稍重にも同じ補正をかけ、比較用に併記している。<br><span class="c">今年に入ってからの不良は2026年2月26日の1日だけ。不良単独の数字はどれも母数が薄いので、重で同じ向きが出るかを毎回確かめている。</span></div></div></div></div></body></html>
