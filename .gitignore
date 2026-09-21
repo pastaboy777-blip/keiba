@@ -46,6 +46,7 @@ data/cyokyo/
 
 # 馬場の物差し（走査の出力・実行のたびに再生成される）
 data/baba_*.jsonl
+data/baba/
 
 # 開催ごとの前向き記録（サイズが増えるのでコミットしない）
 data/jra_week/
