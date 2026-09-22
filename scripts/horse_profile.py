@@ -41,7 +41,7 @@ def signature(e, today_band, today_dist, n=8):
     ◎距=今日=ベスト距離帯 かつ その帯が本物の得意(好走率≥40%・2走以上)→lift1.62。
     さらに前走からの距離短縮なら◎距×短縮→lift1.79(既存短縮lift1.86と整合)。
     得意帯じゃない人気薄は4%(lift0.57)に沈む＝◎距不在は消し候補。
-    ※場は南関の単独開催では全馬が当該場ベストになり死ぬ(lift0.98)→採用しない。"""
+    ※場は南関の単独開催では全馬が当該場ベストになり効かない(lift0.98)→採用しない。"""
     bd, bp, ds, _ = profile(e, n)
     is_best = bool(bd and bd == today_band)
     cell = ds.get(today_band, [0, 0])
