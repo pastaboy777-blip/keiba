@@ -159,7 +159,10 @@ def show(hs: list[dict], r: int) -> None:
                   % (h["馬番"], h["馬名"][:13], tone(h["総評"])))
             continue
         def r(tag):
-            return ("%d/%d" % (w[tag + "順位"], w[tag + "母数"])) if w.get(tag + "順位") else "―"
+            # 分母はそのまま出す。何頭の中の順位かは読む側が見て判断する。
+            if not w.get(tag + "順位"):
+                return "―"
+            return "%d/%d" % (w[tag + "順位"], w[tag + "母数"])
         ld = KYAKU.get(w["脚色"])
         bk = load_bucket(w["脚色"])
         print("  %2d %-13s %s %s %s ／ %-5s(負荷%s) ／ %s組 %-7s ／ その日 %-7s ／ 同脚色 %-6s ／ %d本"
