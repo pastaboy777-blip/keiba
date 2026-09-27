@@ -24,7 +24,7 @@ RIM = (1.0, 0.85, 0.6)
 COOL = (0.75, 0.88, 1.0)
 
 # world placement (stable background is 1920x1080 world space)
-HORSE = (250.0, 1000.0, 1.5)
+HORSE = (300.0, 975.0, 1.5)
 MIZ = (820.0, 1180.0, 0.95)
 GEN = (1560.0, 1140.0, 0.9)
 
@@ -94,6 +94,7 @@ def _world(ctx, t, gt, *, flick, door=0.0, miz_over=None):
                  0.55 * nz)
     snort = clamp(1 - abs(gt - T_NUZZLE - 0.05) / 0.25)
     hx, hy, hs = HORSE
+    hx += 30 * nz; hy -= 50 * nz
     draw_horse_head(ctx, hx, hy, hs, facing=1, t=t, blink=hblink, ear=ear, nuzzle=nz,
                     nostril=0.3 + 0.7 * snort, look=(0.6, 0.1), light=(1.0, 0.78, 0.45), rim_strength=0.8)
     # ---------------- Mizuki
@@ -150,11 +151,11 @@ def draw(ctx, t, dur, gt):
     elif gt < T_TURN:
         # two-shot 美月 + ハルカゼ, slow drift in
         k = ease_in_out(invlerp(T_REACT, T_TURN, gt))
-        _cam(ctx, lerp(640, 660, k), lerp(560, 560, k), lerp(1.55, 1.75, k))
+        _cam(ctx, lerp(640, 670, k), lerp(515, 530, k), lerp(1.55, 1.75, k))
     else:
         # she turns toward the door: push toward her face
         k = ease_out_cubic(invlerp(T_TURN, 15.1, gt))
-        _cam(ctx, lerp(900, 880, k), lerp(480, 470, k), lerp(1.9, 2.2, k))
+        _cam(ctx, lerp(930, 900, k), lerp(500, 470, k), lerp(1.6, 1.85, k))
     _world(ctx, t, gt, flick=flick, door=door)
     ctx.restore()
     # global lamp brightness (flicker darkens the whole set a little)

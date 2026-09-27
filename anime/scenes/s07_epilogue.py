@@ -72,6 +72,36 @@ def _paint_bg(ctx, kind, dx, dy, zoom=1.0):
     ctx.restore()
 
 
+def _defocus(ctx, fn, box, *, sigma=2.0, alpha=1.0, fade=None, tint=None, zoom=1.0):
+    """Draw fn(ctx) into an offscreen region at half res, gaussian-blur it (depth of field), fade its
+    bottom edge, and composite. box = (x, y, w, h) in screen coords."""
+    x0, y0, bw, bh = box
+    sw, sh = bw // 2, bh // 2
+    s = cairo.ImageSurface(cairo.FORMAT_ARGB32, sw, sh)
+    c = cairo.Context(s)
+    c.scale(0.5, 0.5); c.translate(-x0, -y0)
+    c.translate(W / 2, H / 2); c.scale(zoom, zoom); c.translate(-W / 2, -H / 2)
+    fn(c)
+    if tint:
+        c.identity_matrix(); c.set_operator(cairo.OPERATOR_ATOP); c.set_source_rgba(*tint); c.paint()
+    s.flush()
+    a = np.ndarray((sh, s.get_stride() // 4, 4), np.uint8, s.get_data())[:, :sw]
+    im = Image.fromarray(a.copy(), "RGBA").filter(ImageFilter.GaussianBlur(sigma))
+    b = np.asarray(im).astype(np.float32)
+    if fade:
+        yy = (np.arange(sh, dtype=np.float32) * 2 + y0)
+        f = 1 - np.clip((yy - fade[0]) / (fade[1] - fade[0]), 0, 1)
+        b *= f[:, None, None]          # premultiplied: scale all channels
+    buf = np.ndarray((sh, s.get_stride() // 4, 4), np.uint8, s.get_data())
+    buf[:, :sw] = np.clip(b, 0, 255).astype(np.uint8)
+    s.mark_dirty()
+    ctx.save()
+    ctx.translate(x0, y0); ctx.scale(2, 2)
+    p = cairo.SurfacePattern(s); p.set_filter(cairo.FILTER_BILINEAR)
+    ctx.set_source(p); ctx.paint_with_alpha(alpha)
+    ctx.restore()
+
+
 def _floodlight_bokeh(ctx, t, seed, area, n, size, alpha):
     env.bokeh(ctx, t, n=n, seed=seed, alpha=alpha, area=area, size=size, drift=(6, -8),
               colors=[(1.0, 0.80, 0.50), (1.0, 0.90, 0.72), (1.0, 0.62, 0.62), (0.95, 0.72, 0.45), (0.8, 0.85, 1.0)])
@@ -130,21 +160,17 @@ def _shot_b(ctx, t, gt):
     _floodlight_bokeh(ctx, t, 5, (-100, -60, W + 200, 800), 28, (40, 140), 0.55)
     _warm_light(ctx, 1500, 140, 900, 0.20)
 
-    # 源さん, small and soft in the background (right), proud tears
-    ctx.save()
-    ctx.translate(W / 2, H / 2); ctx.scale(1 + 0.03 * kp, 1 + 0.03 * kp); ctx.translate(-W / 2, -H / 2)
-    ctx.push_group()
-    draw_gen(ctx, 1520, 1010, 0.42, view="3q_left", expr="proud_tears", arms="down", t=t, light=WARM, light_dir=1,
-             rim=(1.0, 0.85, 0.6), rim_strength=0.9)
-    ctx.pop_group_to_source(); ctx.paint_with_alpha(0.82)
-    ctx.restore()
-    # haze over him to push him back
-    ctx.save(); ctx.set_source_rgba(0.35, 0.22, 0.26, 0.18); ctx.rectangle(1300, 560, 460, 520); ctx.fill(); ctx.restore()
+    # 源さん, small and defocused in the background (right), proud tears
+    gz = 1 + 0.03 * kp
+    _defocus(ctx, lambda c: draw_gen(c, 1540, 1060, 0.44, view="3q_left", expr="proud_tears", arms="down", t=t,
+                                     light=WARM, light_dir=1, rim=(1.0, 0.85, 0.6), rim_strength=1.0),
+             (1300, 520, 480, 560), sigma=2.2, alpha=0.9, fade=(900, 1040), tint=(0.32, 0.18, 0.24, 0.22),
+             zoom=gz)
 
     ctx.save()
     ctx.translate(W / 2, H * 0.42); ctx.scale(push, push); ctx.translate(-W / 2, -H * 0.42)
     # ハルカゼ muzzle, soft, entering frame left (foreground-ish)
-    draw_horse_head(ctx, 90, H + 360, 1.5, facing=1, blink=0.55, ear=-0.3, t=t + 5, nuzzle=0.6, light=WARM,
+    draw_horse_head(ctx, 150, H + 250, 1.6, facing=1, blink=0.5, ear=-0.2, t=t + 5, nuzzle=0.5, light=WARM,
                     rim_strength=0.9, shade=0.25)
     # turn: 3q_left -> front happens on the cut; small head settle
     settle = (1 - ease_out_back(clamp(tb / 0.45))) * 0.12
@@ -157,7 +183,7 @@ def _shot_b(ctx, t, gt):
         blink = 1.0
     draw_mizuki(ctx, 960, H + 520, 1.28, view="front", expr="teasing_smile", mouth=m * 0.85, blink=blink,
                 look=(0, 0), t=t + 3, helmet=False, goggles="up", light=WARM, light_dir=1, rim=(1.0, 0.82, 0.55),
-                rim_strength=1.0, blush=0.6, head_tilt=-settle, hair_wind=0.12)
+                rim_strength=1.0, blush=0.6, head_tilt=0.07 - settle, hair_wind=0.12)
     ctx.restore()
     env.confetti_light(ctx, t + 80, n=40, seed=13, area=(0, 0, W, H), rise=30, size=1.1, alpha=0.7)
 

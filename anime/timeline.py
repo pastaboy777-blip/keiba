@@ -38,8 +38,8 @@ SPEAKERS = {
 # Dialogue. start = global seconds; max = maximum allowed duration (slot).
 # "text" is the spoken text (reading-friendly), "sub" is the subtitle as displayed.
 LINES = [
-    dict(id="L01", spk="AI",     start=1.2,  max=4.6, text="第十一レース。十四番、ハルカゼ。勝率、れいてん八パーセント。推奨は、見送りです。",
-         sub="第11レース 14番 ハルカゼ。勝率 0.8%。推奨は——見送りです。"),
+    dict(id="L01", spk="AI",     start=1.2,  max=4.6, text="十四番、ハルカゼ。勝率、れいてんはちパーセント。推奨は、見送りです。",
+         sub="14番 ハルカゼ。勝率 0.8%。推奨は——見送りです。"),
     dict(id="L02", spk="GEN",    start=6.9,  max=3.2, text="数字じゃ、こいつの心までは測れねえよ。",
          sub="数字じゃ、こいつの心までは測れねえよ。"),
     dict(id="L03", spk="MIZUKI", start=10.6, max=3.9, text="うん。行こう、ハルカゼ。最後まで、一緒に。",
