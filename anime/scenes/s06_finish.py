@@ -261,9 +261,6 @@ def _cel_fill(ctx, base, shadow, n, off):
     path = ctx.copy_path()
     ctx.set_source_rgb(*base); ctx.fill_preserve()
     ctx.save(); ctx.clip()
-    ctx.new_path(); ctx.translate(n[0] * off, n[1] * off); ctx.append_path(path)
-    ctx.restore()
-    ctx.save(); ctx.append_path(path); ctx.clip()
     ctx.set_fill_rule(cairo.FILL_RULE_EVEN_ODD)
     ctx.new_path(); ctx.rectangle(-4000, -4000, 8000 + W, 8000 + H)
     ctx.translate(-n[0] * off, -n[1] * off); ctx.append_path(path)
@@ -348,8 +345,8 @@ def _shot_side(ctx, t):
     else:
         u = t - T_WIN
         hb = 0.0
-        z = lerp(1.62, 1.0, ease_out_cubic(u / 0.8)) * (1 + 0.05 * math.exp(-u * 10))
-        cx = lerp(nx_, nx_ - 120, ease_in_out(u / 0.9)); cy = lerp(ny_ + 10, 640, ease_out_cubic(u / 0.8))
+        z = lerp(1.62, 1.2, ease_out_cubic(u / 0.8)) * (1 + 0.05 * math.exp(-u * 10))
+        cx = lerp(nx_, nx_ - 120, ease_in_out(u / 0.9)); cy = lerp(ny_ + 10, 610, ease_out_cubic(u / 0.8))
         sx, sy = W * 0.5, lerp(H * 0.46, H * 0.55, ease_out_cubic(u / 0.8))
         shx, shy = shake(t, 14 * math.exp(-u * 3) + 3, 16, 5)
         sx += shx; sy += shy
@@ -382,7 +379,7 @@ def _shot_side(ctx, t):
         ctx.set_source_rgba(0, 0, 0, 0.25 * hb); ctx.paint()
         _hud_freeze(ctx, t, nose_sx)
         # opening "shutter" frames right after the render's white flash
-        if t < 0.12:
+        if 0 <= t < 0.12:
             ctx.set_source_rgba(1, 1, 1, 0.5 * (1 - t / 0.12)); ctx.paint()
     else:
         u = t - T_WIN
@@ -432,7 +429,7 @@ def _shot_mizuki(ctx, t):
     hx = lerp(820, 860, ease_out_cubic(u / 2.0)); hy = 520 + 18 * math.sin(t * TAU * 1.1) * (1 - settle * 0.6)
     sc = 1.08 + 0.06 * ease_out_cubic(u / 2.2)
     # raised fist: pops up (ease_out_back), pumps, then comes down during the settle
-    up = ease_out_back(clamp(u / 0.28)) * (1 - smoothstep(T_SETTLE + 0.25, T_SETTLE + 0.9, t))
+    up = ease_out_back(clamp(u / 0.28)) * (1 - smoothstep(T_SETTLE + 0.1, T_SETTLE + 0.5, t))
     pump = math.sin(u * TAU * 2.4) * 0.5 + 0.5 if u < 0.85 else 0.0
     ctx.save()
     shx, shy = shake(t, 6 * (1 - settle), 14, 2)

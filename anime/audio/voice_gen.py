@@ -45,7 +45,7 @@ VOICES = {
 # assist: emotional BERT "assist text" to colour delivery. fx: post-processing chain name.
 DIRECTION = {
     "L01": dict(style="Neutral", w=1.0, sdp=0.0, noise=0.4, noise_w=0.6, length=0.85, inton=0.65, pitch=0.94,
-                gap=0.16,
+                say="十四番、ハルカゼ。勝率れいてんはちパーセント。推奨は、見送りです。", gap=0.10, fit=0.985,
                 fx="ai"),
     "L02": dict(style="Neutral", w=1.0, sdp=0.3, length=1.0, pitch=0.89, inton=0.95,
                 assist="まあ、そう言うなって。こいつはな、根性だけは誰にも負けねえんだ。", aw=0.5, fx="gen"),
@@ -450,7 +450,7 @@ def main():
         m = tts[spk]
         text = D.get("say", L["text"])
         max_len = int(L["max"] * SR)
-        target = L["max"] * (0.96 if D["fx"] != "ai_glitch" else 0.72)  # glitch adds ~0.25s
+        target = L["max"] * D.get("fit", 0.96 if D["fx"] != "ai_glitch" else 0.72)  # glitch adds ~0.25s
         best = None
         for seed in range(args.seeds):
             length = D.get("length", 1.0)

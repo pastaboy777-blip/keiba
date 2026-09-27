@@ -87,7 +87,8 @@ def hoof_dust(ctx, P, x, y, sc, t, seed, strength=1.0, speed=1.0):
 
 # ============================================================ C1 perspective opener
 def c1_perspective(ctx, t, gt):
-    vx, vy = 1320.0, 392.0
+    swing = ease_in_out(clamp((t - 0.15) / 1.3))
+    vx, vy = 1320.0 + 200 * swing, 392.0
     prog = 0.08 + 0.078 * t
     punch = 1.0 + 0.10 * (1 - ease_out_cubic(t / 0.35))          # hard-cut zoom punch
     sx, sy = shake(t, 7 + 6 * smoothstep(1.0, 2.5, t), 16, 3)
@@ -135,9 +136,9 @@ def c1_perspective(ctx, t, gt):
 # ============================================================ side tracking (C2 / C4)
 def side_track(ctx, t, gt, part):
     """Side tracking shot. ハルカゼ foreground right-of-centre, rivals in the far lane slide back."""
-    sc_h = 1.08
+    sc_h = 1.3
     v = STRIDE * sc_h * HZ
-    cam_x = 18000 + v * t
+    cam_x = 1500 + v * (t - 2.5)
     tl = t - 2.5
     k_int = smoothstep(2.5, 5.3, t)
     sx, sy = shake(t, 11 + 7 * k_int, 20, 7)
@@ -153,25 +154,25 @@ def side_track(ctx, t, gt, part):
             continue
         c = COAT_PRESETS[coat]
         ph = (gt * HZ * 0.97 + po) % 1.0
-        P = draw_horse(ctx, x, 842, 0.8, ph, coat=c["coat"], mane=c["mane"], blaze=False, socks=(0, 0, 0, 0),
+        P = draw_horse(ctx, x, 842, 0.72, ph, coat=c["coat"], mane=c["mane"], blaze=False, socks=(0, 0, 0, 0),
                        jockey=_jk(ji, 0.9, i % 2 == 0), number=num, t=gt, rim=RIM, rim_strength=0.9,
                        shade=0.25, motion_blur=0.7)
-        hoof_dust(ctx, P, x, 842, 0.8, gt, 40 + i, 0.7)
+        hoof_dust(ctx, P, x, 842, 0.72, gt, 40 + i, 0.7)
     # grey leader appears far ahead late in C4
     if part == "C4":
         xg = lerp(2300, 1500, ease_out_cubic((t - 4.7) / 0.6))
-        P = draw_horse(ctx, xg, 842, 0.8, (gt * HZ + 0.05) % 1.0, coat=GREY["coat"], mane=GREY["mane"],
+        P = draw_horse(ctx, xg, 842, 0.72, (gt * HZ + 0.05) % 1.0, coat=GREY["coat"], mane=GREY["mane"],
                        blaze=False, socks=(0, 0, 0, 0), jockey=LEADER_J, number=1, t=gt, rim=RIM,
                        rim_strength=1.0, shade=0.12, motion_blur=0.7)
-        hoof_dust(ctx, P, xg, 842, 0.8, gt, 77, 0.8)
+        hoof_dust(ctx, P, xg, 842, 0.72, gt, 77, 0.8)
     # ハルカゼ
-    xh = 900 + 40 * math.sin(t * 1.3) + (60 * ease_out_cubic((t - 4.7) / 0.6) if part == "C4" else 0)
-    yh = 1000
+    xh = 820 + 40 * math.sin(t * 1.3) + (60 * ease_out_cubic((t - 4.7) / 0.6) if part == "C4" else 0)
+    yh = 1030
     ph = (gt * HZ) % 1.0
     P = draw_horse(ctx, xh, yh, sc_h, ph, jockey=HERO, number=14, t=gt, rim=RIM, rim_strength=1.1,
                    motion_blur=0.9, mane_wind=1.4)
     hoof_dust(ctx, P, xh, yh, sc_h, gt, 14, 1.4)
-    draw_race_side_fg(ctx, gt, cam_x, track_y=820, blur=0.9, clods=1.0)
+    draw_race_side_fg(ctx, gt, cam_x, track_y=820, blur=0.9, clods=1.0, rail=False, grass=False)
     # a near-side rival whipping past the lens (foreground occlusion, C2 only)
     if part == "C2":
         xf = lerp(W + 900, -1300, (t - 2.95) / 0.55)
@@ -199,7 +200,7 @@ STRIDE = 885.0
 # ============================================================ C3 美月 insert
 def c3_mizuki(ctx, t, gt):
     lt = t - 3.85
-    cam_x = 30000 + 5200 * lt
+    cam_x = 3000 + 5200 * lt
     sx, sy = shake(t, 12, 22, 11)
     push = 1.0 + 0.06 * ease_out_cubic(lt / 0.85)
     ctx.save()
@@ -215,17 +216,6 @@ def c3_mizuki(ctx, t, gt):
                        light_flash=0.5 if _hash(int(gt * FPS), 5) < 0.25 else 0.0, shake=0.4, dirt=1.0,
                        look=(0.45, -0.05))
     ctx.restore()
-    # flaxen mane whipping through the bottom-right foreground
-    ctx.save()
-    for i in range(9):
-        y0 = 930 + i * 20
-        ph = gt * 7 + i
-        ctx.move_to(W + 40, y0)
-        ctx.curve_to(1500, y0 - 60 + 40 * math.sin(ph), 1150, y0 + 30 * math.cos(ph * 1.3), 820 - 60 * i % 200, y0 - 100 + 50 * math.sin(ph * 0.7))
-        ctx.set_line_width(26 - i * 1.5)
-        ctx.set_source_rgba(*PAL["harukaze_mane"], 0.9)
-        ctx.stroke()
-    ctx.restore()
     ctx.restore()
     # focus lines
     speed_lines(ctx, gt, 1080, 470, n=70, inner=520, outer=1500, color=(1, 1, 1), alpha=0.35, seed=8)
@@ -240,14 +230,16 @@ def duel(ctx, t, gt, *, gap, zoom, focus_dx=0.0, rate=1.0, cam_speed=1.0, shake_
     gap = how far the grey nose is ahead (px, at scale 1). zoom about the noses."""
     tt = gt if slow_t is None else slow_t
     sc_h, sc_g = 1.0, 0.9
-    yh, yg = 960, 880
+    yh, yg = 930, 852
     xh = 760
     xg = xh + 30 + gap
     nose = (xh + 315 * sc_h, yh - 285 * sc_h)
-    cam_x = 20000 + STRIDE * sc_h * HZ * (tt - 38.0) * cam_speed
+    cam_x = 1500 + STRIDE * sc_h * HZ * (tt - 38.0) * cam_speed
     sx, sy = shake(tt, shake_amp, 20, 5)
-    cam_begin(ctx, nose[0] - 380 / zoom + focus_dx, nose[1] + 60, zoom, sx, sy, roll=0.01 * math.sin(tt * 2.5))
-    draw_race_side_bg(ctx, tt, cam_x, horizon_y=450, track_y=820, crowd=1.0, flash=1.0 if slow_t is None else 0.3,
+    cx = clamp(nose[0] - 380 / zoom + focus_dx, W / (2 * zoom) - 150, W - W / (2 * zoom) + 150)
+    cy = min(nose[1] + 60 + 40 / zoom, H - H / (2 * zoom) + 14)
+    cam_begin(ctx, cx, cy, zoom, sx, sy, roll=0.01 * math.sin(tt * 2.5))
+    draw_race_side_bg(ctx, tt, cam_x, horizon_y=430, track_y=860, crowd=1.0, flash=1.0 if slow_t is None else 0.3,
                       blur=bg_blur)
     phg = (tt * HZ * rate + 0.47) % 1.0
     phh = (tt * HZ * rate) % 1.0
@@ -259,8 +251,9 @@ def duel(ctx, t, gt, *, gap, zoom, focus_dx=0.0, rate=1.0, cam_speed=1.0, shake_
                    motion_blur=0.8 if slow_t is None else 0.2, mane_wind=1.3)
     hoof_dust(ctx, P, xh, yh, sc_h, tt, 14, 1.3, dust_speed)
     if finish_x is not None:
-        draw_finish_post(ctx, finish_x, 1040, scale=1.35, line=True, line_len=300, t=tt)
-    draw_race_side_fg(ctx, tt, cam_x, track_y=820, blur=bg_blur, clods=1.0 if slow_t is None else 0.3)
+        draw_finish_post(ctx, finish_x, 1010, scale=1.4, line=True, line_len=300, t=tt)
+    draw_race_side_fg(ctx, tt, cam_x, track_y=860, blur=bg_blur, clods=1.0 if slow_t is None else 0.3,
+                      rail=False, grass=False)
     ctx.restore()
     return nose
 
@@ -361,8 +354,8 @@ def c9_slowmo(ctx, t, gt):
         st = ramp - (1 - k) * ramp / 2 + k * (lt - ramp)
     slow_t = 42.5 + st
     # the finish post comes in from the right; noses hit the line at 45.0
-    fx = lerp(3300, 1310, (lt / 2.5) ** 0.9)
-    z = 1.12 + 0.18 * ease_in_out(lt / 2.5)
+    fx = lerp(3000, 1060, (lt / 2.5) ** 0.9)
+    z = 1.35 + 0.3 * ease_in_out(lt / 2.5)
     duel(ctx, t, gt, gap=0.0, zoom=z, focus_dx=60, shake_amp=2.5, slow_t=slow_t, bg_blur=0.35, finish_x=fx,
          dust_speed=0.35)
     # hanging dust motes (almost frozen)

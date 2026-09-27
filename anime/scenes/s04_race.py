@@ -134,10 +134,15 @@ def draw_pack(ctx, gt, camX, *, s_ref=S_REF, cx=W / 2, blur=0.0, lean=0.0, mb_ri
         far = clamp((830 - y) / 130.0)
         if h["hero"]:
             kick = h["kick"]
+            # subtle spotlight so #14 reads inside the pack
+            ctx.save(); ctx.set_operator(cairo.OPERATOR_ADD)
+            radial_glow(ctx, x + 20 * sc, y - 300 * sc, 420 * sc, (1.0, 0.86, 0.62), 0.16 + 0.12 * kick)
+            ctx.restore()
             P = draw_horse(ctx, x, y, sc, h["phase"], coat=h["coat"]["coat"], mane=h["coat"]["mane"],
                            jockey=h["jockey"], t=gt, number=14, stride=1.0 + 0.35 * kick,
                            motion_blur=clamp(0.15 * blur + 0.85 * kick * hero_boost), mane_wind=1.0 + 0.6 * kick,
-                           lean=lean, shade=0.0, rim_strength=1.0 + 0.3 * kick, ground_shadow=0.4)
+                           lean=lean, shade=0.0, rim_strength=1.35 + 0.3 * kick, ground_shadow=0.4,
+                           rim=(1.0, 0.92, 0.75))
             hero_info = dict(x=x, y=y, sc=sc, P=P)
         else:
             P = draw_horse(ctx, x, y, sc, h["phase"], coat=h["coat"]["coat"], mane=h["coat"]["mane"],
@@ -228,22 +233,6 @@ def impact_frame(ctx, mode):
     s.mark_dirty()
 
 
-def hsmear(ctx, amount, rows=None):
-    """Cheap horizontal motion smear of the whole frame (average of shifted copies)."""
-    if amount <= 0.01:
-        return
-    s, a = _arr(ctx)
-    f = a[..., :3].astype(np.uint16)
-    acc = f.copy()
-    n = 4
-    for i in range(1, n):
-        k = int(amount * 26 * i)
-        sh = np.empty_like(f); sh[:, k:] = f[:, :-k] if k else f; sh[:, :k] = f[:, :1] if k else 0
-        acc += sh
-    a[..., :3] = (acc // n).astype(np.uint8)
-    s.mark_dirty()
-
-
 # ------------------------------------------------------------------ shots
 def shot_A(ctx, t, gt):
     """Wide tracking: leaders -> reveal ハルカゼ at the back."""
@@ -263,8 +252,11 @@ def shot_A(ctx, t, gt):
     # HUD lock onto the hero after the camera arrives
     if info:
         sx = zx + (info["x"] - zx) * zoom + dx; sy = zy + (info["y"] - zy) * zoom + dy
-        hud_lock(ctx, gt - 21.3, sx, sy, info["sc"] * zoom, alpha=0.9 * clamp((T_B - 0.05 - gt) / 0.2))
+        hud_lock(ctx, gt - 21.6, sx, sy, info["sc"] * zoom, alpha=0.9 * clamp((T_B - 0.05 - gt) / 0.2))
     hud_panel(ctx, gt)
+
+
+HB_X, HB_Y, HB_S = 150, 3170, 6.0
 
 
 def shot_B(ctx, t, gt):
@@ -273,7 +265,7 @@ def shot_B(ctx, t, gt):
     ctx.save()
     # telephoto background: scaled-up heavily blurred side background, low camera
     ctx.save()
-    ctx.translate(W / 2, H / 2); ctx.scale(1.9, 1.9); ctx.translate(-W / 2, -H / 2 - 160)
+    ctx.translate(W / 2, H / 2); ctx.scale(1.9, 1.9); ctx.translate(-W / 2, -H / 2 - 240)
     draw_race_side_bg(ctx, gt, 2600 * u + 4000, horizon_y=HORIZON, track_y=TRACK_Y, crowd=1.0, blur=0.9)
     ctx.restore()
     # cool night grade + depth haze
@@ -284,8 +276,8 @@ def shot_B(ctx, t, gt):
     ph = (0.30 + hero_strides(gt)) % 1.0
     bob = math.sin(gt * TAU * 2.2) * 6
     ctx.save()
-    draw_horse(ctx, 1000, 1950 + bob, 2.9, ph, coat=C["chestnut"]["coat"], mane=C["chestnut"]["mane"], jockey=None,
-               t=gt, mane_wind=1.6, rim_strength=1.1, ground_shadow=0.0, line_width=2.4)
+    draw_horse(ctx, HB_X, HB_Y + bob, HB_S, ph, coat=C["chestnut"]["coat"], mane=C["chestnut"]["mane"], jockey=None,
+               t=gt, mane_wind=1.6, rim_strength=1.1, ground_shadow=0.0, line_width=0.75)
     ctx.restore()
     # 美月
     sway = 10 * math.sin(u * 1.3)
@@ -340,7 +332,7 @@ def shot_C1(ctx, t, gt):
 def shot_C2(ctx, t, gt):
     """Pack entering the 4th corner: tilted frame, horses leaning, ハルカゼ swings wide."""
     u = gt - T_C2
-    camX = cam_ref(gt) + lerp(1000, 900, u / 1.5)
+    camX = cam_ref(gt) + lerp(820, 700, u / 1.5)
     ang = math.radians(-2.0 - 4.0 * ease_in_out(u / 1.5))
     zoom = 1.12 + 0.05 * u
     ctx.save()
@@ -354,7 +346,7 @@ def shot_C2(ctx, t, gt):
         hud_lock(ctx, gt - T_C2 + 0.2, sx, sy, info["sc"] * zoom, alpha=0.85, sub="4TH CORNER  POS 14/14")
     # corner caption
     a = clamp(u / 0.2) * clamp((1.5 - u) / 0.2)
-    text(ctx, "4コーナー", 110, 170, 54, font=FONT_IMPACT, color=(1, 1, 1), alpha=a * 0.9, align="left",
+    text(ctx, "4コーナー", 110, 1000, 66, font=FONT_IMPACT, color=(1, 1, 1), alpha=a * 0.9, align="left",
          outline=8, outline_color=(0.05, 0.02, 0.1), outline_alpha=0.8)
     hud_panel(ctx, gt)
 
@@ -362,7 +354,7 @@ def shot_C2(ctx, t, gt):
 def shot_D(ctx, t, gt):
     """IMPACT: 美月 shouting."""
     u = gt - T_D
-    fi = int(round(u * FPS))
+    fi = int(u * FPS + 1e-6)
     # background: hot radial field
     cx, cy = 1040, 430
     g = cairo.RadialGradient(cx, cy, 40, cx, cy, 1300)
@@ -415,6 +407,7 @@ def shot_E(ctx, t, gt):
         sx, sy = m.transform_point(info["x"], info["y"])
         dust_kick(ctx, gt, sx - 120, sy, strength=1.6 * ki, seed=77, speed=1.6)
         radial_glow(ctx, sx, sy - 180, 420, (1, 0.9, 0.7), 0.35 * ki)
+        speed_lines(ctx, gt, sx, sy - 200, n=70, inner=520, outer=1900, color=(1, 1, 1), alpha=0.45 * ki, seed=29)
     # speed smear over everything but a little: sells velocity
     horiz_speed_lines(ctx, gt, 40, H - 40, n=28, speed=8000, color=(1, 0.97, 0.9), alpha=0.28, seed=23, length=(500, 1500))
     if info:
@@ -422,7 +415,7 @@ def shot_E(ctx, t, gt):
         m.translate(-target, -700)
         sx, sy = m.transform_point(info["x"], info["y"])
         # overtake counter
-        pos = 1 + sum(1 for h in world_state(gt) if not h["hero"] and h["X"] > STRIDE_LEN * hero_strides(gt))
+        pos = 5 + sum(1 for h in world_state(gt) if not h["hero"] and h["X"] > STRIDE_LEN * hero_strides(gt))
         hud_lock(ctx, gt - T_E + 0.5, sx, sy, info["sc"] * zoom, color=mix_color(CYAN, PAL["neon_pink"], 0.4),
                  alpha=0.9, sub="POS %d/14  ▲ ACCEL" % pos)
     # panel pulses as it starts climbing
