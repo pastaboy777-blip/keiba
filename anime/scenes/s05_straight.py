@@ -35,12 +35,12 @@ RIM = (0.75, 0.88, 1.0)
 # pack for the perspective opener: (X m, Z0 m, coat, jockey idx, number, phase offset)
 PACK = [   # (X, Z0, coat, jockey, number, phase offset, closing speed m/s)
     (-1.3, 9.0, "bay", 1, 5, 0.13, 1.9), (1.8, 7.5, "dark_bay", 2, 9, 0.61, 3.6), (4.2, 10.5, "black", 3, 2, 0.37, 3.8),
-    (1.2, 13.0, "liver", 4, 11, 0.82, 3.3), (3.0, 16.0, "bay", 5, 6, 0.25, 3.0), (0.2, 19.0, "dark_bay", 6, 12, 0.5, 2.6),
-    (5.0, 22.0, "black", 7, 8, 0.93, 3.0), (-1.8, 25.0, "bay", 3, 4, 0.71, 2.2), (2.0, 31.0, "grey", 0, 1, 0.05, 1.2),
+    (1.2, 13.0, "liver", 4, 7, 0.82, 3.3), (3.0, 16.0, "bay", 5, 6, 0.25, 3.0), (0.2, 19.0, "dark_bay", 6, 12, 0.5, 2.6),
+    (5.0, 22.0, "black", 7, 3, 0.93, 3.0), (-1.8, 25.0, "bay", 3, 1, 0.71, 2.2), (2.0, 31.0, "grey", 0, 11, 0.05, 1.2),
 ]
 # rivals passed in the side tracking shots: (screen x at t=2.5, coat, jockey idx, number, phase)
 SIDE_RIVALS = [
-    (1500, "dark_bay", 2, 9, 0.61), (2350, "black", 3, 2, 0.37), (3150, "liver", 4, 11, 0.82),
+    (1500, "dark_bay", 2, 9, 0.61), (2350, "black", 3, 2, 0.37), (3150, "liver", 4, 7, 0.82),
     (3900, "bay", 5, 6, 0.25),
 ]
 
@@ -162,7 +162,7 @@ def side_track(ctx, t, gt, part):
     if part == "C4":
         xg = lerp(2300, 1500, ease_out_cubic((t - 4.7) / 0.6))
         P = draw_horse(ctx, xg, 842, 0.72, (gt * HZ + 0.05) % 1.0, coat=GREY["coat"], mane=GREY["mane"],
-                       blaze=False, socks=(0, 0, 0, 0), jockey=LEADER_J, number=1, t=gt, rim=RIM,
+                       blaze=False, socks=(0, 0, 0, 0), jockey=LEADER_J, number=11, t=gt, rim=RIM,
                        rim_strength=1.0, shade=0.12, motion_blur=0.7)
         hoof_dust(ctx, P, xg, 842, 0.72, gt, 77, 0.8)
     # ハルカゼ
@@ -244,7 +244,7 @@ def duel(ctx, t, gt, *, gap, zoom, focus_dx=0.0, rate=1.0, cam_speed=1.0, shake_
     phg = (tt * HZ * rate + 0.47) % 1.0
     phh = (tt * HZ * rate) % 1.0
     P = draw_horse(ctx, xg, yg, sc_g, phg, coat=GREY["coat"], mane=GREY["mane"], blaze=False, socks=(0, 0, 0, 0),
-                   jockey=LEADER_J, number=1, t=tt, rim=RIM, rim_strength=1.0, shade=0.1,
+                   jockey=LEADER_J, number=11, t=tt, rim=RIM, rim_strength=1.0, shade=0.1,
                    motion_blur=0.6 if slow_t is None else 0.15)
     hoof_dust(ctx, P, xg, yg, sc_g, tt, 88, 0.9, dust_speed)
     P = draw_horse(ctx, xh, yh, sc_h, phh, jockey=HERO, number=14, t=tt, rim=RIM, rim_strength=1.2,
