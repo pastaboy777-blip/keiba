@@ -441,6 +441,7 @@ def draw_mouth(ctx, mx, my, w, m, kind, k, lw=1.0, ink=INK, teeth=True):
         "tender": (0.62, 0.30, 0.20, 0.0),
         "tease": (0.62, 0.34, 0.16, 0.14),
         "gruff": (0.85, 0.35, 0.06, 0.05),
+        "gentle": (0.62, 0.40, 0.09, 0.0),
         "neutral": (0.7, 0.35, -0.02, 0.0),
         "laugh": (0.9, 0.7, 0.2, 0.0),
     }
@@ -750,7 +751,8 @@ def _goggles_down(ctx, k, lt, glare=0.0, ex=EYE_X, ey=EYE_Y, lens_w=104, lens_h=
     for sx in (-1, 1):
         x = xmap(sx * ex, k); ws = xscale(sx * ex, k)
         if ws < 0.25: continue
-        _goggle_lens(ctx, x + sx * 2, ey + 4, lens_w * ws, lens_h, lt, glare=glare, tilt=-0.06 * sx, thick=1.32)
+        _goggle_lens(ctx, x + sx * 2, ey + 4, lens_w * ws, lens_h, lt, glare=glare, tilt=-0.06 * sx, thick=1.11,
+                     frame=(0.20, 0.21, 0.28))
     taper(ctx, [(xmap(-12, k), ey - 6), (xmap(12, k), ey - 6)], 8, (0.12, 0.12, 0.18), n=6, w0=1, w1=1)
     if dirt > 0:
         R = rng(seed)
@@ -858,6 +860,11 @@ def _mz_head(ctx, k, lt, *, expr, mouth, blink, look, t, wind, helmet, goggles, 
         _helmet(ctx, k, lt, goggles if goggles != "down" else "none", t, riding=riding)
     if goggles == "down":
         _goggles_down(ctx, k, lt, glare=flash, dirt=dirt)
+        brows_g = E.get("bi", 0)
+        for sx in (-1, 1):
+            bx = xmap(sx * (EYE_X + 4), k); ws = xscale(sx * EYE_X, k)
+            draw_brow(ctx, bx, EYE_Y - 58, EYE_W * 1.0 * ws, sx, raise_in=E["bi"] * 1.3, raise_out=E["bo"],
+                      col=(0.16, 0.09, 0.12), a=0.95, thick=1.3)
     if sweat > 0:
         R = rng(int(t * 6))
         for i in range(3):
@@ -1201,48 +1208,64 @@ def draw_mizuki_riding(ctx, x, y, scale, *, expr="determined", mouth=0.0, blink=
     ctx.save(); ctx.rotate(ang)
     _ponytail(ctx, (xmap(-96, k), 56), lt, t, wind, dirx=-1, length=1.0, riding=True, thick=1.35)
     ctx.restore()
-    # ---- torso: crouched, back nearly horizontal behind the head, silks rippling in the wind
+    # ---- torso: hunched jockey crouch. Body is drawn a bit smaller than the head (camera close to the face).
+    ctx.save(); ctx.translate(-20, 150); ctx.scale(0.86, 0.86); ctx.translate(20, -150)
     def rip(u):
-        a = smoothstep(-60, -700, u) * wind
+        a = smoothstep(-120, -800, u) * wind
         return (math.sin(gal * 3.1 - u * 0.03) * 9 + math.sin(t * 31 - u * 0.055) * 5) * a
     top = []
-    for i in range(14):
-        u = -50 - i * 80
-        hump = -26 * math.exp(-((u + 190) / 110) ** 2)
-        top.append((u, 168 + hump + (-u - 50) * 0.05 + rip(u)))
+    for i in range(15):
+        u = -40 - i * 75
+        hump = -95 * math.exp(-((u + 250) / 150) ** 2)          # rounded, hunched shoulders/back
+        top.append((u, 150 + hump + (-u) * 0.10 + rip(u)))
     belly = []
     for i in range(10):
-        u = -1100 + i * 110
-        belly.append((u, 480 - (-u - 50) * 0.13 - rip(u) * 0.6))
-    back = top + [(-1160, 225), (-1160, 330)] + belly + [(160, 760), (220, 600), (140, 360), (56, 210)]
+        u = -1150 + i * 110
+        belly.append((u, 520 - (-u) * 0.12 - rip(u) * 0.5))
+    back = top + [(-1200, 280), (-1200, 390)] + belly + [(120, 760), (170, 560), (110, 330), (50, 205)]
     bp = shape(ctx, back)
     silk = lt.c(SILK, 0.25); silk_s = lt.s(SILK_S, 0.2)
-    cel(ctx, bp, silk, silk_s, (40, -70), lt.rim, (26, -16), rim_a=0.9 * lt.rs, lw=3.0)
+    cel(ctx, bp, silk, silk_s, (40, -70), lt.rim, (26, -16), rim_a=0.95 * lt.rs, lw=3.2)
     ctx.save(); clip_path(ctx, bp)
+    # shoulder-blade / spine cel shadow shapes that sell the hunch
+    ctx.new_path(); smooth_path(ctx, [(-120, 150), (-260, 110), (-420, 150), (-600, 230), (-600, 300), (-400, 230), (-250, 200), (-140, 230)], closed=True)
+    fill_rgb(ctx, silk_s, 0.55); ctx.fill()
     # sash diagonal across the back
-    ctx.new_path(); ctx.move_to(-400, 100); ctx.line_to(-290, 100); ctx.line_to(-520, 700); ctx.line_to(-660, 700); ctx.close_path()
+    ctx.new_path(); ctx.move_to(-470, 60); ctx.line_to(-350, 40); ctx.line_to(-560, 700); ctx.line_to(-700, 700); ctx.close_path()
     sash = ctx.copy_path()
     fill_rgb(ctx, lt.c(RED, 0.25)); ctx.fill()
     ctx.save(); clip_path(ctx, sash); crescent(ctx, bp, (40, -70), lt.s(RED_S, 0.2)); ctx.restore()
     ctx.new_path(); ctx.append_path(sash); ctx.set_line_width(2.4); fill_rgb(ctx, INK, 0.9); ctx.stroke()
-    # wind folds racing backward
-    for i in range(10):
-        ph = (t * 3.0 + i / 10.0) % 1.0
-        u0 = lerp(-120, -1100, ph)
-        y0 = 220 + (-u0) * 0.02 + (i % 4) * 50 * (1 - (-u0) / 1600)
-        pts = [(u0 + 150, y0 - 18 + rip(u0 + 150) * 0.7), (u0 + 60, y0 + rip(u0 + 60) * 0.7), (u0 - 60, y0 + 12 + rip(u0 - 60) * 0.7)]
-        taper(ctx, pts, 9, silk_s, a=0.9 * (1 - abs(ph - 0.5) * 1.6), n=12)
+    # wind folds racing backward (tapered crease streaks + hard shadow pockets)
+    for i in range(12):
+        ph = (t * 3.0 + i / 12.0) % 1.0
+        u0 = lerp(-160, -1150, ph)
+        base_y = 150 - 95 * math.exp(-((u0 + 250) / 150) ** 2) + (-u0) * 0.10
+        y0 = base_y + 40 + (i % 4) * 48
+        pts = [(u0 + 150, y0 - 22 + rip(u0 + 150) * 0.7), (u0 + 60, y0 + rip(u0 + 60) * 0.7), (u0 - 70, y0 + 16 + rip(u0 - 70) * 0.7)]
+        taper(ctx, pts, 9 + 4 * (i % 2), silk_s, a=0.95 * (1 - abs(ph - 0.5) * 1.6), n=12)
     ctx.restore()
     # trailing loose silk flaps at the hem (sharp, flickering)
     for i in range(3):
-        u = -900 - i * 90
-        L = 60 + 30 * math.sin(t * 23 + i * 2)
-        yb = 480 - (-u - 50) * 0.13
-        ctx.new_path(); ctx.move_to(u + 60, yb - 10); ctx.line_to(u - L, yb + 10 + math.sin(t * 31 + i) * 16); ctx.line_to(u + 30, yb + 20)
+        u = -950 - i * 80
+        L_ = 70 + 34 * math.sin(t * 23 + i * 2)
+        yb = 520 - (-u) * 0.12
+        ctx.new_path(); ctx.move_to(u + 60, yb - 12); ctx.line_to(u - L_, yb + 8 + math.sin(t * 31 + i) * 18); ctx.line_to(u + 30, yb + 18)
         ctx.close_path(); fill_rgb(ctx, silk_s); ctx.fill_preserve(); ctx.set_line_width(2.2); fill_rgb(ctx, INK); ctx.stroke()
-    # ---- near arm reaching down-forward to the reins (sleeve with red hoops)
-    S = _silk_arm(ctx, [(-120, 270), (10, 380), (160, 480), (260, 600)], 120, 100, lt, outer=-1,
-                  stripes=(0.45, 0.82), bulge=0.12, folds=True, lw=2.8)
+    # ---- near arm: upper arm down from the shoulder, bent elbow, forearm forward to the reins
+    elbow = (60 + math.sin(gal) * 6, 500)
+    S = _silk_arm(ctx, [(-150, 250), (-60, 400), elbow], 124, 108, lt, outer=-1, stripes=(0.62,), bulge=0.12,
+                  lw=3.0, ball_r=1.0, end_round=0.9)
+    push = math.sin(gal) * 14                                     # hands pump with the stride
+    wr = (270 + push, 470 - push * 0.4)
+    S2 = _silk_arm(ctx, [elbow, (170 + push * 0.5, 490), wr], 104, 86, lt, outer=-1, stripes=(0.72,), bulge=0.08,
+                   lw=3.0, ball_r=0.95)
+    # glove fist + reins
+    gl = lt.c((0.95, 0.95, 0.97), 0.2)
+    draw_hand(ctx, wr[0] - 12, wr[1] + 4, -0.15, 150, lt, "fist", skin=(0.95, 0.95, 0.97), skin_s=SILK_S)
+    ctx.new_path(); ctx.move_to(wr[0] + 70, wr[1] + 10); ctx.curve_to(wr[0] + 180, wr[1] + 30, wr[0] + 300, wr[1] + 90, wr[0] + 420, wr[1] + 180)
+    ctx.set_line_width(9); fill_rgb(ctx, (0.30, 0.18, 0.10)); ctx.stroke()
+    ctx.restore()
     # ---- neck + collar
     ctx.save(); ctx.rotate(ang * 0.5)
     neck = shape(ctx, [(-58, 70), (-64, 150), (-50, 200), (40, 196), (46, 150), (30, 90)])
@@ -1385,9 +1408,9 @@ GFACE_F = [(-116, -40), (-122, 22), (-116, 76), (-98, 118), (-62, 150), (0, 162)
            (116, 76), (122, 22), (116, -40), (90, -118), (0, -144), (-90, -118)]
 GFACE_3 = [(-110, -40), (-116, 22), (-108, 80), (-88, 124), (-40, 154), (46, 166), (94, 146), (116, 108),
            (128, 60), (126, 12), (120, -40), (84, -118), (-6, -146), (-96, -118)]
-GSKIN = (0.95, 0.77, 0.63)
-GSKIN_S = (0.80, 0.56, 0.49)
-GSKIN_L = (0.66, 0.42, 0.38)          # wrinkle line tone
+GSKIN = (0.99, 0.81, 0.67)
+GSKIN_S = (0.88, 0.62, 0.55)
+GSKIN_L = (0.74, 0.47, 0.42)          # wrinkle line tone
 GHAIR = (0.78, 0.78, 0.80)
 GHAIR_S = (0.52, 0.52, 0.58)
 NAVY = (0.17, 0.23, 0.37)
@@ -1396,11 +1419,11 @@ CAP = (0.46, 0.40, 0.33)
 CAP_S = (0.29, 0.25, 0.21)
 TOWEL = (0.95, 0.95, 0.91)
 TOWEL_S = (0.72, 0.75, 0.82)
-IRIS_GEN = ((0.12, 0.08, 0.07), (0.30, 0.19, 0.13), (0.55, 0.38, 0.24))
+IRIS_GEN = ((0.16, 0.09, 0.06), (0.42, 0.25, 0.14), (0.78, 0.55, 0.32))
 
 GEXPR = {
-    "gruff_smile": dict(sq=0.55, ld=0.35, bi=0.05, bo=-0.15, mouth="gruff"),
-    "neutral": dict(sq=0.2, ld=0.45, bi=-0.2, bo=-0.05, mouth="neutral"),
+    "gruff_smile": dict(sq=0.7, ld=0.25, bi=0.2, bo=-0.1, mouth="gentle"),
+    "neutral": dict(sq=0.2, ld=0.3, bi=-0.15, bo=-0.05, mouth="neutral"),
     "proud_tears": dict(sq=0.7, ld=0.3, bi=0.55, bo=-0.2, mouth="gruff", closed=True),
     "laugh": dict(sq=0.7, ld=0.0, bi=0.3, bo=0.0, mouth="laugh", closed=True),
 }
@@ -1454,10 +1477,10 @@ def _gen_head(ctx, k, lt, *, expr, mouth, blink, look, t, tears):
     jaw = lerp_pts([(-124, 84), (-70, 110), (-40, 100), (0, 98), (40, 100), (70, 110), (124, 84), (124, 180), (-124, 180)],
                    [(-118, 92), (-50, 116), (-10, 102), (40, 96), (80, 102), (110, 100), (136, 74), (136, 180), (-118, 180)], k)
     ctx.new_path(); smooth_path(ctx, jaw, closed=True)
-    fill_rgb(ctx, (0.52, 0.50, 0.60), 0.16); ctx.fill()
+    fill_rgb(ctx, (0.55, 0.52, 0.62), 0.10); ctx.fill()
     for (sx_, sy_, r_, a_) in _stubble_pts():
         ctx.new_path(); ctx.arc(xmap(sx_, k), sy_, r_, 0, TAU)
-        ctx.set_source_rgba(0.40, 0.38, 0.42, 0.25 + 0.4 * a_); ctx.fill()
+        ctx.set_source_rgba(0.45, 0.42, 0.46, 0.15 + 0.3 * a_); ctx.fill()
     # weathered cheeks
     for sx in (-1, 1):
         bx = xmap(sx * 70, k)
@@ -1474,8 +1497,8 @@ def _gen_head(ctx, k, lt, *, expr, mouth, blink, look, t, tears):
         if ws < 0.3: continue
         ox = xmap(sx * 86, k)
         for j in range(3):
-            taper(ctx, [(ox, 18 + j * 8), (ox + sx * 15 * ws, 10 + j * 12)], 1.7, GSKIN_L, a=0.85, n=6)
-        taper(ctx, [(xmap(sx * 26, k), 46), (xmap(sx * 50, k), 54), (xmap(sx * 74, k), 46)], 2.0, GSKIN_L, a=0.75, n=10)
+            taper(ctx, [(ox + sx * 4, 20 + j * 8), (ox + sx * 18 * ws, 12 + j * 12)], 1.5, GSKIN_L, a=0.75, n=6)
+        taper(ctx, [(xmap(sx * 28, k), 56), (xmap(sx * 50, k), 62), (xmap(sx * 72, k), 55)], 1.6, GSKIN_L, a=0.5, n=10)
     for sx in (-1, 1):
         ws = xscale(sx * 40, k)
         if ws < 0.3 and sx > 0: pass
@@ -1487,19 +1510,19 @@ def _gen_head(ctx, k, lt, *, expr, mouth, blink, look, t, tears):
     hl = -1 if lt.ldx < 0 else 1
     for sx in (-1, 1):
         ex = xmap(sx * 50, k); ws = xscale(sx * 50, k)
-        draw_eye(ctx, ex, 28, 58 * ws, 32, sx, open_=op, look=look, squint=E["sq"], lid_drop=E["ld"],
-                 iris=IRIS_GEN, hl=hl, lash=0.75, lw=1.3, iris_r=0.78, closed_style="happy", crease=True,
+        draw_eye(ctx, ex, 28, 62 * ws, 40, sx, open_=op, look=look, squint=E["sq"], lid_drop=E["ld"],
+                 iris=IRIS_GEN, hl=hl, lash=0.7, lw=1.2, iris_r=0.86, closed_style="happy", crease=True,
                  lower_lash=True, tears=tears, lash_col=(0.12, 0.08, 0.08))
     # bushy grey brows (low, drooping outward)
     for sx in (-1, 1):
         ws = xscale(sx * 52, k)
-        draw_brow(ctx, xmap(sx * 52, k), 0, 80 * ws, sx, raise_in=E["bi"], raise_out=E["bo"] - 0.2,
-                  col=lt.c(GHAIR, 0.2), bushy=True, a=1.0, thick=1.35)
+        draw_brow(ctx, xmap(sx * 52, k), -6, 80 * ws, sx, raise_in=E["bi"], raise_out=E["bo"] - 0.2,
+                  col=lt.c(GHAIR, 0.2), bushy=True, a=1.0, thick=1.2)
     # nose (broad, weathered)
     nx = xmap(0, k) + 60 * k
     if k > 0.5:
         nx = xmap(0, k) + 76 * k
-        taper(ctx, [(nx - 14, 44), (nx - 2, 70), (nx + 8, 86), (nx + 2, 94)], 3.0, INK, a=0.85, n=14, prof="end", w0=0.25)
+        taper(ctx, [(nx - 8, 62), (nx + 2, 78), (nx + 8, 88), (nx + 1, 94)], 2.8, INK, a=0.85, n=12, prof="end", w0=0.2)
         taper(ctx, [(nx - 24, 90), (nx - 14, 97), (nx - 4, 95)], 2.6, INK, a=0.8, n=8)
         taper(ctx, [(nx - 22, 60), (nx - 26, 80), (nx - 20, 90)], 3.0, skin_s, a=0.9, n=8)
     else:

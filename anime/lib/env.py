@@ -33,11 +33,70 @@ from lib.common import (W, H, FPS, PAL, TAU, clamp, lerp, invlerp, smoothstep, m
 # ======================================================================
 _CACHE = {}
 
+# ---- optional on-disk cache of the static layers (build/env_cache, auto-invalidated
+#      whenever this file changes). Disable with ENV_NO_DISK_CACHE=1.
+import pickle, hashlib
+try:
+    from config import BUILD as _BUILD
+except Exception:
+    _BUILD = os.path.join(os.path.dirname(_HERE), "build")
+_DISK = os.environ.get("ENV_NO_DISK_CACHE", "") == ""
+with open(os.path.abspath(__file__), "rb") as _f:
+    _SRC_HASH = hashlib.md5(_f.read()).hexdigest()[:10]
+_CDIR = os.path.join(_BUILD, "env_cache", _SRC_HASH)
+
+
+def _disk_load(name):
+    if not _DISK:
+        return None
+    meta = os.path.join(_CDIR, name + ".pkl")
+    if not os.path.exists(meta):
+        return None
+    try:
+        with open(meta, "rb") as f:
+            d = pickle.load(f)
+        for k in d.pop("__surfaces__", []):
+            d[k] = cairo.ImageSurface.create_from_png(os.path.join(_CDIR, f"{name}.{k}.png"))
+        return d
+    except Exception:
+        return None
+
+
+def _disk_save(name, d):
+    if not _DISK:
+        return
+    try:
+        os.makedirs(_CDIR, exist_ok=True)
+        plain, surfs = {}, []
+        for k, v in d.items():
+            if isinstance(v, cairo.ImageSurface):
+                tmp = os.path.join(_CDIR, f"{name}.{k}.png.{os.getpid()}.tmp")
+                v.write_to_png(tmp); os.replace(tmp, os.path.join(_CDIR, f"{name}.{k}.png"))
+                surfs.append(k)
+            else:
+                plain[k] = v
+        plain["__surfaces__"] = surfs
+        tmp = os.path.join(_CDIR, f"{name}.pkl.{os.getpid()}.tmp")
+        with open(tmp, "wb") as f:
+            pickle.dump(plain, f)
+        os.replace(tmp, os.path.join(_CDIR, name + ".pkl"))
+    except Exception:
+        pass
+
+
+def _disk_dict(name, fn):
+    """Build a dict of layers (surfaces + picklable data) once, reusing the disk cache."""
+    d = _disk_load(name)
+    if d is None:
+        d = fn()
+        _disk_save(name, d)
+    return d
+
 
 def _cached(key, fn):
     v = _CACHE.get(key)
     if v is None:
-        v = fn()
+        v = _disk_dict(str(key).replace(" ", ""), lambda: {"s": fn()})["s"]
         _CACHE[key] = v
     return v
 
@@ -646,7 +705,7 @@ def _skytree(c, x, base, h):
 
 def _city():
     if not _CITY:
-        _CITY.update(_city_build())
+        _CITY.update(_disk_dict("city", _city_build))
     return _CITY
 
 
@@ -1205,13 +1264,15 @@ def _build_tower_sprite(scale=1.0):
 
 def _side():
     if not _SIDE:
-        gs, gph = _build_grandstand()
-        rc, rph, rc_base = _build_rail_crowd()
-        orl, orl_top = _build_outer_rail()
-        dirt, TW, TH = _build_dirt()
-        tow, AX, AY = _build_tower_sprite()
-        _SIDE.update(gs=gs, gs_ph=gph, rc=rc, rc_ph=rph, rc_base=rc_base, orl=orl, orl_top=orl_top,
-                     dirt=dirt, TW=TW, TH=TH, tow=tow, AX=AX, AY=AY)
+        def build():
+            gs, gph = _build_grandstand()
+            rc, rph, rc_base = _build_rail_crowd()
+            orl, orl_top = _build_outer_rail()
+            dirt, TW, TH = _build_dirt()
+            tow, AX, AY = _build_tower_sprite()
+            return dict(gs=gs, gs_ph=gph, rc=rc, rc_ph=rph, rc_base=rc_base, orl=orl, orl_top=orl_top,
+                        dirt=dirt, TW=TW, TH=TH, tow=tow, AX=AX, AY=AY)
+        _SIDE.update(_disk_dict("side", build))
     return _SIDE
 
 
@@ -1219,7 +1280,7 @@ def _side_blur(key, radius):
     S = _side()
     k = key + "_b"
     if k not in S:
-        S[k] = _hblur_surface(S[key], radius, wrap=True)
+        S[k] = _cached(("sideblur", key, radius), lambda: _hblur_surface(S[key], radius, wrap=True))
     return S[k]
 
 
@@ -1276,7 +1337,7 @@ def draw_race_side_bg(ctx, t, cam_x, *, horizon_y=520, track_y=760, crowd=1.0, f
             _blit(ctx, tow, sx - S["AX"], base_y - 600 - S["AY"], alpha=flick * (1 - clamp((blur - 0.38) / 0.24)))
         if blur > 0.38:
             if "tow_b" not in S:
-                S["tow_b"] = _hblur_surface(S["tow"], 46, wrap=False)
+                S["tow_b"] = _cached("tow_blur", lambda: _hblur_surface(S["tow"], 46, wrap=False))
             _blit(ctx, S["tow_b"], sx - S["AX"], base_y - 600 - S["AY"], alpha=flick * clamp((blur - 0.38) / 0.24))
     # rail-side crowd with bobbing (cheering)
     if crowd > 0:
@@ -1304,7 +1365,7 @@ def draw_race_side_bg(ctx, t, cam_x, *, horizon_y=520, track_y=760, crowd=1.0, f
     # dirt: bands with increasing parallax (pseudo-perspective)
     dirt = S["dirt"] if blur < 0.5 else _side_blur("dirt", 70)
     y0 = int(y_or + 6)
-    band = 10
+    band = 5
     TH = S["TH"]
     y = y0
     pat = cairo.SurfacePattern(dirt); pat.set_extend(cairo.EXTEND_REPEAT); pat.set_filter(cairo.FILTER_BILINEAR)
@@ -1814,7 +1875,7 @@ def _est_stand(c, r, X0, X1, Z, hgt, kind):
 
 def _est():
     if not _EST:
-        _EST.update(_est_build())
+        _EST.update(_disk_dict("est", _est_build))
     return _EST
 
 
@@ -2482,7 +2543,7 @@ def _stable_window(c):
 
 def _stable():
     if not _STB:
-        _STB.update(_stable_build())
+        _STB.update(_disk_dict("stable", _stable_build))
     return _STB
 
 
@@ -2574,8 +2635,13 @@ _PS = {}
 
 
 def _ps_tex():
-    if _PS:
-        return _PS
+    if not _PS:
+        _PS.update(_disk_dict("persp", _ps_tex_build))
+    return _PS
+
+
+def _ps_tex_build():
+    _PS = {}
     # crowd tile for stand faces (tileable horizontally)
     TWc, THc = 600, 300
     s, c = _surf(TWc, THc)
@@ -2859,42 +2925,48 @@ def speed_lines_radial(ctx, t, vx, vy, amount=1.0, seed=9):
 # ======================================================================
 def dust_kick(ctx, t, x, y, strength=1.0, seed=0, color=None, direction=-1.0, speed=1.0):
     """Dirt spray kicked back from a hoof at (x, y). direction=-1 sprays to the left
-    (horse running right). Deterministic in t; call every frame at the hoof position."""
+    (horse running right). Deterministic in t; call every frame at the hoof position.
+    color = base dirt colour (default: floodlit 大井 sand)."""
     if strength <= 0:
         return
-    col = color or (0.74, 0.58, 0.44)
-    dark = (col[0] * 0.55, col[1] * 0.5, col[2] * 0.48)
-    # soft billowing dust cloud
-    for i in range(int(7 * strength) + 1):
-        P = 0.9 + 0.5 * _hash(i, seed * 7 + 1)
+    col = color or (0.80, 0.64, 0.50)
+    lite = tuple(min(1, v * 1.25 + 0.08) for v in col)
+    dark = (col[0] * 0.42, col[1] * 0.36, col[2] * 0.34)
+    st = strength
+    # soft billowing dust cloud (lit from above)
+    for i in range(int(8 * st) + 1):
+        P = 0.8 + 0.5 * _hash(i, seed * 7 + 1)
         a = ((t * speed + _hash(i, seed * 7 + 2) * P) % P) / P
-        px = x + direction * (40 + 260 * a) * strength * (0.6 + 0.6 * _hash(i, seed * 7 + 3))
-        py = y - 10 - 70 * a * (0.5 + _hash(i, seed * 7 + 4)) + 30 * a * a
-        rr = (20 + 90 * a) * (0.6 + 0.5 * strength)
-        al = 0.28 * (1 - a) ** 1.4 * clamp(a * 6) * strength
-        _glow(ctx, px, py, rr, col, al)
-    # clods and grains (ballistic)
-    n = int(26 * strength)
+        px = x + direction * (30 + 300 * a) * st * (0.6 + 0.6 * _hash(i, seed * 7 + 3))
+        py = y - 14 - 110 * a * (0.5 + _hash(i, seed * 7 + 4)) + 20 * a * a
+        rr = (18 + 100 * a) * (0.6 + 0.5 * st)
+        al = 0.42 * (1 - a) ** 1.5 * clamp(a * 8) * st
+        _glow(ctx, px, py, rr, lite, al)
+    # clods and grains (ballistic, with short motion streaks)
+    n = int(30 * st)
+    ctx.set_line_cap(cairo.LINE_CAP_ROUND)
     for i in range(n):
-        P = 0.35 + 0.35 * _hash(i, seed * 13 + 5)
+        P = 0.32 + 0.36 * _hash(i, seed * 13 + 5)
         ph = _hash(i, seed * 13 + 6) * P
         age = (t * speed + ph) % P
         k = age / P
-        vx_ = (250 + 650 * _hash(i, seed * 13 + 7)) * strength
-        vy_ = (180 + 520 * _hash(i, seed * 13 + 8))
+        vx_ = (220 + 700 * _hash(i, seed * 13 + 7)) * st
+        vy_ = (220 + 620 * _hash(i, seed * 13 + 8))
         px = x + direction * vx_ * age
-        py = y - vy_ * age + 1400 * age * age
-        if py > y + 40:
+        py = y - vy_ * age + 1500 * age * age
+        if py > y + 30:
             continue
-        sz = 1.2 + 4.5 * _hash(i, seed * 13 + 9) ** 2
-        al = (1 - k) * 0.95
-        c_ = col if _hash(i, seed * 13 + 10) < 0.55 else dark
-        # short motion streak
-        ctx.set_source_rgba(c_[0], c_[1], c_[2], al * 0.5)
-        ctx.set_line_width(sz * 0.9); ctx.set_line_cap(cairo.LINE_CAP_ROUND)
-        ctx.move_to(px, py); ctx.line_to(px - direction * vx_ * 0.018, py + (vy_ - 2800 * age) * 0.018); ctx.stroke()
+        sz = 2.0 + 6.5 * _hash(i, seed * 13 + 9) ** 2
+        al = (1 - k ** 2) * 0.95
+        c_ = dark if _hash(i, seed * 13 + 10) < 0.6 else col
+        dxs = -direction * vx_ * 0.02; dys = (vy_ - 3000 * age) * 0.02
+        ctx.set_source_rgba(c_[0], c_[1], c_[2], al * 0.45)
+        ctx.set_line_width(sz * 0.8)
+        ctx.move_to(px, py); ctx.line_to(px + dxs, py + dys); ctx.stroke()
         ctx.set_source_rgba(c_[0], c_[1], c_[2], al)
-        ctx.arc(px, py, sz * 0.6, 0, TAU); ctx.fill()
+        ctx.arc(px, py, sz * 0.55, 0, TAU); ctx.fill()
+        ctx.set_source_rgba(lite[0], lite[1], lite[2], al * 0.8)      # floodlit top
+        ctx.arc(px - sz * 0.12, py - sz * 0.2, sz * 0.22, 0, TAU); ctx.fill()
     ctx.set_line_cap(cairo.LINE_CAP_BUTT)
 
 
