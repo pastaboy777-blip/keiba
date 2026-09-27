@@ -343,10 +343,10 @@ def _bright_stars():
 
 def _cloud_layer(seed, coverage, bands):
     """Painterly night clouds: dark violet bodies, pink city-lit undersides, moonlit tops."""
-    ds = 4
+    ds = 3
     h4, w4 = SKY_CH // ds, SKY_CW // ds
-    n = _fbm2(h4, w4, (5, 4), 6, seed=seed, gain=0.55)
-    n2 = _fbm2(h4, w4, (10, 3), 4, seed=seed + 5)
+    n = _fbm2(h4, w4, (16, 5), 7, seed=seed, gain=0.55)
+    n2 = _fbm2(h4, w4, (30, 4), 4, seed=seed + 5)
     yy = np.arange(h4, dtype=np.float32)[:, None] * ds
     mask = np.zeros((h4, 1), np.float32)
     for (cy, hw, strength) in bands:           # cy = height above horizon
@@ -355,10 +355,10 @@ def _cloud_layer(seed, coverage, bands):
     dens = n * 0.7 + n2 * 0.3
     lo, hi = np.percentile(dens, 2), np.percentile(dens, 98)
     dens = np.clip((dens - lo) / (hi - lo), 0, 1)
-    dens = np.clip((dens * np.minimum(mask, 1.2) - (1.0 - coverage)) * 3.0, 0, 1)
-    dens = _ndi.gaussian_filter(dens, 0.8)
-    below = np.roll(dens, -6, axis=0)
-    above = np.roll(dens, 5, axis=0)
+    dens = np.clip((dens * np.minimum(mask, 1.2) - (1.0 - coverage)) * 4.0, 0, 1)
+    dens = _ndi.gaussian_filter(dens, 0.6)
+    below = np.roll(dens, -4, axis=0)
+    above = np.roll(dens, 3, axis=0)
     under = np.clip(dens - below, 0, 1)        # bottom edges -> lit by city
     top = np.clip(dens - above, 0, 1)          # top edges -> moonlit
     hfac = np.clip(1.0 - (SKY_HZ - yy) / 1400.0, 0, 1)   # nearer horizon -> warmer
@@ -368,8 +368,8 @@ def _cloud_layer(seed, coverage, bands):
     body[..., 2] = 0.22 + 0.12 * hfac
     warm = np.array([1.0, 0.52, 0.55], np.float32)
     moon = np.array([0.62, 0.66, 0.95], np.float32)
-    uw = np.clip(under * 5.0, 0, 1)[..., None] * (0.35 + 0.65 * hfac[..., None])
-    tw = np.clip(top * 4.0, 0, 1)[..., None] * 0.55
+    uw = np.clip(under * 3.0, 0, 1)[..., None] * (0.35 + 0.65 * hfac[..., None])
+    tw = np.clip(top * 2.5, 0, 1)[..., None] * 0.5
     col = body * (1 - uw) + warm * uw
     col = col * (1 - tw) + moon * tw
     # interior variation
@@ -380,11 +380,11 @@ def _cloud_layer(seed, coverage, bands):
 
 
 def _sky_clouds_a():
-    return _cloud_layer(31, 0.36, [(120, 60, 1.0), (360, 90, 0.85), (780, 110, 0.7)])
+    return _cloud_layer(31, 0.5, [(120, 60, 1.0), (360, 90, 0.85), (780, 110, 0.7)])
 
 
 def _sky_clouds_b():
-    return _cloud_layer(47, 0.42, [(60, 45, 1.0), (240, 80, 0.9), (560, 140, 0.8), (1000, 180, 0.6)])
+    return _cloud_layer(47, 0.55, [(60, 45, 1.0), (240, 80, 0.9), (560, 140, 0.8), (1000, 180, 0.6)])
 
 
 def _moon_sprite(r):
@@ -452,3 +452,261 @@ def draw_sky(ctx, t, horizon_y=700, stars=1.0, moon=(1500, 180, 55), clouds=0.5,
         _blit(ctx, _cached("sky_cl_a", _sky_clouds_a), SKY_X0, oy, alpha=clamp(clouds * 2))
         if clouds > 0.5:
             _blit(ctx, _cached("sky_cl_b", _sky_clouds_b), SKY_X0, oy, alpha=clamp(clouds * 2 - 1))
+        if moon:   # moonlight bleeding over nearby clouds
+            _glow(ctx, mx, my, mr * 4.5, (0.85, 0.88, 1.0), 0.22 * clamp(clouds * 2))
+
+
+# ======================================================================
+#  CITY SKYLINE (Tokyo bay side)
+# ======================================================================
+CITY_W, CITY_H = 3840, 520       # strip; base (ground) at row CITY_H - CITY_PAD
+CITY_PAD = 40
+_CITY = {}
+
+
+def _city_build():
+    """Returns dict(sil, sil_tower, win, beacons[list], mono_y)."""
+    base = CITY_H - CITY_PAD
+    r = rng(1234)
+    rows = [  # (count-ish spacing, height range, width range, colour, window alpha, win density)
+        dict(sp=(30, 80), h=(25, 110), w=(40, 120), col=(0.30, 0.18, 0.38), wa=0.35, wd=0.25),
+        dict(sp=(40, 110), h=(50, 250), w=(35, 110), col=(0.17, 0.11, 0.28), wa=0.7, wd=0.4),
+        dict(sp=(50, 140), h=(40, 190), w=(50, 150), col=(0.075, 0.06, 0.16), wa=1.0, wd=0.45),
+    ]
+    sil, c = _surf(CITY_W, CITY_H)
+    silT, cT = _surf(CITY_W, CITY_H)
+    win, cw = _surf(CITY_W, CITY_H)
+    beacons = []
+    tower_x, tree_x = 1320.0, 2980.0
+
+    def building(cc, x, bw, bh, col, rowi, draw_w):
+        top = base - bh
+        cc.set_source_rgb(*col)
+        kind = r.random()
+        cc.rectangle(x, top, bw, bh + CITY_PAD)
+        cc.fill()
+        # rooftop details
+        if kind < 0.25:           # stepped top
+            cc.rectangle(x + bw * 0.2, top - bh * 0.08, bw * 0.6, bh * 0.08 + 1); cc.fill()
+        elif kind < 0.35 and bh > 120:   # antenna
+            cc.rectangle(x + bw * 0.5 - 1.5, top - 40, 3, 40); cc.fill()
+            beacons.append((x + bw * 0.5, top - 40, rowi))
+        elif kind < 0.45:         # slanted roof
+            cc.move_to(x, top); cc.line_to(x + bw, top - bh * 0.1); cc.line_to(x + bw, top); cc.close_path(); cc.fill()
+        if bh > 150 and r.random() < 0.6:
+            beacons.append((x + r.uniform(4, bw - 4), top - 2, rowi))
+        # faint lit edge (rim from city glow)
+        cc.set_source_rgba(0.9, 0.5, 0.6, 0.08 + 0.05 * rowi)
+        cc.rectangle(x, top, 2, bh); cc.fill()
+        return top
+
+    def windows(x, bw, bh, rowi, R):
+        if not draw_windows:
+            return
+        top = base - bh
+        cellw = r.choice([6, 7, 8, 10]) - rowi * 0
+        cellh = r.choice([7, 9, 10])
+        ww, wh = cellw * 0.55, cellh * 0.5
+        style = r.random()
+        dens = R["wd"] * r.uniform(0.5, 1.4)
+        palette = [(1.0, 0.82, 0.52), (1.0, 0.9, 0.7), (0.85, 0.92, 1.0), (0.7, 0.85, 1.0)]
+        pc = r.choice(palette)
+        yy = top + 6
+        while yy < base - 4:
+            xx = x + 4
+            rowlit = r.random() < 0.85
+            while xx < x + bw - 4:
+                if rowlit and r.random() < dens:
+                    col = pc if r.random() < 0.8 else r.choice(palette)
+                    cw.set_source_rgba(*col, R["wa"] * r.uniform(0.45, 1.0))
+                    if style < 0.2:   # horizontal strip windows (offices)
+                        cw.rectangle(xx, yy, cellw + 0.5, wh)
+                    else:
+                        cw.rectangle(xx, yy, ww, wh)
+                    cw.fill()
+                xx += cellw
+            yy += cellh
+
+    draw_windows = True
+    for rowi, R in enumerate(rows):
+        x = -20.0
+        while x < CITY_W + 20:
+            bw = r.uniform(*R["w"])
+            bh = r.uniform(*R["h"])
+            if r.random() < 0.08 and rowi > 0:
+                bh *= 1.6        # occasional high-rise
+            # tallest cluster around tower & a "Shiodome/Shinagawa" cluster
+            for cx0, amp in ((700, 1.4), (2300, 1.5), (3500, 1.3)):
+                bh *= 1 + (amp - 1) * math.exp(-((x - cx0) / 350) ** 2)
+            for cc in (c, cT):
+                building(cc, x, bw, bh, R["col"], rowi, True)
+            windows(x, bw, bh, rowi, R)
+            x += bw + r.uniform(-bw * 0.4, R["sp"][1] * 0.3)
+        if rowi == 0:
+            # ---- landmark towers behind the mid row (only in cT) ----
+            _tokyo_tower(cT, tower_x, base, 400)
+            _skytree(cT, tree_x, base, 330)
+            # glow of tower into window layer (so it's affected by lights)
+    # haze at the base of the skyline (light pollution / sea mist), painted over both
+    for cc in (c, cT):
+        g = cairo.LinearGradient(0, base - 160, 0, CITY_H)
+        g.add_color_stop_rgba(0, 0.9, 0.45, 0.55, 0)
+        g.add_color_stop_rgba(0.7, 0.85, 0.45, 0.55, 0.22)
+        g.add_color_stop_rgba(1, 0.9, 0.5, 0.55, 0.35)
+        cc.rectangle(0, base - 160, CITY_W, 200); cc.set_source(g); cc.fill()
+    # window glow bloom: blurred copy under sharp windows
+    wblur = _blur_surface(win, 3.0)
+    w2, cw2 = _surf(CITY_W, CITY_H)
+    cw2.set_source_surface(wblur, 0, 0); cw2.paint_with_alpha(0.9)
+    cw2.set_source_surface(win, 0, 0); cw2.paint()
+    # neon signs on some roofs
+    for i in range(14):
+        x = r.uniform(0, CITY_W); y = base - r.uniform(40, 160)
+        col = r.choice([PAL["neon_pink"], PAL["neon_cyan"], (1.0, 0.6, 0.2), (1, 1, 1)])
+        _glow(cw2, x, y, 22, col, 0.35)
+        cw2.set_source_rgba(*col, 0.9); cw2.rectangle(x - 8, y - 3, 16, 6); cw2.fill()
+    # elevated expressway / monorail beam across the base (in front of everything)
+    mono_y = base - 34
+    for cc in (c, cT):
+        cc.set_source_rgb(0.05, 0.045, 0.1)
+        cc.rectangle(0, mono_y, CITY_W, 7); cc.fill()
+        for px in range(0, CITY_W, 90):
+            cc.rectangle(px, mono_y + 7, 6, base - mono_y); cc.fill()
+        # expressway lower with sodium lights
+        cc.rectangle(0, base - 12, CITY_W, 5); cc.fill()
+    for px in range(20, CITY_W, 46):
+        _glow(cw2, px, base - 13, 10, (1.0, 0.7, 0.35), 0.5)
+        cw2.set_source_rgba(1.0, 0.85, 0.6, 0.9); cw2.arc(px, base - 13, 1.4, 0, TAU); cw2.fill()
+    return dict(sil=sil, silT=silT, win=w2, beacons=beacons, mono_y=mono_y, tower_x=tower_x, tree_x=tree_x)
+
+
+def _tokyo_tower(c, x, base, h):
+    """Tokyo Tower: orange-lit lattice with white top & glow."""
+    orange = (1.0, 0.45, 0.12)
+    _glow(c, x, base - h * 0.45, h * 0.75, (1.0, 0.45, 0.2), 0.22)
+    c.save()
+    top = base - h
+    wb = h * 0.34
+    # legs curves
+    def leg_x(f, side):   # f 0 base .. 1 top
+        return x + side * (wb * 0.5 * (1 - f) ** 2.1 + 3)
+    for side in (-1, 1):
+        c.move_to(leg_x(0, side), base)
+        for i in range(1, 41):
+            f = i / 40
+            c.line_to(leg_x(f, side), base - f * (h - 60))
+        c.set_line_width(4.5); c.set_source_rgb(*orange); c.stroke()
+    # lattice
+    c.set_line_width(1.2)
+    for i in range(18):
+        f0, f1 = i / 18 * 0.88, (i + 1) / 18 * 0.88
+        y0, y1 = base - f0 * (h - 60), base - f1 * (h - 60)
+        c.move_to(leg_x(f0, -1), y0); c.line_to(leg_x(f1, 1), y1)
+        c.move_to(leg_x(f0, 1), y0); c.line_to(leg_x(f1, -1), y1)
+    c.set_source_rgba(1.0, 0.62, 0.3, 0.85); c.stroke()
+    # base arch
+    c.set_source_rgb(*orange)
+    c.move_to(leg_x(0, -1), base); c.curve_to(x - wb * 0.2, base - h * 0.14, x + wb * 0.2, base - h * 0.14, leg_x(0, 1), base)
+    c.set_line_width(3); c.stroke()
+    # decks
+    for f, dw, dh in ((0.36, 0.13, 10), (0.62, 0.07, 7)):
+        yy = base - f * h
+        c.set_source_rgb(1.0, 0.9, 0.75)
+        c.rectangle(x - h * dw * 0.5, yy - dh, h * dw, dh); c.fill()
+        c.set_source_rgba(1.0, 0.95, 0.8, 0.6)
+        c.rectangle(x - h * dw * 0.5 - 2, yy - dh - 2, h * dw + 4, 2); c.fill()
+    # antenna
+    c.set_source_rgb(1.0, 0.95, 0.9)
+    c.move_to(x - 2.5, base - (h - 60)); c.line_to(x - 0.7, top); c.line_to(x + 0.7, top); c.line_to(x + 2.5, base - (h - 60))
+    c.close_path(); c.fill()
+    c.restore()
+
+
+def _skytree(c, x, base, h):
+    """Tokyo Skytree (distant, hazy) with blue/purple 'Iki' lighting."""
+    col = (0.55, 0.62, 1.0)
+    _glow(c, x, base - h * 0.6, h * 0.5, (0.5, 0.5, 1.0), 0.14)
+    c.save()
+    c.move_to(x - 16, base)
+    c.curve_to(x - 9, base - h * 0.4, x - 4, base - h * 0.7, x - 2.5, base - h * 0.92)
+    c.line_to(x + 2.5, base - h * 0.92)
+    c.curve_to(x + 4, base - h * 0.7, x + 9, base - h * 0.4, x + 16, base)
+    c.close_path()
+    g = cairo.LinearGradient(0, base, 0, base - h)
+    g.add_color_stop_rgba(0, 0.35, 0.3, 0.7, 0.8)
+    g.add_color_stop_rgba(1, 0.75, 0.8, 1.0, 0.95)
+    c.set_source(g); c.fill()
+    for f, dw in ((0.54, 14), (0.76, 9)):
+        c.set_source_rgba(0.9, 0.95, 1.0, 0.95)
+        c.rectangle(x - dw, base - h * f - 5, dw * 2, 6); c.fill()
+    c.set_source_rgba(*col, 0.9)
+    c.rectangle(x - 1, base - h, 2, h * 0.09); c.fill()
+    c.restore()
+
+
+def _city():
+    if not _CITY:
+        _CITY.update(_city_build())
+    return _CITY
+
+
+def draw_city(ctx, t, base_y, cam_x=0.0, parallax=0.05, scale=1.0, lights=1.0, tower=True,
+              monorail=True, haze=1.0):
+    """Tokyo skyline silhouette (tileable) with lit windows, blinking red aircraft
+    beacons, Tokyo Tower & Skytree (tower=True), elevated monorail with a moving train.
+    base_y = screen y of the skyline's ground line."""
+    C = _city()
+    off = cam_x * parallax
+    top = base_y - (CITY_H - CITY_PAD) * scale
+    sil = C["silT"] if tower else C["sil"]
+    # light pollution glow above skyline
+    if haze > 0:
+        g = cairo.LinearGradient(0, top - 60 * scale, 0, base_y)
+        g.add_color_stop_rgba(0, 1.0, 0.55, 0.5, 0)
+        g.add_color_stop_rgba(1, 1.0, 0.6, 0.5, 0.18 * haze)
+        ctx.save(); ctx.rectangle(-200, top - 60 * scale, W + 400, base_y - top + 60 * scale)
+        ctx.set_source(g); ctx.fill(); ctx.restore()
+    _paint_strip(ctx, sil, off, top, scale)
+    if lights > 0:
+        _paint_strip(ctx, C["win"], off, top, scale, alpha=clamp(lights))
+    # beacons & monorail (dynamic)
+    ctx.save()
+    ctx.rectangle(-200, top - 200, W + 400, CITY_H * scale + 200); ctx.clip()
+    if lights > 0:
+        for i, (bx, by, row) in enumerate(C["beacons"]):
+            ph = (t * 0.8 + _hash(i, 3)) % 1.0
+            on = 1.0 if ph < 0.35 else 0.0
+            if on <= 0:
+                continue
+            k = 1.0 - ph / 0.35
+            sx = ((bx * scale - off) % (CITY_W * scale))
+            for sxx in (sx, sx - CITY_W * scale, sx + CITY_W * scale):
+                if -20 < sxx < W + 20:
+                    sy = top + by * scale
+                    a = lights * (0.5 + 0.5 * k) * (0.5 + 0.25 * row)
+                    _glow(ctx, sxx, sy, 12 * scale + 4, (1.0, 0.12, 0.1), a * 0.8)
+                    ctx.set_source_rgba(1, 0.35, 0.3, a); ctx.arc(sxx, sy, 1.6 * scale + 0.6, 0, TAU); ctx.fill()
+        if tower:   # tower top beacons
+            for k2, (tx, ty) in enumerate(((C["tower_x"], CITY_H - CITY_PAD - 400), (C["tree_x"], CITY_H - CITY_PAD - 330))):
+                if (t * 0.7 + k2 * 0.5) % 1.0 < 0.4:
+                    sx = (tx * scale - off) % (CITY_W * scale)
+                    for sxx in (sx, sx - CITY_W * scale):
+                        if -20 < sxx < W + 20:
+                            _glow(ctx, sxx, top + ty * scale, 16 * scale + 4, (1, 0.15, 0.1), 0.9 * lights)
+    if monorail:
+        my = top + C["mono_y"] * scale
+        sp = 160.0        # strip px / s
+        for j, (dirn, ph0) in enumerate(((1, 0.1), (-1, 0.6))):
+            tx = ((t * sp * dirn + ph0 * CITY_W) % CITY_W)
+            for sxx in (tx * scale - off % (CITY_W * scale), tx * scale - off % (CITY_W * scale) + CITY_W * scale):
+                if -300 < sxx < W + 300:
+                    L = 150 * scale
+                    hgt = 8 * scale
+                    ctx.set_source_rgb(0.12, 0.13, 0.2)
+                    ctx.rectangle(sxx, my - hgt - 1, L, hgt); ctx.fill()
+                    ctx.set_source_rgba(0.95, 0.95, 0.85, 0.9 * lights)
+                    for q in range(12):
+                        ctx.rectangle(sxx + (4 + q * 12) * scale, my - hgt + 2 * scale, 7 * scale, 3 * scale)
+                    ctx.fill()
+                    _glow(ctx, sxx + (L if dirn > 0 else 0), my - hgt / 2, 16 * scale + 3, (1, 1, 0.9), 0.5 * lights)
+    ctx.restore()
