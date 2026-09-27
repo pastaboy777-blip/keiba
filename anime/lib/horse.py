@@ -457,8 +457,8 @@ HEAD_TOP = [(6, -7), (38, -8.5), (72, -5), (98, 0), (112, 6), (120, 14), (122, 2
             (108, 33), (104, 41), (90, 42.5), (70, 40), (46, 46), (27, 55), (9, 52), (-3, 40), (-7, 27)]
 
 
-def _head_frame(poll, ha):
-    c, s = math.cos(ha), math.sin(ha)
+def _head_frame(poll, ha, k=1.0):
+    c, s = math.cos(ha) * k, math.sin(ha) * k
     def hf(p):
         return (poll[0] + p[0] * c - p[1] * s, poll[1] + p[0] * s + p[1] * c)
     return hf
@@ -1240,27 +1240,384 @@ def draw_horse_head(ctx, x, y, scale, *, facing=-1, coat=PAL["harukaze"], mane=P
                        bridle=bridle, nuzzle=nuzzle, lw=line_width, shade=shade)
 
 
-def _draw_head_closeup(ctx, x, y, scale, **k):
-    pass  # defined below (replaced)
+# head frame profile (poll origin, +x toward muzzle, +y toward jaw), head length ~300
+HC_FRONT = [(-4, -14), (30, -24), (80, -25), (140, -20), (200, -11), (246, -1), (276, 14), (293, 34), (299, 58),
+            (293, 78), (276, 86)]
+HC_JAW = [(268, 97), (252, 106), (226, 104), (190, 104), (150, 114), (112, 138), (74, 156), (38, 150), (14, 128),
+          (2, 100), (-6, 76)]
+HC_BACK = [(-30, 60), (-34, 10)]      # hidden inside the neck
+
+
+def _draw_head_closeup(ctx, x, y, scale, *, facing=-1, coat, mane, blaze, blink, ear, nostril, look, mouth, t,
+                       light, rim_strength, bridle, nuzzle, lw, shade):
+    sh = clamp(shade)
+    base = _col(coat, sh)
+    mane_c = _col(mane, sh)
+    ink = _col(INK, sh * 0.5)
+    white = _col((0.98, 0.96, 0.93), sh)
+    rimc = mix_color(light, (1, 1, 1), 0.25)
+    rs = rim_strength * (1 - sh * 0.8)
+    mulc = (0.70, 0.56, 0.66)            # warm-violet multiply shadow
+    breath = math.sin(t * TAU / 3.6)
+
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.scale(scale * (1 if facing >= 0 else -1), scale)
+    ctx.set_line_join(cairo.LINE_JOIN_ROUND); ctx.set_line_cap(cairo.LINE_CAP_ROUND)
+
+    nz = clamp(nuzzle)
+    sway = (fbm1(t * 0.35, 81) - 0.5) * 2
+    poll = (40 + 30 * nz + 4 * sway, -468 + 40 * nz + 2 * breath)
+    ha = R(56 + 16 * nz + 2 * sway)
+    hf = _head_frame(poll, ha, 1.18)
+    # neck
+    nb_back, nb_front = (-200.0, 8.0), (118.0, 8.0)
+    nb_back, nb_front = (-185.0, 8.0), (100.0, 8.0)
+    crest = [hf((-8, -16)), (poll[0] - 70, poll[1] + 30), (poll[0] - 150, poll[1] + 130), (-182, -170), nb_back]
+    throat = [hf((12, 112)), (-12 + 10 * nz, -262 + 20 * nz), (34, -120), nb_front]
+    neck_pts = [nb_back] + crest[::-1][1:] + [hf((40, -10)), hf((0, 60))] + throat + [(nb_front[0], 60), (nb_back[0], 60)]
+    ctx.new_path(); smooth_path(ctx, crest[::-1] + [hf((60, 40)), hf((10, 118))] + throat[1:] + [(118, 60), (-200, 60)],
+                                closed=True, tension=0.5)
+    neck_path = ctx.copy_path()
+    grad = cairo.LinearGradient(0, -640, 0, 0)
+    grad.add_color_stop_rgb(0, *mix_color(base, (1, 0.9, 0.75), 0.10))
+    grad.add_color_stop_rgb(0.55, *base)
+    grad.add_color_stop_rgb(1, *mix_color(base, (0.25, 0.1, 0.12), 0.35))
+
+    # far ear (behind)
+    ea = R(-18 * ear)
+    def ear_pts(b0, b1, L, lean, far):
+        tip = (b0[0] - L * math.sin(R(lean) + ea) * 0.6 - 10, b0[1] - L * math.cos(R(lean) + ea))
+        m0 = _add(_lerp2(b0, tip, 0.5), (14, 0)); m1 = _add(_lerp2(b1, tip, 0.5), (-12, 4))
+        return [b0, m0, tip, m1, b1], tip
+    far_ear, _ = ear_pts((34, -26), (14, -18), 92, 8 + 6 * math.sin(t * 0.7), True)
+    ctx.new_path(); smooth_path(ctx, [hf(p) for p in far_ear], closed=True, tension=0.45)
+    _set(ctx, tuple(c * 0.72 for c in base)); ctx.fill_preserve()
+    ctx.set_source_rgb(*ink); ctx.set_line_width(lw); ctx.stroke()
+
+    # neck fill + shading
+    ctx.new_path(); ctx.append_path(neck_path); ctx.set_source(grad); ctx.fill()
+    _band(ctx, neck_path, 30, -40, mulc, 1.0, cairo.OPERATOR_MULTIPLY)
+    # jowl cast shadow on the neck
+    ctx.save(); ctx.new_path(); ctx.append_path(neck_path); ctx.clip()
+    ctx.new_path(); smooth_path(ctx, [hf(p) for p in [(170, 130), (110, 168), (60, 190), (10, 170), (-30, 120), (-40, 60), (60, 60)]], closed=True)
+    ctx.set_operator(cairo.OPERATOR_MULTIPLY); _set(ctx, mulc); ctx.fill()
+    ctx.restore()
+    if rs > 0:
+        _band(ctx, neck_path, 6, 7, rimc, 0.85 * rs)
+    ctx.new_path(); smooth_path(ctx, crest[::-1], tension=0.5)
+    ctx.set_source_rgb(*ink); ctx.set_line_width(lw); ctx.stroke()
+    ctx.new_path(); smooth_path(ctx, throat, tension=0.5); ctx.stroke()
+    # neck muscle line
+    ctx.set_source_rgba(ink[0], ink[1], ink[2], 0.45); ctx.set_line_width(lw * 0.6)
+    ctx.new_path(); smooth_path(ctx, [(poll[0] - 90, poll[1] + 120), (-70, -250), (-40, -60)]); ctx.stroke()
+
+    # head
+    head_pts = [hf(p) for p in HC_FRONT + HC_JAW + HC_BACK]
+    ctx.new_path(); smooth_path(ctx, head_pts, closed=True, tension=0.5)
+    head_path = ctx.copy_path()
+    ctx.set_source(grad); ctx.fill()
+    ctx.save(); ctx.new_path(); ctx.append_path(head_path); ctx.clip()
+    # front plane (3/4 cue): slightly lighter band along the face front
+    fp = [hf(p) for p in [(20, -26), (140, -22), (246, -3), (282, 22), (262, 30), (200, 14), (120, 8), (40, 6)]]
+    ctx.new_path(); smooth_path(ctx, fp, closed=True); _set(ctx, mix_color(base, (1, 0.92, 0.8), 0.12)); ctx.fill()
+    if blaze:
+        bl = [(34, -30), (90, -32), (160, -26), (230, -12), (272, 6), (300, 30), (304, 62), (296, 84),
+              (282, 80), (284, 52), (262, 26), (212, 12), (150, 6), (104, 2), (72, -4), (46, -6)]
+        ctx.new_path(); smooth_path(ctx, [hf(p) for p in bl], closed=True, tension=0.5)
+        _set(ctx, white); ctx.fill()
+    # soft muzzle (pink-grey skin)
+    mz = [(250, 20), (282, 12), (310, 50), (300, 100), (256, 110), (236, 80), (240, 40)]
+    ctx.new_path(); smooth_path(ctx, [hf(p) for p in mz], closed=True)
+    g = cairo.RadialGradient(*hf((282, 58)), 5, *hf((276, 60)), 52)
+    mzc = _col((0.96, 0.76, 0.68), sh)
+    g.add_color_stop_rgba(0, *mzc, 0.95); g.add_color_stop_rgba(0.7, *mzc, 0.75); g.add_color_stop_rgba(1, *mzc, 0.0)
+    ctx.set_source(g); ctx.fill()
+    ctx.restore()
+    # head cel shadow + extra shadows
+    _band(ctx, head_path, 22, -34, mulc, 1.0, cairo.OPERATOR_MULTIPLY)
+    ctx.save(); ctx.new_path(); ctx.append_path(head_path); ctx.clip()
+    ctx.set_operator(cairo.OPERATOR_MULTIPLY); _set(ctx, (0.84, 0.74, 0.80))
+    # eye socket / below-eye hollow
+    ctx.new_path(); smooth_path(ctx, [hf(p) for p in [(46, 30), (80, 46), (120, 44), (150, 30), (120, 58), (76, 64)]], closed=True); ctx.fill()
+    ctx.restore()
+    # warm lamp glow on forehead
+    gx, gy = hf((110, -10))
+    ctx.save(); ctx.new_path(); ctx.append_path(head_path); ctx.clip()
+    gg = cairo.RadialGradient(gx, gy, 0, gx, gy, 170)
+    gg.add_color_stop_rgba(0, *light, 0.22 * (1 - sh)); gg.add_color_stop_rgba(1, *light, 0)
+    ctx.set_source(gg); ctx.paint()
+    ctx.restore()
+    if rs > 0:
+        _band(ctx, head_path, 5, 8, rimc, 0.9 * rs)
+    # head contour (not the hidden back edge)
+    ctx.new_path(); smooth_path(ctx, [hf(p) for p in HC_FRONT + HC_JAW], tension=0.5)
+    ctx.set_source_rgb(*ink); ctx.set_line_width(lw * 1.1); ctx.stroke()
+
+    # cheek (masseter) line, chin line, lines on muzzle
+    ctx.set_source_rgba(ink[0], ink[1], ink[2], 0.55); ctx.set_line_width(lw * 0.6)
+    ctx.new_path(); smooth_path(ctx, [hf((170, 70)), hf((140, 96)), hf((96, 118)), hf((50, 116)), hf((26, 92))]); ctx.stroke()
+    ctx.new_path(); smooth_path(ctx, [hf((230, 90)), hf((250, 96)), hf((262, 94))]); ctx.stroke()
+    # nostril
+    fl = clamp(nostril)
+    ns = [(262, 30 - 3 * fl), (280, 28 - 4 * fl), (290, 40), (286, 54 + 4 * fl), (276, 50), (274, 40)]
+    ctx.new_path(); smooth_path(ctx, [hf(p) for p in ns], closed=True, tension=0.5)
+    ctx.set_source_rgb(*mix_color(ink, (0.4, 0.2, 0.2), 0.3)); ctx.fill()
+    ctx.new_path(); smooth_path(ctx, [hf((256, 26 - 4 * fl)), hf((270, 18 - 5 * fl)), hf((290, 26))])
+    ctx.set_source_rgb(*ink); ctx.set_line_width(lw * 0.7); ctx.stroke()
+    # mouth / lips
+    m = clamp(mouth)
+    ctx.new_path(); smooth_path(ctx, [hf((296, 76)), hf((284, 82 + 4 * m)), hf((262, 84 + 5 * m)), hf((246, 80))])
+    ctx.set_source_rgb(*ink); ctx.set_line_width(lw * 0.8); ctx.stroke()
+    if m > 0.05:
+        ctx.new_path(); smooth_path(ctx, [hf((288, 80)), hf((276, 84 + 12 * m)), hf((258, 88 + 10 * m)), hf((262, 84))], closed=True)
+        ctx.set_source_rgb(*_col((0.45, 0.22, 0.24), sh)); ctx.fill()
+    # whisker dots
+    ctx.set_source_rgba(ink[0], ink[1], ink[2], 0.5)
+    for p in ((270, 66), (262, 72), (278, 70), (254, 62)):
+        ctx.new_path(); ctx.arc(*hf(p), 1.6, 0, TAU); ctx.fill()
+
+    # eye
+    _closeup_eye(ctx, hf, ha, blink, look, ink, lw, sh, light)
+
+    # halter
+    if bridle:
+        _halter(ctx, hf, ink, lw, sh)
+
+    # near ear
+    near_ear, tip = ear_pts((2, -16), (-26, -4), 100, -4 + 5 * math.sin(t * 0.9 + 1), False)
+    ctx.new_path(); smooth_path(ctx, [hf(p) for p in near_ear], closed=True, tension=0.45)
+    ep = ctx.copy_path()
+    ctx.set_source(grad); ctx.fill()
+    inner = [_lerp2(near_ear[0], near_ear[4], 0.25), _lerp2(near_ear[1], near_ear[3], 0.35), _add(near_ear[2], (4, 16)),
+             _lerp2(near_ear[1], near_ear[3], 0.8), _lerp2(near_ear[0], near_ear[4], 0.8)]
+    ctx.new_path(); smooth_path(ctx, [hf(p) for p in inner], closed=True, tension=0.45)
+    ctx.set_source_rgba(*_col((0.35, 0.16, 0.14), sh), 0.75); ctx.fill()
+    ctx.new_path(); smooth_path(ctx, [hf(_add(p, (0, 6))) for p in inner[1:4]]); ctx.set_source_rgba(*mane_c, 0.7); ctx.set_line_width(lw * 0.8); ctx.stroke()
+    if rs > 0:
+        _band(ctx, ep, 4, 6, rimc, 0.8 * rs)
+    ctx.new_path(); ctx.append_path(ep); ctx.set_source_rgb(*ink); ctx.set_line_width(lw); ctx.stroke()
+
+    # mane on neck (near side, draped) + forelock
+    _closeup_mane(ctx, crest, hf, t, mane_c, ink, lw, rimc, rs, sh)
+    ctx.restore()
+
+
+def _closeup_eye(ctx, hf, ha, blink, look, ink, lw, sh, light):
+    c = hf((88, 16))
+    ctx.save(); ctx.translate(*c); ctx.rotate(ha - R(62))
+    b = clamp(blink)
+    w, hgt = 33.0, 24.0
+    # socket shadow
+    ctx.new_path(); ctx.save(); ctx.scale(1.0, 0.72); ctx.arc(0, 0, w + 9, 0, TAU); ctx.restore()
+    ctx.set_operator(cairo.OPERATOR_MULTIPLY); ctx.set_source_rgba(0.80, 0.66, 0.72, 1.0); ctx.fill()
+    ctx.set_operator(cairo.OPERATOR_OVER)
+    top = -hgt * (1 - b) + hgt * 0.35 * b
+    # eye white/iris region
+    def eye_shape():
+        ctx.new_path(); ctx.move_to(-w, 2)
+        ctx.curve_to(-w * 0.55, top * 1.05, w * 0.45, top * 1.1, w, -2 + 2 * b)
+        ctx.curve_to(w * 0.5, hgt * 0.7, -w * 0.5, hgt * 0.75, -w, 2)
+        ctx.close_path()
+    if b < 0.95:
+        eye_shape(); ctx.save(); ctx.clip()
+        ctx.set_source_rgb(0.20, 0.10, 0.08); ctx.paint()
+        lx, ly = look[0] * 7, look[1] * 4
+        ir = cairo.RadialGradient(lx - 3, ly - 4, 1, lx, ly, 19)
+        ir.add_color_stop_rgb(0, 0.42, 0.24, 0.14); ir.add_color_stop_rgb(0.6, 0.22, 0.11, 0.07); ir.add_color_stop_rgb(1, 0.08, 0.04, 0.04)
+        ctx.new_path(); ctx.arc(lx, ly, 19, 0, TAU); ctx.set_source(ir); ctx.fill()
+        ctx.new_path(); ctx.save(); ctx.translate(lx, ly + 1); ctx.scale(1.0, 0.45); ctx.arc(0, 0, 10, 0, TAU); ctx.restore()
+        ctx.set_source_rgb(0.03, 0.02, 0.03); ctx.fill()
+        # reflected lamp: warm lower glow
+        ctx.new_path(); ctx.save(); ctx.translate(lx + 4, ly + 10); ctx.scale(1.6, 0.6); ctx.arc(0, 0, 8, 0, TAU); ctx.restore()
+        ctx.set_source_rgba(*light, 0.45); ctx.fill()
+        # catchlights
+        ctx.new_path(); ctx.save(); ctx.translate(lx - 8, ly - 7); ctx.rotate(-0.4); ctx.scale(1.3, 1.0); ctx.arc(0, 0, 5.5, 0, TAU); ctx.restore()
+        ctx.set_source_rgba(1, 1, 1, 0.97); ctx.fill()
+        ctx.new_path(); ctx.arc(lx + 8, ly + 4, 2.4, 0, TAU); ctx.set_source_rgba(1, 1, 1, 0.8); ctx.fill()
+        # upper lid shadow on eyeball
+        ctx.new_path(); ctx.move_to(-w, 2); ctx.curve_to(-w * 0.55, top * 1.05, w * 0.45, top * 1.1, w, -2)
+        ctx.line_to(w, top + 8); ctx.curve_to(w * 0.4, top + 9, -w * 0.5, top + 9, -w, 8); ctx.close_path()
+        ctx.set_source_rgba(0, 0, 0, 0.35); ctx.fill()
+        ctx.restore()
+    # upper lid line (thick) + lashes
+    ctx.new_path(); ctx.move_to(-w - 3, 3)
+    ctx.curve_to(-w * 0.55, top * 1.05 - 1, w * 0.45, top * 1.1 - 1, w + 2, -2 + 2 * b)
+    ctx.set_source_rgb(*ink); ctx.set_line_width(lw * 1.5); ctx.stroke()
+    ctx.set_line_width(lw * 0.8)
+    for k, f in enumerate((0.2, 0.42, 0.62, 0.8)):
+        # point on upper lid
+        px = lerp(-w, w, f); py = top * 1.05 * (1 - (2 * f - 1) ** 2) * 0.95 + lerp(2, -2, f)
+        dx, dy = (-6 - 5 * f, -8 + 12 * b) if b < 0.5 else (-6 - 4 * f, 8)
+        ctx.new_path(); ctx.move_to(px, py); ctx.curve_to(px - 2, py + dy * 0.6, px + dx * 0.6, py + dy, px + dx, py + dy)
+        ctx.stroke()
+    # lower lid (thin) when open
+    if b < 0.9:
+        ctx.new_path(); ctx.move_to(-w * 0.8, 6); ctx.curve_to(-w * 0.4, hgt * 0.75, w * 0.4, hgt * 0.7, w * 0.8, 3)
+        ctx.set_source_rgba(ink[0], ink[1], ink[2], 0.6); ctx.set_line_width(lw * 0.6); ctx.stroke()
+    # lid crease / brow
+    ctx.new_path(); ctx.move_to(-w * 0.8, top - 8); ctx.curve_to(-w * 0.3, top - 16, w * 0.4, top - 16, w * 0.9, top - 6)
+    ctx.set_source_rgba(ink[0], ink[1], ink[2], 0.5); ctx.set_line_width(lw * 0.6); ctx.stroke()
+    ctx.restore()
+
+
+def _halter(ctx, hf, ink, lw, sh):
+    lc = _col((0.46, 0.15, 0.10), sh); hc = _col((0.70, 0.32, 0.22), sh)
+    ring = _col((0.95, 0.78, 0.40), sh)
+    def strap(pts, w=15):
+        ctx.new_path(); smooth_path(ctx, [hf(p) for p in pts])
+        ctx.set_source_rgb(*ink); ctx.set_line_width(w + lw * 1.4); ctx.stroke()
+        ctx.new_path(); smooth_path(ctx, [hf(p) for p in pts])
+        ctx.set_source_rgb(*lc); ctx.set_line_width(w); ctx.stroke()
+        ctx.new_path(); smooth_path(ctx, [hf((p[0] - 3, p[1] - 3)) for p in pts])
+        ctx.set_source_rgba(*hc, 0.8); ctx.set_line_width(w * 0.25); ctx.stroke()
+    strap([(206, -14), (210, 40), (214, 104)])                       # noseband
+    strap([(208, 60), (160, 50), (100, 60), (40, 64), (4, 40), (-2, 14)])   # cheek strap to crown
+    strap([(20, 74), (4, 104), (-8, 124)], 12)                       # throatlatch
+    for p in ((208, 58), (212, 106)):
+        ctx.new_path(); ctx.arc(*hf(p), 9, 0, TAU)
+        ctx.set_source_rgb(*ink); ctx.set_line_width(7.5); ctx.stroke_preserve()
+        ctx.set_source_rgb(*ring); ctx.set_line_width(4.5); ctx.stroke()
+
+
+def _closeup_mane(ctx, crest, hf, t, c, ink, lw, rimc, rs, sh):
+    # draped locks along crest (poll -> withers), hanging down/back onto the near side of the neck
+    pts = crest  # poll..base
+    segl = [_len(_sub(pts[i + 1], pts[i])) for i in range(len(pts) - 1)]
+    tot = sum(segl)
+    def at(f):
+        d = f * tot
+        for i, l in enumerate(segl):
+            if d <= l or i == len(segl) - 1:
+                return _lerp2(pts[i], pts[i + 1], min(1.0, d / l)), _norm(_sub(pts[i + 1], pts[i]))
+            d -= l
+    n = 7
+    for i in range(n - 1, -1, -1):
+        f0 = 0.06 + i / n * 0.88; f1 = 0.06 + (i + 1.25) / n * 0.88
+        p0, tg0 = at(f0); p1, tg1 = at(min(f1, 0.99))
+        sway = (fbm1(t * 0.9 + i * 0.5, 91) - 0.5) * 2
+        L = 120 + 34 * math.sin(i * 1.9) + 26 * (i % 2)
+        mid = _lerp2(p0, p1, 0.5)
+        tg = _norm(_add(tg0, tg1))
+        inward = (tg[1], -tg[0]) if False else (-tg[1], tg[0])
+        # choose the perpendicular that points into the neck (toward +x in local space)
+        if inward[0] < 0:
+            inward = (-inward[0], -inward[1])
+        dn = _norm(_add(_mul(inward, 1.0), _mul(tg, 0.55 + 0.15 * sway)))
+        tip = _add(mid, _mul(dn, L))
+        out0 = _sub(p0, _mul(inward, 12)); out1 = _sub(p1, _mul(inward, 12))
+        bend = _perp(dn)
+        bamt = 16 * (1 if i % 2 else -0.6) + 8 * sway
+        def cv(a, f, extra):
+            q = _lerp2(a, tip, f)
+            return _add(q, _mul(bend, bamt * math.sin(math.pi * f) + extra))
+        poly = [out0, cv(out0, 0.35, -6), cv(out0, 0.72, -3), tip, cv(out1, 0.7, 4), cv(out1, 0.33, 6), out1]
+        ctx.new_path(); smooth_path(ctx, poly, closed=True, tension=0.45)
+        path = ctx.copy_path()
+        _set(ctx, mix_color(c, (0.8, 0.5, 0.3), 0.08 * (i % 2))); ctx.fill()
+        _band(ctx, path, 8, -14, (0.80, 0.68, 0.74), 1.0, cairo.OPERATOR_MULTIPLY)
+        if rs > 0:
+            _band(ctx, path, 5, 6, rimc, 0.7 * rs)
+        ctx.new_path(); ctx.append_path(path); ctx.set_source_rgb(*ink); ctx.set_line_width(lw * 0.85); ctx.stroke()
+        ctx.new_path(); ctx.move_to(*_lerp2(mid, tip, 0.2)); ctx.line_to(*_lerp2(mid, tip, 0.75))
+        ctx.set_source_rgba(ink[0], ink[1], ink[2], 0.4); ctx.set_line_width(lw * 0.5); ctx.stroke()
+    # forelock: falls over the forehead
+    sway = (fbm1(t * 0.8, 95) - 0.5) * 2
+    fl = [(-14, -20), (20, -34), (50, -32), (76 + 5 * sway, -18), (88 + 7 * sway, -4), (66, -10), (52, -8), (40, -4), (22, -10)]
+    ctx.new_path(); smooth_path(ctx, [hf(p) for p in fl], closed=True, tension=0.45)
+    path = ctx.copy_path()
+    _set(ctx, c); ctx.fill()
+    _band(ctx, path, 6, -10, (0.80, 0.68, 0.74), 1.0, cairo.OPERATOR_MULTIPLY)
+    if rs > 0:
+        _band(ctx, path, 4, 6, rimc, 0.7 * rs)
+    ctx.new_path(); ctx.append_path(path); ctx.set_source_rgb(*ink); ctx.set_line_width(lw * 0.85); ctx.stroke()
 
 
 # ----------------------------------------------------------------------------- self test
 def _contact_sheet(path):
     import time
-    from lib.common import new_surface, vgradient
-    Wd, Hd = 3000, 2600
-    s = cairo.ImageSurface(cairo.FORMAT_ARGB32, Wd, Hd)
-    ctx = cairo.Context(s)
-    vgradient(ctx, 0, 0, Wd, Hd, [(0, PAL["night_top"]), (0.6, PAL["night_mid"]), (1, PAL["night_low"])])
-    hero = dict(HERO_JOCKEY, push=0.7)
-    # 12 gallop phases
+    from lib.common import vgradient, text
+    Wd, Hd = 3200, 3560
+    surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, Wd, Hd)
+    ctx = cairo.Context(surf)
+    vgradient(ctx, 0, 0, Wd, Hd, [(0, PAL["night_top"]), (0.5, PAL["night_mid"]), (1, PAL["night_low"])])
+    hero = dict(HERO_JOCKEY, push=0.8)
+    sc = 0.78
+    cw, ch = 800, 380
+
+    def ground(cx, cy):
+        ctx.set_source_rgba(*PAL["track_dirt"], 0.85); ctx.rectangle(cx - 390, cy, 780, 18); ctx.fill()
+
+    def label(s_, x_, y_):
+        text(ctx, s_, x_, y_, 24, align="left", color=(0.8, 0.9, 1.0))
+
+    timings = []
+    # rows 0-2: 12 gallop phases, hero + jockey
     for i in range(12):
-        cx = 260 + (i % 4) * 700; cy = 470 + (i // 4) * 480
-        ctx.set_source_rgba(*PAL["track_dirt"], 0.6); ctx.rectangle(cx - 330, cy, 660, 30); ctx.fill()
-        draw_horse(ctx, cx, cy, 0.95, i / 12.0, jockey=hero, t=i / 12 / GALLOP_HZ, number=14)
-        from lib.common import text
-        text(ctx, "%.3f" % (i / 12), cx - 300, cy - 400, 26, align="left")
-    s.write_to_png(path)
+        cx = 400 + (i % 4) * cw; cy = 40 + 330 + (i // 4) * ch
+        ground(cx, cy)
+        t0 = time.perf_counter()
+        draw_horse(ctx, cx, cy, sc, i / 12.0, jockey=hero, t=i / 12 / GALLOP_HZ, number=14, motion_blur=0.0)
+        timings.append(time.perf_counter() - t0)
+        label("gallop %.3f" % (i / 12), cx - 385, cy - 300)
+    # row 3: rivals (with motion blur on two)
+    y3 = 40 + 330 + 3 * ch
+    for i in range(4):
+        cx = 400 + i * cw
+        ground(cx, y3)
+        cp = COAT_PRESET_LIST[i]
+        draw_horse(ctx, cx, y3, sc, (0.15 + i * 0.23) % 1, coat=cp["coat"], mane=cp["mane"], blaze=(i == 3),
+                   socks=((True, False, False, False) if i == 1 else (False,) * 4), jockey=dict(JOCKEY_PRESETS[i], push=0.6),
+                   t=i * 0.3, number=[3, 7, 1, 11][i], motion_blur=0.6 if i % 2 else 0.0)
+        label("rival %d%s" % (i, "  motion_blur=.6" if i % 2 else ""), cx - 385, y3 - 300)
+    y4 = y3 + ch
+    for i in range(4):
+        cx = 400 + i * cw
+        ground(cx, y4)
+        j = 4 + i
+        if j < len(JOCKEY_PRESETS):
+            cp = COAT_PRESET_LIST[(i + 4) % len(COAT_PRESET_LIST)]
+            draw_horse(ctx, cx, y4, sc, (0.4 + i * 0.3) % 1, coat=cp["coat"], mane=cp["mane"], blaze=False,
+                       jockey=dict(JOCKEY_PRESETS[j], push=0.6), t=i * 0.3, number=[5, 9, 2, 12][i],
+                       shade=[0.0, 0.3, 0.6, 0.0][i], lean=[0, 0, 0, 0.6][i])
+            label("rival %d  shade=%.1f%s" % (j, [0.0, 0.3, 0.6, 0.0][i], "  lean=.6" if i == 3 else ""), cx - 385, y4 - 300)
+    # row 5: burst sequence
+    y5 = y4 + ch
+    for i, bp in enumerate((0.0, 0.12, 0.3, 0.6)):
+        cx = 400 + i * cw
+        ground(cx, y5)
+        draw_horse(ctx, cx, y5, sc, bp, gait="burst", jockey=hero, t=bp, number=14)
+        label("burst %.2f" % bp, cx - 385, y5 - 300)
+    # row 6: stand (warm) + canter
+    y6 = y5 + ch
+    for i in range(2):
+        cx = 400 + i * cw
+        ground(cx, y6)
+        draw_horse(ctx, cx, y6, sc, i * 0.4, gait="stand", t=i * 2.0, rim=PAL["lamp_warm"],
+                   jockey=(dict(HERO_JOCKEY, crouch=0.2) if i else None))
+        label("stand" + (" + jockey crouch=.2" if i else ""), cx - 385, y6 - 300)
+    for i in range(2):
+        cx = 400 + (2 + i) * cw
+        ground(cx, y6)
+        draw_horse(ctx, cx, y6, sc, 0.2 + i * 0.4, gait="canter", stride=0.8, jockey=dict(HERO_JOCKEY, crouch=0.6),
+                   t=i, number=14)
+        label("canter %.1f" % (0.2 + i * 0.4), cx - 385, y6 - 300)
+    # row 7: head close-ups
+    y7 = Hd - 20
+    ctx.save(); ctx.rectangle(0, y6 + 40, Wd, Hd - y6 - 40)
+    ctx.set_source_rgb(0.12, 0.07, 0.05); ctx.fill(); ctx.restore()
+    heads = [dict(), dict(blink=0.55, ear=1.0, nostril=0.8, look=(0.8, 0.2)), dict(blink=1.0, nuzzle=1.0, ear=-0.6),
+             dict(facing=1, mouth=0.6, nostril=1.0, ear=1.0)]
+    ht = []
+    for i, k in enumerate(heads):
+        cx = 440 + i * cw
+        t0 = time.perf_counter()
+        draw_horse_head(ctx, cx, y7, 0.85, t=i * 1.3, **k)
+        ht.append(time.perf_counter() - t0)
+        label("head " + ", ".join("%s=%s" % kv for kv in k.items()), cx - 400, y6 + 80)
+    surf.write_to_png(path)
+    print("draw_horse(jockey) avg %.1f ms  max %.1f ms | head avg %.1f ms" %
+          (1000 * sum(timings) / len(timings), 1000 * max(timings), 1000 * sum(ht) / len(ht)))
 
 
 if __name__ == "__main__":

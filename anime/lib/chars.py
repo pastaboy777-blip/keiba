@@ -639,8 +639,9 @@ def _ponytail(ctx, root, lt, t, wind, dirx=-1, length=1.0, thick=1.0, drop=1.0, 
         for i in range(n + 1):
             s = i / n
             if riding:
-                bx = rx + dirx * s * 520 * ln * length
-                by = ry + off * s * 1.6 - 40 * s + math.sin(t * 13 + s * 5 + ph) * 26 * s * wind + math.sin(t * 7.3 + s * 3 + ph) * 12 * s
+                bx = rx + dirx * s * 560 * ln * length
+                by = (ry + off * s * 2.2 - 60 * s + math.sin(t * 17 - s * 5.5 + ph) * 34 * s * wind
+                      + math.sin(t * 9.3 - s * 3 + ph) * 14 * s)
             else:
                 wv = sway(t * 1.2, j, 1.0) * 0
                 swing = (math.sin(t * 1.4 + s * 1.7 + ph * 0.3) * 10 + (fbm1(t * 0.8 + s + ph, 11) - 0.5) * 30) * s * (1 + 2 * wind)
@@ -689,9 +690,9 @@ def _helmet(ctx, k, lt, goggles, t, riding=False):
     return path
 
 
-def _goggle_lens(ctx, x, y, w, h, lt, tilt=0.0, frame=(0.14, 0.14, 0.19), glare=0.0, lens_a=1.0):
+def _goggle_lens(ctx, x, y, w, h, lt, tilt=0.0, frame=(0.14, 0.14, 0.19), glare=0.0, lens_a=1.0, thick=1.18):
     ctx.save(); ctx.translate(x, y); ctx.rotate(tilt)
-    r = min(w, h) * 0.45
+    r = min(w, h) * 0.38
     def rr(ww, hh):
         ctx.new_path()
         ctx.move_to(-ww / 2 + r, -hh / 2)
@@ -701,7 +702,7 @@ def _goggle_lens(ctx, x, y, w, h, lt, tilt=0.0, frame=(0.14, 0.14, 0.19), glare=
         ctx.curve_to(-ww / 2 - ww * 0.03, -hh * 0.1, -ww / 2 + r * 0.2, -hh / 2, -ww / 2 + r, -hh / 2)
         ctx.close_path()
         return ctx.copy_path()
-    outer = rr(w * 1.18, h * 1.24)
+    outer = rr(w * thick, h * (thick + 0.06))
     inner = rr(w, h)
     # lens: clear with a cool tint, stronger toward the top edge
     ctx.new_path(); ctx.append_path(inner)
@@ -740,13 +741,13 @@ def _goggles_up(ctx, k, lt):
     taper(ctx, [(xmap(-10, k), -100), (xmap(10, k), -100)], 5, (0.14, 0.14, 0.2), n=6, w0=1, w1=1)
 
 
-def _goggles_down(ctx, k, lt, glare=0.0, ex=EYE_X, ey=EYE_Y, lens_w=92, lens_h=80, dirt=0.0, seed=1):
+def _goggles_down(ctx, k, lt, glare=0.0, ex=EYE_X, ey=EYE_Y, lens_w=104, lens_h=78, dirt=0.0, seed=1):
     pts = [(xmap(-150, k), ey - 16), (xmap(-100, k), ey - 12), (xmap(-60, k), ey - 8)]
     taper(ctx, pts, 16, (0.12, 0.12, 0.18), n=12, w0=1, w1=1)
     for sx in (-1, 1):
         x = xmap(sx * ex, k); ws = xscale(sx * ex, k)
         if ws < 0.25: continue
-        _goggle_lens(ctx, x, ey + 2, lens_w * ws, lens_h, lt, glare=glare)
+        _goggle_lens(ctx, x + sx * 2, ey + 4, lens_w * ws, lens_h, lt, glare=glare, tilt=-0.06 * sx, thick=1.32)
     taper(ctx, [(xmap(-12, k), ey - 6), (xmap(12, k), ey - 6)], 8, (0.12, 0.12, 0.18), n=6, w0=1, w1=1)
     if dirt > 0:
         R = rng(seed)
@@ -1156,65 +1157,100 @@ def draw_mizuki(ctx, x, y, scale, *, view="3q_left", expr="soft", mouth=0.0, bli
 # ============================================================ riding close-up
 def draw_mizuki_riding(ctx, x, y, scale, *, expr="determined", mouth=0.0, blink=0.0, t=0.0, wind=1.0,
                        goggles="down", sweat=0.0, rim=(0.75, 0.88, 1.0), rim_strength=1.0, light_flash=0.0,
-                       shake=0.0, light=(1.0, 0.93, 0.85), dirt=1.0, look=(0.3, 0.0), blush=0.55):
-    lt = Light(light, 1, rim, rim_strength)   # floodlight ahead-left of her face; rim from behind
-    lt.ldx = 1
+                       shake=0.0, light=(1.0, 0.93, 0.85), dirt=1.0, look=(0.35, 0.0), blush=0.6):
+    """Racing close-up, crouched, facing screen-right. x,y = centre of the head; scale 1 => head ~360px."""
+    lt = Light(light, 1, rim, rim_strength)   # key from ahead (screen-right), rim from behind
     ctx.save()
     sx_, sy_ = 0, 0
     if shake:
         sx_ = (noise1(t * 20, 1) - 0.5) * 2 * shake * 14; sy_ = (noise1(t * 20, 2) - 0.5) * 2 * shake * 14
     s = scale * 1.2
     ctx.translate(x + sx_, y + sy_); ctx.scale(s, s)
-    bob = math.sin(t * TAU * 2.2) * 5  # gallop rhythm
+    gal = t * TAU * 2.2                       # gallop rhythm
+    bob = math.sin(gal) * 5
     ctx.translate(0, bob)
     k = 1.0
-    # ponytail streaming back + back hair
-    ctx.save(); ctx.rotate(0.10)
-    _mz_head_back(ctx, k, lt, t, wind, True, riding=True)
+    ang = 0.12 + math.sin(gal) * 0.012
+    # ---- ponytail streaming back + back hair
+    ctx.save(); ctx.rotate(ang)
+    _ponytail(ctx, (xmap(-96, k), 56), lt, t, wind, dirx=-1, length=1.0, riding=True, thick=1.35)
     ctx.restore()
-    # body: back + shoulders crouched low, silks rippling
-    rip = lambda u, amp=1.0: math.sin(t * 22 + u * 0.03) * 8 * wind * amp + math.sin(t * 13 + u * 0.05) * 4 * wind * amp
-    back = [(-60, 130), (-200, 150 + rip(-200)), (-420, 190 + rip(-420, 1.4)), (-700, 250 + rip(-700, 1.8)),
-            (-1000, 320), (-1000, 900), (300, 900), (240, 520), (120, 330), (40, 220)]
+    # ---- torso: crouched, back nearly horizontal behind the head, silks rippling in the wind
+    def rip(u):
+        a = smoothstep(-60, -700, u) * wind
+        return (math.sin(gal * 3.1 - u * 0.03) * 9 + math.sin(t * 31 - u * 0.055) * 5) * a
+    top = []
+    for i in range(14):
+        u = -50 - i * 80
+        hump = -26 * math.exp(-((u + 190) / 110) ** 2)
+        top.append((u, 168 + hump + (-u - 50) * 0.05 + rip(u)))
+    belly = []
+    for i in range(10):
+        u = -1100 + i * 110
+        belly.append((u, 480 - (-u - 50) * 0.13 - rip(u) * 0.6))
+    back = top + [(-1160, 225), (-1160, 330)] + belly + [(160, 760), (220, 600), (140, 360), (56, 210)]
     bp = shape(ctx, back)
-    cel(ctx, bp, lt.c(SILK, 0.3), lt.s(SILK_S, 0.3), (40, -30), lt.rim, (-10, 8), rim_a=0.9 * lt.rs, lw=3.0)
+    silk = lt.c(SILK, 0.25); silk_s = lt.s(SILK_S, 0.2)
+    cel(ctx, bp, silk, silk_s, (40, -70), lt.rim, (26, -16), rim_a=0.9 * lt.rs, lw=3.0)
     ctx.save(); clip_path(ctx, bp)
-    # rippling fold streaks
-    for i in range(7):
-        u0 = -900 + i * 120 + (t * 900) % 120
-        y0 = 280 + (i % 3) * 60
-        pts = [(u0, y0 + rip(u0)), (u0 + 110, y0 - 30 + rip(u0 + 110)), (u0 + 220, y0 - 50 + rip(u0 + 220))]
-        taper(ctx, pts, 10, lt.s(SILK_S, 0.3), a=0.9, n=12)
-    # sash across back
-    ctx.new_path(); ctx.move_to(-620, 240); ctx.line_to(-480, 220); ctx.line_to(-200, 900); ctx.line_to(-360, 900); ctx.close_path()
-    fill_rgb(ctx, lt.c(RED, 0.3)); ctx.fill()
+    # sash diagonal across the back
+    ctx.new_path(); ctx.move_to(-400, 100); ctx.line_to(-290, 100); ctx.line_to(-520, 700); ctx.line_to(-660, 700); ctx.close_path()
+    sash = ctx.copy_path()
+    fill_rgb(ctx, lt.c(RED, 0.25)); ctx.fill()
+    ctx.save(); clip_path(ctx, sash); crescent(ctx, bp, (40, -70), lt.s(RED_S, 0.2)); ctx.restore()
+    ctx.new_path(); ctx.append_path(sash); ctx.set_line_width(2.4); fill_rgb(ctx, INK, 0.9); ctx.stroke()
+    # wind folds racing backward
+    for i in range(10):
+        ph = (t * 3.0 + i / 10.0) % 1.0
+        u0 = lerp(-120, -1100, ph)
+        y0 = 220 + (-u0) * 0.02 + (i % 4) * 50 * (1 - (-u0) / 1600)
+        pts = [(u0 + 150, y0 - 18 + rip(u0 + 150) * 0.7), (u0 + 60, y0 + rip(u0 + 60) * 0.7), (u0 - 60, y0 + 12 + rip(u0 - 60) * 0.7)]
+        taper(ctx, pts, 9, silk_s, a=0.9 * (1 - abs(ph - 0.5) * 1.6), n=12)
     ctx.restore()
-    # near arm reaching forward (reins)
-    arm_pts = [(-150, 280), (0, 420), (180, 520)]
-    S = _silk_arm(ctx, arm_pts, 120, 90, lt, outer=-1, stripes=(0.4, 0.8), bulge=0.2)
-    # neck
-    neck = shape(ctx, [(-54, 60), (-70, 150), (-40, 210), (40, 200), (46, 120), (24, 80)])
-    cel(ctx, neck, lt.c(SKIN, 0.3), lt.s(SKIN_SH, 0.2), (8, -10), lt.rim, (-4, 2), rim_a=0.8 * lt.rs, lw=2.4)
-    # collar
-    cp = shape(ctx, [(-80, 150), (-40, 200), (40, 196), (60, 160), (30, 176), (-40, 178)])
-    cel(ctx, cp, lt.c(RED, 0.3), lt.s(RED_S, 0.2), (0, -6), lw=2.0)
-    # head (tilted forward, looking ahead)
-    ctx.save(); ctx.rotate(0.10 + math.sin(t * TAU * 2.2) * 0.01)
-    _mz_head(ctx, k, lt, expr=expr, mouth=mouth, blink=blink, look=look, t=t, wind=wind * 1.3, helmet=True,
-             goggles=goggles, blush=blush, tears=0, riding=True, flash=light_flash, dirt=dirt, sweat=sweat)
+    # trailing loose silk flaps at the hem (sharp, flickering)
+    for i in range(3):
+        u = -900 - i * 90
+        L = 60 + 30 * math.sin(t * 23 + i * 2)
+        yb = 480 - (-u - 50) * 0.13
+        ctx.new_path(); ctx.move_to(u + 60, yb - 10); ctx.line_to(u - L, yb + 10 + math.sin(t * 31 + i) * 16); ctx.line_to(u + 30, yb + 20)
+        ctx.close_path(); fill_rgb(ctx, silk_s); ctx.fill_preserve(); ctx.set_line_width(2.2); fill_rgb(ctx, INK); ctx.stroke()
+    # ---- near arm reaching down-forward to the reins (sleeve with red hoops)
+    S = _silk_arm(ctx, [(-120, 270), (10, 380), (160, 480), (260, 600)], 120, 100, lt, outer=-1,
+                  stripes=(0.45, 0.82), bulge=0.12, folds=True, lw=2.8)
+    # ---- neck + collar
+    ctx.save(); ctx.rotate(ang * 0.5)
+    neck = shape(ctx, [(-58, 70), (-64, 150), (-50, 200), (40, 196), (46, 150), (30, 90)])
+    cel(ctx, neck, lt.c(SKIN, 0.3), lt.s(SKIN_SH, 0.2), (-10, -14), lt.rim, (6, -2), rim_a=0.8 * lt.rs, lw=2.4)
+    ctx.save(); clip_path(ctx, neck)
+    ctx.new_path(); ctx.move_to(-100, 60); ctx.line_to(100, 60); ctx.line_to(100, 150); ctx.curve_to(40, 170, -40, 150, -100, 110)
+    ctx.close_path(); fill_rgb(ctx, lt.s(SKIN_SH, 0.2)); ctx.fill(); ctx.restore()
+    cp = shape(ctx, [(-80, 164), (-40, 206), (48, 198), (66, 164), (36, 176), (-36, 182)])
+    cel(ctx, cp, lt.c(RED, 0.25), lt.s(RED_S, 0.2), (0, -8), lw=2.2)
     ctx.restore()
-    # flying dirt specks
+    # ---- head
+    ctx.save(); ctx.rotate(ang)
+    _mz_head(ctx, k, lt, expr=expr, mouth=mouth, blink=blink, look=look, t=t, wind=wind * 1.4, helmet=True,
+             goggles=goggles, blush=blush, tears=0, riding=True, flash=light_flash, dirt=dirt, sweat=0)
+    hp = ctx.user_to_device(0, 0)
+    ctx.restore()
+    # ---- sweat drops flying back
+    if sweat > 0:
+        for i in range(4):
+            ph = (t * 2.3 + i * 0.27) % 1.0
+            px = lerp(-80, -520, ph) - i * 20; py = lerp(-10 + i * 30, -60 + i * 40, ph)
+            _tear_drop(ctx, px, py, (7 + 3 * (i % 2)) * (1 - ph * 0.5), sweat * (1 - ph))
+    # ---- flying dirt specks
     if dirt > 0:
         R = rng(int(t * FPS_GUESS))
-        for i in range(int(14 * dirt)):
-            px = R.uniform(-600, 400); py = R.uniform(-300, 500)
-            ellipse(ctx, px, py, R.uniform(2, 6), R.uniform(2, 5), R.random())
-            ctx.set_source_rgba(0.32, 0.22, 0.15, R.uniform(0.4, 0.9)); ctx.fill()
+        for i in range(int(16 * dirt)):
+            px = R.uniform(-700, 450); py = R.uniform(-300, 600)
+            ellipse(ctx, px, py, R.uniform(2, 7), R.uniform(2, 5), R.random())
+            ctx.set_source_rgba(0.30, 0.20, 0.13, R.uniform(0.5, 0.95)); ctx.fill()
     if light_flash > 0:
-        g = cairo.RadialGradient(150, -40, 0, 150, -40, 500)
-        g.add_color_stop_rgba(0, 1, 1, 1, 0.6 * light_flash); g.add_color_stop_rgba(1, 1, 1, 1, 0)
+        g = cairo.RadialGradient(150, -40, 0, 150, -40, 520)
+        g.add_color_stop_rgba(0, 1, 1, 1, 0.55 * light_flash); g.add_color_stop_rgba(1, 1, 1, 1, 0)
         ctx.set_source(g); ctx.paint()
-    out = {"head": ctx.user_to_device(0, 0), "hand": ctx.user_to_device(*S[-1])}
+    out = {"head": hp, "hand": ctx.user_to_device(*S[-1])}
     ctx.restore()
     return out
 

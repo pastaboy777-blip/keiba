@@ -1826,3 +1826,275 @@ def draw_racecourse_establishing(ctx, t, cam=0.0, *, horses=False, race_s=0.0, f
         u, v = _eproj(X, Zs, 4 + 26 * _hash(fi * 17 + q, 6))
         _glow(ctx, u, v, 9, (1, 1, 1), 0.8)
     ctx.restore()
+
+
+# ======================================================================
+#  FINISH POST (ゴール板)
+# ======================================================================
+def draw_finish_post(ctx, x, y, scale=1.0, *, line=True, line_len=340, t=0.0, glow=1.0):
+    """ゴール板: tall white pole with a round disc mirror on top at (x, y=ground).
+    line=True also paints the finish line across the dirt (going toward camera)."""
+    s = scale
+    ctx.save()
+    if line:
+        g = _lin(ctx, 0, y, 0, y + line_len * s, [(0, (1, 1, 1, 0.85)), (1, (1, 1, 1, 0.55))])
+        ctx.set_source(g)
+        ctx.move_to(x - 3 * s, y); ctx.line_to(x + 3 * s, y)
+        ctx.line_to(x + (14 + 60) * s, y + line_len * s); ctx.line_to(x + (60 - 14) * s, y + line_len * s)
+        ctx.close_path(); ctx.fill()
+        ctx.save(); ctx.translate(x + 30 * s, y + line_len * s * 0.5); ctx.scale(0.3, 1)
+        _glow(ctx, 0, 0, line_len * s * 0.6, (1, 1, 1), 0.12 * glow)
+        ctx.restore()
+    ph = 560 * s
+    top = y - ph
+    # shadow on ground
+    ctx.save(); ctx.translate(x + 30 * s, y + 6 * s); ctx.scale(1, 0.18)
+    _glow(ctx, 0, 0, 60 * s, (0, 0, 0), 0.5); ctx.restore()
+    # pole (white, rounded shading) with red bands near the base
+    pw = 16 * s
+    g = _lin(ctx, x - pw / 2, 0, x + pw / 2, 0, [(0, (0.7, 0.7, 0.8)), (0.35, (1, 1, 1)), (1, (0.55, 0.55, 0.66))])
+    ctx.set_source(g); ctx.rectangle(x - pw / 2, top + 60 * s, pw, ph - 60 * s); ctx.fill()
+    for k in range(3):
+        yy = y - (40 + k * 34) * s
+        ctx.set_source_rgb(0.85, 0.12, 0.2); ctx.rectangle(x - pw / 2, yy - 12 * s, pw, 12 * s); ctx.fill()
+    # base
+    g = _lin(ctx, x - 26 * s, 0, x + 26 * s, 0, [(0, (0.6, 0.6, 0.7)), (0.4, (0.98, 0.98, 1)), (1, (0.5, 0.5, 0.6))])
+    ctx.set_source(g); ctx.rectangle(x - 22 * s, y - 20 * s, 44 * s, 20 * s); ctx.fill()
+    # disc (mirror) on top
+    R = 78 * s
+    cx, cy = x, top + 10 * s
+    _glow(ctx, cx, cy, R * 2.6, (1, 0.95, 0.85), 0.35 * glow)
+    ctx.set_source_rgb(0.2, 0.2, 0.26); ctx.arc(cx, cy, R + 6 * s, 0, TAU); ctx.fill()
+    g = cairo.LinearGradient(cx - R, cy - R, cx + R, cy + R)
+    g.add_color_stop_rgb(0, 1, 1, 1); g.add_color_stop_rgb(0.5, 0.92, 0.92, 0.96); g.add_color_stop_rgb(1, 0.7, 0.7, 0.8)
+    ctx.set_source(g); ctx.arc(cx, cy, R, 0, TAU); ctx.fill()
+    # mirror face reflecting the night & lights
+    Ri = R * 0.78
+    g = cairo.LinearGradient(cx, cy - Ri, cx, cy + Ri)
+    g.add_color_stop_rgb(0, 0.12, 0.12, 0.3); g.add_color_stop_rgb(0.55, 0.35, 0.25, 0.5); g.add_color_stop_rgb(0.62, 0.95, 0.75, 0.55)
+    g.add_color_stop_rgb(1, 0.45, 0.33, 0.28)
+    ctx.set_source(g); ctx.arc(cx, cy, Ri, 0, TAU); ctx.fill()
+    ctx.save(); ctx.arc(cx, cy, Ri, 0, TAU); ctx.clip()
+    # sheen diagonal
+    sh = 0.5 + 0.5 * math.sin(t * 1.5)
+    g = _lin(ctx, cx - Ri, cy - Ri, cx + Ri, cy + Ri, [(0, (1, 1, 1, 0)), (0.42 + 0.1 * sh, (1, 1, 1, 0)),
+                                                     (0.5 + 0.1 * sh, (1, 1, 1, 0.55)), (0.58 + 0.1 * sh, (1, 1, 1, 0))])
+    ctx.set_source(g); ctx.paint()
+    for k in range(5):   # reflected floodlights
+        _glow(ctx, cx - Ri * 0.6 + k * Ri * 0.3, cy + Ri * 0.12, 10 * s, (1, 0.95, 0.8), 0.9)
+    ctx.restore()
+    # red ring + white star-ish mark (classic ゴール板 look)
+    ctx.set_source_rgb(0.88, 0.1, 0.18); ctx.set_line_width(5 * s); ctx.arc(cx, cy, R * 0.88, 0, TAU); ctx.stroke()
+    ctx.set_source_rgba(1, 1, 1, 0.9); ctx.set_line_width(1.5 * s); ctx.arc(cx, cy, R, math.pi * 1.1, math.pi * 1.5); ctx.stroke()
+    ctx.restore()
+
+
+# ======================================================================
+#  STARTING GATE
+# ======================================================================
+GATE_GREEN = (0.08, 0.42, 0.28)
+GATE_GREEN_D = (0.04, 0.22, 0.16)
+GATE_WHITE = (0.94, 0.95, 0.96)
+_FRAME_COLS = [(0.97, 0.97, 0.97), (0.08, 0.08, 0.1), (0.88, 0.12, 0.16), (0.12, 0.3, 0.85),
+               (0.98, 0.85, 0.1), (0.1, 0.6, 0.3), (1.0, 0.55, 0.1), (1.0, 0.55, 0.7)]
+
+
+def _door_angle(open_):
+    """0..1 -> door angle (0 closed .. ~1.45 rad) with overshoot bounce."""
+    o = clamp(open_)
+    if o <= 0:
+        return 0.0
+    a = 1 - math.exp(-7 * o) * math.cos(11 * o)
+    return 1.35 * a / (1 - math.exp(-7) * math.cos(11)) if o < 1 else 1.35
+
+
+def _gate_front_geo(x, y, s, n):
+    SW = 118 * s
+    total = n * SW
+    x0 = x - total / 2
+    return SW, total, x0
+
+
+def draw_starting_gate_back(ctx, t, x, y, scale=1.0, open=0.0, n_stalls=8, view="front"):
+    """Rear part of the gate (drawn before horses)."""
+    s = scale
+    ctx.save()
+    if view == "front":
+        SW, total, x0 = _gate_front_geo(x, y, s, n_stalls)
+        # shadow on ground
+        ctx.save(); ctx.translate(x, y + 4 * s); ctx.scale(1, 0.06)
+        _glow(ctx, 0, 0, total * 0.65, (0, 0, 0), 0.6); ctx.restore()
+        # back frame (smaller, higher: further away)
+        bk = 0.86
+        bx0 = x - total * bk / 2
+        by = y - 26 * s
+        ctx.set_source_rgb(*GATE_GREEN_D)
+        ctx.rectangle(bx0, by - 330 * s * bk, total * bk, 26 * s); ctx.fill()
+        for i in range(n_stalls):
+            sx = bx0 + i * SW * bk
+            # interior: dark back doors
+            g = _lin(ctx, 0, by - 300 * s * bk, 0, by, [(0, (0.10, 0.16, 0.15)), (0.5, (0.07, 0.1, 0.11)), (1, (0.2, 0.15, 0.13))])
+            ctx.set_source(g); ctx.rectangle(sx + 4 * s, by - 304 * s * bk, SW * bk - 8 * s, 300 * s * bk - 20 * s); ctx.fill()
+            ctx.set_source_rgba(0.3, 0.5, 0.4, 0.5); ctx.set_line_width(1.2 * s)
+            for k in range(6):
+                yy = by - (40 + k * 40) * s * bk
+                ctx.move_to(sx + 6 * s, yy); ctx.line_to(sx + SW * bk - 6 * s, yy)
+            ctx.stroke()
+        for i in range(n_stalls + 1):
+            sx = bx0 + i * SW * bk
+            ctx.set_source_rgb(*GATE_GREEN_D); ctx.rectangle(sx - 5 * s, by - 330 * s * bk, 10 * s, 330 * s * bk); ctx.fill()
+        # side partitions receding (perspective trapezoids between back & front posts)
+        for i in range(n_stalls + 1):
+            fx = x0 + i * SW; bxx = bx0 + i * SW * bk
+            ctx.set_source_rgba(*GATE_GREEN, 0.95)
+            ctx.move_to(bxx, by - 250 * s * bk); ctx.line_to(fx, y - 250 * s)
+            ctx.line_to(fx, y - 110 * s); ctx.line_to(bxx, by - 110 * s * bk); ctx.close_path(); ctx.fill()
+            ctx.set_source_rgba(1, 1, 1, 0.5); ctx.set_line_width(1.5 * s)
+            ctx.move_to(bxx, by - 250 * s * bk); ctx.line_to(fx, y - 250 * s); ctx.stroke()
+        # dirt inside stalls darker
+        ctx.set_source_rgba(0.1, 0.06, 0.05, 0.35)
+        ctx.move_to(bx0, by); ctx.line_to(bx0 + total * bk, by); ctx.line_to(x0 + total, y); ctx.line_to(x0, y); ctx.close_path(); ctx.fill()
+    else:
+        _gate_side(ctx, t, x, y, s, open, n_stalls, part="back")
+    ctx.restore()
+
+
+def draw_starting_gate_front(ctx, t, x, y, scale=1.0, open=0.0, n_stalls=8, view="front"):
+    """Front part of the gate (drawn after horses): posts, truss, number plates, doors."""
+    s = scale
+    ctx.save()
+    if view == "front":
+        SW, total, x0 = _gate_front_geo(x, y, s, n_stalls)
+        th = 360 * s
+        ang = _door_angle(open)
+        # doors
+        for i in range(n_stalls):
+            sx = x0 + i * SW
+            half = SW / 2 - 6 * s
+            for side in (-1, 1):
+                hx = sx + 6 * s if side < 0 else sx + SW - 6 * s     # hinge at the posts
+                dirn = 1 if side < 0 else -1
+                wv = half * math.cos(ang)
+                grow = half * math.sin(ang) * 0.16                  # perspective: swinging toward camera
+                dt, db = y - 232 * s, y - 14 * s
+                ex = hx + dirn * wv
+                ctx.move_to(hx, dt); ctx.line_to(ex, dt - grow); ctx.line_to(ex, db + grow * 0.6); ctx.line_to(hx, db); ctx.close_path()
+                shade = 0.75 + 0.25 * math.cos(ang)
+                ctx.set_source_rgb(GATE_WHITE[0] * shade, GATE_WHITE[1] * shade, GATE_WHITE[2] * shade)
+                ctx.fill_preserve()
+                ctx.set_source_rgb(*GATE_GREEN); ctx.set_line_width(5 * s); ctx.stroke()
+                # mesh lines
+                if abs(wv) > 6 * s:
+                    ctx.set_source_rgba(*GATE_GREEN, 0.55); ctx.set_line_width(1.2 * s)
+                    for k in range(1, 8):
+                        f = k / 8
+                        ctx.move_to(hx, dt + (db - dt) * f); ctx.line_to(ex, dt - grow + (db + grow * 0.6 - dt + grow) * f)
+                    ctx.stroke()
+                    # green lower kick panel
+                    ctx.set_source_rgb(*GATE_GREEN)
+                    kf = 0.72
+                    ctx.move_to(hx, dt + (db - dt) * kf); ctx.line_to(ex, dt - grow + (db + grow * 0.6 - dt + grow) * kf)
+                    ctx.line_to(ex, db + grow * 0.6); ctx.line_to(hx, db); ctx.close_path(); ctx.fill()
+        # posts
+        for i in range(n_stalls + 1):
+            px = x0 + i * SW
+            g = _lin(ctx, px - 7 * s, 0, px + 7 * s, 0, [(0, GATE_GREEN_D), (0.4, (0.2, 0.62, 0.45)), (1, GATE_GREEN_D)])
+            ctx.set_source(g); ctx.rectangle(px - 7 * s, y - th, 14 * s, th); ctx.fill()
+            ctx.set_source_rgb(0.12, 0.12, 0.14); ctx.rectangle(px - 9 * s, y - 8 * s, 18 * s, 8 * s); ctx.fill()
+        # top truss
+        g = _lin(ctx, 0, y - th - 10 * s, 0, y - th + 70 * s, [(0, (0.22, 0.62, 0.45)), (0.2, GATE_GREEN), (1, GATE_GREEN_D)])
+        ctx.set_source(g); ctx.rectangle(x0 - 14 * s, y - th - 10 * s, total + 28 * s, 76 * s); ctx.fill()
+        ctx.set_source_rgba(1, 1, 1, 0.85); ctx.rectangle(x0 - 14 * s, y - th - 10 * s, total + 28 * s, 3 * s); ctx.fill()
+        ctx.set_source_rgb(*GATE_WHITE); ctx.rectangle(x0 - 14 * s, y - th + 52 * s, total + 28 * s, 6 * s); ctx.fill()
+        # number plates
+        for i in range(n_stalls):
+            cx = x0 + (i + 0.5) * SW
+            col = _FRAME_COLS[i % 8]
+            ctx.set_source_rgb(*col)
+            ctx.rectangle(cx - 26 * s, y - th + 4 * s, 52 * s, 42 * s); ctx.fill()
+            ctx.set_source_rgba(0.1, 0.1, 0.12, 0.8); ctx.set_line_width(2 * s)
+            ctx.rectangle(cx - 26 * s, y - th + 4 * s, 52 * s, 42 * s); ctx.stroke()
+            ctx.select_font_face("AnimeSans"); ctx.set_font_size(36 * s)
+            txt = str(i + 1)
+            xb, yb, tw, th_, xa, ya = ctx.text_extents(txt)
+            lum = sum(col) / 3
+            ctx.set_source_rgb(*((0.05, 0.05, 0.08) if lum > 0.55 or col == _FRAME_COLS[4] else (1, 1, 1)))
+            ctx.move_to(cx - xa / 2, y - th + 39 * s); ctx.show_text(txt)
+        # gate lamps (the red/green signal lamps on top)
+        for side in (-1, 1):
+            lx = x + side * (total / 2 + 4 * s)
+            on = open > 0.02
+            col = (0.2, 1.0, 0.4) if on else (1.0, 0.25, 0.2)
+            _glow(ctx, lx, y - th - 22 * s, 30 * s, col, 0.7)
+            ctx.set_source_rgb(*col); ctx.arc(lx, y - th - 22 * s, 7 * s, 0, TAU); ctx.fill()
+        # floodlit rim on the truss top
+        ctx.save(); ctx.translate(x, y - th - 8 * s); ctx.scale(1, 0.05)
+        _glow(ctx, 0, 0, total * 0.6, (1, 0.95, 0.85), 0.5); ctx.restore()
+    else:
+        _gate_side(ctx, t, x, y, s, open, n_stalls, part="front")
+    ctx.restore()
+
+
+def _gate_side(ctx, t, x, y, s, open_, n, part):
+    """Side view: nearest stall full size, further stalls receding up-left (3/4 feel).
+    Horses run to the right; front doors on the right end swing toward +x."""
+    L = 330 * s; Ht = 350 * s
+    ang = _door_angle(open_)
+    if part == "back":
+        for k in range(n - 1, 0, -1):
+            dx, dy, sc = -k * 16 * s, -k * 10 * s, 1 - 0.035 * k
+            _gate_side_stall(ctx, x + dx, y + dy, s * sc, L * sc, Ht * sc, ang, dark=0.55 + 0.45 * (1 - k / n), near=False)
+        # nearest stall's far side panel
+        ctx.set_source_rgba(*GATE_GREEN_D, 0.95)
+        ctx.rectangle(x - L / 2 + 10 * s, y - 250 * s - 8 * s, L - 20 * s, 150 * s); ctx.fill()
+    else:
+        _gate_side_stall(ctx, x, y, s, L, Ht, ang, dark=1.0, near=True)
+
+
+def _gate_side_stall(ctx, x, y, s, L, Ht, ang, dark=1.0, near=True):
+    col = tuple(c * dark for c in GATE_GREEN)
+    cold = tuple(c * dark for c in GATE_GREEN_D)
+    wht = tuple(c * (0.55 + 0.45 * dark) for c in GATE_WHITE)
+    xb, xf = x - L / 2, x + L / 2
+    # posts
+    for px in (xb, xf):
+        g = _lin(ctx, px - 8 * s, 0, px + 8 * s, 0, [(0, cold), (0.4, col), (1, cold)])
+        ctx.set_source(g); ctx.rectangle(px - 8 * s, y - Ht, 16 * s, Ht); ctx.fill()
+    # top beam
+    ctx.set_source_rgb(*col); ctx.rectangle(xb - 20 * s, y - Ht - 8 * s, L + 40 * s, 46 * s); ctx.fill()
+    ctx.set_source_rgb(*wht); ctx.rectangle(xb - 20 * s, y - Ht + 30 * s, L + 40 * s, 5 * s); ctx.fill()
+    ctx.set_source_rgba(1, 1, 1, 0.8 * dark); ctx.rectangle(xb - 20 * s, y - Ht - 8 * s, L + 40 * s, 2.5 * s); ctx.fill()
+    if near:
+        # padded side panel with bars (horse visible through the gaps)
+        py0, py1 = y - 262 * s, y - 108 * s
+        ctx.set_source_rgba(*col, 0.96)
+        ctx.rectangle(xb + 8 * s, py0, L - 16 * s, 26 * s); ctx.fill()
+        ctx.rectangle(xb + 8 * s, py1 - 26 * s, L - 16 * s, 26 * s); ctx.fill()
+        ctx.set_source_rgb(*wht)
+        for k in range(1, 6):
+            bx = xb + k * L / 6
+            ctx.rectangle(bx - 3 * s, py0 + 26 * s, 6 * s, py1 - py0 - 52 * s); ctx.fill()
+        ctx.set_source_rgba(1, 1, 1, 0.6); ctx.rectangle(xb + 8 * s, py0, L - 16 * s, 2.5 * s); ctx.fill()
+        # wheel / base rail
+        ctx.set_source_rgb(0.1, 0.1, 0.12); ctx.rectangle(xb - 20 * s, y - 14 * s, L + 40 * s, 10 * s); ctx.fill()
+        for wx in (xb - 6 * s, xf + 6 * s):
+            ctx.set_source_rgb(0.08, 0.08, 0.1); ctx.arc(wx, y - 12 * s, 16 * s, 0, TAU); ctx.fill()
+            ctx.set_source_rgb(0.5, 0.5, 0.55); ctx.arc(wx, y - 12 * s, 6 * s, 0, TAU); ctx.fill()
+    # front door: edge-on when closed; swings toward +x (toward camera-right)
+    dw = 108 * s
+    wv = dw * math.sin(ang)
+    dt, db = y - 236 * s, y - 16 * s
+    ctx.move_to(xf, dt); ctx.line_to(xf + wv, dt - wv * 0.12); ctx.line_to(xf + wv, db + wv * 0.06); ctx.line_to(xf, db); ctx.close_path()
+    ctx.set_source_rgb(*wht); ctx.fill_preserve()
+    ctx.set_source_rgb(*col); ctx.set_line_width(max(4 * s, 1)); ctx.stroke()
+    if wv < 4 * s:
+        ctx.set_source_rgb(*wht); ctx.rectangle(xf - 3 * s, dt, 6 * s, db - dt); ctx.fill()
+
+
+def draw_starting_gate(ctx, t, x, y, scale=1.0, open=0.0, n_stalls=8, view="front", part="all"):
+    """Green/white starting gate at ground point (x, y). part: 'back' | 'front' | 'all'.
+    Draw order for horses: gate(part='back') -> horses -> gate(part='front')."""
+    if part in ("back", "all"):
+        draw_starting_gate_back(ctx, t, x, y, scale, open, n_stalls, view)
+    if part in ("front", "all"):
+        draw_starting_gate_front(ctx, t, x, y, scale, open, n_stalls, view)

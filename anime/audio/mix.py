@@ -31,7 +31,10 @@ DUCK_DB = 8.0
 MUSIC_DB = -1.5
 SFX_DB = -1.0
 # shouted lines that land on big musical hits duck the bed less, so the hit still lands
-DUCK_OVERRIDE = {"L07": 4.0, "L09": 6.0, "L11": 4.0}
+DUCK_OVERRIDE = {"L07": 4.0, "L09": 6.0, "L10": 10.0, "L11": 5.0}
+# "fader rides" on the beds: the score's quiet scenes are written soft, lift them against the dialogue
+MUSIC_RIDE = [(0, 7), (14.6, 7), (15.4, 3), (18.3, 3), (18.5, 0), (50.0, 0), (51.0, 6), (60, 6)]
+SFX_RIDE = [(0, 3), (15.0, 3), (18.3, 2), (18.5, 0), (60, 0)]
 VOICE_LINE_LUFS = {"AI": -17.0, "GEN": -16.5, "MIZUKI": -16.5, "ANN": -15.5}
 
 
@@ -208,7 +211,8 @@ def main():
     vbus, key, depth = voice_bus(man)
 
     duck = duck_gain(key, depth)
-    bed = music * db(MUSIC_DB) + sfx * db(SFX_DB)
+    bed = music * (db(MUSIC_DB) * dsp.curve(MUSIC_RIDE, N, "db"))[:, None] + \
+        sfx * (db(SFX_DB) * dsp.curve(SFX_RIDE, N, "db"))[:, None]
     mix = bed * duck[:, None] + vbus
 
     # loudness normalise -> limit, iterate to land on target
