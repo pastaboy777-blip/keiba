@@ -44,7 +44,7 @@ VOICES = {
 # length: SBV2 length scale (auto-shrunk to fit `max`). pitch/inton: SBV2 pitch_scale / intonation_scale.
 # assist: emotional BERT "assist text" to colour delivery. fx: post-processing chain name.
 DIRECTION = {
-    "L01": dict(style="Neutral", w=1.0, sdp=0.0, noise=0.4, noise_w=0.6, length=0.95, inton=0.65,
+    "L01": dict(style="Neutral", w=1.0, sdp=0.0, noise=0.4, noise_w=0.6, length=0.95, inton=0.65, pitch=0.94,
                 say="第十一レース。十四番、ハルカゼ。勝率、れいてんはちパーセント。推奨は、見送りです。", gap=0.07,
                 fx="ai"),
     "L02": dict(style="Neutral", w=1.0, sdp=0.3, length=1.0, pitch=0.89, inton=0.95,
@@ -63,14 +63,14 @@ DIRECTION = {
     "L08": dict(style="Surprise", w=2.5, sdp=0.4, length=0.92, pitch=1.08, inton=1.3,
                 say="直線コース!おおそとから、ハルカゼ!ハルカゼが来た!",
                 assist="すごいぞ!来た来た来た!信じられない!", aw=0.5, fx="ann"),
-    "L09": dict(style="Surprise", w=3.0, sdp=0.4, length=0.82, pitch=1.12, inton=1.35,
+    "L09": dict(style="Surprise", w=3.0, sdp=0.4, length=0.82, pitch=1.16, inton=1.35,
                 assist="すごい!信じられない!とんでもないことになった!", aw=0.5, fx="ann"),
-    "L10": dict(style="Neutral", w=1.0, sdp=0.0, noise=0.4, noise_w=0.6, length=0.9, inton=0.6,
+    "L10": dict(style="Neutral", w=1.0, sdp=0.0, noise=0.4, noise_w=0.6, length=0.9, inton=0.6, pitch=0.94,
                 say="計算、不能。", fx="ai_glitch"),
-    "L11": dict(style="Surprise", w=3.5, sdp=0.5, length=0.9, pitch=1.18, inton=1.45,
+    "L11": dict(style="Surprise", w=3.5, sdp=0.5, length=0.9, pitch=1.22, inton=1.45,
                 say="ハルカゼ!差し切ったぁ!",
                 assist="やったぁ!すごい!信じられない!奇跡だ!", aw=0.6, fx="ann_scream"),
-    "L12": dict(style="Sad", w=1.2, sdp=0.1, noise=0.5, length=1.05, inton=0.8,
+    "L12": dict(style="Sad", w=1.2, sdp=0.1, noise=0.5, length=1.05, inton=0.8, pitch=0.95,
                 fx="ai_soft"),
     "L13": dict(style="るんるん", w=1.0, sdp=0.4, length=1.0, inton=1.1,
                 assist="ふふっ、ほらね、言ったとおりでしょ。うれしいな。", aw=0.5, fx="mizuki"),
@@ -338,8 +338,20 @@ def to_kana(s):
     return re.sub(r"[、。！？ー]", "", k)
 
 
-def cer(ref, hyp):
+def cer(ref, hyp, collapse=False):
     r, h = to_kana(ref), to_kana(hyp)
+    if collapse:  # ignore intentional stutter repeats (ケケケイサン -> ケイサン)
+        r, h = re.sub(r"(.)\1+", r"\1", r), re.sub(r"(.)\1+", r"\1", h)
+    d = np.arange(len(h) + 1)
+    for i in range(1, len(r) + 1):
+        prev, d[0] = d[0], i
+        for j in range(1, len(h) + 1):
+            cur = min(d[j] + 1, d[j - 1] + 1, prev + (r[i - 1] != h[j - 1]))
+            prev, d[j] = d[j], cur
+    return d[len(h)] / max(1, len(r))
+
+
+def cer_chars(r, h):
     d = np.arange(len(h) + 1)
     for i in range(1, len(r) + 1):
         prev, d[0] = d[0], i
@@ -443,9 +455,11 @@ def main():
                 length *= (target / dur) * 0.99
             y = apply_fx(D["fx"], x, max_len)
             hyp = asr(y)
-            c = cer(L["text"], hyp) if asr.ok else 0.0
+            c = cer(L["text"], hyp, collapse=D["fx"] == "ai_glitch") if asr.ok else 0.0
+            strip = lambda t: re.sub(r"[、。!！?？…,.\s]", "", t)
+            c_raw = cer_chars(strip(L["sub"]), strip(hyp)) if asr.ok else 0.0
             clip = float(np.mean(np.abs(a.astype(np.float32)) > 32000))
-            score = c + (0.5 if len(y) > max_len else 0) + clip * 10
+            score = c + 0.02 * c_raw + (0.5 if len(y) > max_len else 0) + clip * 10
             print(f"{lid} seed{seed} len={length:.2f} dur={len(y)/SR:.2f}/{L['max']} cer={c:.2f} asr='{hyp}'", flush=True)
             if best is None or score < best[0]:
                 best = (score, y, hyp, c, length, seed)

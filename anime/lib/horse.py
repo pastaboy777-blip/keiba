@@ -1,19 +1,32 @@
-"""Procedural anime thoroughbred for 「最後の一完歩」.
+"""Procedural anime thoroughbred for 「最後の一完歩」 (pycairo, cel look).
 
 Public API
 ----------
-GALLOP_HZ   strides / second at race speed (2.3)
-STRIDE_LEN  ground travelled per gallop stride in px at scale 1 (scroll the ground at
-            STRIDE_LEN*scale*GALLOP_HZ*stride px/s for zero hoof slip)
-draw_horse(ctx, x, y, scale, phase, *, facing=1, coat, mane, blaze, socks, jockey, gait,
-           stride, mane_wind, t, rim, rim_strength, shade, motion_blur, lean, head_up, ...)
-draw_horse_stand(...)  == draw_horse(gait="stand")
-draw_horse_head(ctx, x, y, scale, *, facing=-1, ...)   close-up head & neck
-JOCKEY_PRESETS, COAT_PRESETS, HERO_JOCKEY
+GALLOP_HZ = 2.3            strides / second at race speed
+STRIDE_LEN (~885)          ground px per stride at scale 1 -> ground_speed(scale, stride) px/s for no hoof slip
+BURST_DURATION (~1.64 s), BURST_END_PHASE (0.62): a burst of that length hands over seamlessly to
+                           gallop at BURST_END_PHASE; gait_at(t, t_start) -> (gait, phase) does this for you.
+draw_horse(ctx, x, y, scale, phase, *, facing=1, coat, mane, blaze, socks, jockey, gait, stride, mane_wind, t,
+           rim, rim_strength, shade, motion_blur, lean, head_up,
+           rim_dir=(-0.55,-0.83), ground_shadow=0.35, number=None, saddlecloth=None, line_width=3.0,
+           hoof_color=None, eye_open=1.0)  -> returns the pose dict
+draw_horse_stand(ctx, x, y, scale, phase=0, **kw) == draw_horse(gait="stand")
+draw_horse_head(ctx, x, y, scale, *, facing=-1, coat, mane, blaze, blink, ear, nostril, look, mouth, t, light,
+                rim_strength, bridle, nuzzle, line_width=3.0, shade=0.0)
+JOCKEY_PRESETS (8 silk dicts), COAT_PRESETS (dict: chestnut/bay/dark_bay/black/grey/liver -> {coat, mane}),
+COAT_PRESET_LIST, HERO_JOCKEY (美月)
 
-Coordinates: local horse space, +x = forward, y down (cairo), ground at y=0,
-origin under the centre of mass. scale 1 => withers ~330px, nose..tail-root ~525px.
-socks = (near fore, far fore, near hind, far hind)   ("near" = side facing camera)
+Conventions: local horse space, +x forward, y down, ground y=0, origin under the centre of mass.
+scale 1 => withers ~330 px, nose..tail-root ~525 px (tail adds ~200).  facing=-1 mirrors (runs left).
+socks = (near fore, far fore, near hind, far hind); "near" = the side facing camera.
+gait: "gallop" (4-beat transverse gallop, far-hind, near-hind, far-fore, near-fore(lead) then suspension),
+      "canter", "burst" (phase 0..1 = gate break, ~2.6 accelerating strides, starts from the stand pose),
+      "stand" (phase = breathing cycle; t drives tail swish, weight shift, resting hind leg, head sway).
+stride: 0.3..1 shortens the stride (legs+body motion); >1 only exaggerates body motion.
+lean: -1..1 rolls the whole horse +-8 deg about the ground point (cornering).
+jockey dict keys: silk, accent, cap, cap_star, crouch 0..1 (0 = sitting up), push 0..1 (hands pumping),
+      whip bool, face None|"shout"|"smile"|callable(ctx) (called in head-local coords), hair, ponytail
+      (defaults on for the white hero silks).
 """
 import math, os, sys
 import cairo
@@ -137,14 +150,14 @@ B_SHOULDER = (136.0, -252.0)  # point of shoulder (rest)
 B_SADDLE = (18.0, -328.0)
 B_COM = (0.0, -240.0)
 
-H_PIV = (-70.0, -292.0)       # loin pivot for spine flex
-H_LOIN = (-90.0, -318.0)
-H_CROUP = (-138.0, -329.0)
-H_TAIL = (-194.0, -311.0)
-H_BUTT = (-212.0, -272.0)
-H_HAM = (-206.0, -232.0)
-H_FLANK = (-100.0, -210.0)
-H_HIP = (-140.0, -262.0)
+H_PIV = (-56.0, -292.0)       # loin pivot for spine flex
+H_LOIN = (-76.0, -318.0)
+H_CROUP = (-124.0, -329.0)
+H_TAIL = (-180.0, -311.0)
+H_BUTT = (-198.0, -272.0)
+H_HAM = (-192.0, -232.0)
+H_FLANK = (-86.0, -210.0)
+H_HIP = (-126.0, -262.0)
 
 FORE_L = (78.0, 100.0, 58.0, 24.0)   # humerus, forearm, cannon, pastern
 HIND_L = (95.0, 100.0, 62.0, 24.0)   # femur, tibia, cannon, pastern
@@ -159,11 +172,32 @@ _HOOF_TOE = (15.0, 0.0)
 # ----------------------------------------------------------------------------- gaits
 GAITS = {
     # td order: far fore, near fore, far hind, near hind (touchdown phase), stance fraction
-    "gallop": dict(td=(0.33, 0.45, 0.00, 0.10), st=0.26, fore=(236.0, 6.0), hind=(-40.0, -270.0)),
-    "canter": dict(td=(0.22, 0.44, 0.00, 0.22), st=0.34, fore=(215.0, 35.0), hind=(-50.0, -230.0)),
+    "gallop": dict(td=(0.33, 0.45, 0.00, 0.10), st=0.26, fore=(236.0, 6.0), hind=(-26.0, -256.0)),
+    "canter": dict(td=(0.22, 0.44, 0.00, 0.22), st=0.34, fore=(215.0, 35.0), hind=(-36.0, -216.0)),
 }
 _G = GAITS["gallop"]
-STRIDE_LEN = (_G["fore"][0] - _G["fore"][1]) / _G["st"]   # ~ 896 px at scale 1
+STRIDE_LEN = (_G["fore"][0] - _G["fore"][1]) / _G["st"]   # ~885 px of ground per stride at scale 1
+
+# burst (gate break): phase p in [0,1] covers BURST_STRIDES strides, accelerating. It ends exactly on
+# gallop phase BURST_END_PHASE at GALLOP_HZ if the burst lasts BURST_DURATION seconds.
+BURST_STRIDES = 2.6
+BURST_END_PHASE = (BURST_STRIDES + 0.02) % 1.0
+BURST_DURATION = BURST_STRIDES * (0.55 + 0.9) / GALLOP_HZ   # ~1.64 s
+
+
+def ground_speed(scale=1.0, stride=1.0, hz=GALLOP_HZ):
+    """Ground scroll speed (px/s) that keeps planted hooves from slipping."""
+    return STRIDE_LEN * scale * min(stride, 1.0) * hz
+
+
+def gait_at(t, t_start=0.0, burst=BURST_DURATION, hz=GALLOP_HZ):
+    """Convenience: (gait, phase) for a horse breaking from the gate at t_start then galloping."""
+    dt = t - t_start
+    if dt < 0:
+        return "stand", 0.0
+    if dt < burst:
+        return "burst", dt / burst
+    return "gallop", (BURST_END_PHASE + (dt - burst) * hz) % 1.0
 
 # stance: (s, pastern angle deg, flex deg)
 FORE_STANCE = [(0.0, 57.0, 4.0), (0.3, 36.0, 0.0), (0.55, 27.0, 0.0), (0.8, 44.0, 2.0), (1.0, 92.0, 14.0)]
@@ -171,8 +205,8 @@ HIND_STANCE = [(0.0, 57.0, 38.0), (0.3, 36.0, 50.0), (0.55, 30.0, 46.0), (0.8, 4
 # swing: (s, Fx, Fy, flex deg, pastern-rel deg)
 FORE_SWING = [(0.12, 2.0, -78.0, 72.0, 55.0), (0.30, 48.0, -142.0, 138.0, 70.0), (0.50, 150.0, -168.0, 112.0, 45.0),
               (0.68, 252.0, -132.0, 45.0, 12.0), (0.85, 284.0, -80.0, 6.0, -14.0)]
-HIND_SWING = [(0.14, -298.0, -82.0, 60.0, 45.0), (0.34, -252.0, -132.0, 88.0, 62.0), (0.55, -162.0, -128.0, 98.0, 50.0),
-              (0.75, -84.0, -88.0, 72.0, 22.0), (0.90, -46.0, -52.0, 46.0, 2.0)]
+HIND_SWING = [(0.14, -284.0, -82.0, 60.0, 45.0), (0.34, -238.0, -132.0, 88.0, 62.0), (0.55, -148.0, -128.0, 98.0, 50.0),
+              (0.75, -70.0, -88.0, 72.0, 22.0), (0.90, -32.0, -52.0, 46.0, 2.0)]
 
 # body keys over phase: (phase, dy, pitch_deg(nose up +), flex(0..1 gathered), neck_deg, head_deg)
 GALLOP_BODY = [(0.00, 2.0, 1.5, 0.55, 4.0, -3.0), (0.15, 7.0, 3.0, 0.25, 5.0, -2.0), (0.32, 3.0, 0.5, 0.0, 1.0, 1.0),
@@ -182,6 +216,7 @@ GALLOP_BODY = [(0.00, 2.0, 1.5, 0.55, 4.0, -3.0), (0.15, 7.0, 3.0, 0.25, 5.0, -2
 class _Body:
     """Rigid transform (pitch about COM + vertical offset) and spine flex for hindquarters."""
     def __init__(self, dx, dy, pitch_deg, flex, lean=0.0):
+        self.params = (dx, dy, pitch_deg, flex)
         a = -R(pitch_deg)
         self.c, self.s = math.cos(a), math.sin(a)
         self.dx, self.dy = dx, dy
@@ -227,14 +262,14 @@ def _leg_state(kind, u, gait, stride, B, root_fn, extra):
     st = g["st"]
     tdx, lox = g[kind]
     cx = (tdx + lox) * 0.5
-    sw = stride
+    sw = min(stride, 1.0)
     tdx = cx + (tdx - cx) * sw
     lox = cx + (lox - cx) * sw
     L = FORE_L if kind == "fore" else HIND_L
     s1, s2 = (1, -1) if kind == "fore" else (-1, 1)
     SK = FORE_STANCE if kind == "fore" else HIND_STANCE
     WK = FORE_SWING if kind == "fore" else HIND_SWING
-    lift = 0.45 + 0.55 * clamp(stride, 0, 1.2)
+    lift = 0.45 + 0.55 * clamp(stride, 0, 1.0)
 
     def stance(s):
         pa, fl = _herm(SK, s, periodic=False)
@@ -287,8 +322,40 @@ def _stand_leg(kind, Hx, B, root, rot_extra=0.0, cock=0.0):
     return dict(root=root, j1=j1, j2=j2, F=F, cr=cr, hoof=hoof, ground=True)
 
 
+def _blend_pose(A, Bp, w):
+    """Blend two poses (A at w=0, Bp at w=1)."""
+    P = dict(Bp)
+    pa, pb = A["B"].params, Bp["B"].params
+    P["B"] = _Body(*[lerp(x, y, w) for x, y in zip(pa, pb)])
+    for k in ("neck_a", "head_a"):
+        P[k] = lerp(A[k], Bp[k], w)
+    P["scap"] = [_lerp2(x, y, w) for x, y in zip(A["scap"], Bp["scap"])]
+    legs = []
+    for la, lb in zip(A["legs"], Bp["legs"]):
+        lg = {}
+        for key in ("root", "j1", "j2", "F", "cr", "butt"):
+            if key in lb:
+                lg[key] = _lerp2(la.get(key, lb[key]), lb[key], w)
+        lg["hoof"] = [_lerp2(x, y, w) for x, y in zip(la["hoof"], lb["hoof"])]
+        lg["ground"] = lb["ground"] if w > 0.5 else la["ground"]
+        legs.append(lg)
+    P["legs"] = legs
+    P["breath"] = lerp(A.get("breath", 0.0), Bp.get("breath", 0.0), w)
+    return P
+
+
 def horse_pose(phase, gait="gallop", stride=1.0, t=0.0, head_up=0.0):
     """Compute the full pose (all in local horse coordinates)."""
+    if gait == "burst" and phase < 0.1:
+        w = smoothstep(0.0, 0.1, phase)
+        Pb = _horse_pose(phase, gait, stride, t, head_up)
+        if w >= 1.0:
+            return Pb
+        return _blend_pose(_horse_pose(0.0, "stand", 1.0, t, head_up), Pb, w)
+    return _horse_pose(phase, gait, stride, t, head_up)
+
+
+def _horse_pose(phase, gait="gallop", stride=1.0, t=0.0, head_up=0.0):
     P = {}
     extra_pitch = 0.0
     extra_dy = 0.0
@@ -331,6 +398,8 @@ def horse_pose(phase, gait="gallop", stride=1.0, t=0.0, head_up=0.0):
             legs.append(_leg_state(kind, u0, gname, stride, B, root_fn, 0.0))
         P["legs"] = legs
         P["scap"] = [_scap_point(B, (phase - td[i]) % 1.0, g) for i in range(2)]
+        for lg in legs[2:]:
+            lg["butt"] = B.h(H_HAM)
     else:  # stand
         br = math.sin(TAU * phase)
         shift = (fbm1(t * 0.25, 7) - 0.5) * 8
@@ -341,9 +410,11 @@ def horse_pose(phase, gait="gallop", stride=1.0, t=0.0, head_up=0.0):
         hip = B.h(H_HIP)
         cock = smoothstep(0.55, 0.75, fbm1(t * 0.15, 11))
         legs = [_stand_leg("fore", 108, B, S), _stand_leg("fore", 94, B, S),
-                _stand_leg("hind", -128, B, hip), _stand_leg("hind", -150 + 10 * cock, B, hip, cock=cock)]
+                _stand_leg("hind", -114, B, hip), _stand_leg("hind", -136 + 10 * cock, B, hip, cock=cock)]
         P["legs"] = legs
         P["scap"] = [S, S]
+        for lg in legs[2:]:
+            lg["butt"] = B.h(H_HAM)
         P["breath"] = br
     P["B"] = B
     return P
@@ -434,16 +505,32 @@ def _fore_shape(leg, far=False):
 
 def _hind_shape(leg, far=False):
     Hj, St, Hk, F, cr = leg["root"], leg["j1"], leg["j2"], leg["F"], leg["cr"]
-    chain = [_lerp2(Hj, St, 0.3), _lerp2(Hj, St, 0.75), St, _lerp2(St, Hk, 0.35), _lerp2(St, Hk, 0.72),
-             _lerp2(St, Hk, 0.92), Hk, _lerp2(Hk, F, 0.3), _lerp2(Hk, F, 0.75), F, _lerp2(F, cr, 0.5), cr]
-    widths = [(40, 60), (28, 62), (20, 56), (21, 33), (15, 20), (12.5, 14), (13, 16),
-              (10.5, 12), (9.5, 11), (12, 14.5), (9, 9.5), (11, 11.5)]
+    bt = leg.get("butt", _add(Hj, (-70, -8)))
+    dt = _norm(_sub(Hk, St)); nb_t = _perp(dt)            # tibia direction / its back normal
+    dc = _norm(_sub(F, Hk)); nb_c = _perp(dc)
+    dp = _norm(_sub(cr, F)); nb_p = _perp(dp)
+    def fw(p, n, w): return (p[0] - n[0] * w, p[1] - n[1] * w)
+    def bw(p, n, w): return (p[0] + n[0] * w, p[1] + n[1] * w)
+    nb_h = _norm(_add(nb_t, nb_c))
+    low = [(Hk, nb_h, 13, 15), (_lerp2(Hk, F, 0.3), nb_c, 10.5, 11.5), (_lerp2(Hk, F, 0.75), nb_c, 9.5, 10.5),
+           (F, _norm(_add(nb_c, nb_p)), 12, 14.5), (_lerp2(F, cr, 0.5), nb_p, 9, 9.5), (cr, nb_p, 11, 11.5)]
     if far:
-        chain = [_lerp2(Hj, St, 0.55)] + chain[2:]
-        widths = [(24, 40), (18, 46)] + widths[3:]
-    fr, bk = _limb_outline(chain, widths)
-    hk = 6 if not far else 5
-    bk[hk] = _add(bk[hk], _mul(_norm(_sub(St, Hk)), 6))   # point of hock
+        top = _lerp2(Hj, St, 0.55)
+        fr = [fw(top, nb_t, 4), fw(St, nb_t, 10)]
+        bk = [bw(top, nb_t, 30), bw(_lerp2(St, Hk, 0.3), nb_t, 30)]
+    else:
+        dth = _norm(_sub(St, Hj)); nth = _perp(dth)
+        db = _norm(_sub(Hk, bt)); nbb = _perp(db)
+        fr = [fw(_lerp2(Hj, St, 0.25), nth, 42), fw(_lerp2(Hj, St, 0.7), nth, 28), fw(St, _norm(_add(nth, nb_t)), 19)]
+        gb = bw(_lerp2(St, Hk, 0.42), nb_t, 31)
+        bk = [bt, _add(_lerp2(bt, gb, 0.5), _mul(nbb, 6)), gb]
+    fr += [fw(_lerp2(St, Hk, 0.35), nb_t, 20), fw(_lerp2(St, Hk, 0.72), nb_t, 14), fw(_lerp2(St, Hk, 0.92), nb_t, 12)]
+    bk += [bw(_lerp2(St, Hk, 0.72), nb_t, 19), bw(_add(Hk, _mul(dt, -12)), nb_t, 13)]
+    # point of hock
+    bk.append(_add(bw(Hk, nb_h, 17), _mul(dt, -3)))
+    for p, n, wf, wb in low:
+        fr.append(fw(p, n, wf)); bk.append(bw(p, n, wb))
+    bk[-1] = bw(cr, nb_p, 11.5)
     return fr, bk
 
 
@@ -501,8 +588,8 @@ def _silhouette(P, NG):
     pts += throat
     pts += [chest, _add(S, (15, 4)), _add(_lerp2(S, E, 0.55), (8, 8)),
             _add(E, (-14, 14)), _add(B.f(B_GIRTH), (0, 2 * breath)), _add(B.f(B_BELLY), (0, 3 * breath)),
-            _add(B.h(H_FLANK), (0, 1.5 * breath)), _add(St, (10, -12)), _add(St, (-30, -6)),
-            B.h((-170.0, -205.0)), B.h(H_HAM), B.h(H_BUTT)]
+            _add(B.h(H_FLANK), (0, 1.5 * breath)), _add(St, (-4, -22)), _add(St, (-34, -10)),
+            B.h((-156.0, -205.0)), B.h(H_HAM), B.h(H_BUTT)]
     return pts
 
 
@@ -589,8 +676,8 @@ def _mane_shape(NG, t, wind, run, phase):
         flow = (fbm1(t * 2.4 + i * 0.63, 41) - 0.5) * 2
         L = (40 + 16 * math.sin(i * 2.1 + 0.5) + 14 * math.sin(f * 3.1)) * (0.85 if run else 1.0)
         if run:
-            ang = _ang(tg) + R(-14 - 12 * wind) + R(10) * flow * wind + R(7) * math.sin(TAU * phase - i * 0.7)
-            L *= 0.8 + 0.35 * wind
+            ang = _ang(tg) + R(9 + 9 * wind) + R(10) * flow * wind + R(8) * math.sin(TAU * phase - i * 0.7)
+            L *= 1.0 + 0.4 * wind
         else:
             ang = R(100) + R(12) * f + R(6) * flow
         tip = _add(p, _mul(_dir(ang), L))
@@ -636,7 +723,7 @@ def draw_horse(ctx, x, y, scale, phase, *, facing=1, coat=PAL["harukaze"], mane=
     ctx.translate(x, y)
     ctx.scale(scale * facing, scale)
     if lean:
-        ctx.rotate(R(lean * 10.0))
+        ctx.rotate(R(lean * 8.0))
     rdx, rdy = rim_dir[0] * facing, rim_dir[1]
     ctx.set_line_join(cairo.LINE_JOIN_ROUND)
     ctx.set_line_cap(cairo.LINE_CAP_ROUND)
@@ -714,21 +801,33 @@ def draw_horse(ctx, x, y, scale, phase, *, facing=1, coat=PAL["harukaze"], mane=
             _sock(ctx, P["legs"][i], i < 2, white)
     ctx.restore()
 
-    # cel shadow (multiply): big vertical band on the body, narrow sideways band on the near legs
+    # cel shading: body bands exclude the near legs (their own outline governs there); legs get sideways bands
     mulc = (0.66, 0.58, 0.80)
+    leg_paths = []
+    for fr, bk in ((nh_fr, nh_bk), (nf_fr, nf_bk)):
+        ctx.new_path(); _path_closed(ctx, fr, bk); leg_paths.append(ctx.copy_path())
+    ctx.save()
+    ctx.new_path(); ctx.rectangle(-3000, -3000, 6000, 6000)
+    for lp in leg_paths:
+        ctx.append_path(lp)
+    ctx.set_fill_rule(cairo.FILL_RULE_EVEN_ODD); ctx.clip(); ctx.set_fill_rule(cairo.FILL_RULE_WINDING)
     _band(ctx, sil_path, 7, -32, mulc, 1.0, cairo.OPERATOR_MULTIPLY)
+    if rs > 0:
+        _band(ctx, sil_path, -rdx * 6.5, -rdy * 6.5, rimc, 0.85 * rs)
+    ctx.restore()
+    for lp in leg_paths:
+        _band(ctx, lp, 9, -7, mulc, 1.0, cairo.OPERATOR_MULTIPLY)
+    # legs below the belly also get the body's vertical shadow where they leave the silhouette
     ctx.save()
     ctx.new_path(); ctx.rectangle(-3000, -3000, 6000, 6000); ctx.append_path(sil_path)
     ctx.set_fill_rule(cairo.FILL_RULE_EVEN_ODD); ctx.clip(); ctx.set_fill_rule(cairo.FILL_RULE_WINDING)
-    for fr, bk in ((nh_fr, nh_bk), (nf_fr, nf_bk)):
-        ctx.new_path(); _path_closed(ctx, fr, bk)
-        _band(ctx, ctx.copy_path(), 9, -7, mulc, 1.0, cairo.OPERATOR_MULTIPLY)
+    if rs > 0:
+        for lp in leg_paths:
+            _band(ctx, lp, -rdx * 6.5, 0.0, rimc, 0.85 * rs)
     ctx.restore()
     ctx.save(); ctx.new_path(); ctx.append_path(union); ctx.clip()
     _anatomy_shadows(ctx, P, NG, (0.74, 0.66, 0.84))
     ctx.restore()
-    if rs > 0:
-        _band(ctx, union, -rdx * 6.5, -rdy * 6.5, rimc, 0.85 * rs, union=True)
 
     # outline
     ctx.set_source_rgb(*ink); ctx.set_line_width(lw)
@@ -742,8 +841,8 @@ def draw_horse(ctx, x, y, scale, phase, *, facing=1, coat=PAL["harukaze"], mane=
     ctx.set_source_rgb(*ink); ctx.set_line_width(lw); ctx.stroke()
     ctx.restore()
     # near leg edges
-    for fr, bk, cut in ((nh_fr, nh_bk, 2), (nf_fr, nf_bk, 1)):
-        _stroke_leg_edges(ctx, fr, bk, cut, ink, lw)
+    for fr, bk, cut in ((nh_fr, nh_bk, 2), (nf_fr, nf_bk, 2)):
+        _stroke_leg_edges(ctx, fr, bk, cut, ink, lw, sil_path)
     _anatomy_lines(ctx, P, NG, ink, lw)
 
     # hooves near
@@ -808,12 +907,21 @@ def _clip_out(ctx, shapes, sil_path):
     ctx.new_path(); ctx.append_path(sil_path)
 
 
-def _stroke_leg_edges(ctx, fr, bk, cut, ink, lw):
+def _stroke_leg_edges(ctx, fr, bk, cut, ink, lw, sil_path=None, bcut=None):
+    """Stroke the front edge (from index `cut`) and the back edge; the back edge is hidden inside the
+    body silhouette so folded legs don't leave interior lines."""
     ctx.set_source_rgb(*ink); ctx.set_line_width(lw)
     ctx.new_path()
-    pts = fr[cut:] + bk[::-1][:len(bk) - cut]
-    smooth_path(ctx, pts, closed=False, tension=0.5)
+    smooth_path(ctx, fr[cut:] + bk[::-1][:1], closed=False, tension=0.5)
     ctx.stroke()
+    ctx.save()
+    if sil_path is not None:
+        ctx.new_path(); ctx.rectangle(-3000, -3000, 6000, 6000); ctx.append_path(sil_path)
+        ctx.set_fill_rule(cairo.FILL_RULE_EVEN_ODD); ctx.clip(); ctx.set_fill_rule(cairo.FILL_RULE_WINDING)
+    ctx.new_path()
+    smooth_path(ctx, bk[::-1], closed=False, tension=0.5)
+    ctx.stroke()
+    ctx.restore()
 
 
 def _draw_leg(ctx, leg, fore, base, shad, ink, lw, sock, white, hoofc, hoof_light, rimc, rs, rd, sh, far=False):
@@ -901,7 +1009,7 @@ def _anatomy_lines(ctx, P, NG, ink, lw):
     bt = B.h(H_BUTT)
     ctx.new_path(); smooth_path(ctx, [_add(bt, (8, 8)), _lerp2(bt, Hk, 0.45), _add(_lerp2(St, Hk, 0.75), (8, -2))]); ctx.stroke()
     # hip point
-    ctx.new_path(); ctx.arc(*_add(B.h((-118.0, -300.0)), (0, 0)), 9, R(200), R(330)); ctx.stroke()
+    ctx.new_path(); ctx.arc(*_add(B.h((-104.0, -300.0)), (0, 0)), 9, R(200), R(330)); ctx.stroke()
     ctx.restore()
 
 
@@ -1016,6 +1124,8 @@ def _draw_tack(ctx, P, NG, number, cloth, ink, lw, sh, clip=None):
     if number is not None:
         c = B.f((-8.0, -283.0))
         ctx.save(); ctx.translate(*c)
+        if ctx.get_matrix().xx < 0:
+            ctx.scale(-1, 1)
         ctx.select_font_face("AnimeSans"); ctx.set_font_size(36)
         s = str(number)
         xb, yb, tw, th, xa, ya = ctx.text_extents(s)
@@ -1044,7 +1154,8 @@ def _draw_jockey(ctx, P, NG, J, phase, t, ink, lw, rimc, rs, rd, sh, gait):
     breech = _col((0.95, 0.95, 0.97), sh)
     boot = _col((0.08, 0.07, 0.09), sh)
     skin = _col(PAL["skin"], sh)
-    hair = _col(J.get("hair", (0.14, 0.10, 0.08)), sh)
+    is_hero = tuple(J.get("silk", ())) == tuple(PAL["silk_main"])
+    hair = _col(J.get("hair", PAL["mizuki_hair"] if is_hero else (0.14, 0.10, 0.08)), sh)
 
     ph = TAU * phase if gait != "stand" else 0.0
     bob = math.sin(ph - 0.8)
@@ -1055,7 +1166,7 @@ def _draw_jockey(ctx, P, NG, J, phase, t, ink, lw, rimc, rs, rd, sh, gait):
     foot = B.f((24.0 - 6 * (1 - crouch), lerp(-222.0, -262.0, crouch)))
     hip = _add(anchor, (lerp(-6, -34, crouch) + push * 6 * math.sin(ph), lerp(-30, -46, crouch) + 3 * bob * crouch))
     ta = R(lerp(55, 7, crouch) + push * 5 * math.sin(ph + 0.5))
-    sho = _add(hip, (96 * math.cos(ta), -96 * math.sin(ta)))
+    sho = _add(hip, (88 * math.cos(ta), -88 * math.sin(ta)))
     head = _add(sho, (lerp(12, 28, crouch), lerp(-40, -22, crouch)))
     # hands on neck
     crest = NG["crest"]
@@ -1136,7 +1247,7 @@ def _draw_jockey(ctx, P, NG, J, phase, t, ink, lw, rimc, rs, rd, sh, gait):
     ctx.set_source_rgb(*_col((0.78, 0.80, 0.85), sh)); ctx.set_line_width(2.2); ctx.stroke()
 
     # ponytail
-    if J.get("ponytail", False):
+    if J.get("ponytail", is_hero):
         hb = _add(head, (-18, 6))
         pts = [hb]
         a = R(172)
@@ -1155,6 +1266,8 @@ def _draw_jockey(ctx, P, NG, J, phase, t, ink, lw, rimc, rs, rd, sh, gait):
         _set(ctx, hair); ctx.fill_preserve(); ctx.set_source_rgb(*ink); ctx.set_line_width(lw * 0.6); ctx.stroke()
     # head: face + helmet + goggles
     _jockey_head(ctx, head, crouch, capc, J.get("cap_star", False), skin, ink, lw, rimc, rs, rd, sh, J.get("face"))
+    if callable(J.get("face")):
+        ctx.save(); ctx.translate(*head); J["face"](ctx); ctx.restore()
     # near arm (sleeve with accent stripes)
     ap = limb([sho, elbow, hand2], [11, 9.5, 7], silk)
     ctx.save(); ctx.new_path(); ctx.append_path(ap); ctx.clip()
@@ -1170,9 +1283,14 @@ def _draw_jockey(ctx, P, NG, J, phase, t, ink, lw, rimc, rs, rd, sh, gait):
     ctx.new_path(); ctx.arc(*hand2, 7.5, 0, TAU)
     _set(ctx, _col((0.95, 0.95, 0.95), sh)); ctx.fill_preserve(); ctx.set_source_rgb(*ink); ctx.set_line_width(lw * 0.7); ctx.stroke()
     if J.get("whip"):
-        wa = R(-120 + 25 * math.sin(ph))
-        ctx.new_path(); ctx.move_to(*hand2); ctx.line_to(*_add(hand2, _mul(_dir(wa), 70)))
-        ctx.set_source_rgb(*ink); ctx.set_line_width(3); ctx.stroke()
+        wa = R(150 + 28 * math.sin(ph + 0.6))
+        wt = _add(hand2, _mul(_dir(wa), 88))
+        wm = _add(_lerp2(hand2, wt, 0.5), _mul(_perp(_dir(wa)), 5 * math.cos(ph)))
+        ctx.new_path(); ctx.move_to(*hand2); ctx.curve_to(*wm, *wm, *wt)
+        ctx.set_source_rgb(*ink); ctx.set_line_width(5.5); ctx.stroke()
+        ctx.new_path(); ctx.move_to(*hand2); ctx.curve_to(*wm, *wm, *wt)
+        ctx.set_source_rgb(*_col((0.55, 0.50, 0.52), sh)); ctx.set_line_width(2.5); ctx.stroke()
+        ctx.new_path(); ctx.arc(*wt, 4, 0, TAU); _set(ctx, acc); ctx.fill()
 
 
 def _jockey_head(ctx, c, crouch, capc, star, skin, ink, lw, rimc, rs, rd, sh, face):
@@ -1182,8 +1300,13 @@ def _jockey_head(ctx, c, crouch, capc, star, skin, ink, lw, rimc, rs, rd, sh, fa
     _set(ctx, skin); ctx.fill_preserve(); ctx.set_source_rgb(*ink); ctx.set_line_width(lw * 0.7); ctx.stroke()
     # mouth
     ctx.new_path()
+    if callable(face):
+        face = None
     if face == "shout":
         ctx.arc(13, 13, 3.2, 0, TAU); ctx.set_source_rgb(0.35, 0.08, 0.1); ctx.fill()
+    elif face == "smile":
+        ctx.move_to(9, 12); ctx.curve_to(11, 15.5, 15, 15.5, 17, 12)
+        ctx.set_source_rgb(*ink); ctx.set_line_width(1.5); ctx.stroke()
     else:
         ctx.move_to(10, 14); ctx.line_to(16, 13); ctx.set_source_rgb(*ink); ctx.set_line_width(1.4); ctx.stroke()
     # helmet dome
@@ -1285,12 +1408,19 @@ def _draw_head_closeup(ctx, x, y, scale, *, facing=-1, coat, mane, blaze, blink,
     grad.add_color_stop_rgb(1, *mix_color(base, (0.25, 0.1, 0.12), 0.35))
 
     # far ear (behind)
-    ea = R(-18 * ear)
-    def ear_pts(b0, b1, L, lean, far):
-        tip = (b0[0] - L * math.sin(R(lean) + ea) * 0.6 - 10, b0[1] - L * math.cos(R(lean) + ea))
-        m0 = _add(_lerp2(b0, tip, 0.5), (14, 0)); m1 = _add(_lerp2(b1, tip, 0.5), (-12, 4))
+    def ear_pts(b0, b1, L, phi, far):
+        # phi: angle from "straight back along the skull" (-x) toward the forehead (-y), degrees
+        a = R(phi + 26 * ear)
+        d = (-math.cos(a), -math.sin(a))
+        mid = _lerp2(b0, b1, 0.5)
+        tip = _add(mid, _mul(d, L))
+        n = (-d[1], d[0])
+        w = _len(_sub(b0, b1)) * 0.62
+        m0 = _add(_lerp2(mid, tip, 0.45), _mul(n, -w)); m1 = _add(_lerp2(mid, tip, 0.5), _mul(n, w * 0.9))
+        if _len(_sub(m0, b0)) > _len(_sub(m1, b0)):
+            m0, m1 = m1, m0
         return [b0, m0, tip, m1, b1], tip
-    far_ear, _ = ear_pts((34, -26), (14, -18), 92, 8 + 6 * math.sin(t * 0.7), True)
+    far_ear, _ = ear_pts((34, -24), (12, -20), 80, 62 + 5 * math.sin(t * 0.7), True)
     ctx.new_path(); smooth_path(ctx, [hf(p) for p in far_ear], closed=True, tension=0.45)
     _set(ctx, tuple(c * 0.72 for c in base)); ctx.fill_preserve()
     ctx.set_source_rgb(*ink); ctx.set_line_width(lw); ctx.stroke()
@@ -1360,10 +1490,10 @@ def _draw_head_closeup(ctx, x, y, scale, *, facing=-1, coat, mane, blaze, blink,
     ctx.new_path(); smooth_path(ctx, [hf((230, 90)), hf((250, 96)), hf((262, 94))]); ctx.stroke()
     # nostril
     fl = clamp(nostril)
-    ns = [(262, 30 - 3 * fl), (280, 28 - 4 * fl), (290, 40), (286, 54 + 4 * fl), (276, 50), (274, 40)]
+    ns = [(250, 34 - 3 * fl), (266, 28 - 4 * fl), (278, 36), (276, 52 + 4 * fl), (268, 54 + 3 * fl), (266, 44), (256, 40)]
     ctx.new_path(); smooth_path(ctx, [hf(p) for p in ns], closed=True, tension=0.5)
     ctx.set_source_rgb(*mix_color(ink, (0.4, 0.2, 0.2), 0.3)); ctx.fill()
-    ctx.new_path(); smooth_path(ctx, [hf((256, 26 - 4 * fl)), hf((270, 18 - 5 * fl)), hf((290, 26))])
+    ctx.new_path(); smooth_path(ctx, [hf((240, 30 - 4 * fl)), hf((258, 20 - 5 * fl)), hf((278, 24))])
     ctx.set_source_rgb(*ink); ctx.set_line_width(lw * 0.7); ctx.stroke()
     # mouth / lips
     m = clamp(mouth)
@@ -1385,7 +1515,7 @@ def _draw_head_closeup(ctx, x, y, scale, *, facing=-1, coat, mane, blaze, blink,
         _halter(ctx, hf, ink, lw, sh)
 
     # near ear
-    near_ear, tip = ear_pts((2, -16), (-26, -4), 100, -4 + 5 * math.sin(t * 0.9 + 1), False)
+    near_ear, tip = ear_pts((10, -20), (-26, -2), 104, 42 + 5 * math.sin(t * 0.9 + 1), False)
     ctx.new_path(); smooth_path(ctx, [hf(p) for p in near_ear], closed=True, tension=0.45)
     ep = ctx.copy_path()
     ctx.set_source(grad); ctx.fill()
@@ -1409,8 +1539,8 @@ def _closeup_eye(ctx, hf, ha, blink, look, ink, lw, sh, light):
     b = clamp(blink)
     w, hgt = 33.0, 24.0
     # socket shadow
-    ctx.new_path(); ctx.save(); ctx.scale(1.0, 0.72); ctx.arc(0, 0, w + 9, 0, TAU); ctx.restore()
-    ctx.set_operator(cairo.OPERATOR_MULTIPLY); ctx.set_source_rgba(0.80, 0.66, 0.72, 1.0); ctx.fill()
+    ctx.new_path(); ctx.save(); ctx.translate(0, -2); ctx.scale(1.0, 0.62); ctx.arc(0, 0, w + 6, 0, TAU); ctx.restore()
+    ctx.set_operator(cairo.OPERATOR_MULTIPLY); ctx.set_source_rgba(0.90, 0.80, 0.80, 1.0); ctx.fill()
     ctx.set_operator(cairo.OPERATOR_OVER)
     top = -hgt * (1 - b) + hgt * 0.35 * b
     # eye white/iris region
@@ -1493,7 +1623,7 @@ def _closeup_mane(ctx, crest, hf, t, c, ink, lw, rimc, rs, sh):
             d -= l
     n = 7
     for i in range(n - 1, -1, -1):
-        f0 = 0.06 + i / n * 0.88; f1 = 0.06 + (i + 1.25) / n * 0.88
+        f0 = 0.15 + i / n * 0.8; f1 = 0.15 + (i + 1.25) / n * 0.8
         p0, tg0 = at(f0); p1, tg1 = at(min(f1, 0.99))
         sway = (fbm1(t * 0.9 + i * 0.5, 91) - 0.5) * 2
         L = 120 + 34 * math.sin(i * 1.9) + 26 * (i % 2)

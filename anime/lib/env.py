@@ -1523,17 +1523,15 @@ def _est_build():
     g = _lin(c, 0, 0, 0, EST_CH, [(0, (0.26, 0.15, 0.28)), (0.06, (0.12, 0.08, 0.17)), (0.3, (0.06, 0.05, 0.11)),
                                    (1, (0.035, 0.03, 0.07))])
     c.set_source(g); c.paint()
-    # bay water on the right-far
-    c.save()
-    c.move_to(EST_CX + 300, 0); c.line_to(EST_CW, 0); c.line_to(EST_CW, 150); c.curve_to(2100, 120, 1800, 40, EST_CX + 300, 0)
-    c.close_path()
-    g = _lin(c, 0, 0, 0, 150, [(0, (0.3, 0.2, 0.35)), (1, (0.08, 0.07, 0.16))])
-    c.set_source(g); c.fill_preserve(); c.clip()
-    for i in range(160):     # light reflections on water: vertical shimmer streaks
-        x = r.uniform(EST_CX + 300, EST_CW); y = r.uniform(0, 140)
-        c.set_source_rgba(1, r.uniform(0.6, 0.9), 0.6, r.uniform(0.1, 0.35))
-        c.rectangle(x, y, 1.5, r.uniform(4, 14)); c.fill()
-    c.restore()
+    # Tokyo bay / canal water band right below the skyline
+    WB = 34
+    g = _lin(c, 0, 0, 0, WB, [(0, (0.22, 0.14, 0.26)), (1, (0.07, 0.06, 0.13))])
+    c.set_source(g); c.rectangle(0, 0, EST_CW, WB); c.fill()
+    c.move_to(0, WB); 
+    for i in range(0, EST_CW + 40, 40):
+        c.line_to(i, WB + 6 * math.sin(i * 0.01) + 4 * math.sin(i * 0.037))
+    c.line_to(EST_CW, WB + 20); c.line_to(0, WB + 20); c.close_path()
+    c.set_source_rgb(0.08, 0.06, 0.12); c.fill()
     # streets converging to the vanishing point with sodium lights
     for i in range(40):
         X = r.uniform(-4000, 4000)
@@ -1582,8 +1580,8 @@ def _est_build():
         dd = clamp((Z - 770) / 3000)
         c.set_source_rgb(0.04 + 0.12 * dd, 0.035 + 0.07 * dd, 0.08 + 0.14 * dd)
         c.rectangle(u - bw / 2, v - bh, bw, bh); c.fill()
-        c.set_source_rgba(0.13 + 0.1 * dd, 0.1 + 0.05 * dd, 0.2 + 0.1 * dd, 1)       # roof seen from above
-        c.rectangle(u - bw / 2, v - bh - bw * 0.25, bw, bw * 0.25); c.fill()
+        c.set_source_rgba(0.9, 0.55, 0.65, 0.12 + 0.1 * dd)       # rim from city glow
+        c.rectangle(u - bw / 2, v - bh, bw, 1.2); c.fill()
         nwx = max(1, int(bw / 2.6)); nwy = max(1, int(bh / 3.0))
         pc = r.choice([(1, 0.85, 0.6), (0.85, 0.92, 1), (1, 0.75, 0.45)])
         for a in range(nwx):
@@ -1641,7 +1639,7 @@ def _est_build():
     c.save()
     _oval_poly(c, -2)
     g = _lin(c, 0, _eproj(0, OVAL_Z0 + OVAL_R)[1], 0, _eproj(0, OVAL_Z0 - OVAL_R)[1],
-             [(0, (0.12, 0.2, 0.19)), (0.5, (0.09, 0.16, 0.16)), (1, (0.07, 0.12, 0.13))])
+             [(0, (0.09, 0.15, 0.16)), (0.5, (0.065, 0.12, 0.13)), (1, (0.05, 0.09, 0.11))])
     c.set_source(g); c.fill_preserve(); c.clip()
     # mowing stripes
     for k in range(-14, 15):
@@ -1662,6 +1660,17 @@ def _est_build():
     for i in range(10):
         x = pu + r.uniform(-50, 50); y = pv + r.uniform(-18, 18)
         c.set_source_rgba(1, 0.9, 0.7, 0.4); c.rectangle(x, y, r.uniform(4, 12), 1); c.fill()
+    # lit walkways with lamps across the infield
+    for (Xa, Za, Xb, Zb) in ((-150, OVAL_Z0 - 60, 150, OVAL_Z0 - 60), (0, OVAL_Z0 - 100, 0, OVAL_Z0 + 100),
+                             (-120, OVAL_Z0 + 60, 120, OVAL_Z0 + 60)):
+        ua, va = _eproj(Xa, Za); ub, vb = _eproj(Xb, Zb)
+        c.set_source_rgba(0.55, 0.5, 0.45, 0.35); c.set_line_width(2.2); c.move_to(ua, va); c.line_to(ub, vb); c.stroke()
+        for k in range(9):
+            fk = k / 8
+            X = Xa + (Xb - Xa) * fk; Z = Za + (Zb - Za) * fk
+            u, v = _eproj(X, Z)
+            _glow(c, u, v, 9, (1, 0.8, 0.5), 0.55)
+            c.set_source_rgb(1, 0.92, 0.75); c.arc(u, v, 1.1, 0, TAU); c.fill()
     # inner track (training) : thin sand loop
     _oval_poly(c, -34)
     c.set_source_rgba(0.5, 0.4, 0.32, 0.55); c.set_line_width(5); c.stroke()
@@ -1720,6 +1729,12 @@ def _est_build():
             c.set_source_rgba(*colr, 0.85)
             c.arc(u, v, 1.6, 0, TAU); c.fill()
             _glow(c, u, v, 8, colr, 0.35)
+    # atmospheric light dome over the course (floodlight scatter in the haze)
+    c.save(); c.set_operator(cairo.OPERATOR_ADD)
+    cu, cv = _eproj(0, OVAL_Z0 + 40, 30)
+    c.translate(cu, cv); c.scale(1, 0.5)
+    _glow(c, 0, 0, 1000, (0.5, 0.36, 0.3), 0.3)
+    c.restore()
     # ---- floodlight towers ring (drawn last, far to near) ----
     towers = []
     for i in range(22):
@@ -1735,6 +1750,19 @@ def _est_build():
         sc = f / Z
         c.set_source_rgba(0.18, 0.17, 0.22, 1); c.set_line_width(max(1.0, 0.9 * sc))
         c.move_to(u, v); c.line_to(u2, v2); c.stroke()
+        # light cone toward the track centre
+        cx_, cz_ = 0.0, OVAL_Z0
+        dx_, dz_ = cx_ - X, cz_ - Z
+        dl = math.hypot(dx_, dz_) or 1
+        tx_, tz_ = X + dx_ / dl * 60, Z + dz_ / dl * 60
+        ut, vt = _eproj(tx_, tz_)
+        px_, pz_ = -dz_ / dl * 22, dx_ / dl * 22
+        ul, vl = _eproj(tx_ + px_, tz_ + pz_); ur, vr = _eproj(tx_ - px_, tz_ - pz_)
+        g = cairo.LinearGradient(u2, v2, ut, vt)
+        g.add_color_stop_rgba(0, 1, 0.92, 0.75, 0.16); g.add_color_stop_rgba(1, 1, 0.92, 0.75, 0)
+        c.save(); c.set_operator(cairo.OPERATOR_ADD)
+        c.move_to(u2, v2); c.line_to(ul, vl); c.line_to(ur, vr); c.close_path(); c.set_source(g); c.fill()
+        c.restore()
         # light pool on the ground
         c.save(); c.translate(u, v); c.scale(1, 0.33)
         _glow(c, 0, 0, 50 * sc, (1, 0.9, 0.7), 0.3)
@@ -1806,6 +1834,23 @@ def draw_racecourse_establishing(ctx, t, cam=0.0, *, horses=False, race_s=0.0, f
     ctx.set_source_surface(E_["surf"], 0, 0)
     ctx.get_source().set_filter(cairo.FILTER_BILINEAR)
     ctx.paint()
+    ctx.restore()
+    # skyline reflection on the water
+    ctx.save()
+    ctx.rectangle(-200, hz, W + 400, 34 * zoom); ctx.clip()
+    ctx.translate(0, 2 * hz + 2); ctx.scale(1, -1)
+    ctx.push_group()
+    draw_city(ctx, t, hz + 1, cam_x=0, parallax=0, scale=0.36 * zoom, lights=1.0, tower=True, monorail=False, haze=0)
+    ctx.pop_group_to_source()
+    ctx.paint_with_alpha(0.35)
+    ctx.restore()
+    ctx.save()
+    for i in range(18):      # ripple lines
+        yy = hz + 2 + (i / 18) ** 1.3 * 32 * zoom
+        ctx.set_source_rgba(0.06, 0.05, 0.12, 0.5); ctx.rectangle(-200, yy, W + 400, 0.8 + i * 0.08); ctx.fill()
+    ctx.restore()
+    ctx.save()
+    ctx.translate(ox, hz); ctx.scale(zoom, zoom)
     # dynamic: floodlight shimmer, horse dots, stand flashes
     for i, (u, v, sc) in enumerate(E_["heads"]):
         a = 0.3 + 0.08 * math.sin(t * 3 + i)
@@ -2098,3 +2143,881 @@ def draw_starting_gate(ctx, t, x, y, scale=1.0, open=0.0, n_stalls=8, view="fron
         draw_starting_gate_back(ctx, t, x, y, scale, open, n_stalls, view)
     if part in ("front", "all"):
         draw_starting_gate_front(ctx, t, x, y, scale, open, n_stalls, view)
+
+
+# ======================================================================
+#  STABLE (厩舎) interior
+# ======================================================================
+LAMP_PIVOT = (1010.0, 0.0)
+LAMP_LEN = 250.0
+WIN_RECT = (1440, 250, 280, 230)      # x, y, w, h of the small window
+_STB = {}
+
+
+def _wood_planks(h, w, board_w=(70, 110), seed=0, vertical=True, base=(0.42, 0.26, 0.15)):
+    """numpy RGB albedo of weathered wooden boards."""
+    r = np.random.default_rng(seed)
+    if not vertical:
+        return np.transpose(_wood_planks(w, h, board_w, seed, True, base), (1, 0, 2))
+    img = np.zeros((h, w, 3), np.float32)
+    grain = _fbm2(h, w, (6, 90), 4, seed=seed + 1)
+    fine = _fbm2(h, w, (30, 300), 2, seed=seed + 2)
+    x = 0
+    boards = []
+    while x < w:
+        bw = int(r.integers(*board_w))
+        boards.append((x, min(w, x + bw), r.uniform(0.75, 1.2), r.uniform(-0.04, 0.04)))
+        x += bw
+    b = np.array(base, np.float32)
+    for (x0, x1, tone, hue) in boards:
+        seg = slice(x0, x1)
+        g = grain[:, seg]; f = fine[:, seg]
+        v = tone * (0.8 + 0.35 * (g - 0.5) + 0.25 * (f - 0.5))
+        img[:, seg] = b * v[..., None]
+        img[:, seg, 0] *= 1 + hue
+        # gap/shadow between boards
+        img[:, x0:x0 + 3] *= 0.35
+        img[:, x0 + 3:x0 + 5] *= 0.7
+        if x1 - 2 > x0:
+            img[:, x1 - 2:x1] = np.minimum(1, img[:, x1 - 2:x1] * 1.25)   # lit edge
+        # knots
+        for k in range(int(r.integers(0, 3))):
+            ky = int(r.integers(10, h - 10)); kx = int(r.integers(x0 + 8, max(x0 + 9, x1 - 8)))
+            yy, xx = np.ogrid[-12:13, -8:9]
+            m = np.exp(-(yy ** 2 / 60.0 + xx ** 2 / 14.0))
+            ys = slice(max(0, ky - 12), min(h, ky + 13)); xs = slice(max(0, kx - 8), min(w, kx + 9))
+            mm = m[:ys.stop - ys.start, :xs.stop - xs.start]
+            img[ys, xs] *= (1 - 0.45 * mm)[..., None]
+    return img
+
+
+def _stable_build():
+    Wc, Hc = W, H
+    floor_y = 800
+    # ---------- albedo pass (numpy wood + cairo objects) ----------
+    wall = _wood_planks(Hc, Wc, (80, 120), seed=3, base=(0.46, 0.29, 0.17))
+    alb = np.concatenate([wall, np.ones((Hc, Wc, 1), np.float32)], 2)
+    s = _np_to_surface(alb)
+    c = cairo.Context(s)
+    r = rng(31)
+    # horizontal wall rails / beams
+    for yb, hb in ((150, 44), (560, 22)):
+        beam = _wood_planks(hb, Wc, (400, 700), seed=yb, vertical=False, base=(0.36, 0.22, 0.13))
+        bs = _np_to_surface(np.concatenate([beam, np.ones((hb, Wc, 1), np.float32)], 2))
+        c.set_source_surface(bs, 0, yb); c.paint()
+        c.set_source_rgba(0, 0, 0, 0.35); c.rectangle(0, yb + hb, Wc, 8); c.fill()
+    # ceiling: dark rafters
+    g = _lin(c, 0, 0, 0, 150, [(0, (0.08, 0.05, 0.04)), (1, (0.2, 0.12, 0.08))])
+    c.set_source(g); c.rectangle(0, 0, Wc, 150); c.fill()
+    for i in range(-2, 12):
+        x0 = i * 190
+        c.set_source_rgb(0.12, 0.075, 0.05)
+        c.move_to(x0, 150); c.line_to(x0 + 28, 150); c.line_to(x0 + 28 + (x0 - 960) * 0.35, 0); c.line_to(x0 + (x0 - 960) * 0.35, 0)
+        c.close_path(); c.fill()
+    c.set_source_rgb(0.18, 0.11, 0.07); c.rectangle(0, 40, Wc, 30); c.fill()
+    # ---- window frame (glass painted later as emissive) ----
+    wx, wy, ww, wh = WIN_RECT
+    c.set_source_rgb(0.30, 0.19, 0.11)
+    c.rectangle(wx - 22, wy - 22, ww + 44, wh + 44); c.fill()
+    c.set_source_rgb(0.5, 0.33, 0.2); c.rectangle(wx - 30, wy + wh + 14, ww + 60, 16); c.fill()    # sill
+    # ---- floor ----
+    fl = _wood_planks(Hc - floor_y, Wc, (140, 220), seed=9, vertical=False, base=(0.34, 0.24, 0.16))
+    fs = _np_to_surface(np.concatenate([fl * 0.9, np.ones((Hc - floor_y, Wc, 1), np.float32)], 2))
+    c.set_source_surface(fs, 0, floor_y); c.paint()
+    c.set_source_rgba(0.05, 0.03, 0.02, 0.6); c.rectangle(0, floor_y - 4, Wc, 10); c.fill()   # skirting shadow
+    # straw scattered
+    for i in range(2600):
+        x = r.uniform(-20, Wc); y = floor_y + r.random() ** 0.7 * (Hc - floor_y)
+        L = r.uniform(8, 30) * (0.6 + (y - floor_y) / 400)
+        a = r.uniform(-0.5, 0.5) + (math.pi if r.random() < 0.5 else 0)
+        col = r.choice([(0.85, 0.7, 0.35), (0.75, 0.58, 0.28), (0.95, 0.82, 0.5), (0.6, 0.45, 0.22)])
+        c.set_source_rgba(*col, r.uniform(0.5, 0.95)); c.set_line_width(r.uniform(1.0, 2.2))
+        c.move_to(x, y); c.line_to(x + math.cos(a) * L, y + math.sin(a) * L * 0.3); c.stroke()
+    # ---- left: stall front (horse's stall) ----
+    sx0, sx1 = -10, 640
+    front = _wood_planks(Hc, sx1 - sx0, (60, 90), seed=21, base=(0.40, 0.24, 0.14))
+    fs = _np_to_surface(np.concatenate([front, np.ones((Hc, sx1 - sx0, 1), np.float32)], 2))
+    c.save(); c.rectangle(sx0, 0, sx1 - sx0, 1000); c.clip(); c.set_source_surface(fs, sx0, 0); c.paint(); c.restore()
+    # stall opening (upper half open, dark interior)
+    ox0, ox1, oy0, oy1 = 60, 560, 250, 640
+    g = _lin(c, 0, oy0, 0, oy1, [(0, (0.05, 0.035, 0.03)), (0.7, (0.1, 0.07, 0.05)), (1, (0.16, 0.11, 0.07))])
+    c.set_source(g); c.rectangle(ox0, oy0, ox1 - ox0, oy1 - oy0); c.fill()
+    inner = _wood_planks(oy1 - oy0, ox1 - ox0, (70, 100), seed=41, base=(0.2, 0.12, 0.07))
+    ins = _np_to_surface(np.concatenate([inner, np.full((oy1 - oy0, ox1 - ox0, 1), 0.55, np.float32)], 2))
+    c.set_source_surface(ins, ox0, oy0); c.paint()
+    g = _lin(c, ox0, 0, ox1, 0, [(0, (0, 0, 0, 0.55)), (0.5, (0, 0, 0, 0.15)), (1, (0, 0, 0, 0.45))])
+    c.set_source(g); c.rectangle(ox0, oy0, ox1 - ox0, oy1 - oy0); c.fill()
+    c.set_source_rgba(0.12, 0.07, 0.04, 0.9); c.rectangle(ox0 + 40, oy0 + 60, 200, 14); c.fill()   # hay rack
+    for k in range(10):
+        c.rectangle(ox0 + 44 + k * 20, oy0 + 74, 4, 60); c.fill()
+    for i in range(60):   # hay glimpses inside
+        x = r.uniform(ox0, ox1); y = r.uniform(oy1 - 60, oy1)
+        c.set_source_rgba(0.6, 0.45, 0.2, 0.25); c.set_line_width(1.2)
+        c.move_to(x, y); c.line_to(x + r.uniform(-14, 14), y - r.uniform(2, 8)); c.stroke()
+    # lower Dutch door
+    dy0, dy1 = 640, 985
+    door = _wood_planks(dy1 - dy0, ox1 - ox0, (55, 75), seed=23, base=(0.46, 0.28, 0.16))
+    ds = _np_to_surface(np.concatenate([door, np.ones((dy1 - dy0, ox1 - ox0, 1), np.float32)], 2))
+    c.set_source_surface(ds, ox0, dy0); c.paint()
+    c.set_source_rgb(0.3, 0.18, 0.1)
+    for (xa, ya, xb, yb) in ((ox0, dy0, ox1, dy0 + 24), (ox0, dy1 - 24, ox1, dy1)):
+        c.rectangle(xa, ya, xb - xa, yb - ya); c.fill()
+    c.set_line_width(24); c.set_line_cap(cairo.LINE_CAP_BUTT)
+    c.move_to(ox0 + 12, dy0 + 24); c.line_to(ox1 - 12, dy1 - 24); c.stroke()
+    c.move_to(ox1 - 12, dy0 + 24); c.line_to(ox0 + 12, dy1 - 24); c.stroke()
+    c.set_source_rgba(1, 0.85, 0.6, 0.25); c.set_line_width(2)
+    c.move_to(ox0, dy0 + 1); c.line_to(ox1, dy0 + 1); c.stroke()
+    # iron latch & hinges
+    c.set_source_rgb(0.12, 0.12, 0.13)
+    for yy in (dy0 + 50, dy1 - 60):
+        c.rectangle(ox0 - 4, yy, 70, 12); c.fill()
+    c.rectangle(ox1 - 60, dy0 + 150, 50, 10); c.fill()
+    # name plate
+    c.set_source_rgb(0.86, 0.78, 0.6); c.rectangle(ox0 + 150, dy0 + 60, 200, 64); c.fill()
+    c.set_source_rgb(0.35, 0.22, 0.12); c.set_line_width(4); c.rectangle(ox0 + 150, dy0 + 60, 200, 64); c.stroke()
+    c.select_font_face("AnimeSerif"); c.set_font_size(38)
+    xb_, yb_, tw, th, xa, ya = c.text_extents("ハルカゼ")
+    c.set_source_rgb(0.15, 0.08, 0.05); c.move_to(ox0 + 250 - xa / 2, dy0 + 106); c.show_text("ハルカゼ")
+    # posts & top beam of stall front
+    c.set_source_rgb(0.3, 0.18, 0.1)
+    for px in (ox0 - 40, ox1):
+        c.rectangle(px, 170, 40, 830); c.fill()
+        c.set_source_rgba(1, 0.8, 0.55, 0.2); c.rectangle(px + 34, 170, 5, 830); c.fill(); c.set_source_rgb(0.3, 0.18, 0.1)
+    c.rectangle(ox0 - 40, oy0 - 40, ox1 - ox0 + 80, 40); c.fill()
+    # horseshoe above stall opening
+    c.set_source_rgb(0.5, 0.48, 0.45); c.set_line_width(9)
+    c.arc_negative(310, oy0 - 70, 22, math.pi * 0.15, math.pi * 0.85); c.stroke()
+    # halter rope on the post
+    c.set_source_rgb(0.7, 0.2, 0.18); c.set_line_width(6)
+    c.move_to(ox1 + 20, 420); c.curve_to(ox1 + 70, 520, ox1 + 30, 620, ox1 + 60, 700); c.stroke()
+    c.arc(ox1 + 20, 420, 8, 0, TAU); c.set_source_rgb(0.2, 0.2, 0.2); c.fill()
+    # ---- tack on the back wall ----
+    for i, bx in enumerate((830, 930, 1330)):
+        _bridle(c, bx, 380 + i * 12, 1.0 if i != 2 else 0.9, r)
+    _saddle(c, 1120, 640)
+    _poster(c, 1105, 225, 150, 200)
+    _bucket(c, 740, 960)
+    # ---- hay bales right ----
+    for (bx, by, bw, bh) in ((1560, 770, 330, 150), (1460, 880, 330, 160), (1780, 880, 330, 160), (1640, 660, 300, 120)):
+        _hay_bale(c, r, bx, by, bw, bh)
+    s.flush()
+    albedo = _surface_to_np(s)       # premul BGRA
+    # ---------- lighting ----------
+    yy, xx = np.mgrid[0:Hc, 0:Wc].astype(np.float32)
+    lx, ly = LAMP_PIVOT[0], LAMP_PIVOT[1] + LAMP_LEN + 40
+    d2 = ((xx - lx) ** 2 + ((yy - ly) * 1.15) ** 2)
+    lamp = 2.1 / (1 + d2 / (400.0 ** 2)) ** 1.25
+    # the lamp shade blocks light going up: darker ceiling
+    lamp *= np.clip(0.35 + (yy - (ly - 60)) / 200.0, 0.35, 1.0)
+    warm = np.array([1.0, 0.72, 0.42], np.float32)
+    amb = np.array([0.36, 0.27, 0.33], np.float32)
+    # warm bounce light from the floor / hay (fills the left stall a little)
+    bounce = 0.45 * np.exp(-(((xx - 700) / 900) ** 2 + ((yy - 900) / 500) ** 2))
+    amb = amb + bounce[..., None] * np.array([0.5, 0.32, 0.16], np.float32)
+    L = amb + lamp[..., None] * warm
+    # cool moonlight shaft from the window going down-left
+    wx, wy, ww, wh = WIN_RECT
+    t_ = (yy - wy) / 600.0
+    shaft = ((xx > wx - t_ * 380) & (xx < wx + ww - t_ * 380) & (yy > wy)).astype(np.float32)
+    shaft = _ndi.gaussian_filter(shaft, 18) * np.clip(1 - t_, 0, 1)
+    L = L + shaft[..., None] * np.array([0.22, 0.3, 0.55], np.float32)
+    # vignette / falloff at the far edges
+    vig = np.clip(1.15 - 0.45 * (((xx - 960) / 1100) ** 2 + ((yy - 520) / 700) ** 2), 0.45, 1)
+    L = L * vig[..., None]
+    lit = albedo.copy()
+    lit[..., 0] *= L[..., 2]; lit[..., 1] *= L[..., 1]; lit[..., 2] *= L[..., 0]
+    # soft tone curve (keeps highlights warm, not clipped)
+    lit[..., :3] = 1 - np.exp(-lit[..., :3] * 1.25)
+    out = _np_premul_to_surface(lit)
+    c = cairo.Context(out)
+    # ---------- emissive: window with night sky ----------
+    _stable_window(c)
+    return dict(surf=out)
+
+
+def _bridle(c, x, y, s, r):
+    c.save()
+    c.set_source_rgb(0.25, 0.25, 0.27); c.arc(x, y, 7 * s, 0, TAU); c.fill()   # peg
+    c.set_source_rgb(0.32, 0.17, 0.09); c.set_line_width(7 * s); c.set_line_cap(cairo.LINE_CAP_ROUND)
+    c.move_to(x, y); c.curve_to(x - 40 * s, y + 60 * s, x - 36 * s, y + 140 * s, x - 10 * s, y + 190 * s); c.stroke()
+    c.move_to(x, y); c.curve_to(x + 40 * s, y + 60 * s, x + 36 * s, y + 140 * s, x + 10 * s, y + 190 * s); c.stroke()
+    c.move_to(x - 34 * s, y + 90 * s); c.line_to(x + 34 * s, y + 90 * s); c.stroke()      # browband
+    c.set_source_rgb(0.75, 0.72, 0.68); c.set_line_width(4 * s)
+    c.arc(x - 12 * s, y + 200 * s, 12 * s, 0, TAU); c.stroke(); c.arc(x + 12 * s, y + 200 * s, 12 * s, 0, TAU); c.stroke()
+    c.set_source_rgb(0.32, 0.17, 0.09); c.set_line_width(5 * s)
+    c.move_to(x - 12 * s, y + 212 * s); c.curve_to(x - 30 * s, y + 300 * s, x + 30 * s, y + 300 * s, x + 12 * s, y + 212 * s); c.stroke()
+    c.restore()
+
+
+def _poster(c, x, y, w, h):
+    """Faded Twinkle race poster pinned on the wall."""
+    c.save()
+    c.translate(x + w / 2, y + h / 2); c.rotate(-0.03); c.translate(-w / 2, -h / 2)
+    c.set_source_rgba(0, 0, 0, 0.35); c.rectangle(4, 6, w, h); c.fill()
+    g = _lin(c, 0, 0, 0, h, [(0, (0.12, 0.14, 0.38)), (0.6, (0.55, 0.3, 0.55)), (1, (0.95, 0.6, 0.45))])
+    c.set_source(g); c.rectangle(0, 0, w, h); c.fill()
+    for k in range(12):
+        c.set_source_rgba(1, 1, 0.9, 0.8); c.arc(10 + (k * 37) % (w - 20), 10 + (k * 23) % 70, 1.5, 0, TAU); c.fill()
+    # big star + horseshoe emblem
+    c.save(); c.translate(w * 0.5, h * 0.5)
+    c.set_source_rgba(1, 0.85, 0.5, 0.9); c.set_line_width(9)
+    c.arc_negative(0, 6, 34, math.pi * 0.2, math.pi * 0.8); c.stroke()
+    c.set_source_rgb(1, 0.95, 0.8)
+    for k in range(10):
+        a_ = -math.pi / 2 + k * math.pi / 5
+        rr_ = 20 if k % 2 == 0 else 8
+        (c.move_to if k == 0 else c.line_to)(math.cos(a_) * rr_, -4 + math.sin(a_) * rr_)
+    c.close_path(); c.fill()
+    c.restore()
+    c.select_font_face("AnimeDela"); c.set_font_size(22)
+    xb, yb, tw, th, xa, ya = c.text_extents("TWINKLE")
+    c.set_source_rgb(1, 0.85, 0.9); c.move_to(w / 2 - xa / 2, h - 18); c.show_text("TWINKLE")
+    c.set_source_rgba(1, 0.95, 0.85, 0.15); c.rectangle(0, 0, w, h); c.fill()      # fading
+    c.set_source_rgb(0.7, 0.7, 0.72)
+    for (px, py) in ((6, 6), (w - 6, 6)):
+        c.arc(px, py, 3, 0, TAU); c.fill()
+    c.restore()
+
+
+def _saddle(c, x, y):
+    c.save()
+    c.set_source_rgb(0.25, 0.25, 0.27); c.rectangle(x - 8, y - 20, 16, 60); c.fill()       # rack arm
+    # saddle cloth (white with red trim - Mizuki's colours) with number 14
+    c.set_source_rgb(0.9, 0.9, 0.92)
+    c.move_to(x - 125, y - 30); c.line_to(x + 115, y - 40); c.line_to(x + 110, y + 90); c.line_to(x - 118, y + 96); c.close_path(); c.fill()
+    c.set_source_rgb(*PAL["silk_accent"])
+    c.move_to(x - 118, y + 82); c.line_to(x + 110, y + 76); c.line_to(x + 110, y + 90); c.line_to(x - 118, y + 96); c.close_path(); c.fill()
+    c.set_source_rgba(0.1, 0.1, 0.12, 0.85); c.select_font_face("AnimeSans"); c.set_font_size(38)
+    c.move_to(x + 30, y + 64); c.show_text("14")
+    # flap
+    g = _lin(c, 0, y - 40, 0, y + 60, [(0, (0.5, 0.28, 0.13)), (1, (0.32, 0.17, 0.08))])
+    c.set_source(g)
+    c.move_to(x - 70, y - 40); c.line_to(x + 10, y - 40); c.curve_to(x + 20, y + 10, x + 10, y + 50, x - 10, y + 62)
+    c.line_to(x - 60, y + 62); c.curve_to(x - 80, y + 40, x - 82, y - 10, x - 70, y - 40); c.close_path(); c.fill()
+    c.set_source_rgba(1, 0.8, 0.55, 0.25); c.set_line_width(2)
+    c.move_to(x - 66, y - 34); c.curve_to(x - 76, y - 5, x - 74, y + 36, x - 58, y + 56); c.stroke()
+    # seat, pommel & cantle
+    g = _lin(c, 0, y - 90, 0, y - 30, [(0, (0.7, 0.42, 0.2)), (1, (0.42, 0.23, 0.1))])
+    c.set_source(g)
+    c.move_to(x - 120, y - 30); c.curve_to(x - 118, y - 62, x - 104, y - 74, x - 92, y - 70)
+    c.curve_to(x - 60, y - 48, x - 10, y - 44, x + 30, y - 52)
+    c.curve_to(x + 70, y - 62, x + 88, y - 92, x + 104, y - 88); c.curve_to(x + 116, y - 70, x + 118, y - 50, x + 112, y - 36)
+    c.close_path(); c.fill()
+    c.set_source_rgba(1, 0.85, 0.6, 0.5); c.set_line_width(2.5)
+    c.move_to(x - 104, y - 72); c.curve_to(x - 60, y - 50, x - 10, y - 46, x + 30, y - 54); c.curve_to(x + 70, y - 64, x + 88, y - 92, x + 104, y - 88)
+    c.stroke()
+    c.restore()
+
+
+def _bucket(c, x, y):
+    g = _lin(c, x - 50, 0, x + 50, 0, [(0, (0.3, 0.32, 0.36)), (0.4, (0.62, 0.64, 0.68)), (1, (0.25, 0.26, 0.3))])
+    c.set_source(g)
+    c.move_to(x - 55, y - 100); c.line_to(x + 55, y - 100); c.line_to(x + 44, y); c.line_to(x - 44, y); c.close_path(); c.fill()
+    c.set_source_rgb(0.7, 0.72, 0.75); c.save(); c.translate(x, y - 100); c.scale(1, 0.25); c.arc(0, 0, 55, 0, TAU); c.restore()
+    c.set_line_width(3); c.stroke()
+    c.set_source_rgba(0, 0, 0, 0.4); c.save(); c.translate(x, y); c.scale(1, 0.2); c.arc(0, 0, 60, 0, TAU); c.restore(); c.fill()
+
+
+def _hay_bale(c, r, x, y, w, h):
+    def rr_path():
+        rad = 16
+        c.new_path()
+        c.arc(x + rad, y + rad, rad, math.pi, 1.5 * math.pi); c.arc(x + w - rad, y + rad, rad, 1.5 * math.pi, 0)
+        c.arc(x + w - rad, y + h - rad, rad, 0, 0.5 * math.pi); c.arc(x + rad, y + h - rad, rad, 0.5 * math.pi, math.pi)
+        c.close_path()
+    rr_path()
+    g = _lin(c, 0, y, 0, y + h, [(0, (0.98, 0.84, 0.5)), (0.25, (0.88, 0.7, 0.36)), (1, (0.5, 0.36, 0.17))])
+    c.set_source(g); c.fill()
+    c.save(); rr_path(); c.clip()
+    for i in range(int(w * h / 22)):
+        px = r.uniform(x - 10, x + w); py = r.uniform(y, y + h)
+        f = (py - y) / h
+        col = r.choice([(1.0, 0.92, 0.62), (0.72, 0.55, 0.25), (0.9, 0.76, 0.42), (0.55, 0.4, 0.18)])
+        a = r.uniform(0.35, 0.75)
+        c.set_source_rgba(col[0] * (1 - 0.4 * f), col[1] * (1 - 0.4 * f), col[2] * (1 - 0.4 * f), a)
+        c.set_line_width(r.uniform(0.9, 2.0))
+        c.move_to(px, py); c.line_to(px + r.uniform(8, 26), py + r.uniform(-4, 4)); c.stroke()
+    g = _lin(c, 0, y, 0, y + 24, [(0, (1, 0.95, 0.75, 0.5)), (1, (1, 0.95, 0.75, 0))])
+    c.set_source(g); c.rectangle(x, y, w, 24); c.fill()
+    c.restore()
+    c.set_source_rgba(0.35, 0.18, 0.08, 0.85); c.set_line_width(4)
+    for f in (0.28, 0.72):
+        c.move_to(x + w * f, y + 2); c.curve_to(x + w * f + 4, y + h * 0.4, x + w * f - 4, y + h * 0.7, x + w * f, y + h - 2); c.stroke()
+    for i in range(60):   # stray straws on the edges
+        px = x + r.uniform(0, w); py = y + r.choice((0, 0, h))
+        c.set_source_rgba(0.95, 0.82, 0.5, 0.8); c.set_line_width(1.4)
+        c.move_to(px, py); c.line_to(px + r.uniform(-14, 14), py + r.uniform(-12, 8)); c.stroke()
+
+
+def _stable_window(c):
+    wx, wy, ww, wh = WIN_RECT
+    c.save()
+    c.rectangle(wx, wy, ww, wh); c.clip()
+    g = _lin(c, 0, wy, 0, wy + wh, [(0, (0.04, 0.05, 0.16)), (0.6, (0.14, 0.1, 0.3)), (1, (0.45, 0.25, 0.38))])
+    c.set_source(g); c.paint()
+    r = rng(12)
+    for i in range(40):
+        c.set_source_rgba(1, 1, 1, r.uniform(0.3, 0.9)); c.arc(wx + r.uniform(0, ww), wy + r.uniform(0, wh * 0.6), r.uniform(0.6, 1.4), 0, TAU); c.fill()
+    # distant floodlights & grandstand glow on the horizon
+    _glow(c, wx + ww * 0.55, wy + wh * 0.95, 180, (1.0, 0.8, 0.55), 0.55)
+    for k, fx in enumerate((0.25, 0.6, 0.88)):
+        px, py = wx + ww * fx, wy + wh * (0.62 + 0.04 * k)
+        c.set_source_rgba(0.1, 0.1, 0.15, 1); c.rectangle(px - 1, py, 2, wh); c.fill()
+        _glow(c, px, py, 46, FLOOD, 0.7)
+        c.set_source_rgb(1, 1, 0.95); c.rectangle(px - 6, py - 3, 12, 6); c.fill()
+    # tree silhouettes
+    c.set_source_rgb(0.03, 0.04, 0.07)
+    for i in range(14):
+        c.arc(wx + r.uniform(-20, ww + 20), wy + wh + r.uniform(-50, 0), r.uniform(18, 36), 0, TAU); c.fill()
+    c.restore()
+    # muntins
+    c.set_source_rgb(0.24, 0.15, 0.09)
+    c.rectangle(wx + ww / 2 - 6, wy, 12, wh); c.fill()
+    c.rectangle(wx, wy + wh / 2 - 6, ww, 12); c.fill()
+    # glass sheen
+    c.save(); c.rectangle(wx, wy, ww, wh); c.clip()
+    g = _lin(c, wx, wy, wx + ww, wy + wh, [(0, (1, 1, 1, 0)), (0.35, (1, 1, 1, 0.1)), (0.45, (1, 1, 1, 0)), (1, (1, 1, 1, 0))])
+    c.set_source(g); c.paint(); c.restore()
+
+
+def _stable():
+    if not _STB:
+        _STB.update(_stable_build())
+    return _STB
+
+
+def draw_stable(ctx, t, *, lamp_swing=0.0, dust=1.0, night_window=True, lamp_on=1.0):
+    """Warm old wooden stable interior. Left third: stall opening (horse head enters
+    from the left); centre/right: aisle for characters. lamp_swing = swing amplitude
+    (0..1, ~0.12 rad max); dust = amount of floating dust motes."""
+    S = _stable()
+    _blit(ctx, S["surf"], 0, 0)
+    if night_window:
+        wx, wy, ww, wh = WIN_RECT
+        for k, fx in enumerate((0.25, 0.6, 0.88)):      # twinkle of distant floodlights
+            px, py = wx + ww * fx, wy + wh * (0.62 + 0.04 * k)
+            ctx.save(); ctx.rectangle(wx, wy, ww, wh); ctx.clip()
+            _glow(ctx, px, py, 30, FLOOD, 0.25 + 0.15 * math.sin(t * 5 + k))
+            ctx.restore()
+    ang = lamp_swing * 0.12 * math.sin(t * 1.9)
+    px, py = LAMP_PIVOT
+    lx = px + math.sin(ang) * LAMP_LEN
+    ly = py + math.cos(ang) * LAMP_LEN
+    # dynamic light shift (small, follows the swing)
+    dx = lx - px
+    if abs(dx) > 0.5:
+        ctx.save(); ctx.set_operator(cairo.OPERATOR_ADD)
+        _glow(ctx, lx + dx * 2.0, ly + 260, 700, (0.35, 0.22, 0.1), 0.35 * min(1, abs(dx) / 30))
+        ctx.restore()
+    # cord
+    ctx.set_source_rgb(0.08, 0.06, 0.05); ctx.set_line_width(3)
+    ctx.move_to(px, py); ctx.line_to(lx, ly); ctx.stroke()
+    # lamp: enamel shade + bulb
+    ctx.save(); ctx.translate(lx, ly); ctx.rotate(-ang)
+    _glow(ctx, 0, 40, 420, WARM, 0.35 * lamp_on)
+    _glow(ctx, 0, 40, 150, (1.0, 0.85, 0.6), 0.6 * lamp_on)
+    g = _lin(ctx, -70, 0, 70, 0, [(0, (0.12, 0.2, 0.18)), (0.45, (0.28, 0.42, 0.36)), (1, (0.08, 0.14, 0.13))])
+    ctx.set_source(g)
+    ctx.move_to(-12, 0); ctx.line_to(12, 0); ctx.line_to(72, 38); ctx.line_to(-72, 38); ctx.close_path(); ctx.fill()
+    ctx.set_source_rgba(1, 0.85, 0.6, 0.9 * lamp_on); ctx.save(); ctx.scale(1, 0.18); ctx.arc(0, 38 / 0.18, 72, 0, math.pi); ctx.restore()
+    ctx.set_line_width(3); ctx.stroke()
+    ctx.set_source_rgb(0.2, 0.18, 0.16); ctx.rectangle(-8, -10, 16, 14); ctx.fill()
+    g = cairo.RadialGradient(0, 46, 0, 0, 46, 22)
+    g.add_color_stop_rgb(0, 1, 1, 0.95); g.add_color_stop_rgb(0.6, 1, 0.9, 0.6); g.add_color_stop_rgb(1, 1, 0.7, 0.35)
+    ctx.set_source(g); ctx.arc(0, 46, 20, 0, TAU); ctx.fill()
+    ctx.restore()
+    # light cone under the lamp (volumetric)
+    ctx.save(); ctx.set_operator(cairo.OPERATOR_ADD)
+    ca, sa = math.cos(-ang), math.sin(-ang)
+    def rot(x, y):
+        return lx + x * ca - y * sa, ly + x * sa + y * ca
+    for k, (wt, wb, a) in enumerate(((66, 600, 0.035), (60, 480, 0.04), (52, 360, 0.045), (40, 240, 0.05))):
+        g = cairo.LinearGradient(lx, ly + 40, lx, ly + 780)
+        g.add_color_stop_rgba(0, 1, 0.78, 0.5, a * lamp_on); g.add_color_stop_rgba(0.6, 1, 0.78, 0.5, a * 0.5 * lamp_on)
+        g.add_color_stop_rgba(1, 1, 0.75, 0.45, 0)
+        ctx.set_source(g)
+        ctx.move_to(*rot(-wt, 38)); ctx.line_to(*rot(wt, 38)); ctx.line_to(*rot(wb, 780)); ctx.line_to(*rot(-wb, 780)); ctx.close_path(); ctx.fill()
+    ctx.restore()
+    if dust > 0:
+        _dust_motes(ctx, t, lx, ly + 40, dust)
+
+
+def _dust_motes(ctx, t, lx, ly, amount):
+    n = int(160 * amount)
+    for i in range(n):
+        bx = _hash(i, 81) * W
+        by = _hash(i, 82) * H * 0.9
+        sp = 6 + 14 * _hash(i, 83)
+        x = bx + math.sin(t * 0.35 + i) * 30 + t * sp * 0.3
+        y = (by - t * sp * 0.5 + 40 * math.sin(t * 0.5 + i * 1.7)) % (H * 0.9)
+        x = x % W
+        d = math.hypot(x - lx, (y - ly) * 1.2)
+        lit = clamp(1.35 - d / 700)
+        if lit <= 0.02:
+            continue
+        rad = 1.0 + 2.8 * _hash(i, 84)
+        tw = 0.6 + 0.4 * math.sin(t * 2 + i * 3.1)
+        a = lit * tw * amount * 0.8
+        if rad > 2.6:
+            _glow(ctx, x, y, rad * 5, (1, 0.85, 0.6), a * 0.4)
+        ctx.set_source_rgba(1, 0.92, 0.75, a)
+        ctx.arc(x, y, rad * 0.6, 0, TAU); ctx.fill()
+
+
+# ======================================================================
+#  HOME STRAIGHT PERSPECTIVE (low 3/4 view toward the finish)
+# ======================================================================
+PS_F, PS_H = 950.0, 2.4            # focal px, camera height m
+PS_LEN = 300.0                    # progress 0..1 covers the last 300 m
+PS_XO, PS_XI, PS_XS = -16.0, 9.0, -27.0   # outer rail, inner rail, stand face (m)
+_PS = {}
+
+
+def _ps_tex():
+    if _PS:
+        return _PS
+    # crowd tile for stand faces (tileable horizontally)
+    TWc, THc = 600, 300
+    s, c = _surf(TWc, THc)
+    g = _lin(c, 0, 0, 0, THc, [(0, (0.45, 0.3, 0.3)), (1, (0.7, 0.52, 0.44))])
+    c.set_source(g); c.paint()
+    r = rng(606)
+    for k in range(16):
+        _tiny_crowd_row(c, r, -10, TWc + 10, 12 + k * 18.5, 5.2, 1.0 + 0.02 * k, 0.95, None,
+                        tone=(0.42, 0.3, 0.34), mute=0.55)
+    for k in range(5, 16, 6):
+        c.set_source_rgba(0.95, 0.85, 0.8, 0.5); c.rectangle(0, 12 + k * 18.5 - 4, TWc, 3); c.fill()
+    _PS["crowd"] = _blur_surface(s, 0.6)
+    # glass band tile
+    s2, c2 = _surf(600, 120)
+    g = _lin(c2, 0, 0, 0, 120, [(0, (1.0, 0.9, 0.66)), (0.6, (1.0, 0.72, 0.45)), (1, (0.85, 0.5, 0.35))])
+    c2.set_source(g); c2.paint()
+    for xx in range(0, 600, 75):
+        c2.set_source_rgba(0.15, 0.1, 0.14, 0.9); c2.rectangle(xx, 0, 5, 120); c2.fill()
+    for i in range(40):
+        x = r.uniform(0, 600); hh = r.uniform(40, 60)
+        c2.set_source_rgba(0.35, 0.2, 0.18, 0.6); c2.arc(x, 120 - hh, 8, 0, TAU); c2.fill()
+        c2.rectangle(x - 10, 120 - hh + 8, 20, hh); c2.fill()
+    _PS["glass"] = s2
+    s3, c3 = _surf(600, 140)
+    r3 = rng(612)
+    for i in range(70):
+        x = r3.uniform(-20, 620); y = r3.uniform(20, 110); rr_ = r3.uniform(20, 42)
+        g = cairo.RadialGradient(x - rr_ * 0.3, y - rr_ * 0.4, 0, x, y, rr_)
+        g.add_color_stop_rgb(0, 0.12, 0.18, 0.2); g.add_color_stop_rgb(1, 0.04, 0.06, 0.08)
+        c3.set_source(g); c3.arc(x, y, rr_, 0, TAU); c3.fill()
+    c3.set_source_rgb(0.04, 0.06, 0.08); c3.rectangle(0, 100, 600, 40); c3.fill()
+    _PS["trees"] = s3
+    # top-down dirt texture (tileable)
+    TD = 512
+    rr = np.random.default_rng(66)
+    blot = _fbm2(TD, TD, (4, 4), 5, seed=67)
+    streak = _fbm2(TD, TD, (3, 60), 3, seed=68)
+    sp = rr.random((TD, TD)).astype(np.float32)
+    dark = _ndi.gaussian_filter((sp < 0.04).astype(np.float32), 1.3, mode="wrap")
+    lite = _ndi.gaussian_filter((sp > 0.97).astype(np.float32), 0.8, mode="wrap")
+    v = 0.92 + 0.25 * (blot - 0.5) + 0.2 * (streak - 0.5) - 1.6 * dark + 1.0 * lite
+    base = np.array([0.62, 0.47, 0.36], np.float32)
+    img = base * v[..., None]
+    _PS["dirt"] = _np_to_surface(np.concatenate([img, np.ones((TD, TD, 1), np.float32)], 2))
+    return _PS
+
+
+def _inv(m):
+    m = cairo.Matrix(*m)
+    m.invert()
+    return m
+
+
+def _pp(X, Z, Y, vx, vy):
+    return vx + PS_F * X / Z, vy + PS_F * (PS_H - Y) / Z
+
+
+def _ps_wall(ctx, tex, X, Y0, Y1, za, zb, tex_u0, tex_u1, vx, vy, alpha=1.0):
+    """Paint a texture on a vertical wall plane X=const between depths za<zb (screen Z)."""
+    xa, ya0 = _pp(X, za, Y0, vx, vy); _, ya1 = _pp(X, za, Y1, vx, vy)
+    xb, yb0 = _pp(X, zb, Y0, vx, vy); _, yb1 = _pp(X, zb, Y1, vx, vy)
+    tw, th = tex.get_width(), tex.get_height()
+    ctx.save()
+    ctx.move_to(xa, ya1); ctx.line_to(xb, yb1); ctx.line_to(xb, yb0); ctx.line_to(xa, ya0); ctx.close_path()
+    ctx.clip()
+    # affine: u -> x (xa..xb), v -> y ; use mid-height slope approximation
+    du = tex_u1 - tex_u0
+    sx_ = (xb - xa) / du
+    hA = ya0 - ya1; hB = yb0 - yb1
+    hm = (hA + hB) / 2
+    shear = ((yb1 + yb0) / 2 - (ya1 + ya0) / 2) / du
+    m = cairo.Matrix(sx_, shear, 0, hm / th, xa - tex_u0 * sx_, (ya1 + ya0) / 2 - hm / 2 - shear * tex_u0)
+    ctx.transform(m)
+    pat = cairo.SurfacePattern(tex); pat.set_extend(cairo.EXTEND_REPEAT); pat.set_filter(cairo.FILTER_BILINEAR)
+    ctx.set_source(pat)
+    ctx.paint_with_alpha(alpha)
+    ctx.restore()
+
+
+def draw_track_straight_perspective(ctx, t, progress, *, vanish=(960, 430), flash=0.0, blur=0.0, finish=True):
+    """Low 3/4 view down the home straight: rails converging to `vanish`, glowing
+    grandstand on the left, floodlights rushing past, the finish post approaching
+    (progress 0 = 300 m out, 1 = at the post)."""
+    T = _ps_tex()
+    S = _side()
+    vx, vy = vanish
+    camz = clamp(progress, 0, 1.2) * PS_LEN
+    f = PS_F
+    draw_sky(ctx, t, horizon_y=vy, stars=0.6, moon=(vx + 520, vy - 300, 34), clouds=0.4, glow=1.0)
+    draw_city(ctx, t, vy + 2, cam_x=0, parallax=0, scale=0.3, lights=1.0, tower=True)
+    # distant glow at the vanishing point (finish area floodlights)
+    ctx.save(); ctx.translate(vx, vy); ctx.scale(1, 0.4)
+    _glow(ctx, 0, 0, 700, (1, 0.8, 0.6), 0.35); ctx.restore()
+    # ---- ground ----
+    zn = 1.2
+    tex = T["dirt"]
+    TD = tex.get_width()
+    mt = 12.0                 # metres per texture tile
+    pat = cairo.SurfacePattern(tex); pat.set_extend(cairo.EXTEND_REPEAT); pat.set_filter(cairo.FILTER_BILINEAR)
+    y = int(vy) + 1
+    while y < H + 2:
+        bh = 3 if y < vy + 60 else (6 if y < vy + 200 else 10)
+        ym = y + bh / 2
+        zm = f * PS_H / (ym - vy)
+        dzdy = -f * PS_H / (ym - vy) ** 2
+        a_ = mt / TD * f / zm
+        d_ = (mt / TD) / dzdy
+        x0_ = vx + PS_XO * f / zm
+        y0_ = ym - (camz + zm) / dzdy
+        pat.set_matrix(cairo.Matrix(a_, 0, 0, d_, x0_, y0_).multiply(cairo.Matrix()) if False else _inv(cairo.Matrix(a_, 0, 0, d_, x0_, y0_)))
+        ctx.save(); ctx.rectangle(-200, y, W + 400, bh); ctx.clip(); ctx.set_source(pat)
+        ctx.paint(); ctx.restore()
+        y += bh
+    # distance tint & near darkening
+    ctx.set_source(_lin(ctx, 0, vy, 0, H, [(0, (0.95, 0.72, 0.62, 0.75)), (0.08, (0.8, 0.6, 0.5, 0.3)), (0.3, (0.6, 0.45, 0.35, 0.0)),
+                                           (1, (0.12, 0.06, 0.06, 0.45))]))
+    ctx.rectangle(-200, vy, W + 400, H - vy + 200); ctx.fill()
+    # infield (right of inner rail) & apron (left of outer rail)
+    xi, yi = _pp(PS_XI + 0.3, zn, 0, vx, vy)
+    ctx.move_to(vx, vy); ctx.line_to(xi, yi); ctx.line_to(W + 4000, H + 4000); ctx.line_to(W + 4000, vy); ctx.close_path()
+    ctx.set_source(_lin(ctx, 0, vy, 0, H, [(0, (0.16, 0.22, 0.24)), (0.2, (0.1, 0.17, 0.17)), (1, (0.04, 0.08, 0.08))])); ctx.fill()
+    xa, ya = _pp(PS_XO - 0.3, zn, 0, vx, vy)
+    ctx.move_to(vx, vy); ctx.line_to(xa, ya); ctx.line_to(-4000, H + 4000); ctx.line_to(-4000, vy); ctx.close_path()
+    ctx.set_source(_lin(ctx, 0, vy, 0, H, [(0, (0.35, 0.3, 0.36)), (1, (0.2, 0.17, 0.2))])); ctx.fill()
+    # infield treeline + big screen
+    for k in range(int(camz // 20), int((camz + 500) // 20) + 1):
+        za, zb = max(zn, k * 20 - camz), (k + 1) * 20 - camz
+        if zb > za:
+            _ps_wall(ctx, T["trees"], PS_XI + 55, 0, 7, za, zb, (k % 4) * 150.0, (k % 4) * 150.0 + 150, vx, vy)
+    Zs = PS_LEN + 80 - camz
+    if Zs > 5:
+        sx0, sy0 = _pp(PS_XI + 40, Zs, 8, vx, vy); sx1, sy1 = _pp(PS_XI + 40, Zs + 40, 20, vx, vy)
+        _ps_quad(ctx, PS_XI + 40, 6, 20, Zs, Zs + 40, vx, vy, (0.05, 0.05, 0.08))
+        _ps_quad(ctx, PS_XI + 39.8, 7, 19, Zs + 1, Zs + 39, vx, vy, (0.3, 0.8, 1.0))
+        cxm, cym = _pp(PS_XI + 40, Zs + 20, 13, vx, vy)
+        _glow(ctx, cxm, cym, f * 30 / Zs + 30, (0.4, 0.8, 1.0), 0.35)
+    # floodlight sheen on dirt
+    ctx.save(); ctx.set_operator(cairo.OPERATOR_ADD)
+    for k in range(int(camz // 60) - 1, int((camz + 600) // 60) + 1):
+        Z = k * 60 + 20 - camz
+        if Z < 2:
+            continue
+        xm, ym = _pp(-4, Z, 0, vx, vy)
+        ctx.save(); ctx.translate(xm, ym); ctx.scale(1, 0.25)
+        _glow(ctx, 0, 0, f * 14 / Z, (1, 0.85, 0.65), 0.22); ctx.restore()
+    ctx.restore()
+    # ---- grandstand (left) ----
+    Ls = 6.0
+    zmax = 520.0
+    k0 = int(camz // Ls)
+    secs = []
+    for k in range(k0, int((camz + zmax) // Ls) + 1):
+        za, zb = k * Ls - camz, (k + 1) * Ls - camz
+        za = max(za, zn)
+        if zb <= za:
+            continue
+        secs.append((k, za, zb))
+    for (k, za, zb) in reversed(secs):
+        u0 = (k % 5) * 120.0
+        # apron wall LED ribbon
+        _ps_quad(ctx, PS_XS, 0, 1.3, za, zb, vx, vy, (0.05, 0.05, 0.1))
+        _ps_quad(ctx, PS_XS + 0.01, 0.45, 0.85, za, zb, vx, vy, (0.35, 0.85, 1.0) if k % 3 else (1, 0.8, 0.4))
+        _ps_wall(ctx, T["crowd"], PS_XS, 1.3, 12.0, za, zb, u0, u0 + 120, vx, vy)
+        _ps_quad(ctx, PS_XS, 12.0, 12.6, za, zb, vx, vy, (0.9, 0.88, 0.86))
+        _ps_wall(ctx, T["glass"], PS_XS - 0.5, 12.6, 16.0, za, zb, u0, u0 + 120, vx, vy)
+        _ps_quad(ctx, PS_XS - 0.5, 16.0, 16.6, za, zb, vx, vy, (0.9, 0.88, 0.86))
+        _ps_wall(ctx, T["crowd"], PS_XS - 1.0, 16.6, 25.0, za, zb, u0 + 300, u0 + 420, vx, vy, alpha=0.85)
+        # roof underside (seen from below): dark with downlights
+        xa0, ya0 = _pp(PS_XS - 1, za, 25.0, vx, vy); xb0, yb0 = _pp(PS_XS - 1, zb, 25.0, vx, vy)
+        xa1, ya1 = _pp(PS_XS + 7, za, 27.0, vx, vy); xb1, yb1 = _pp(PS_XS + 7, zb, 27.0, vx, vy)
+        ctx.move_to(xa0, ya0); ctx.line_to(xb0, yb0); ctx.line_to(xb1, yb1); ctx.line_to(xa1, ya1); ctx.close_path()
+        ctx.set_source_rgb(0.07, 0.06, 0.11); ctx.fill()
+        for q in range(2):
+            zz = za + (zb - za) * (q + 0.5) / 2
+            lx_, ly_ = _pp(PS_XS + 2, zz, 25.6, vx, vy)
+            _glow(ctx, lx_, ly_, f * 1.6 / zz, (1, 0.88, 0.65), 0.55)
+        # roof edge line
+        ctx.move_to(xa1, ya1); ctx.line_to(xb1, yb1); ctx.set_source_rgba(0.95, 0.92, 1, 0.9)
+        ctx.set_line_width(max(1, f * 0.12 / za)); ctx.stroke()
+        # columns every 3rd section
+        if k % 3 == 0:
+            xc0, yc0 = _pp(PS_XS + 0.2, za, 0, vx, vy); xc1, yc1 = _pp(PS_XS + 0.2, za, 25, vx, vy)
+            ctx.set_source_rgb(0.1, 0.09, 0.15); ctx.rectangle(xc0 - f * 0.25 / za, yc1, f * 0.5 / za, yc0 - yc1); ctx.fill()
+    # stand haze
+    # ---- rail-side crowd on the apron (people standing at the outer rail) ----
+    rc = S["rc"]
+    for (k, za, zb) in reversed(secs):
+        if za > 160:
+            continue
+        u0 = (k % 5) * 600.0
+        _ps_wall(ctx, rc, PS_XO - 1.6, 0.0, 1.9, za, zb, u0, u0 + 600, vx, vy)
+    # ---- rails & posts ----
+    for X in (PS_XO, PS_XI):
+        xe, ye = _pp(X, zn, 1.0, vx, vy)
+        ctx.move_to(vx, vy + (PS_F * (PS_H - 1.0) / 1e6)); ctx.line_to(xe, ye)
+        ctx.set_source_rgba(1, 1, 1, 0.95); ctx.set_line_width(2)
+        # thicker near: draw as a wedge
+        ctx.new_path()
+        xe1, ye1 = _pp(X, zn, 1.08, vx, vy); xe2, ye2 = _pp(X, zn, 0.92, vx, vy)
+        ctx.move_to(vx, vy); ctx.line_to(xe1, ye1); ctx.line_to(xe2, ye2); ctx.close_path()
+        ctx.set_source_rgb(0.97, 0.97, 1.0); ctx.fill()
+        for kk in range(int(camz // 2.5), int((camz + 200) // 2.5) + 1):
+            Z = kk * 2.5 - camz
+            if Z < zn:
+                continue
+            px0, py0 = _pp(X, Z, 0, vx, vy); px1, py1 = _pp(X, Z, 1.0, vx, vy)
+            wdt = max(0.8, f * 0.08 / Z)
+            ctx.set_source_rgba(0.95, 0.95, 1, 0.9); ctx.rectangle(px0 - wdt / 2, py1, wdt, py0 - py1); ctx.fill()
+    # ---- floodlight towers both sides, far to near ----
+    towers = []
+    for kk in range(int(camz // 55), int((camz + 700) // 55) + 1):
+        for side, X in ((0, PS_XS - 12), (1, PS_XI + 14)):
+            Z = kk * 55 + side * 27 - camz
+            if Z > 1.5:
+                towers.append((Z, X))
+    towers.sort(key=lambda a: -a[0])
+    for (Z, X) in towers:
+        bx, by = _pp(X, Z, 0, vx, vy); hx, hy = _pp(X, Z, 42, vx, vy)
+        wdt = max(1.0, f * 0.6 / Z)
+        ctx.set_source_rgb(0.16, 0.15, 0.2); ctx.rectangle(bx - wdt / 2, hy, wdt, by - hy); ctx.fill()
+        sc = f / Z
+        _glow(ctx, hx, hy, 18 * sc + 20, FLOOD, 0.5)
+        _glow(ctx, hx, hy, 5 * sc + 6, FLOOD_CORE, 0.9)
+        ctx.set_source_rgb(0.12, 0.11, 0.15); ctx.rectangle(hx - 3 * sc, hy - 1.6 * sc, 6 * sc, 3.2 * sc); ctx.fill()
+        for i in range(5):
+            for j in range(3):
+                ctx.set_source_rgb(*FLOOD_CORE)
+                ctx.arc(hx - 2.4 * sc + i * 1.2 * sc, hy - 1.0 * sc + j * 1.0 * sc, 0.42 * sc, 0, TAU); ctx.fill()
+        _star_flare(ctx, hx, hy, 14 * sc + 40, (1, 1, 1), 0.6)
+    # ---- finish post ----
+    if finish:
+        Zf = PS_LEN - camz + 4
+        if Zf > 1.5:
+            fx, fy = _pp(PS_XI + 0.6, Zf, 0, vx, vy)
+            draw_finish_post(ctx, fx, fy, scale=f * 6.5 / (Zf * 560), line=False, t=t)
+    # ---- camera flashes on stand ----
+    fi = int(t * FPS)
+    nfl = int(5 + 50 * flash)
+    for q in range(nfl):
+        Z = 6 + 300 * _hash(fi * 97 + q, 7) ** 1.5
+        Y = 2 + 22 * _hash(fi * 97 + q, 8)
+        x_, y_ = _pp(PS_XS + 0.3, Z, Y, vx, vy)
+        a = 0.9
+        _glow(ctx, x_, y_, 12 + 300 / Z, (1, 1, 1), 0.6 * a)
+        _star_flare(ctx, x_, y_, 10 + 200 / Z, (1, 1, 1), a)
+    # atmospheric depth haze toward the vanishing point
+    ctx.save(); ctx.translate(vx, vy); ctx.scale(1.6, 0.5)
+    _glow(ctx, 0, 0, 500, (0.85, 0.65, 0.7), 0.35); ctx.restore()
+    if blur > 0.05:
+        speed_lines_radial(ctx, t, vx, vy, blur)
+
+
+def _ps_quad(ctx, X, Y0, Y1, za, zb, vx, vy, col, a=1.0):
+    xa, ya0 = _pp(X, za, Y0, vx, vy); _, ya1 = _pp(X, za, Y1, vx, vy)
+    xb, yb0 = _pp(X, zb, Y0, vx, vy); _, yb1 = _pp(X, zb, Y1, vx, vy)
+    ctx.move_to(xa, ya1); ctx.line_to(xb, yb1); ctx.line_to(xb, yb0); ctx.line_to(xa, ya0); ctx.close_path()
+    ctx.set_source_rgba(*col, a); ctx.fill()
+
+
+def speed_lines_radial(ctx, t, vx, vy, amount=1.0, seed=9):
+    """Perspective speed streaks radiating from the vanishing point."""
+    fi = int(t * FPS)
+    n = int(60 * amount)
+    for i in range(n):
+        a = _hash(i + fi * 7, seed) * TAU
+        r0 = 200 + 900 * _hash(i + fi * 7, seed + 1)
+        L = 200 + 700 * _hash(i + fi * 7, seed + 2)
+        ca, sa = math.cos(a), math.sin(a)
+        g = _lin(ctx, vx + ca * r0, vy + sa * r0, vx + ca * (r0 + L), vy + sa * (r0 + L),
+                 [(0, (1, 1, 1, 0)), (0.5, (1, 0.97, 0.9, 0.25 * amount)), (1, (1, 1, 1, 0))])
+        ctx.set_source(g)
+        w = 1.5 + 3 * _hash(i, seed + 3)
+        ctx.move_to(vx + ca * r0 - sa * w, vy + sa * r0 + ca * w)
+        ctx.line_to(vx + ca * (r0 + L), vy + sa * (r0 + L))
+        ctx.line_to(vx + ca * r0 + sa * w, vy + sa * r0 - ca * w)
+        ctx.close_path(); ctx.fill()
+
+
+# ======================================================================
+#  PARTICLES
+# ======================================================================
+def dust_kick(ctx, t, x, y, strength=1.0, seed=0, color=None, direction=-1.0, speed=1.0):
+    """Dirt spray kicked back from a hoof at (x, y). direction=-1 sprays to the left
+    (horse running right). Deterministic in t; call every frame at the hoof position."""
+    if strength <= 0:
+        return
+    col = color or (0.74, 0.58, 0.44)
+    dark = (col[0] * 0.55, col[1] * 0.5, col[2] * 0.48)
+    # soft billowing dust cloud
+    for i in range(int(7 * strength) + 1):
+        P = 0.9 + 0.5 * _hash(i, seed * 7 + 1)
+        a = ((t * speed + _hash(i, seed * 7 + 2) * P) % P) / P
+        px = x + direction * (40 + 260 * a) * strength * (0.6 + 0.6 * _hash(i, seed * 7 + 3))
+        py = y - 10 - 70 * a * (0.5 + _hash(i, seed * 7 + 4)) + 30 * a * a
+        rr = (20 + 90 * a) * (0.6 + 0.5 * strength)
+        al = 0.28 * (1 - a) ** 1.4 * clamp(a * 6) * strength
+        _glow(ctx, px, py, rr, col, al)
+    # clods and grains (ballistic)
+    n = int(26 * strength)
+    for i in range(n):
+        P = 0.35 + 0.35 * _hash(i, seed * 13 + 5)
+        ph = _hash(i, seed * 13 + 6) * P
+        age = (t * speed + ph) % P
+        k = age / P
+        vx_ = (250 + 650 * _hash(i, seed * 13 + 7)) * strength
+        vy_ = (180 + 520 * _hash(i, seed * 13 + 8))
+        px = x + direction * vx_ * age
+        py = y - vy_ * age + 1400 * age * age
+        if py > y + 40:
+            continue
+        sz = 1.2 + 4.5 * _hash(i, seed * 13 + 9) ** 2
+        al = (1 - k) * 0.95
+        c_ = col if _hash(i, seed * 13 + 10) < 0.55 else dark
+        # short motion streak
+        ctx.set_source_rgba(c_[0], c_[1], c_[2], al * 0.5)
+        ctx.set_line_width(sz * 0.9); ctx.set_line_cap(cairo.LINE_CAP_ROUND)
+        ctx.move_to(px, py); ctx.line_to(px - direction * vx_ * 0.018, py + (vy_ - 2800 * age) * 0.018); ctx.stroke()
+        ctx.set_source_rgba(c_[0], c_[1], c_[2], al)
+        ctx.arc(px, py, sz * 0.6, 0, TAU); ctx.fill()
+    ctx.set_line_cap(cairo.LINE_CAP_BUTT)
+
+
+_BOKEH_SPR = {}
+
+
+def _bokeh_sprite(R):
+    R = int(R)
+    if R not in _BOKEH_SPR:
+        s, c = _surf(2 * R + 4, 2 * R + 4)
+        cx = cy = R + 2
+        g = cairo.RadialGradient(cx, cy, 0, cx, cy, R)
+        g.add_color_stop_rgba(0, 1, 1, 1, 0.45)
+        g.add_color_stop_rgba(0.7, 1, 1, 1, 0.55)
+        g.add_color_stop_rgba(0.9, 1, 1, 1, 0.85)       # brighter rim (anime bokeh)
+        g.add_color_stop_rgba(0.97, 1, 1, 1, 0.5)
+        g.add_color_stop_rgba(1, 1, 1, 1, 0)
+        c.set_source(g); c.arc(cx, cy, R, 0, TAU); c.fill()
+        _BOKEH_SPR[R] = s
+    return _BOKEH_SPR[R]
+
+
+def bokeh(ctx, t, n=40, colors=None, seed=0, alpha=0.6, area=(0, 0, W, H), size=(20, 90), drift=(8, -14)):
+    """Soft drifting bokeh discs (for epilogue / emotional beats)."""
+    colors = colors or [(1.0, 0.78, 0.45), (1.0, 0.55, 0.65), (0.6, 0.85, 1.0), (1.0, 0.92, 0.75), (0.9, 0.6, 1.0)]
+    ax, ay, aw, ah = area
+    ctx.save()
+    ctx.set_operator(cairo.OPERATOR_ADD)
+    for i in range(n):
+        R = lerp(size[0], size[1], _hash(i, seed * 5 + 1) ** 1.5)
+        Rq = max(4, int(R / 4) * 4)
+        spr = _bokeh_sprite(Rq)
+        x = ax + ((_hash(i, seed * 5 + 2) * aw + t * drift[0] * (0.5 + _hash(i, seed * 5 + 3))) % (aw + 2 * Rq)) - Rq
+        y = ay + ((_hash(i, seed * 5 + 4) * ah + t * drift[1] * (0.5 + _hash(i, seed * 5 + 5))) % (ah + 2 * Rq)) - Rq
+        pul = 0.65 + 0.35 * math.sin(t * (0.6 + _hash(i, seed * 5 + 6)) * 2 + i)
+        col = colors[i % len(colors)]
+        ctx.set_source_rgba(col[0], col[1], col[2], alpha * pul * (0.5 + 0.5 * _hash(i, seed * 5 + 7)))
+        ctx.mask_surface(spr, x - Rq - 2, y - Rq - 2)
+    ctx.restore()
+
+
+def confetti_light(ctx, t, n=70, seed=0, area=(0, 0, W, H), color=None, rise=45.0, size=1.0, alpha=1.0):
+    """Floating light particles / sparkles rising gently with twinkle."""
+    ax, ay, aw, ah = area
+    for i in range(n):
+        col = color or [(1, 0.9, 0.6), (1, 0.7, 0.8), (0.7, 0.9, 1), (1, 1, 1)][i % 4]
+        sp = rise * (0.5 + _hash(i, seed + 21))
+        x = ax + (_hash(i, seed + 22) * aw + 25 * math.sin(t * (0.5 + _hash(i, seed + 23)) + i * 1.3)) % aw
+        y = ay + ah - ((_hash(i, seed + 24) * ah + t * sp) % ah)
+        tw = 0.5 + 0.5 * math.sin(t * (2 + 3 * _hash(i, seed + 25)) + i * 2.1)
+        r_ = (1.5 + 3.5 * _hash(i, seed + 26) ** 2) * size
+        a = alpha * (0.3 + 0.7 * tw)
+        _glow(ctx, x, y, r_ * 7, col, a * 0.35)
+        if r_ > 3.2 * size:
+            _star_flare(ctx, x, y, r_ * 5, col, a * 0.8, rot=0.3)
+        ctx.set_source_rgba(1, 1, 1, a); ctx.arc(x, y, r_ * 0.55, 0, TAU); ctx.fill()
+
+
+# ======================================================================
+#  SELF TEST
+# ======================================================================
+def _selftest(outdir):
+    os.makedirs(outdir, exist_ok=True)
+    try:
+        import render as _R
+        post = lambda rgb, i: _R.post(rgb, {}, i)
+    except Exception:
+        post = None
+
+    def save(name, fn, t=1.0):
+        s, c = _surf(W, H)
+        c.set_source_rgb(0, 0, 0); c.paint()
+        fn(c, t)                       # warm-up (builds caches)
+        s, c = _surf(W, H)
+        c.set_source_rgb(0, 0, 0); c.paint()
+        t0 = time.time(); fn(c, t); dt = (time.time() - t0) * 1000
+        p = os.path.join(outdir, name + ".png")
+        s.write_to_png(p)
+        if post is not None:
+            s.flush()
+            a = np.ndarray((H, W, 4), np.uint8, s.get_data())
+            rgb = a[:, :, [2, 1, 0]].astype(np.float32) / 255.0
+            out = (np.clip(post(rgb, 7), 0, 1) * 255 + 0.5).astype(np.uint8)
+            Image.fromarray(out).save(os.path.join(outdir, name + "_post.png"))
+        print(f"{name:28s} {dt:7.1f} ms  -> {p}")
+
+    save("stable", lambda c, t: (draw_stable(c, t, lamp_swing=1.0, dust=1.0)), 2.3)
+    for cx, b in ((0, 0.0), (6000, 0.3), (14000, 0.85)):
+        def side(c, t, cx=cx, b=b):
+            draw_race_side_bg(c, t, cx, blur=b, flash=0.4)
+            draw_race_side_fg(c, t, cx, blur=b)
+            dust_kick(c, t, 900, 780, 1.0, seed=1)
+        save(f"side_cam{cx}_blur{int(b * 100)}", side, 3.0 + cx / 1400)
+    for cam in (0.0, 0.5, 1.0):
+        save(f"establishing_cam{int(cam * 100)}", lambda c, t, cam=cam: draw_racecourse_establishing(c, t, cam, horses=True, race_s=0.12), 1.0)
+    def gate(c, t, o=0.0):
+        draw_race_side_bg(c, t, 800, horizon_y=470, track_y=720)
+        draw_starting_gate(c, t, 960, 940, 1.35, open=o, n_stalls=8, view="front", part="back")
+        draw_starting_gate(c, t, 960, 940, 1.35, open=o, n_stalls=8, view="front", part="front")
+    save("gate_front_closed", lambda c, t: gate(c, t, 0.0))
+    save("gate_front_open", lambda c, t: gate(c, t, 0.35))
+    def gate_side(c, t):
+        draw_race_side_bg(c, t, 800)
+        draw_starting_gate(c, t, 900, 860, 1.2, open=0.6, n_stalls=8, view="side")
+    save("gate_side_open", gate_side)
+    for p_ in (0.2, 0.92):
+        save(f"straight_perspective_{int(p_ * 100)}", lambda c, t, p_=p_: draw_track_straight_perspective(c, t, p_, flash=0.4, blur=0.3 if p_ > 0.5 else 0.0))
+    def fin(c, t):
+        draw_race_side_bg(c, t, 3000)
+        draw_finish_post(c, 1150, 690, 1.0, t=t)
+        draw_race_side_fg(c, t, 3000)
+    save("finish_post", fin)
+    def epi(c, t):
+        draw_race_side_bg(c, t, 2000, blur=0.0)
+        c.set_source_rgba(0.05, 0.03, 0.1, 0.45); c.paint()
+        bokeh(c, t, 45, seed=2)
+        confetti_light(c, t, 80)
+    save("bokeh_confetti", epi, 4.0)
+    city = lambda c, t: (draw_sky(c, t, horizon_y=820), draw_city(c, t, 820, scale=1.0))
+    save("sky_city", city)
+
+
+if __name__ == "__main__":
+    out = sys.argv[1] if len(sys.argv) > 1 else os.environ.get(
+        "ENV_TEST_OUT", "/tmp/claude-0/-home-user-keiba/d53da140-107f-55e4-b8c0-8a92c9796981/scratchpad/env_test")
+    _selftest(out)
