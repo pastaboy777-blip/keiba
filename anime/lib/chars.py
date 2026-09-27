@@ -1265,6 +1265,7 @@ def draw_mizuki_riding(ctx, x, y, scale, *, expr="determined", mouth=0.0, blink=
     draw_hand(ctx, wr[0] - 12, wr[1] + 4, -0.15, 150, lt, "fist", skin=(0.95, 0.95, 0.97), skin_s=SILK_S)
     ctx.new_path(); ctx.move_to(wr[0] + 70, wr[1] + 10); ctx.curve_to(wr[0] + 180, wr[1] + 30, wr[0] + 300, wr[1] + 90, wr[0] + 420, wr[1] + 180)
     ctx.set_line_width(9); fill_rgb(ctx, (0.30, 0.18, 0.10)); ctx.stroke()
+    hand_dev = ctx.user_to_device(*wr)
     ctx.restore()
     # ---- neck + collar
     ctx.save(); ctx.rotate(ang * 0.5)
@@ -1299,7 +1300,7 @@ def draw_mizuki_riding(ctx, x, y, scale, *, expr="determined", mouth=0.0, blink=
         g = cairo.RadialGradient(150, -40, 0, 150, -40, 520)
         g.add_color_stop_rgba(0, 1, 1, 1, 0.55 * light_flash); g.add_color_stop_rgba(1, 1, 1, 1, 0)
         ctx.set_source(g); ctx.paint()
-    out = {"head": hp, "hand": ctx.user_to_device(*S[-1])}
+    out = {"head": hp, "hand": hand_dev}
     ctx.restore()
     return out
 
@@ -1422,7 +1423,7 @@ TOWEL_S = (0.72, 0.75, 0.82)
 IRIS_GEN = ((0.16, 0.09, 0.06), (0.42, 0.25, 0.14), (0.78, 0.55, 0.32))
 
 GEXPR = {
-    "gruff_smile": dict(sq=0.7, ld=0.25, bi=0.2, bo=-0.1, mouth="gentle"),
+    "gruff_smile": dict(sq=0.95, ld=0.4, bi=0.2, bo=-0.1, mouth="gentle"),
     "neutral": dict(sq=0.2, ld=0.3, bi=-0.15, bo=-0.05, mouth="neutral"),
     "proud_tears": dict(sq=0.7, ld=0.3, bi=0.55, bo=-0.2, mouth="gruff", closed=True),
     "laugh": dict(sq=0.7, ld=0.0, bi=0.3, bo=0.0, mouth="laugh", closed=True),
@@ -1694,18 +1695,20 @@ def draw_gen(ctx, x, y, scale, *, view="3q_right", expr="gruff_smile", mouth=0.0
 # ============================================================ self-test sheet
 def _sheet(path):
     import time
-    W_, H_ = 3840, 5000
+    from lib.common import text as _text
+    W_, H_ = 3840, 3900
     surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, W_, H_)
     ctx = cairo.Context(surf)
     g = cairo.LinearGradient(0, 0, 0, H_)
-    g.add_color_stop_rgb(0, 0.20, 0.17, 0.25); g.add_color_stop_rgb(1, 0.08, 0.08, 0.16)
+    g.add_color_stop_rgb(0, 0.22, 0.18, 0.26); g.add_color_stop_rgb(1, 0.08, 0.08, 0.16)
     ctx.set_source(g); ctx.paint()
     times = []
     def T(fn, *a, **kw):
-        t0 = time.perf_counter(); r = fn(*a, **kw); times.append((fn.__name__ + str(kw.get("expr", kw.get("view", ""))), (time.perf_counter() - t0) * 1000)); return r
+        t0 = time.perf_counter(); r = fn(*a, **kw)
+        times.append((fn.__name__ + " " + str(kw.get("expr", kw.get("view", ""))), (time.perf_counter() - t0) * 1000)); return r
+    def lab(sx, x, y):
+        _text(ctx, sx, x, y, 26, color=(1, 1, 1), alpha=0.85)
     sc = 0.5
-    row = 0
-    # row 1: views
     views = [("3q_left", "soft", "down"), ("3q_right", "smile", "down"), ("front", "teasing_smile", "down"),
              ("3q_right", "determined", "stroke"), ("3q_left", "tender_eyes_closed", "hug"),
              ("front", "shout", "down"), ("3q_right", "whisper", "down"), ("front", "soft", "down")]
@@ -1713,35 +1716,35 @@ def _sheet(path):
         x = 240 + i * 470; y = 520
         T(draw_mizuki, ctx, x, y, sc, view=v, expr=e, arm=a, mouth=0.6 if e in ("shout", "whisper") else 0.0,
           t=i * 0.7, helmet=(i != 7), goggles="up", hair_wind=0.3 if i == 3 else 0.0)
-        from lib.common import text as _text
-    # row 2: mouth states on front + helmet off
+        lab(f"{v} / {e} / arm={a}", x, y + 40)
     for i, m in enumerate((0.0, 0.25, 0.5, 0.75, 1.0)):
         x = 240 + i * 470; y = 1100
-        T(draw_mizuki, ctx, x, y, sc, view="front", expr=["soft", "smile", "teasing_smile", "determined", "shout"][i],
-          mouth=m, t=1.0 + i, helmet=True, goggles="up")
+        e = ["soft", "smile", "teasing_smile", "determined", "shout"][i]
+        T(draw_mizuki, ctx, x, y, sc, view="front", expr=e, mouth=m, t=1.0 + i, helmet=True, goggles="up")
+        lab(f"front {e} mouth={m}", x, y + 40)
     T(draw_mizuki, ctx, 240 + 5 * 470, 1100, sc, view="3q_right", expr="soft", blink=1.0, helmet=False, t=2)
+    lab("blink=1 helmet=False", 240 + 5 * 470, 1140)
     T(draw_mizuki, ctx, 240 + 6 * 470, 1100, sc, view="3q_left", expr="smile", tears=0.8, helmet=False, t=3, hair_wind=0.6)
+    lab("tears=0.8 hair_wind=0.6", 240 + 6 * 470, 1140)
     T(draw_mizuki, ctx, 240 + 7 * 470, 1100, sc, view="3q_right", expr="soft", goggles="down", t=4)
-    # row 3: riding
+    lab("goggles=down", 240 + 7 * 470, 1140)
     for i, (e, m) in enumerate((("determined", 0.0), ("whisper", 0.5), ("shout", 1.0))):
         ctx.save(); ctx.rectangle(i * 1280, 1180, 1280, 900); ctx.clip()
         ctx.set_source_rgb(0.1, 0.12, 0.22); ctx.paint()
-        T(draw_mizuki_riding, ctx, i * 1280 + 700, 1560, 0.85, expr=e, mouth=m, t=1.3 + i * 0.37, sweat=0.5, light_flash=0.2 * i)
+        T(draw_mizuki_riding, ctx, i * 1280 + 760, 1540, 0.9, expr=e, mouth=m, t=1.3 + i * 0.37, sweat=0.5, light_flash=0.2 * i)
+        lab(f"draw_mizuki_riding {e} mouth={m}", i * 1280 + 640, 2060)
         ctx.restore()
-    # row 4: eye close-ups
-    for i, (op, f) in enumerate(((0.3, 0.0), (1.0, 1.0))):
+    for i, (op, f) in enumerate(((0.45, 0.0), (1.0, 1.0))):
         ctx.save(); ctx.rectangle(i * 1920, 2100, 1920, 800); ctx.clip()
-        T(draw_mizuki_eyes, ctx, i * 1920 + 960, 2500, 1.0, open=op, focus=f, t=1.0)
+        T(draw_mizuki_eyes, ctx, i * 1920 + 960, 2500, 0.74, open=op, focus=f, t=1.0)
+        lab(f"draw_mizuki_eyes open={op} focus={f}", i * 1920 + 960, 2880)
         ctx.restore()
-    # row 5: Gen
-    for i, (v, e, a) in enumerate((("3q_right", "gruff_smile", "crossed"), ("front", "neutral", "down"),
-                                   ("3q_left", "proud_tears", "lean"), ("3q_right", "laugh", "crossed"))):
-        T(draw_gen, ctx, 400 + i * 900, 3500, 0.62, view=v, expr=e, arms=a, mouth=0.5 if e == "laugh" else 0.0, t=i)
-    T(draw_gen, ctx, 400 + 4 * 900, 3500, 0.62, view="3q_right", expr="gruff_smile", mouth=0.8, t=5)
-    # row 6: large faces for detail
-    T(draw_mizuki, ctx, 700, 5000 + 250, 1.0, view="3q_right", expr="soft", t=0.5)
-    T(draw_mizuki, ctx, 1900, 5000 + 250, 1.0, view="front", expr="teasing_smile", t=0.5, mouth=0.3)
-    T(draw_gen, ctx, 3100, 5000 + 250, 1.0, view="3q_left", expr="gruff_smile", t=0.5)
+    gens = (("3q_right", "gruff_smile", "crossed", 0.0), ("front", "neutral", "down", 0.0), ("3q_left", "proud_tears", "lean", 0.0),
+            ("3q_right", "laugh", "crossed", 0.6), ("3q_right", "gruff_smile", "crossed", 0.8))
+    for i, (v, e, a, m) in enumerate(gens):
+        x = 380 + i * 760
+        T(draw_gen, ctx, x, 3800, 0.8, view=v, expr=e, arms=a, mouth=m, t=i)
+        lab(f"gen {v} / {e} / {a} / mouth={m}", x, 3860)
     surf.write_to_png(path)
     return times
 
