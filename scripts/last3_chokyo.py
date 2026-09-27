@@ -33,8 +33,12 @@ from bs4 import BeautifulSoup  # noqa: E402
 SLEEP = 1.8
 _CACHE: dict[str, str] = {}
 
-# 脚色の負荷（軽→強）。horse_chokyo_profile.py と揃える。
-KYAKU = {"馬なり": 0, "馬也": 0, "直強め": 1, "末強め": 2, "強め": 3, "一杯": 4}
+# 脚色の負荷（軽→強）。horse_chokyo_profile.py に「稍強め」を足した。
+KYAKU = {"馬なり": 0, "馬也": 0, "直強め": 1, "末強め": 2, "稍強め": 2,
+         "強め": 3, "一杯": 4}
+PLACES = ("浦和", "川崎", "船橋", "大井", "門別", "盛岡", "水沢", "金沢", "笠松",
+          "名古屋", "園田", "姫路", "高知", "佐賀", "帯広", "美浦", "栗東")
+COURSE = re.compile(r"^(?:%s)(?:外|内|坂|[ABC])?$" % "|".join(PLACES))
 POS = ("仕上が", "上昇", "絞れ", "良化", "気配良", "上々", "文句な", "抜群", "デキ良",
        "動き良", "手応え良", "順調", "変わり身", "使える", "楽しみ", "期待")
 NEG = ("変わり身無", "太", "一息", "平凡", "物足", "余裕", "案外", "イマイチ", "ズブ",
@@ -62,13 +66,24 @@ def race_id(date: str, place: str, r: int) -> str:
     raise SystemExit("%s %s %dR が見つからない" % (date, place, r))
 
 
-# /db/uma/ の成績表は20列固定。空セルを潰すとずれるので位置で取る。
-COL = dict(date=0, place=1, baba=2, cls=4, fs=5, gate=6, pop=7, fin=8, kin=10,
-           jockey=11, dist=12, time=13, diff=14, corner=15, pace=16, top=17, wt=18)
+# 会員で開いた /db/uma/ の1走は2セル。ヘッダと明細をそれぞれ読む。
+#  [0] 2026年8月27日(曇・良) 船橋2R(ダート・左外 1200m) サラ４歳以上
+#  [7] 12頭8ｹﾞｰﾄ 462K 102.6(9人気) 前37.6-後41.0 Mペース 上り51.4-39.1 1 2 2 内 8着
+H0 = re.compile(r"(\d{4})年(\d{1,2})月(\d{1,2})日\(([^)・]*)・([^)]+)\)\s*"
+                r"(\D+?)(\d{1,2})R\((ダート|芝)[^)]*?([\d,]+)m\)\s*(.*)")
+# 明細セルは項目が抜けたり減量記号(△▲☆)が挟まったりする。項目ごとに拾う。
+H1 = {
+    "fs": r"(\d+)頭", "gate": r"\d+頭(\d+)[ｹケ][ﾞ゛]?[ｰー][ﾄト]", "wt": r"\b(\d{3})K\b",
+    "odds": r"([\d.]+)\(\d+人気\)", "pop": r"[\d.]+\((\d+)人気\)",
+    "first": r"前([\d.]+)-後", "last": r"前[\d.]+-後([\d.]+)",
+    "pace": r"([HMS])ペース", "agari": r"上り[\d.]+-([\d.]+)",
+    "corner": r"(?:ペース|上り[\d.]+-[\d.]+)\s+((?:\d+\s+)+)(?:[内中外]\s*)?\d+着",
+    "lane": r"([内中外])\s*\d+着", "fin": r"(\d+|中止|除外|取消)着",
+}
 
 
 def past_runs(umacd: str) -> list[dict]:
-    """/db/uma/ から過去走を古い順で返す。"""
+    """/db/uma/ から過去走を古い順で返す（会員ページの明細つき）。"""
     s = BeautifulSoup(get("/db/uma/%s" % umacd), "html.parser")
     out = []
     for tr in s.find_all("tr"):
@@ -78,17 +93,30 @@ def past_runs(umacd: str) -> list[dict]:
             if m:
                 rid = m.group(1)
                 break
-        tds = [re.sub(r"\s+", " ", td.get_text(" ", strip=True)) for td in tr.find_all("td")]
-        if not rid or len(tds) < 19 or not re.match(r"^\d{4}/\d{2}/\d{2}$", tds[0]):
+        if not rid:
             continue
-        r = {k: tds[i] for k, i in COL.items()}
-        r["rid"] = rid
+        tds = [re.sub(r"\s+", " ", td.get_text(" ", strip=True)) for td in tr.find_all("td")]
+        if not tds:
+            continue
+        m0 = H0.match(tds[0])
+        if not m0:
+            continue
+        r = dict(rid=rid,
+                 date="%s/%02d/%02d" % (m0.group(1), int(m0.group(2)), int(m0.group(3))),
+                 weather=m0.group(4), baba=m0.group(5).strip(), place=m0.group(6).strip(),
+                 race_no=int(m0.group(7)),
+                 dist=("ダ" if m0.group(8) == "ダート" else "芝") + m0.group(9).replace(",", ""),
+                 cls=m0.group(10).strip())
+        det = tds[-1] if len(tds) > 1 else ""
+        for k, pat in H1.items():
+            m = re.search(pat, det)
+            r[k] = m.group(1).strip() if m else ""
         out.append(r)
     return out
 
 
 def corner4(c: str):
-    """通過順 "3 3 4 4" の4角（最後の数字）。"** ** ** **" は不明。"""
+    """通過順 "1 2 2" の4角（最後の数字）。"""
     ns = re.findall(r"\d+", c or "")
     return int(ns[-1]) if ns else None
 
@@ -105,7 +133,45 @@ def _fin_time(oi: dict):
 
 
 def chokyo_of(rid: str) -> list[dict]:
-    return kb._parse_horses(BeautifulSoup(get("/chihou/cyokyo/1/0/%s" % rid), "html.parser"))
+    """調教ページを自前で読む。列位置が競馬ブックの南関表記に合うようにした。
+       1行 = ['印','', '追日/記号', 'コース', '馬場', …時計…, '脚色', '短評', '']"""
+    s = BeautifulSoup(get("/chihou/cyokyo/1/0/%s" % rid), "html.parser")
+    horses: list[dict] = []
+    cur = None
+    for tr in s.find_all("tr"):
+        cells = [re.sub(r"\s+", " ", td.get_text(" ", strip=True)) for td in tr.find_all("td")]
+        vals = [c for c in cells if c]
+        if tr.find(class_="umaban") and not tr.find("th"):
+            a = tr.find(class_="umalink_click")
+            nm = a.get_text(strip=True) if a else next(
+                (c for c in vals if re.fullmatch(r"[ァ-ヶー]{3,}", c)), "")
+            nums = [v for v in vals if v.isdigit()]
+            if nm and nums:
+                cur = {"馬番": int(nums[-1]), "馬名": nm,
+                       "umacd": a.get("umacd") if a else None,
+                       "総評": next((c for c in vals
+                                     if not c.isdigit() and c != nm and len(c) >= 3), ""),
+                       "追切": []}
+                horses.append(cur)
+            continue
+        joined = " ".join(cells)
+        if cur is None or not any(k in joined for k in KYAKU):
+            continue
+        if any(w in joined for w in ("騎乗者", "回り", "位置", "動 画", "短評")):
+            continue
+        kyaku = next((c for c in cells if c in KYAKU), "")
+        times = [c for c in cells if re.fullmatch(r"\d{2,3}\.\d", c)]
+        if not kyaku or len(times) > 4:
+            continue
+        course = next((c for c in cells if COURSE.match(c)), "")
+        baba = next((c for c in cells if c in ("良", "稍", "重", "不")), "")
+        oidate = next((re.match(r"^(\d{1,2})/(\d{1,2})", c).group(0)
+                       for c in cells if re.match(r"^\d{1,2}/\d{1,2}", c)), "")
+        ki = cells.index(kyaku)
+        tan = next((c for c in cells[ki + 1:] if c), "")
+        cur["追切"].append({"追日": oidate, "コース": course, "馬場": baba,
+                           "時計": times, "脚色": kyaku, "短評": tan})
+    return horses
 
 
 def danwa_of(rid: str) -> dict:
@@ -169,10 +235,13 @@ def report(name: str, umacd: str, n_back: int, raw: bool):
         me = next((h for h in hs if h["馬名"] == name), None)
         dw = danwa_of(r["rid"]).get(name, "")
         c4 = corner4(r["corner"])
-        print("  %s %s %s %s %s  %s着/%s頭 %s番人気 ／ 4角%s ／ %skg ／ %s" % (
-            r["date"], r["place"], r["dist"], r["baba"], r["cls"],
-            r["fin"] or "?", r["fs"] or "?", r["pop"] or "?",
-            "%d番手" % c4 if c4 else "不明", r["wt"] or "?", r["pace"] or "?"))
+        print("  %s %s %sR %s %s %s  %s着/%s頭 %s番人気" % (
+            r["date"], r["place"], r["race_no"], r["dist"], r["baba"], r["cls"],
+            r["fin"] or "?", r["fs"] or "?", r["pop"] or "?"))
+        print("         4角%-6s %s ／ %sゲート ／ %skg ／ %sペース 前%s-後%s ／ 上り%s" % (
+            ("%d番手" % c4) if c4 else "不明", r["lane"] or "―", r["gate"] or "?",
+            r["wt"] or "?", r["pace"] or "?", r["first"] or "?", r["last"] or "?",
+            r["agari"] or "?"))
         if not me or not me.get("追切"):
             print("    調教  ─（この日は取れない）")
         else:
@@ -207,8 +276,9 @@ def main() -> None:
     if not os.environ.get("KEIBABOOK_COOKIE"):
         sys.exit("KEIBABOOK_COOKIE が未設定")
     rid = a.race or race_id(a.date, a.place, a.r)
+    # ログインリンクはログイン中も残るので、馬リンクの数で判定する。
     probe = get("/chihou/cyokyo/1/0/%s" % rid)
-    if 'href="/login/login"' in probe or len(re.findall(r"umalink_click", probe)) <= 1:
+    if len(re.findall(r"umalink_click", probe)) <= 1:
         print("⚠️ Cookie が切れている。調教は先頭馬のみ、厩舎の話は3頭のみの無料プレビューになる。\n"
               "   競馬ブックに入り直して scratchpad/.kbcookie を取り直すと全頭出る。"
               "（過去走・4角・馬体重は会員でなくても出る）\n")
