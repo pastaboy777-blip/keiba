@@ -12,7 +12,7 @@ from PIL import Image, ImageFilter
 from lib.common import *
 from lib import env, hud
 from lib.horse import draw_horse_head
-from lib.chars import draw_mizuki, draw_gen
+from lib.chars import draw_mizuki, draw_gen, EYE_X
 from lib.lipsync import mouth
 
 POST = dict(bloom=0.55, grain=0.28, vignette=0.5, aberration=0.0)
@@ -131,7 +131,7 @@ def _shot_a(ctx, t, gt):
     blinkh = 0.62 + 0.08 * math.sin(t * 0.9)
     if 2.9 < t < 3.25:
         blinkh = 1.0
-    draw_horse_head(ctx, 560, H + 110, 1.7, facing=1, blink=blinkh, ear=-0.55, nostril=0.25 + 0.2 * max(0, breath),
+    draw_horse_head(ctx, 525, H + 150, 1.7, facing=1, blink=blinkh, ear=-0.55 + 0.8 * math.exp(-((t - 2.2) / 0.18) ** 2), nostril=0.25 + 0.2 * max(0, breath),
                     look=(0.3, 0.25), t=t + 2.0, nuzzle=0.85, light=WARM, rim_strength=1.0, shade=0.05)
     # 美月: 3q_left, hugging his face, cheek pressed in
     draw_mizuki(ctx, 1030, H + 385, 1.2, view="3q_left", expr="tender_eyes_closed", arm="hug", t=t + 1.0,
@@ -164,26 +164,48 @@ def _shot_b(ctx, t, gt):
     gz = 1 + 0.03 * kp
     _defocus(ctx, lambda c: draw_gen(c, 1540, 1060, 0.44, view="3q_left", expr="proud_tears", arms="down", t=t,
                                      light=WARM, light_dir=1, rim=(1.0, 0.85, 0.6), rim_strength=1.0),
-             (1300, 520, 480, 560), sigma=2.2, alpha=0.9, fade=(900, 1040), tint=(0.32, 0.18, 0.24, 0.22),
+             (1300, 520, 480, 560), sigma=1.5, alpha=0.92, fade=(900, 1040), tint=(0.32, 0.18, 0.24, 0.14),
              zoom=gz)
 
     ctx.save()
     ctx.translate(W / 2, H * 0.42); ctx.scale(push, push); ctx.translate(-W / 2, -H * 0.42)
+    M_ = ctx.get_matrix()
     # ハルカゼ muzzle, soft, entering frame left (foreground-ish)
-    draw_horse_head(ctx, 150, H + 250, 1.6, facing=1, blink=0.5, ear=-0.2, t=t + 5, nuzzle=0.5, light=WARM,
+    draw_horse_head(ctx, 90, H + 330, 1.8, facing=1, blink=0.5, ear=-0.2, t=t + 5, nuzzle=0.5, light=WARM,
                     rim_strength=0.9, shade=0.25)
-    # turn: 3q_left -> front happens on the cut; small head settle
-    settle = (1 - ease_out_back(clamp(tb / 0.45))) * 0.12
+    _warm_light(ctx, 1000, 330, 620, 0.30)
+    # turn to camera: two frames of the 3/4 pose (still turning, soft), then settle into the front view
     m = mouth("MIZUKI", gt)
-    blink = 0.0
-    tl = gt - 57.25
-    if 0.0 < tl < 0.35:  # end-of-line wink-ish blink
-        blink = math.sin(clamp(tl / 0.35) * math.pi)
-    elif 1.2 < tb < 1.32:
-        blink = 1.0
-    draw_mizuki(ctx, 960, H + 520, 1.28, view="front", expr="teasing_smile", mouth=m * 0.85, blink=blink,
-                look=(0, 0), t=t + 3, helmet=False, goggles="up", light=WARM, light_dir=1, rim=(1.0, 0.82, 0.55),
-                rim_strength=1.0, blush=0.6, head_tilt=0.07 - settle, hair_wind=0.12)
+    kw = dict(t=t + 3, helmet=False, goggles="up", light=WARM, light_dir=1, rim=(1.0, 0.82, 0.55),
+              rim_strength=1.0, blush=0.6, hair_wind=0.12)
+    if tb < 2.0 / FPS:
+        draw_mizuki(ctx, 1000, H + 660, 1.45, view="3q_left", expr="soft", look=(-0.6, 0), head_tilt=0.10,
+                    **dict(kw, hair_wind=0.5))
+    else:
+        settle = (1 - ease_out_back(clamp((tb - 2.0 / FPS) / 0.5))) * 0.10
+        blink = 1.0 if 1.25 < tb < 1.37 else 0.0
+        tilt = 0.07 - settle + 0.02 * smoothstep(0.3, 0.9, tb) * math.sin((tb - 0.3) * 2.2)
+        common = dict(view="front", expr="teasing_smile", mouth=m * 0.85, look=(0, 0), head_tilt=tilt, **kw)
+        an = draw_mizuki(ctx, 980, H + 660, 1.45, blink=blink, **common)
+        # end-of-line wink (screen-right eye), held into the title card
+        tw = gt - 57.22
+        wk = 0.0
+        if 0.0 < tw < 0.65:
+            wk = clamp(tw / 0.07) * (1 - clamp((tw - 0.5) / 0.15))
+        if wk > 0.02:
+            ex, ey = an["eyes"]
+            sc = 1.45 * push
+            cx_ = ex + (EYE_X + 4) * sc * math.cos(tilt); cy_ = ey + (EYE_X + 4) * sc * math.sin(tilt)
+            ctx.save()
+            ctx.identity_matrix()
+            g = cairo.RadialGradient(cx_, cy_, 55 * sc, cx_, cy_, 72 * sc)
+            g.add_color_stop_rgba(0, 0, 0, 0, 1); g.add_color_stop_rgba(1, 0, 0, 0, 0)
+            ctx.push_group()
+            ctx.set_matrix(M_)
+            draw_mizuki(ctx, 980, H + 660, 1.45, blink=wk, **common)
+            ctx.identity_matrix()
+            ctx.pop_group_to_source(); ctx.mask(g)
+            ctx.restore()
     ctx.restore()
     env.confetti_light(ctx, t + 80, n=40, seed=13, area=(0, 0, W, H), rise=30, size=1.1, alpha=0.7)
 

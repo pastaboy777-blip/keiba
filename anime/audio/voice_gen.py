@@ -44,8 +44,8 @@ VOICES = {
 # length: SBV2 length scale (auto-shrunk to fit `max`). pitch/inton: SBV2 pitch_scale / intonation_scale.
 # assist: emotional BERT "assist text" to colour delivery. fx: post-processing chain name.
 DIRECTION = {
-    "L01": dict(style="Neutral", w=1.0, sdp=0.0, noise=0.4, noise_w=0.6, length=0.95, inton=0.65, pitch=0.94,
-                say="第十一レース。十四番、ハルカゼ。勝率、れいてんはちパーセント。推奨は、見送りです。", gap=0.07,
+    "L01": dict(style="Neutral", w=1.0, sdp=0.0, noise=0.4, noise_w=0.6, length=0.85, inton=0.65, pitch=0.94,
+                gap=0.16,
                 fx="ai"),
     "L02": dict(style="Neutral", w=1.0, sdp=0.3, length=1.0, pitch=0.89, inton=0.95,
                 assist="まあ、そう言うなって。こいつはな、根性だけは誰にも負けねえんだ。", aw=0.5, fx="gen"),
@@ -71,7 +71,7 @@ DIRECTION = {
                 say="ハルカゼ!差し切ったぁ!",
                 assist="やったぁ!すごい!信じられない!奇跡だ!", aw=0.6, fx="ann_scream"),
     "L12": dict(style="Sad", w=1.2, sdp=0.1, noise=0.5, length=1.05, inton=0.8, pitch=0.95,
-                fx="ai_soft"),
+                say="予測を、更新します。がくしゅうデータに、追加。", fx="ai_soft_split"),
     "L13": dict(style="るんるん", w=1.0, sdp=0.4, length=1.0, inton=1.1,
                 assist="ふふっ、ほらね、言ったとおりでしょ。うれしいな。", aw=0.5, fx="mizuki"),
 }
@@ -317,6 +317,21 @@ def apply_fx(name, x, max_len):
         x = robot(x, 1.0)
     elif name == "ai_soft":
         x = robot(x, 0.7)
+    elif name == "ai_soft_split":
+        # full AI colour on phrase 1, much lighter on phrase 2 (keeps 学習データ intelligible)
+        wet, light = robot(x, 0.7), robot(x, 0.25)
+        hop = int(0.005 * SR); n = len(x) // hop
+        e = np.sqrt(np.mean(x[: n * hop].reshape(n, hop) ** 2, 1))
+        q = e < e.max() * 0.03
+        lo, hi = int(n * 0.3), int(n * 0.7)
+        best, run, bi = 0, 0, n // 2
+        for i in range(lo, hi):
+            run = run + 1 if q[i] else 0
+            if run > best:
+                best, bi = run, i - run // 2
+        c = bi * hop; f = int(0.04 * SR)
+        m = np.clip((np.arange(len(x)) - (c - f // 2)) / f, 0, 1)
+        x = wet * (1 - m) + light * m
     elif name == "ai_glitch":
         x = glitch(x, max_len=max_len)
         x = robot(x, 1.2)

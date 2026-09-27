@@ -94,7 +94,7 @@ def _world(ctx, t, gt, *, flick, door=0.0, miz_over=None):
                  0.55 * nz)
     snort = clamp(1 - abs(gt - T_NUZZLE - 0.05) / 0.25)
     hx, hy, hs = HORSE
-    hx += 30 * nz; hy -= 50 * nz
+    hx += 55 * nz; hy -= 55 * nz
     draw_horse_head(ctx, hx, hy, hs, facing=1, t=t, blink=hblink, ear=ear, nuzzle=nz,
                     nostril=0.3 + 0.7 * snort, look=(0.6, 0.1), light=(1.0, 0.78, 0.45), rim_strength=0.8)
     # ---------------- Mizuki
@@ -155,7 +155,8 @@ def draw(ctx, t, dur, gt):
     else:
         # she turns toward the door: push toward her face
         k = ease_out_cubic(invlerp(T_TURN, 15.1, gt))
-        _cam(ctx, lerp(930, 900, k), lerp(500, 470, k), lerp(1.6, 1.85, k))
+        whip = 140 * (1 - ease_out_cubic(invlerp(T_TURN, T_TURN + 0.28, gt)))   # snap-settle on the turn
+        _cam(ctx, lerp(930, 900, k) - whip, lerp(500, 470, k), lerp(1.6, 1.85, k))
     _world(ctx, t, gt, flick=flick, door=door)
     ctx.restore()
     # global lamp brightness (flicker darkens the whole set a little)
