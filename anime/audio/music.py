@@ -155,12 +155,12 @@ def compose():
     T("ai_bell", 98, pan=0.15, gain=-15, rev=0.5)
     T("piano", 0, pan=0.05, gain=6, rev=0.32)
     T("harp", 46, pan=-0.35, gain=-3, rev=0.35)
-    T("str_pad", 49, pan=0.0, gain=-7, rev=0.4, width=1.2, pre=0.07)
+    T("str_pad", 49, pan=0.0, gain=-7, rev=0.4, width=1.2, pre=0.1)
     T("str_trem", 44, pan=0.2, gain=-9, rev=0.35, pre=0.04)
     T("str_lo", 41, pan=0.25, gain=1, rev=0.25)        # violas/celli gallop ostinato (fast-attack viola)
     T("pizz", 45, pan=0.35, gain=-6, rev=0.25)         # pizzicato doubling for bite
     T("str_16", 41, pan=-0.25, gain=0, rev=0.3)        # 16th ostinato
-    T("vln", 48, pan=-0.3, gain=3, rev=0.35, pre=0.05)  # violin melody
+    T("vln", 48, pan=-0.3, gain=3, rev=0.35, pre=0.08)  # violin melody
     T("bass", 43, pan=0.1, gain=-5, rev=0.2, pre=0.02)
     T("horn", 60, pan=0.3, gain=-5, rev=0.4, pre=0.025)
     T("tpt", 56, pan=-0.1, gain=-6, rev=0.35)

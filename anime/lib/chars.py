@@ -689,7 +689,7 @@ def _helmet(ctx, k, lt, goggles, t, riding=False):
     return path
 
 
-def _goggle_lens(ctx, x, y, w, h, lt, tilt=0.0, frame=(0.12, 0.12, 0.16), glare=0.0):
+def _goggle_lens(ctx, x, y, w, h, lt, tilt=0.0, frame=(0.14, 0.14, 0.19), glare=0.0, lens_a=1.0):
     ctx.save(); ctx.translate(x, y); ctx.rotate(tilt)
     r = min(w, h) * 0.45
     def rr(ww, hh):
@@ -701,19 +701,30 @@ def _goggle_lens(ctx, x, y, w, h, lt, tilt=0.0, frame=(0.12, 0.12, 0.16), glare=
         ctx.curve_to(-ww / 2 - ww * 0.03, -hh * 0.1, -ww / 2 + r * 0.2, -hh / 2, -ww / 2 + r, -hh / 2)
         ctx.close_path()
         return ctx.copy_path()
-    outer = rr(w * 1.16, h * 1.22)
-    fill_rgb(ctx, frame); ctx.fill()
+    outer = rr(w * 1.18, h * 1.24)
     inner = rr(w, h)
-    g = cairo.LinearGradient(-w / 2, -h / 2, w / 2, h / 2)
-    g.add_color_stop_rgba(0, 0.78, 0.9, 1.0, 0.55); g.add_color_stop_rgba(1, 0.55, 0.7, 0.95, 0.35)
+    # lens: clear with a cool tint, stronger toward the top edge
+    ctx.new_path(); ctx.append_path(inner)
+    g = cairo.LinearGradient(0, -h / 2, 0, h / 2)
+    g.add_color_stop_rgba(0, 0.55, 0.72, 0.95, 0.42 * lens_a); g.add_color_stop_rgba(0.5, 0.75, 0.88, 1.0, 0.14 * lens_a)
+    g.add_color_stop_rgba(1, 0.8, 0.92, 1.0, 0.22 * lens_a)
     ctx.set_source(g); ctx.fill()
     ctx.save(); clip_path(ctx, inner)
-    for i, (off, ww, a) in enumerate(((-0.25, 0.14, 0.7), (0.02, 0.06, 0.5))):
+    for i, (off, ww, a) in enumerate(((-0.30, 0.16, 0.55), (-0.06, 0.05, 0.45), (0.34, 0.08, 0.25))):
         ctx.new_path(); ctx.move_to(-w * 0.6 + off * w, h * 0.7); ctx.line_to(-w * 0.2 + off * w, -h * 0.7)
         ctx.line_to(-w * 0.2 + (off + ww) * w, -h * 0.7); ctx.line_to(-w * 0.6 + (off + ww) * w, h * 0.7); ctx.close_path()
-        ctx.set_source_rgba(1, 1, 1, a * (0.6 + 0.4 * glare)); ctx.fill()
+        ctx.set_source_rgba(1, 1, 1, clamp(a * (0.55 + 0.9 * glare))); ctx.fill()
+    if glare > 0:
+        ctx.new_path(); ctx.append_path(inner); ctx.set_source_rgba(1, 1, 1, 0.35 * glare); ctx.fill()
     ctx.restore()
-    ctx.new_path(); ctx.append_path(outer); ctx.set_line_width(2.0); fill_rgb(ctx, INK); ctx.stroke()
+    # frame ring
+    ctx.new_path(); ctx.set_fill_rule(cairo.FILL_RULE_EVEN_ODD); ctx.append_path(outer); ctx.append_path(inner)
+    fill_rgb(ctx, frame); ctx.fill(); ctx.set_fill_rule(cairo.FILL_RULE_WINDING)
+    ctx.save(); ctx.new_path(); ctx.append_path(outer); ctx.clip()
+    ctx.new_path(); ctx.translate(0, -h * 0.06); ctx.append_path(outer); ctx.restore()
+    ctx.set_line_width(max(1.5, h * 0.05)); ctx.set_source_rgba(0.55, 0.62, 0.8, 0.5); ctx.stroke()
+    for pth in (outer, inner):
+        ctx.new_path(); ctx.append_path(pth); ctx.set_line_width(1.8); fill_rgb(ctx, INK); ctx.stroke()
     ctx.restore()
 
 

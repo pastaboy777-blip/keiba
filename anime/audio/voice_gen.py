@@ -45,7 +45,7 @@ VOICES = {
 # assist: emotional BERT "assist text" to colour delivery. fx: post-processing chain name.
 DIRECTION = {
     "L01": dict(style="Neutral", w=1.0, sdp=0.0, noise=0.4, noise_w=0.6, length=0.95, inton=0.65,
-                say="第十一レース。十四番、ハルカゼ。勝率、れいてんはちパーセント。推奨は、見送りです。", gap=0.09,
+                say="第十一レース。十四番、ハルカゼ。勝率、れいてんはちパーセント。推奨は、見送りです。", gap=0.07,
                 fx="ai"),
     "L02": dict(style="Neutral", w=1.0, sdp=0.3, length=1.0, pitch=0.89, inton=0.95,
                 assist="まあ、そう言うなって。こいつはな、根性だけは誰にも負けねえんだ。", aw=0.5, fx="gen"),
@@ -60,7 +60,7 @@ DIRECTION = {
                 assist="しずかに、まだ我慢して、ひそひそ", aw=0.4, fx="whisper"),
     "L07": dict(style="ノーマル", w=1.0, sdp=0.5, length=0.9, pitch=1.07, inton=1.35,
                 assist="いけっ!全力で!今しかない!", aw=0.6, fx="shout"),
-    "L08": dict(style="Surprise", w=2.5, sdp=0.4, length=0.84, pitch=1.08, inton=1.3,
+    "L08": dict(style="Surprise", w=2.5, sdp=0.4, length=0.92, pitch=1.08, inton=1.3,
                 say="直線コース!おおそとから、ハルカゼ!ハルカゼが来た!",
                 assist="すごいぞ!来た来た来た!信じられない!", aw=0.5, fx="ann"),
     "L09": dict(style="Surprise", w=3.0, sdp=0.4, length=0.82, pitch=1.12, inton=1.35,
@@ -251,7 +251,7 @@ def glitch(x, sr=SR, max_len=None, rng=None):
     if not onsets:
         onsets = [0]
     segs, pos = [], 0
-    for k, o in enumerate(onsets[:2]):
+    for k, o in enumerate(onsets[:1]):
         segs.append(x[pos:o])
         chunk = x[o:o + int(0.075 * sr)].copy()
         f = int(0.004 * sr)
@@ -267,13 +267,13 @@ def glitch(x, sr=SR, max_len=None, rng=None):
     # bitcrushed burst on the tail of word 1 + a short pitch-jump chunk
     L = len(y)
     a = int(L * 0.30); b = a + int(0.07 * sr)
-    y[a:b] = bitcrush(y[a:b], bits=4, hold=6)
-    a2 = int(L * 0.72); seg = y[a2:a2 + int(0.06 * sr)]
+    y[a:b] = bitcrush(y[a:b], bits=5, hold=4)
+    a2 = int(L * 0.50); seg = y[a2:a2 + int(0.05 * sr)]
     if len(seg) > 10:
         up = signal.resample(seg, int(len(seg) / 1.35))
         y[a2:a2 + len(seg)] = np.pad(up, (0, len(seg) - len(up)))
     # a couple of 12ms dropouts
-    for frac in (0.46, 0.83):
+    for frac in (0.42, 0.62):
         d = int(L * frac)
         y[d:d + int(0.012 * sr)] *= 0.05
     if max_len and len(y) > max_len:
@@ -325,8 +325,14 @@ def apply_fx(name, x, max_len):
 
 
 # ----------------------------------------------------------------------------- QC (ASR)
+HOMOGRAPHS = {"春風": "はるかぜ", "ハル風": "はるかぜ", "最高法": "さいこうほう", "最後方": "さいこうほう",
+              "大外": "おおそと", "十四": "じゅうよん", "14": "じゅうよん", "11": "じゅういち", "0.8": "れいてんはち"}
+
+
 def to_kana(s):
     import pyopenjtalk
+    for k, v in HOMOGRAPHS.items():
+        s = s.replace(k, v)
     s = re.sub(r"[、。!！?？…,.\s・「」『』ー〜~-]", "", s)
     k = pyopenjtalk.g2p(s, kana=True) if s else ""
     return re.sub(r"[、。！？ー]", "", k)
@@ -417,7 +423,7 @@ def main():
         m = tts[spk]
         text = D.get("say", L["text"])
         max_len = int(L["max"] * SR)
-        target = L["max"] * (0.93 if D["fx"] != "ai_glitch" else 0.72)  # glitch adds ~0.25s
+        target = L["max"] * (0.96 if D["fx"] != "ai_glitch" else 0.72)  # glitch adds ~0.25s
         best = None
         for seed in range(args.seeds):
             length = D.get("length", 1.0)
