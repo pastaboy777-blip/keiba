@@ -20,6 +20,7 @@
 
 出す数字の約束:
   時計そのものは出さない。順位と脚色だけ。
+  短評・総評は出さない。
 
 使い方:
   export KEIBABOOK_COOKIE="$(cat scratchpad/.kbcookie)"
@@ -40,10 +41,6 @@ RANKCOL = 10  # 3F。100%埋まる。
 # 脚色の負荷（軽→強）。実データに出た値を全部入れた。
 KYAKU = {"楽走": 0, "馬なり": 0, "馬也": 0, "直仕掛": 1, "直強め": 2, "末強め": 2,
          "稍強め": 2, "強め": 3, "稍一杯": 3.5, "末一杯": 3.5, "一杯": 4}
-POS = ("仕上が", "上昇", "絞れ", "良化", "気配良", "上々", "文句な", "抜群", "デキ良",
-       "動き良", "キビキビ", "順調", "変わり身", "伸び良", "まずまず", "楽しみ")
-NEG = ("変わり身無", "太", "一息", "平凡", "物足", "余裕", "案外", "イマイチ", "ズブ",
-       "手控え", "軽め", "重い", "こんなもの")
 _C: dict[str, str] = {}
 
 
@@ -60,13 +57,6 @@ def get(path: str) -> str:
             time.sleep(2 * (i + 1))
     raise RuntimeError("取得できず: " + path)
 
-
-def tone(txt: str) -> str:
-    if not txt:
-        return "―"
-    p = sum(1 for w in POS if w in txt)
-    n = sum(1 for w in NEG if w in txt)
-    return ("前向き＋不安" if p and n else "前向き" if p else "慎重" if n else "中立")
 
 
 def parse_race(rid: str) -> list[dict]:
@@ -155,8 +145,8 @@ def show(hs: list[dict], r: int) -> None:
         w = last_dated(h)
         n_d = sum(1 for x in h["追切"] if x["追日"])
         if not w:
-            print("  %2d %-13s 日付のある追い切りなし（固定行だけ）／総評 %s"
-                  % (h["馬番"], h["馬名"][:13], tone(h["総評"])))
+            print("  %2d %-13s 日付のある追い切りなし（固定行だけ）"
+                  % (h["馬番"], h["馬名"][:13]))
             continue
         def r(tag):
             # 分母はそのまま出す。何頭の中の順位かは読む側が見て判断する。
@@ -165,12 +155,10 @@ def show(hs: list[dict], r: int) -> None:
             return "%d/%d" % (w[tag + "順位"], w[tag + "母数"])
         ld = KYAKU.get(w["脚色"])
         bk = load_bucket(w["脚色"])
-        print("  %2d %-13s %s %s %s ／ %-5s(負荷%s) ／ %s組 %-7s ／ その日 %-7s ／ 同脚色 %-6s ／ %d本"
+        print("  %2d %-13s %s %s %s ／ %-5s(負荷%s) ／ %s組 %-7s ／ その日 %-7s ／ 同脚色 %-6s ／ %d本%s"
               % (h["馬番"], h["馬名"][:13], w["追日"], w["コース"], w["馬場"],
                  w["脚色"], ("%.1f" % ld).rstrip("0").rstrip(".") if ld is not None else "?",
-                 bk, r("束"), r(""), r("脚色内"), n_d))
-        print("     %-13s 短評 %s ／ 総評 %s%s"
-              % ("", tone(w["短評"]), tone(h["総評"]),
+                 bk, r("束"), r(""), r("脚色内"), n_d,
                  ("／ 回り位置 %s" % w["位置"]) if w["位置"] else ""))
 
 
