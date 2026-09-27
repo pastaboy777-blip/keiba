@@ -1,0 +1,5 @@
+build/
+fonts/*.ttf
+__pycache__/
+*.pyc
+models/
