@@ -459,6 +459,8 @@ def main():
             strip = lambda t: re.sub(r"[、。!！?？…,.\s]", "", t)
             c_raw = cer_chars(strip(L["sub"]), strip(hyp)) if asr.ok else 0.0
             clip = float(np.mean(np.abs(a.astype(np.float32)) > 32000))
+            if D["fx"] == "ai_glitch" and asr.ok and re.match(r"^(.)\1", to_kana(hyp)):
+                c_raw -= 2.5  # reward an audible stutter
             score = c + 0.02 * c_raw + (0.5 if len(y) > max_len else 0) + clip * 10
             print(f"{lid} seed{seed} len={length:.2f} dur={len(y)/SR:.2f}/{L['max']} cer={c:.2f} asr='{hyp}'", flush=True)
             if best is None or score < best[0]:
