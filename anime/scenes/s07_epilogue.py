@@ -104,7 +104,7 @@ def _shot_a(ctx, t, gt):
     draw_horse_head(ctx, 560, H + 110, 1.7, facing=1, blink=blinkh, ear=-0.55, nostril=0.25 + 0.2 * max(0, breath),
                     look=(0.3, 0.25), t=t + 2.0, nuzzle=0.85, light=WARM, rim_strength=1.0, shade=0.05)
     # 美月: 3q_left, hugging his face, cheek pressed in
-    draw_mizuki(ctx, 1090, H + 380, 1.2, view="3q_left", expr="tender_eyes_closed", arm="hug", t=t + 1.0,
+    draw_mizuki(ctx, 1030, H + 385, 1.2, view="3q_left", expr="tender_eyes_closed", arm="hug", t=t + 1.0,
                 helmet=False, goggles="up", light=WARM, light_dir=-1, rim=(1.0, 0.82, 0.55), rim_strength=1.0,
                 blush=0.7, tears=0.35, head_tilt=0.05, hair_wind=0.15)
     ctx.restore()
@@ -115,7 +115,7 @@ def _shot_a(ctx, t, gt):
 
     # AI update panel (right, away from faces)
     ta = gt - 50.0
-    hud.draw_update_panel(ctx, ta, cx=1500, cy=330)
+    hud.draw_update_panel(ctx, ta, cx=1540, cy=300)
     # one-shot boot glitch just after the dissolve
     if 0.80 <= ta < 0.93:
         hud.glitch_frame(ctx, 0.35 if ta < 0.86 else 0.15, seed=int(gt * FPS))
