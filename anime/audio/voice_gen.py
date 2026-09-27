@@ -45,7 +45,7 @@ VOICES = {
 # assist: emotional BERT "assist text" to colour delivery. fx: post-processing chain name.
 DIRECTION = {
     "L01": dict(style="Neutral", w=1.0, sdp=0.0, noise=0.4, noise_w=0.6, length=0.95, inton=0.65,
-                say="第十一レース。十四番、ハルカゼ。勝率、れいてんはちパーセント。推奨は、見送りです。",
+                say="第十一レース。十四番、ハルカゼ。勝率、れいてんはちパーセント。推奨は、見送りです。", gap=0.09,
                 fx="ai"),
     "L02": dict(style="Neutral", w=1.0, sdp=0.3, length=1.0, pitch=0.89, inton=0.95,
                 assist="まあ、そう言うなって。こいつはな、根性だけは誰にも負けねえんだ。", aw=0.5, fx="gen"),
@@ -116,6 +116,35 @@ def trim(x, sr=SR, thresh_db=-42, pad=0.03):
     y[:f] *= np.linspace(0, 1, f)
     y[-f:] *= np.linspace(1, 0, f)
     return y
+
+
+def squeeze_pauses(x, max_gap=0.25, sr=SR, thresh_db=-38):
+    """Shorten internal silences longer than max_gap (keeps speech rate natural while fitting slots)."""
+    hop = int(sr * 0.005)
+    n = len(x) // hop
+    e = np.sqrt(np.mean(x[: n * hop].reshape(n, hop) ** 2, 1) + 1e-12)
+    sil = 20 * np.log10(e / (e.max() + 1e-9)) < thresh_db
+    keep = int(max_gap * sr / hop)
+    out, i, f = [], 0, int(0.006 * sr)
+    last = 0
+    while i < n:
+        if sil[i]:
+            j = i
+            while j < n and sil[j]:
+                j += 1
+            if j - i > keep and i > 0 and j < n:
+                a = i * hop + (keep // 2) * hop
+                b = j * hop - (keep - keep // 2) * hop
+                seg = x[last:a].copy()
+                seg[-f:] *= np.linspace(1, 0, f)
+                out.append(seg)
+                last = b
+                x = x.copy(); x[b:b + f] *= np.linspace(0, 1, f)
+            i = j
+        else:
+            i += 1
+    out.append(x[last:])
+    return np.concatenate(out).astype(np.float32)
 
 
 def biquad(kind, f0, q=0.707, gain_db=0.0, sr=SR):
@@ -335,6 +364,24 @@ class ASRCheck:
 
 
 # ----------------------------------------------------------------------------- main
+def _patch_openjtalk():
+    """pyopenjtalk-plus returns pron '！' for '!', which SBV2 2.5 (built for pyopenjtalk-dict) rejects.
+    Map it back to '、' so SBV2 treats it as punctuation."""
+    import pyopenjtalk
+    if getattr(pyopenjtalk, "_sbv2_patched", False):
+        return
+    orig = pyopenjtalk.run_frontend
+
+    def run_frontend(text, *a, **k):
+        out = orig(text, *a, **k)
+        for n in out:
+            if n.get("pron") in ("！", "!", "…", "―"):
+                n["pron"] = "、"
+        return out
+    pyopenjtalk.run_frontend = run_frontend
+    pyopenjtalk._sbv2_patched = True
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lines", default="")
@@ -344,6 +391,7 @@ def main():
     if args.download:
         download()
     import torch
+    _patch_openjtalk()
     from style_bert_vits2.nlp import bert_models
     from style_bert_vits2.constants import Languages
     from style_bert_vits2.tts_model import TTSModel
@@ -382,7 +430,7 @@ def main():
                     kw.update(assist_text=D["assist"], assist_text_weight=D.get("aw", 0.5), use_assist_text=True)
                 sr, a = m.infer(text, **kw)
                 x = resample(a.astype(np.float32) / 32768.0, sr, SR)
-                x = trim(x)
+                x = squeeze_pauses(trim(x), D.get("gap", 0.22))
                 dur = len(x) / SR
                 if dur <= target or attempt == 3:
                     break

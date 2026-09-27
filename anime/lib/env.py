@@ -474,7 +474,8 @@ def _city_build():
         dict(sp=(50, 140), h=(40, 190), w=(50, 150), col=(0.075, 0.06, 0.16), wa=1.0, wd=0.45),
     ]
     sil, c = _surf(CITY_W, CITY_H)
-    silT, cT = _surf(CITY_W, CITY_H)
+    silT, cT = _surf(CITY_W, CITY_H)       # rows 1-2 (in front of the towers)
+    tows, cTow = _surf(CITY_W, CITY_H)
     win, cw = _surf(CITY_W, CITY_H)
     beacons = []
     tower_x, tree_x = 1320.0, 2980.0
@@ -538,17 +539,16 @@ def _city_build():
             # tallest cluster around tower & a "Shiodome/Shinagawa" cluster
             for cx0, amp in ((700, 1.4), (2300, 1.5), (3500, 1.3)):
                 bh *= 1 + (amp - 1) * math.exp(-((x - cx0) / 350) ** 2)
-            for cc in (c, cT):
-                building(cc, x, bw, bh, R["col"], rowi, True)
+            building(c if rowi == 0 else cT, x, bw, bh, R["col"], rowi, True)
             windows(x, bw, bh, rowi, R)
             x += bw + r.uniform(-bw * 0.4, R["sp"][1] * 0.3)
         if rowi == 0:
-            # ---- landmark towers behind the mid row (only in cT) ----
-            _tokyo_tower(cT, tower_x, base, 400)
-            _skytree(cT, tree_x, base, 330)
+            # ---- landmark towers (separate, non-repeating layer) ----
+            _tokyo_tower(cTow, tower_x, base, 400)
+            _skytree(cTow, tree_x, base, 330)
             # glow of tower into window layer (so it's affected by lights)
     # haze at the base of the skyline (light pollution / sea mist), painted over both
-    for cc in (c, cT):
+    for cc in (cT,):
         g = cairo.LinearGradient(0, base - 160, 0, CITY_H)
         g.add_color_stop_rgba(0, 0.9, 0.45, 0.55, 0)
         g.add_color_stop_rgba(0.7, 0.85, 0.45, 0.55, 0.22)
@@ -567,7 +567,7 @@ def _city_build():
         cw2.set_source_rgba(*col, 0.9); cw2.rectangle(x - 8, y - 3, 16, 6); cw2.fill()
     # elevated expressway / monorail beam across the base (in front of everything)
     mono_y = base - 34
-    for cc in (c, cT):
+    for cc in (cT,):
         cc.set_source_rgb(0.05, 0.045, 0.1)
         cc.rectangle(0, mono_y, CITY_W, 7); cc.fill()
         for px in range(0, CITY_W, 90):
@@ -577,7 +577,7 @@ def _city_build():
     for px in range(20, CITY_W, 46):
         _glow(cw2, px, base - 13, 10, (1.0, 0.7, 0.35), 0.5)
         cw2.set_source_rgba(1.0, 0.85, 0.6, 0.9); cw2.arc(px, base - 13, 1.4, 0, TAU); cw2.fill()
-    return dict(sil=sil, silT=silT, win=w2, beacons=beacons, mono_y=mono_y, tower_x=tower_x, tree_x=tree_x)
+    return dict(far=sil, near=silT, tows=tows, win=w2, beacons=beacons, mono_y=mono_y, tower_x=tower_x, tree_x=tree_x)
 
 
 def _tokyo_tower(c, x, base, h):
@@ -658,7 +658,7 @@ def draw_city(ctx, t, base_y, cam_x=0.0, parallax=0.05, scale=1.0, lights=1.0, t
     C = _city()
     off = cam_x * parallax
     top = base_y - (CITY_H - CITY_PAD) * scale
-    sil = C["silT"] if tower else C["sil"]
+
     # light pollution glow above skyline
     if haze > 0:
         g = cairo.LinearGradient(0, top - 60 * scale, 0, base_y)
@@ -666,7 +666,10 @@ def draw_city(ctx, t, base_y, cam_x=0.0, parallax=0.05, scale=1.0, lights=1.0, t
         g.add_color_stop_rgba(1, 1.0, 0.6, 0.5, 0.18 * haze)
         ctx.save(); ctx.rectangle(-200, top - 60 * scale, W + 400, base_y - top + 60 * scale)
         ctx.set_source(g); ctx.fill(); ctx.restore()
-    _paint_strip(ctx, sil, off, top, scale)
+    _paint_strip(ctx, C["far"], off, top, scale)
+    if tower:   # landmarks: one instance only (no tiling)
+        _paint_strip(ctx, C["tows"], off, top, scale, extend=cairo.EXTEND_NONE)
+    _paint_strip(ctx, C["near"], off, top, scale)
     if lights > 0:
         _paint_strip(ctx, C["win"], off, top, scale, alpha=clamp(lights))
     # beacons & monorail (dynamic)
@@ -689,8 +692,8 @@ def draw_city(ctx, t, base_y, cam_x=0.0, parallax=0.05, scale=1.0, lights=1.0, t
         if tower:   # tower top beacons
             for k2, (tx, ty) in enumerate(((C["tower_x"], CITY_H - CITY_PAD - 400), (C["tree_x"], CITY_H - CITY_PAD - 330))):
                 if (t * 0.7 + k2 * 0.5) % 1.0 < 0.4:
-                    sx = (tx * scale - off) % (CITY_W * scale)
-                    for sxx in (sx, sx - CITY_W * scale):
+                    sx = tx * scale - off
+                    for sxx in (sx,):
                         if -20 < sxx < W + 20:
                             _glow(ctx, sxx, top + ty * scale, 16 * scale + 4, (1, 0.15, 0.1), 0.9 * lights)
     if monorail:
@@ -709,4 +712,1117 @@ def draw_city(ctx, t, base_y, cam_x=0.0, parallax=0.05, scale=1.0, lights=1.0, t
                         ctx.rectangle(sxx + (4 + q * 12) * scale, my - hgt + 2 * scale, 7 * scale, 3 * scale)
                     ctx.fill()
                     _glow(ctx, sxx + (L if dirn > 0 else 0), my - hgt / 2, 16 * scale + 3, (1, 1, 0.9), 0.5 * lights)
+    ctx.restore()
+
+
+# ======================================================================
+#  CROWD helpers
+# ======================================================================
+_CLOTH = [(0.16, 0.16, 0.24), (0.32, 0.13, 0.17), (0.12, 0.22, 0.28), (0.38, 0.36, 0.34),
+          (0.08, 0.08, 0.1), (0.46, 0.40, 0.27), (0.62, 0.62, 0.66), (0.22, 0.28, 0.2),
+          (0.55, 0.25, 0.2), (0.2, 0.22, 0.4)]
+_HAIR = [(0.06, 0.05, 0.07), (0.12, 0.08, 0.06), (0.2, 0.14, 0.1), (0.35, 0.33, 0.33), (0.08, 0.07, 0.1)]
+
+
+_HEADS = None
+
+
+def _mute(col, tone, k):
+    return tuple(col[i] * (1 - k) + tone[i] * k for i in range(3))
+
+
+def _tiny_crowd_row(c, r, x0, x1, y, hr, light, dens=1.0, phones=None, tint=(1, 1, 1),
+                    tone=(0.30, 0.22, 0.28), mute=0.55):
+    """One row of tiny spectators (heads + shoulders). y = shoulder line."""
+    x = x0 + r.uniform(0, hr * 2)
+    while x < x1:
+        if r.random() < dens:
+            cl = _mute(r.choice(_CLOTH), tone, mute)
+            lit = light * r.uniform(0.85, 1.1)
+            cc = tuple(min(1, cl[i] * lit * tint[i]) for i in range(3))
+            sh = hr * r.uniform(1.5, 1.9)
+            c.set_source_rgb(*cc)
+            c.move_to(x - sh, y + hr * 3)
+            c.curve_to(x - sh, y - hr * 0.2, x + sh, y - hr * 0.2, x + sh, y + hr * 3)
+            c.close_path(); c.fill()
+            hy = y - hr * 0.9 + r.uniform(-0.4, 0.4) * hr
+            if _HEADS is not None and r.random() < 0.2:
+                _HEADS.append((x, hy))
+            skin = _mute(PAL["skin"] if r.random() < 0.55 else PAL["skin_shadow"], tone, mute * 0.6)
+            hc = r.choice(_HAIR)
+            c.set_source_rgb(*(min(1, hc[i] * lit * 1.3) for i in range(3)))
+            c.arc(x, hy - hr * 0.15, hr * 1.04, 0, TAU); c.fill()
+            c.set_source_rgb(*(min(1, skin[i] * lit * 0.75 * tint[i]) for i in range(3)))
+            c.arc(x, hy + hr * 0.18, hr * 0.82, 0, TAU); c.fill()
+            if r.random() < 0.10:      # raised arm
+                c.set_source_rgb(*cc)
+                c.set_line_width(hr * 0.8)
+                side = r.choice((-1, 1))
+                c.move_to(x + side * sh * 0.7, y + hr)
+                c.line_to(x + side * sh * 1.1, y - hr * 3.2); c.stroke()
+                if phones is not None and r.random() < 0.6:
+                    phones.append((x + side * sh * 1.1, y - hr * 3.5))
+            elif phones is not None and r.random() < 0.05:
+                phones.append((x + r.uniform(-hr, hr), y - hr * 0.2))
+        x += hr * r.uniform(2.1, 2.9)
+
+
+def _person(c, r, x, base, hgt, light=1.0, tint=(1, 1, 1), phones=None, arms_p=0.25, rim=(1.0, 0.85, 0.65)):
+    """Standing spectator silhouette (waist-up visible above a rail). base = feet line."""
+    cl = _mute(r.choice(_CLOTH), (0.16, 0.12, 0.2), 0.5)
+    lit = light * r.uniform(0.85, 1.1)
+    cc = tuple(min(1, cl[i] * lit * tint[i]) for i in range(3))
+    hr = hgt * 0.11
+    sw = hgt * r.uniform(0.17, 0.22)
+    neck = base - hgt + hr * 2.1
+    c.set_source_rgb(*cc)
+    c.move_to(x - sw, base)
+    c.line_to(x - sw, neck + hr * 1.2)
+    c.curve_to(x - sw, neck, x - sw * 0.5, neck - hr * 0.1, x, neck - hr * 0.1)
+    c.curve_to(x + sw * 0.5, neck - hr * 0.1, x + sw, neck, x + sw, neck + hr * 1.2)
+    c.line_to(x + sw, base); c.close_path(); c.fill()
+    hy = neck - hr * 0.9
+    skin = _mute(PAL["skin"] if r.random() < 0.6 else PAL["skin_shadow"], (0.3, 0.2, 0.3), 0.35)
+    hc = r.choice(_HAIR)
+    c.set_source_rgb(*(min(1, hc[i] * lit * 1.2) for i in range(3)))
+    c.arc(x, hy - hr * 0.12, hr * 1.06, 0, TAU); c.fill()
+    c.set_source_rgb(*(min(1, skin[i] * lit * 0.62 * tint[i]) for i in range(3)))
+    c.save(); c.translate(x, hy + hr * 0.2); c.scale(0.86, 0.9); c.arc(0, 0, hr, 0, TAU); c.restore(); c.fill()
+    if r.random() < 0.2:   # cap
+        c.set_source_rgb(*_mute(r.choice(_CLOTH), (0.2, 0.15, 0.25), 0.3))
+        c.arc(x, hy - hr * 0.1, hr * 1.1, math.pi, TAU); c.fill()
+        c.rectangle(x - hr * 1.1, hy - hr * 0.2, hr * 2.2, hr * 0.3); c.fill()
+    # rim light on the top edge (floodlights)
+    c.set_source_rgba(*rim, 0.55 * light)
+    c.set_line_width(max(1.0, hr * 0.28))
+    c.arc(x, hy, hr * 0.95, math.pi * 1.1, math.pi * 1.7); c.stroke()
+    c.move_to(x - sw * 0.9, neck + hr * 0.4); c.curve_to(x - sw * 0.6, neck, x - sw * 0.3, neck, x - hr * 0.6, neck); c.stroke()
+    if r.random() < arms_p:
+        side = r.choice((-1, 1))
+        c.set_source_rgb(*cc)
+        c.set_line_width(hr * 0.9); c.set_line_cap(cairo.LINE_CAP_ROUND)
+        ex = x + side * sw * r.uniform(0.9, 1.6)
+        ey = neck - hgt * r.uniform(0.35, 0.55)
+        c.move_to(x + side * sw * 0.8, neck + hr * 0.6)
+        c.curve_to(x + side * sw * 1.3, neck, ex, ey + hr * 2, ex, ey); c.stroke()
+        c.set_source_rgb(*(min(1, skin[i] * lit * 0.6) for i in range(3)))
+        c.arc(ex, ey, hr * 0.55, 0, TAU); c.fill()
+        if phones is not None and r.random() < 0.55:
+            phones.append((ex, ey - hr * 0.9, hr))
+        c.set_line_cap(cairo.LINE_CAP_BUTT)
+
+
+# ======================================================================
+#  RACE SIDE TRACKING SHOT  (bg + fg)
+# ======================================================================
+GS_W, GS_H, GS_BASE = 5760, 600, 580     # grandstand strip, ground row
+P_CITY, P_FARTOW, P_GS, P_TOW, P_CROWD, P_ORAIL = 0.03, 0.18, 0.5, 0.64, 0.72, 0.82
+_SIDE = {}
+
+
+def _gs_main(c, r, x0, x1, hgt, phones, sign=None):
+    base = GS_BASE
+    top = base - hgt
+    w = x1 - x0
+    # structural back mass
+    c.set_source_rgb(0.07, 0.06, 0.13)
+    c.rectangle(x0 + 10, top + 20, w - 20, hgt - 20); c.fill()
+    # ---- upper tier (under roof) ----
+    ut0, ut1 = top + 34, top + 34 + hgt * 0.32
+    g = _lin(c, 0, ut0, 0, ut1, [(0, (0.55, 0.36, 0.28)), (0.5, (0.42, 0.28, 0.25)), (1, (0.26, 0.18, 0.2))])
+    c.set_source(g); c.rectangle(x0 + 14, ut0, w - 28, ut1 - ut0); c.fill()
+    rows = int((ut1 - ut0 - 6) / 11)
+    for k in range(rows):
+        y = ut0 + 12 + k * 11
+        light = 0.75 + 0.55 * k / max(1, rows - 1)
+        _tiny_crowd_row(c, r, x0 + 18, x1 - 18, y, 2.6, light, 0.9, phones, tint=(1.15, 0.95, 0.85),
+                        tone=(0.34, 0.22, 0.24), mute=0.6)
+    _terrace_structure(c, r, x0 + 14, x1 - 14, ut0, ut1, 11, rows, 0.5)
+    # upper tier front parapet
+    c.set_source_rgb(0.85, 0.82, 0.8)
+    c.rectangle(x0 + 12, ut1, w - 24, 5); c.fill()
+    c.set_source_rgb(0.25, 0.2, 0.28)
+    c.rectangle(x0 + 12, ut1 + 5, w - 24, 10); c.fill()
+    # ---- glass band ----
+    gb0, gb1 = ut1 + 15, ut1 + 15 + hgt * 0.24
+    g = _lin(c, 0, gb0, 0, gb1, [(0, (1.0, 0.86, 0.6)), (0.6, (1.0, 0.72, 0.45)), (1, (0.85, 0.5, 0.35))])
+    c.set_source(g); c.rectangle(x0 + 14, gb0, w - 28, gb1 - gb0); c.fill()
+    # interior silhouettes
+    xx = x0 + 20
+    while xx < x1 - 20:
+        if r.random() < 0.55:
+            hh = r.uniform(22, 32)
+            c.set_source_rgba(0.35, 0.2, 0.18, r.uniform(0.35, 0.7))
+            c.arc(xx, gb1 - hh, 4.2, 0, TAU); c.fill()
+            c.rectangle(xx - 5.5, gb1 - hh + 4, 11, hh - 4); c.fill()
+        xx += r.uniform(8, 26)
+    # ceiling lights inside
+    for xx in np.arange(x0 + 30, x1 - 20, 44):
+        c.set_source_rgba(1, 1, 0.95, 0.9); c.rectangle(xx, gb0 + 3, 18, 2.5); c.fill()
+    # mullions
+    c.set_source_rgba(0.12, 0.09, 0.14, 0.85)
+    for xx in np.arange(x0 + 14, x1 - 14, 62):
+        c.rectangle(xx, gb0, 3, gb1 - gb0); c.fill()
+    c.rectangle(x0 + 14, gb0 + (gb1 - gb0) * 0.42, w - 28, 2); c.fill()
+    # glass reflections (diagonal sheen)
+    c.save(); c.rectangle(x0 + 14, gb0, w - 28, gb1 - gb0); c.clip()
+    for xx in np.arange(x0 - 200, x1, 420):
+        g = _lin(c, xx, 0, xx + 140, 0, [(0, (1, 1, 1, 0)), (0.5, (1, 1, 1, 0.16)), (1, (1, 1, 1, 0))])
+        c.set_source(g)
+        c.move_to(xx, gb1); c.line_to(xx + 90, gb0); c.line_to(xx + 190, gb0); c.line_to(xx + 100, gb1); c.fill()
+    c.restore()
+    # floor slab
+    c.set_source_rgb(0.9, 0.88, 0.86); c.rectangle(x0 + 8, gb1, w - 16, 6); c.fill()
+    c.set_source_rgb(0.2, 0.16, 0.24); c.rectangle(x0 + 8, gb1 + 6, w - 16, 8); c.fill()
+    # ---- lower terraces ----
+    lt0, lt1 = gb1 + 14, base - 34
+    g = _lin(c, 0, lt0, 0, lt1, [(0, (0.5, 0.36, 0.34)), (1, (0.66, 0.5, 0.42))])
+    c.set_source(g); c.rectangle(x0 + 10, lt0, w - 20, lt1 - lt0); c.fill()
+    rows = int((lt1 - lt0 - 8) / 13)
+    for k in range(rows):
+        y = lt0 + 14 + k * 13
+        _tiny_crowd_row(c, r, x0 + 12, x1 - 12, y, 3.2, 1.1 + k * 0.05, 0.93, phones, tint=(1.05, 1.0, 0.95),
+                        tone=(0.42, 0.32, 0.36), mute=0.55)
+    _terrace_structure(c, r, x0 + 10, x1 - 10, lt0, lt1, 13, rows, 0.35)
+    # apron wall with ad boards
+    c.set_source_rgb(0.12, 0.1, 0.18); c.rectangle(x0, lt1, w, base - lt1 + 30); c.fill()
+    _led_ribbon(c, r, x0 + 6, x1 - 6, lt1 + 6, 20)
+    # ---- roof ----
+    c.set_source_rgb(0.05, 0.045, 0.09)
+    c.move_to(x0 - 30, top + 10); c.line_to(x1 + 30, top + 10); c.line_to(x1 + 20, top + 36); c.line_to(x0 - 20, top + 36)
+    c.close_path(); c.fill()
+    c.set_source_rgb(0.1, 0.09, 0.16); c.rectangle(x0 + 30, top - 10, w - 60, 22); c.fill()   # upper roof block
+    # roof edge highlight
+    c.set_source_rgba(0.95, 0.92, 1.0, 0.9); c.rectangle(x0 - 30, top + 9, w + 60, 2.5); c.fill()
+    c.set_source_rgba(0.8, 0.75, 0.9, 0.5); c.rectangle(x0 + 30, top - 10, w - 60, 1.5); c.fill()
+    # downlights under roof
+    for xx in np.arange(x0 - 10, x1 + 10, 34):
+        _glow(c, xx, top + 38, 18, (1.0, 0.85, 0.6), 0.55)
+        c.set_source_rgb(1, 0.97, 0.9); c.rectangle(xx - 4, top + 35, 8, 2.5); c.fill()
+    # columns
+    c.set_source_rgb(0.1, 0.09, 0.15)
+    for xx in np.arange(x0 + 60, x1 - 30, 240):
+        c.rectangle(xx, top + 36, 6, ut1 - top - 36); c.fill()
+    if sign:
+        _neon_text(c, sign, (x0 + x1) / 2, top - 22, 44)
+
+
+def _led_ribbon(c, r, x0, x1, y, h):
+    """Glowing LED ribbon board (cyan/white text-like dashes on dark)."""
+    c.set_source_rgb(0.03, 0.03, 0.07); c.rectangle(x0, y, x1 - x0, h); c.fill()
+    g = _lin(c, 0, y, 0, y + h, [(0, (0.2, 0.6, 1.0, 0.25)), (0.5, (0.2, 0.6, 1.0, 0.05)), (1, (0.2, 0.6, 1.0, 0.25))])
+    c.set_source(g); c.rectangle(x0, y, x1 - x0, h); c.fill()
+    xx = x0 + 10
+    while xx < x1 - 30:
+        seg = r.uniform(18, 60)
+        col = r.choice([(0.45, 0.95, 1.0), (1, 1, 1), (0.45, 0.95, 1.0), (1.0, 0.75, 0.35)])
+        c.set_source_rgba(*col, 0.9)
+        c.rectangle(xx, y + h * 0.3, seg, h * 0.4); c.fill()
+        xx += seg + r.uniform(5, 16)
+        if r.random() < 0.08:
+            xx += 40
+    c.set_source_rgba(0.8, 0.9, 1, 0.8); c.rectangle(x0, y, x1 - x0, 1.2); c.rectangle(x0, y + h - 1.2, x1 - x0, 1.2); c.fill()
+
+
+def _neon_text(c, s, x, y, size, col=None):
+    col = col or PAL["neon_pink"]
+    c.save()
+    c.select_font_face("AnimeDela"); c.set_font_size(size)
+    xb, yb, tw, th, xa, ya = c.text_extents(s)
+    # sign backing frame
+    c.set_source_rgba(0.06, 0.05, 0.1, 1); c.rectangle(x - xa / 2 - 18, y - size * 0.95, xa + 36, size * 1.2); c.fill()
+    for w_, a_ in ((16, 0.10), (9, 0.18), (4, 0.4)):
+        c.move_to(x - xa / 2, y); c.text_path(s)
+        c.set_line_width(w_); c.set_source_rgba(*col, a_); c.stroke()
+    c.move_to(x - xa / 2, y); c.text_path(s)
+    c.set_source_rgba(1, 0.85, 0.92, 1); c.fill()
+    c.restore()
+
+
+def _terrace_structure(c, r, x0, x1, t0, t1, row_h, rows, shade_top=0.45):
+    """Aisles, walkways and under-roof shading over a crowd block."""
+    # horizontal walkways
+    for k in range(5, rows, 6):
+        y = t0 + 12 + k * row_h - row_h * 0.35
+        c.set_source_rgba(0.12, 0.08, 0.14, 0.8); c.rectangle(x0, y + 2, x1 - x0, 5); c.fill()
+        c.set_source_rgba(0.95, 0.85, 0.8, 0.55); c.rectangle(x0, y, x1 - x0, 2.2); c.fill()
+    # vertical aisles (stairs)
+    xx = x0 + r.uniform(60, 160)
+    while xx < x1 - 40:
+        g = _lin(c, 0, t0, 0, t1, [(0, (0.45, 0.36, 0.38)), (1, (0.78, 0.68, 0.62))])
+        c.set_source(g); c.rectangle(xx, t0, 9, t1 - t0); c.fill()
+        c.set_source_rgba(0.2, 0.14, 0.2, 0.6)
+        for yy in np.arange(t0 + 3, t1, 4.0):
+            c.rectangle(xx, yy, 9, 1.0)
+        c.fill()
+        c.set_source_rgba(1, 0.95, 0.85, 0.4); c.rectangle(xx - 1, t0, 1.2, t1 - t0); c.fill()
+        xx += r.uniform(200, 280)
+    # shading: darker under the roof
+    g = _lin(c, 0, t0, 0, t1, [(0, (0.06, 0.03, 0.1, shade_top)), (0.45, (0.06, 0.03, 0.1, shade_top * 0.25)), (1, (0.06, 0.03, 0.1, 0))])
+    c.set_source(g); c.rectangle(x0, t0, x1 - x0, t1 - t0); c.fill()
+
+
+def _gs_wing(c, r, x0, x1, hgt, phones):
+    base = GS_BASE
+    top = base - hgt
+    w = x1 - x0
+    c.set_source_rgb(0.08, 0.07, 0.14); c.rectangle(x0, top + 20, w, hgt); c.fill()
+    # curved roof
+    c.set_source_rgb(0.06, 0.05, 0.1)
+    c.move_to(x0 - 20, top + 30); c.curve_to(x0 + w * 0.3, top - 16, x1 - w * 0.3, top - 16, x1 + 20, top + 30)
+    c.line_to(x1 + 20, top + 44); c.curve_to(x1 - w * 0.3, top + 2, x0 + w * 0.3, top + 2, x0 - 20, top + 44)
+    c.close_path(); c.fill()
+    c.move_to(x0 - 20, top + 30); c.curve_to(x0 + w * 0.3, top - 16, x1 - w * 0.3, top - 16, x1 + 20, top + 30)
+    c.set_source_rgba(0.9, 0.9, 1.0, 0.8); c.set_line_width(2.2); c.stroke()
+    for xx in np.arange(x0, x1, 30):
+        f = (xx - x0) / w
+        yy = top + 36 - 18 * math.sin(math.pi * f)
+        _glow(c, xx, yy + 4, 14, (1.0, 0.85, 0.6), 0.5)
+    t0, t1 = top + 48, base - 30
+    g = _lin(c, 0, t0, 0, t1, [(0, (0.58, 0.40, 0.32)), (1, (0.62, 0.48, 0.42))])
+    c.set_source(g); c.rectangle(x0 + 8, t0, w - 16, t1 - t0); c.fill()
+    rows = int((t1 - t0 - 6) / 12)
+    for k in range(rows):
+        _tiny_crowd_row(c, r, x0 + 10, x1 - 10, t0 + 12 + k * 12, 3.0, 1.0 + 0.04 * k, 0.9, phones,
+                        tone=(0.4, 0.3, 0.36), mute=0.55)
+    _terrace_structure(c, r, x0 + 8, x1 - 8, t0, t1, 12, rows, 0.6)
+    c.set_source_rgb(0.12, 0.1, 0.18); c.rectangle(x0, t1, w, 60); c.fill()
+    c.set_source_rgb(0.85, 0.85, 0.9); c.rectangle(x0, t1, w, 3); c.fill()
+
+
+def _tree_clump(c, r, cx, base, th, lamp_side=0):
+    """Painterly dark tree: many small leaf blobs, cool top light + warm lamp rim."""
+    blobs = []
+    for k in range(26):
+        f = r.random()
+        bx = cx + r.gauss(0, 26) * (1 - f * 0.5)
+        by = base - th * (0.25 + f * 0.75) + r.uniform(-8, 8)
+        blobs.append((bx, by, r.uniform(9, 20) * (1.1 - f * 0.4)))
+    blobs.sort(key=lambda b: -b[1])
+    c.set_source_rgb(0.03, 0.04, 0.07)
+    c.rectangle(cx - 3, base - th * 0.35, 6, th * 0.35); c.fill()
+    for (bx, by, br) in blobs:
+        g = cairo.RadialGradient(bx - br * 0.3, by - br * 0.5, 0, bx, by, br)
+        g.add_color_stop_rgb(0, 0.10, 0.16, 0.19)
+        g.add_color_stop_rgb(1, 0.035, 0.05, 0.08)
+        c.set_source(g); c.arc(bx, by, br, 0, TAU); c.fill()
+    for (bx, by, br) in blobs[-8:]:
+        c.set_source_rgba(0.45, 0.55, 0.7, 0.28); c.set_line_width(1.6)
+        c.arc(bx, by, br - 1, math.pi * 1.15, math.pi * 1.75); c.stroke()
+    if lamp_side:
+        for (bx, by, br) in blobs[:10]:
+            c.set_source_rgba(1.0, 0.7, 0.4, 0.3); c.set_line_width(1.6)
+            a0 = 0 if lamp_side > 0 else math.pi * 0.6
+            c.arc(bx, by, br - 1, a0 - 0.6, a0 + 0.6); c.stroke()
+
+
+def _gs_gap(c, r, x0, x1):
+    base = GS_BASE
+    lamps = list(np.arange(x0 + 40, x1 - 20, 110))
+    xx = x0 - 10
+    while xx < x1 + 10:
+        side = 0
+        for lx in lamps:
+            if abs(lx - xx) < 60:
+                side = 1 if lx > xx else -1
+        _tree_clump(c, r, xx, base - 8, r.uniform(80, 150), side)
+        xx += r.uniform(38, 64)
+    c.set_source_rgb(0.04, 0.05, 0.08); c.rectangle(x0 - 40, base - 20, x1 - x0 + 80, 60); c.fill()
+    for xx in lamps:
+        c.set_source_rgb(0.1, 0.1, 0.15); c.rectangle(xx, base - 120, 3, 120); c.fill()
+        _glow(c, xx + 1.5, base - 122, 46, (1.0, 0.8, 0.5), 0.6)
+        c.set_source_rgb(1, 0.95, 0.85); c.arc(xx + 1.5, base - 122, 3, 0, TAU); c.fill()
+
+
+def _build_grandstand():
+    global _HEADS
+    s, c = _surf(GS_W, GS_H)
+    r = rng(2024)
+    phones = []
+    _HEADS = []
+    layout = [("main", 1850, 470, "TWINKLE"), ("gap", 270, 0, None), ("wing", 1000, 330, None),
+              ("gap", 330, 0, None), ("main", 1480, 430, None), ("gap", 230, 0, None), ("wing", 600, 300, None)]
+    x = 0
+    for kind, w, h, sign in layout:
+        if kind == "main":
+            _gs_main(c, r, x + 20, x + w - 20, h, phones, sign)
+        elif kind == "wing":
+            _gs_wing(c, r, x + 15, x + w - 15, h, phones)
+        else:
+            _gs_gap(c, r, x, x + w)
+        x += w
+    # phone screens (static, small)
+    for p in phones:
+        _glow(c, p[0], p[1], 7, (0.8, 0.9, 1.0), 0.6)
+        c.set_source_rgb(0.9, 0.95, 1.0); c.rectangle(p[0] - 1.2, p[1] - 1.8, 2.4, 3.2); c.fill()
+    # atmospheric haze: stands are ~100m away -> slight purple veil, stronger at base
+    g = _lin(c, 0, 0, 0, GS_H, [(0, (0.35, 0.25, 0.5, 0.05)), (0.75, (0.45, 0.3, 0.5, 0.10)), (1, (0.6, 0.4, 0.5, 0.25))])
+    c.set_operator(cairo.OPERATOR_ATOP)
+    c.set_source(g); c.paint()
+    c.set_operator(cairo.OPERATOR_OVER)
+    heads = _HEADS; _HEADS = None
+    s = _blur_surface(s, 0.85)       # depth of field: stands are ~100 m away
+    return s, (phones, heads)
+
+
+def _build_rail_crowd():
+    RC_W, RC_H = 3000, 190
+    base = 170
+    s, c = _surf(RC_W, RC_H)
+    r = rng(77)
+    phones = []
+    for row, (hgt, light, sp, dy) in enumerate(((62, 0.75, 17, -16), (70, 0.95, 19, -6), (78, 1.15, 22, 4))):
+        x = r.uniform(0, 10)
+        while x < RC_W:
+            _person(c, r, x, base + dy + 10, hgt * r.uniform(0.88, 1.1), light, phones=phones, arms_p=0.22 + row * 0.04)
+            x += sp * r.uniform(0.7, 1.4)
+    # wrap seam: repeat left edge figures near right? simple fade trick: draw the leftmost 60px again at the right
+    tmp = _surface_to_np(s)
+    blend = np.linspace(0, 1, 60, dtype=np.float32)[None, :, None]
+    tmp[:, -60:] = tmp[:, -60:] * (1 - blend) + tmp[:, :60] * blend
+    s = _np_premul_to_surface(tmp)
+    c = cairo.Context(s)
+    for p in phones:
+        x, y, hr = p
+        _glow(c, x, y, hr * 3.5, (0.8, 0.9, 1.0), 0.7)
+        c.set_source_rgb(0.92, 0.96, 1.0); c.rectangle(x - hr * 0.35, y - hr * 0.6, hr * 0.7, hr * 1.1); c.fill()
+    return s, phones, base
+
+
+def _build_outer_rail():
+    OW, OH = 1500, 70
+    s, c = _surf(OW, OH)
+    top = 20
+    # posts
+    for px in range(0, OW, 150):
+        g = _lin(c, px, 0, px + 7, 0, [(0, (0.98, 0.98, 1.0)), (1, (0.62, 0.62, 0.75))])
+        c.set_source(g); c.rectangle(px, top + 6, 7, OH - top - 6); c.fill()
+    # rail bar (rounded top)
+    g = _lin(c, 0, top, 0, top + 12, [(0, (1, 1, 1)), (0.45, (0.94, 0.94, 0.98)), (1, (0.55, 0.55, 0.7))])
+    c.set_source(g); c.rectangle(0, top, OW, 12); c.fill()
+    c.set_source_rgba(1, 1, 1, 0.9); c.rectangle(0, top + 1, OW, 1.6); c.fill()
+    # glow halo around bar (floodlit white rail pops)
+    g = _lin(c, 0, top - 14, 0, top + 26, [(0, (1, 1, 1, 0)), (0.4, (1, 0.97, 0.9, 0.18)), (0.6, (1, 0.97, 0.9, 0.18)), (1, (1, 1, 1, 0))])
+    c.set_source(g); c.rectangle(0, top - 14, OW, 40); c.fill()
+    return s, top
+
+
+def _build_dirt():
+    TW, TH = 2400, 560
+    rr = np.random.default_rng(5)
+    yy = np.linspace(0, 1, TH, dtype=np.float32)[:, None]
+    far = np.array([0.68, 0.53, 0.43], np.float32)
+    mid = np.array([0.56, 0.41, 0.31], np.float32)
+    near = np.array([0.34, 0.235, 0.18], np.float32)
+    k = yy[..., None]
+    base = np.where(k < 0.3, far + (mid - far) * (k / 0.3), mid + (near - mid) * ((k - 0.3) / 0.7))
+    base = np.broadcast_to(base, (TH, TW, 3)).copy()
+    ds = 2
+    blot = _fbm2(TH // ds, TW // ds, (5, 18), 5, seed=51)
+    streak = _fbm2(TH // ds, TW // ds, (90, 5), 3, seed=52)       # groomed harrow streaks along x
+    blot = _ndi.zoom(blot, ds, order=1, mode="grid-wrap", grid_mode=True)[:TH, :TW]
+    streak = _ndi.zoom(streak, ds, order=1, mode="grid-wrap", grid_mode=True)[:TH, :TW]
+    # speckle: sparse dark clumps + light grains, softly blurred, scale grows toward viewer
+    sp = rr.random((TH, TW)).astype(np.float32)
+    dark = (sp < 0.05).astype(np.float32)
+    lite = (sp > 0.965).astype(np.float32)
+    dark = _ndi.gaussian_filter(dark, (0.9, 1.6), mode="wrap")
+    lite = _ndi.gaussian_filter(lite, (0.6, 1.0), mode="wrap")
+    fine = rr.random((TH, TW)).astype(np.float32)
+    v = (0.9 + 0.22 * (blot - 0.5) + 0.16 * (streak - 0.5) + 0.07 * (fine - 0.5)
+         - 0.9 * dark * (0.4 + 0.6 * yy) + 0.8 * lite * (1.0 - 0.5 * yy))
+    img = base * v[..., None]
+    rgba = np.concatenate([img, np.ones((TH, TW, 1), np.float32)], 2)
+    return _np_to_surface(rgba), TW, TH
+
+
+def _build_tower_sprite(scale=1.0):
+    """Floodlight tower: lattice mast + lamp bank. Anchor: (AX, AY) = lamp-bank centre."""
+    Wt, Ht = 900, 1500
+    AX, AY = 450, 300
+    s, c = _surf(Wt, Ht)
+    # light cone (volumetric) down-right & down-left
+    for ang, a in ((0.0, 0.07),):
+        g = cairo.LinearGradient(AX, AY, AX, Ht)
+        g.add_color_stop_rgba(0, 1, 0.95, 0.8, 0.16)
+        g.add_color_stop_rgba(1, 1, 0.95, 0.8, 0.0)
+        c.move_to(AX - 60, AY + 30); c.line_to(AX + 60, AY + 30); c.line_to(AX + 420, Ht); c.line_to(AX - 420, Ht)
+        c.close_path(); c.set_source(g); c.fill()
+    # mast (tapered lattice)
+    mb = 22; mt = 9
+    def mx(f, side):
+        return AX + side * (mt + (mb - mt) * f)
+    c.set_source_rgb(0.2, 0.19, 0.26)
+    c.move_to(mx(0, -1), AY + 40); c.line_to(mx(1, -1), Ht); c.line_to(mx(1, 1), Ht); c.line_to(mx(0, 1), AY + 40); c.close_path()
+    c.fill()
+    c.set_source_rgba(0.55, 0.52, 0.6, 0.9); c.set_line_width(1.3)
+    ys = np.linspace(AY + 40, Ht, 40)
+    for i in range(len(ys) - 1):
+        f0 = (ys[i] - AY - 40) / (Ht - AY - 40); f1 = (ys[i + 1] - AY - 40) / (Ht - AY - 40)
+        c.move_to(mx(f0, -1), ys[i]); c.line_to(mx(f1, 1), ys[i + 1])
+        c.move_to(mx(f0, 1), ys[i]); c.line_to(mx(f1, -1), ys[i + 1])
+    c.stroke()
+    c.set_source_rgba(1, 0.9, 0.75, 0.35); c.set_line_width(2)
+    c.move_to(mx(0, 1), AY + 40); c.line_to(mx(1, 1), Ht); c.stroke()
+    # big halo
+    _glow(c, AX, AY, 440, FLOOD, 0.4)
+    _glow(c, AX, AY, 220, FLOOD, 0.5)
+    # god-ray spokes
+    rr_ = rng(99)
+    for i in range(22):
+        a = rr_.uniform(0, TAU); L = rr_.uniform(180, 430); wdt = rr_.uniform(0.01, 0.03)
+        g = cairo.RadialGradient(AX, AY, 40, AX, AY, L)
+        g.add_color_stop_rgba(0, 1, 0.95, 0.85, 0.22); g.add_color_stop_rgba(1, 1, 0.95, 0.85, 0)
+        c.set_source(g)
+        c.move_to(AX, AY); c.arc(AX, AY, L, a - wdt, a + wdt); c.close_path(); c.fill()
+    # lamp bank frame (slightly tilted down toward the track)
+    bw, bh = 176, 100
+    c.save(); c.translate(AX, AY); c.rotate(-0.04)
+    c.set_source_rgb(0.1, 0.09, 0.14)
+    c.rectangle(-bw / 2 - 7, -bh / 2 - 7, bw + 14, bh + 14); c.fill()
+    c.set_source_rgba(0.6, 0.55, 0.6, 0.8); c.rectangle(-bw / 2 - 7, -bh / 2 - 7, bw + 14, 2); c.fill()
+    for i in range(6):
+        for j in range(4):
+            lx = -bw / 2 + 15 + i * (bw - 30) / 5
+            ly = -bh / 2 + 13 + j * (bh - 26) / 3
+            c.set_source_rgb(0.2, 0.18, 0.2); c.arc(lx, ly, 12, 0, TAU); c.fill()
+            g = cairo.RadialGradient(lx - 2, ly - 2, 0, lx, ly, 10)
+            g.add_color_stop_rgb(0, 1, 1, 1); g.add_color_stop_rgb(0.6, 1.0, 0.97, 0.88); g.add_color_stop_rgb(1, 1.0, 0.8, 0.5)
+            c.set_source(g); c.arc(lx, ly, 10, 0, TAU); c.fill()
+    c.restore()
+    for i in range(6):
+        for j in range(4):
+            lx = AX - bw / 2 + 15 + i * (bw - 30) / 5
+            ly = AY - bh / 2 + 13 + j * (bh - 26) / 3
+            _glow(c, lx, ly, 34, FLOOD_CORE, 0.35)
+    _glow(c, AX, AY, 130, FLOOD_CORE, 0.55)
+    # anamorphic streak
+    g = cairo.LinearGradient(AX - 450, 0, AX + 450, 0)
+    g.add_color_stop_rgba(0, 0.8, 0.85, 1, 0); g.add_color_stop_rgba(0.5, 0.95, 0.95, 1, 0.55); g.add_color_stop_rgba(1, 0.8, 0.85, 1, 0)
+    c.set_source(g); c.rectangle(AX - 450, AY - 2.5, 900, 5); c.fill()
+    return s, AX, AY
+
+
+def _side():
+    if not _SIDE:
+        gs, gph = _build_grandstand()
+        rc, rph, rc_base = _build_rail_crowd()
+        orl, orl_top = _build_outer_rail()
+        dirt, TW, TH = _build_dirt()
+        tow, AX, AY = _build_tower_sprite()
+        _SIDE.update(gs=gs, gs_ph=gph, rc=rc, rc_ph=rph, rc_base=rc_base, orl=orl, orl_top=orl_top,
+                     dirt=dirt, TW=TW, TH=TH, tow=tow, AX=AX, AY=AY)
+    return _SIDE
+
+
+def _side_blur(key, radius):
+    S = _side()
+    k = key + "_b"
+    if k not in S:
+        S[k] = _hblur_surface(S[key], radius, wrap=True)
+    return S[k]
+
+
+def _paint_blurmix(ctx, key, radius, blur, x_off, y, **kw):
+    S = _side()
+    if blur < 0.62:
+        _paint_strip(ctx, S[key], x_off, y, **kw)
+    if blur > 0.38:
+        a = clamp((blur - 0.38) / 0.24)
+        _paint_strip(ctx, _side_blur(key, radius), x_off, y, alpha=a * kw.pop("alpha", 1.0), **kw)
+
+
+TOW_SP = 1350.0      # floodlight tower spacing (layer px)
+
+
+def _side_layout(horizon_y, track_y):
+    y_or = horizon_y + 0.56 * (track_y - horizon_y)
+    return y_or
+
+
+def draw_race_side_bg(ctx, t, cam_x, *, horizon_y=520, track_y=760, crowd=1.0, flash=0.0, blur=0.0,
+                      moon=(1590, 96, 36), sky=True):
+    """Side tracking-shot background (horses run right; cam_x in px, ~1400 px/s).
+    Layers: sky -> city -> distant towers -> grandstand w/ crowd -> floodlight towers ->
+    rail-side crowd -> outer rail -> scrolling dirt with floodlight sheen."""
+    S = _side()
+    blur = clamp(blur)
+    y_or = _side_layout(horizon_y, track_y)
+    if sky:
+        draw_sky(ctx, t, horizon_y=horizon_y, stars=0.7, moon=moon, clouds=0.45, glow=1.0)
+    draw_city(ctx, t, horizon_y, cam_x=cam_x, parallax=P_CITY, scale=0.5, lights=1.0, tower=True)
+    # distant floodlight towers across the course (visible in stand gaps)
+    ctx.save()
+    tow = S["tow"]
+    off = cam_x * P_FARTOW
+    sp = 900.0
+    for k in range(int((off - 400) // sp), int((off + W + 400) // sp) + 1):
+        sx = k * sp - off + 200 * _hash(k, 8)
+        sy = horizon_y - 150
+        _blit(ctx, tow, sx - S["AX"] * 0.28, sy - S["AY"] * 0.28, alpha=0.8, scale=0.28)
+    ctx.restore()
+    # grandstand
+    gs_y = y_or - 10 - GS_BASE
+    _paint_blurmix(ctx, "gs", 50, blur, cam_x * P_GS, gs_y)
+    # stand life: flickering flashes / phone lights
+    _stand_sparkles(ctx, t, cam_x, gs_y, crowd, flash)
+    # floodlight towers
+    off = cam_x * P_TOW
+    for k in range(int((off - 600) // TOW_SP), int((off + W + 600) // TOW_SP) + 1):
+        sx = k * TOW_SP - off + 260
+        base_y = y_or - 10
+        flick = 0.97 + 0.03 * noise1(t * 7 + k, 4)
+        if blur < 0.62:
+            _blit(ctx, tow, sx - S["AX"], base_y - 600 - S["AY"], alpha=flick * (1 - clamp((blur - 0.38) / 0.24)))
+        if blur > 0.38:
+            if "tow_b" not in S:
+                S["tow_b"] = _hblur_surface(S["tow"], 46, wrap=False)
+            _blit(ctx, S["tow_b"], sx - S["AX"], base_y - 600 - S["AY"], alpha=flick * clamp((blur - 0.38) / 0.24))
+    # rail-side crowd with bobbing (cheering)
+    if crowd > 0:
+        rc = S["rc"] if blur < 0.5 else _side_blur("rc", 34)
+        off = cam_x * P_CROWD
+        rc_top = y_or - S["rc_base"] + 6
+        seg = 96
+        for i in range(-1, W // seg + 2):
+            x0 = i * seg - (off % seg)
+            wi = (i + int(off // seg))
+            bob = -abs(math.sin(t * (6.5 + 3 * _hash(wi, 2)) + _hash(wi, 5) * 6)) * 5 * crowd * (1 - blur)
+            pat = cairo.SurfacePattern(rc); pat.set_extend(cairo.EXTEND_REPEAT); pat.set_filter(cairo.FILTER_BILINEAR)
+            pat.set_matrix(cairo.Matrix(1, 0, 0, 1, off, -(rc_top + bob)))
+            ctx.save(); ctx.rectangle(x0, rc_top + bob, seg + 0.5, S["rc"].get_height()); ctx.clip()
+            ctx.set_source(pat); ctx.paint_with_alpha(clamp(crowd)); ctx.restore()
+        # phones sparkle
+        for j, (px, py, hr) in enumerate(S["rc_ph"][::3]):
+            RCW = S["rc"].get_width()
+            sx = (px - off) % RCW
+            if sx < W + 20:
+                tw = 0.5 + 0.5 * math.sin(t * 3 + j)
+                _glow(ctx, sx, rc_top + py, 16, (0.8, 0.9, 1.0), 0.25 * tw * crowd)
+    # outer rail
+    _paint_blurmix(ctx, "orl", 40, blur, cam_x * P_ORAIL, y_or - S["orl_top"] - 6)
+    # dirt: bands with increasing parallax (pseudo-perspective)
+    dirt = S["dirt"] if blur < 0.5 else _side_blur("dirt", 70)
+    y0 = int(y_or + 6)
+    band = 10
+    TH = S["TH"]
+    y = y0
+    pat = cairo.SurfacePattern(dirt); pat.set_extend(cairo.EXTEND_REPEAT); pat.set_filter(cairo.FILTER_BILINEAR)
+    while y < H + 40:
+        f = (y - y0) / max(1.0, (track_y - y0))
+        p = 0.84 + 0.16 * f
+        ty = (y - y0) / max(1.0, H - y0) * (TH - band)
+        pat.set_matrix(cairo.Matrix(1, 0, 0, 1, cam_x * p, ty - y))
+        ctx.save(); ctx.rectangle(-200, y, W + 400, band + 0.6); ctx.clip(); ctx.set_source(pat); ctx.paint(); ctx.restore()
+        y += band
+    # dirt top edge shadow (rail foot) & haze
+    g = _lin(ctx, 0, y0 - 4, 0, y0 + 26, [(0, (0.1, 0.06, 0.1, 0.55)), (1, (0.1, 0.06, 0.1, 0))])
+    ctx.set_source(g); ctx.rectangle(-200, y0 - 4, W + 400, 30); ctx.fill()
+    # floodlight sheen on dirt (under each tower)
+    off = cam_x * P_TOW
+    ctx.save()
+    ctx.set_operator(cairo.OPERATOR_ADD)
+    for k in range(int((off - 900) // TOW_SP), int((off + W + 900) // TOW_SP) + 1):
+        sx = k * TOW_SP - off + 260 + (cam_x * (1 - P_TOW)) * 0.0
+        for (dy, rx, ry, a) in ((26, 560, 34, 0.2), (70, 760, 70, 0.1), ((track_y - y0) + 30, 950, 120, 0.07)):
+            ctx.save(); ctx.translate(sx, y0 + dy); ctx.scale(1, ry / rx)
+            _glow(ctx, 0, 0, rx, (1.0, 0.85, 0.62), a)
+            ctx.restore()
+    ctx.restore()
+    # low haze over the far side of the track (atmosphere)
+    g = _lin(ctx, 0, y_or - 120, 0, y_or + 60, [(0, (0.7, 0.55, 0.7, 0)), (0.7, (0.75, 0.6, 0.65, 0.12)), (1, (0.75, 0.6, 0.65, 0))])
+    ctx.set_source(g); ctx.rectangle(-200, y_or - 120, W + 400, 180); ctx.fill()
+    # near-bottom darkening
+    g = _lin(ctx, 0, track_y + 60, 0, H, [(0, (0.05, 0.02, 0.06, 0)), (1, (0.05, 0.02, 0.06, 0.45))])
+    ctx.set_source(g); ctx.rectangle(-200, track_y + 60, W + 400, H - track_y); ctx.fill()
+    if blur > 0.05:
+        from lib.common import horiz_speed_lines
+        horiz_speed_lines(ctx, t, 60, y_or - 20, n=int(26 * blur), speed=3200, color=(1, 0.95, 0.9), alpha=0.22 * blur, seed=17,
+                          length=(300, 900))
+        horiz_speed_lines(ctx, t, y_or + 20, H, n=int(30 * blur), speed=5200, color=(1, 0.9, 0.75), alpha=0.18 * blur, seed=18,
+                          length=(400, 1200))
+
+
+def _stand_sparkles(ctx, t, cam_x, gs_y, crowd, flash):
+    """Camera flashes & shimmering phones over the grandstand."""
+    if crowd <= 0 and flash <= 0:
+        return
+    fi = int(t * FPS)
+    S = _side()
+    off = cam_x * P_GS
+    ph, heads = S["gs_ph"]
+    # shimmering phones (subset)
+    n = len(ph)
+    for j in range(0, n, 7):
+        px, py = ph[j]
+        sx = (px - off) % GS_W
+        if sx > W + 10:
+            continue
+        tw = 0.5 + 0.5 * math.sin(t * (2 + _hash(j, 1) * 3) + j)
+        _glow(ctx, sx, gs_y + py, 9, (0.85, 0.92, 1.0), 0.35 * tw * crowd)
+    # camera flashes: short-lived bursts
+    nfl = int(4 + 46 * flash) if crowd > 0 else int(46 * flash)
+    for f_ in (fi, fi - 1):
+        age = fi - f_
+        nh = len(heads)
+        for k in range(nfl):
+            h1 = _hash(f_ * 131 + k, 71)
+            hx, hy = heads[int(h1 * nh) % nh]
+            # choose a head currently on screen: shift by whole strip multiples & window
+            sx = (hx - off) % GS_W
+            if sx > W + 40:
+                sx = (off + _hash(f_ * 131 + k, 73) * W)   # remap into visible window
+                hx, hy = heads[int(_hash(f_ * 131 + k, 74) * nh) % nh]
+                sx = (hx - off) % GS_W
+                if sx > W + 40:
+                    continue
+            x, y = sx, gs_y + hy
+            a = (1.0 if age == 0 else 0.35)
+            _glow(ctx, x, y, 34, (0.95, 0.97, 1.0), 0.55 * a)
+            _star_flare(ctx, x, y, 22 * a + 6, (1, 1, 1), 0.9 * a)
+            ctx.set_source_rgba(1, 1, 1, a); ctx.arc(x, y, 2.4, 0, TAU); ctx.fill()
+
+
+def _inner_rail_y(track_y):
+    return track_y + 0.62 * (H - track_y)
+
+
+P_IRAIL = 1.3
+IRAIL_SP = 360.0
+
+
+def draw_race_side_fg(ctx, t, cam_x, *, track_y=760, rail=True, blur=0.0, clods=1.0, grass=True):
+    """Foreground in front of the horses: inner white rail (parallax 1.3) with posts
+    whipping past, infield grass verge, flying dirt clods. blur 0..1 = speed smear."""
+    blur = clamp(blur)
+    yr = _inner_rail_y(track_y)
+    off = cam_x * P_IRAIL
+    if grass:
+        gy = yr + 40
+        g = _lin(ctx, 0, gy, 0, H, [(0, (0.10, 0.16, 0.13)), (1, (0.03, 0.05, 0.06))])
+        ctx.set_source(g); ctx.rectangle(-200, gy, W + 400, H - gy + 200); ctx.fill()
+        # grass tufts scrolling (streaked when blurred)
+        for i in range(int((off - 60) // 23), int((off + W + 60) // 23) + 1):
+            x = i * 23 - off + _hash(i, 41) * 20
+            hgt = 12 + 26 * _hash(i, 42)
+            ctx.set_source_rgba(0.2, 0.32, 0.22, 0.7)
+            if blur > 0.3:
+                ctx.rectangle(x - 30 * blur, gy - hgt * 0.4, 60 * blur, 3); ctx.fill()
+            else:
+                ctx.move_to(x - 3, gy + 4); ctx.line_to(x + 1 + 4 * _hash(i, 43), gy - hgt); ctx.line_to(x + 3, gy + 4); ctx.fill()
+        g = _lin(ctx, 0, gy - 8, 0, gy + 30, [(0, (1, 0.9, 0.7, 0.0)), (0.3, (1, 0.9, 0.7, 0.10)), (1, (1, 0.9, 0.7, 0))])
+        ctx.set_source(g); ctx.rectangle(-200, gy - 8, W + 400, 38); ctx.fill()
+    if rail:
+        # posts
+        pw = 15
+        for i in range(int((off - 400) // IRAIL_SP), int((off + W + 400) // IRAIL_SP) + 1):
+            x = i * IRAIL_SP - off
+            smear = 150 * blur
+            if smear > 4:
+                g = _lin(ctx, x - smear, 0, x + pw + smear * 0.3, 0,
+                         [(0, (0.95, 0.95, 1, 0)), (0.6, (0.95, 0.95, 1, 0.5 * (1 - 0.4 * blur))), (1, (0.95, 0.95, 1, 0))])
+                ctx.set_source(g); ctx.rectangle(x - smear, yr, pw + smear * 1.3, H - yr + 100); ctx.fill()
+            else:
+                g = _lin(ctx, x, 0, x + pw, 0, [(0, (1, 1, 1)), (0.55, (0.88, 0.88, 0.94)), (1, (0.55, 0.55, 0.68))])
+                ctx.set_source(g); ctx.rectangle(x, yr, pw, H - yr + 100); ctx.fill()
+                ctx.set_source_rgba(0.1, 0.05, 0.12, 0.35); ctx.rectangle(x + pw, yr + 14, 5, H - yr); ctx.fill()
+        # lower bar
+        g = _lin(ctx, 0, yr + 62, 0, yr + 72, [(0, (0.98, 0.98, 1)), (1, (0.6, 0.6, 0.72))])
+        ctx.set_source(g); ctx.rectangle(-200, yr + 62, W + 400, 9); ctx.fill()
+        # top bar (big rounded pipe) with floodlit sheen
+        th = 22
+        g = _lin(ctx, 0, yr - th / 2, 0, yr + th / 2,
+                 [(0, (0.82, 0.82, 0.9)), (0.25, (1, 1, 1)), (0.55, (0.92, 0.92, 0.97)), (1, (0.5, 0.48, 0.62))])
+        ctx.set_source(g); ctx.rectangle(-200, yr - th / 2, W + 400, th); ctx.fill()
+        g = _lin(ctx, 0, yr - th * 1.6, 0, yr + th * 1.2,
+                 [(0, (1, 0.95, 0.85, 0)), (0.45, (1, 0.95, 0.85, 0.22)), (0.6, (1, 0.95, 0.85, 0.22)), (1, (1, 0.95, 0.85, 0))])
+        ctx.set_source(g); ctx.rectangle(-200, yr - th * 1.6, W + 400, th * 2.8); ctx.fill()
+        # travelling specular glints on the pipe (from floodlights, parallax of towers)
+        toff = cam_x * P_TOW
+        for k in range(int((toff - 900) // TOW_SP), int((toff + W + 900) // TOW_SP) + 1):
+            sx = k * TOW_SP - toff + 260
+            ctx.save(); ctx.translate(sx, yr - th * 0.22); ctx.scale(1, 0.04)
+            _glow(ctx, 0, 0, 420, (1, 1, 1), 0.9)
+            ctx.restore()
+    if clods > 0:
+        _fg_clods(ctx, t, track_y, clods, blur)
+
+
+def _fg_clods(ctx, t, track_y, amount, blur):
+    """Dirt clods flung toward camera, streaking left across the lower frame."""
+    n = int(10 * amount)
+    for i in range(n):
+        per = 0.9 + _hash(i, 61) * 0.8
+        ph = (t / per + _hash(i, 62)) % 1.0
+        cyc = int(t / per + _hash(i, 62))
+        x = W * (1.15 - ph * 1.5) + (_hash(i + cyc * 13, 63) - 0.5) * 400
+        y0 = track_y + 40 + _hash(i + cyc * 7, 64) * (H - track_y)
+        y = y0 - math.sin(ph * math.pi) * 160 * _hash(i, 65)
+        sz = 3 + 9 * _hash(i + cyc, 66)
+        L = sz * (2 + 14 * blur)
+        ctx.save()
+        g = _lin(ctx, x, 0, x + L, 0, [(0, (0.22, 0.15, 0.12, 0.9)), (1, (0.22, 0.15, 0.12, 0))])
+        ctx.set_source(g)
+        ctx.move_to(x, y - sz / 2); ctx.line_to(x + L, y - sz * 0.2); ctx.line_to(x + L, y + sz * 0.2); ctx.line_to(x, y + sz / 2)
+        ctx.close_path(); ctx.fill()
+        ctx.set_source_rgba(0.3, 0.21, 0.16, 0.95); ctx.arc(x, y, sz / 2, 0, TAU); ctx.fill()
+        ctx.set_source_rgba(1, 0.85, 0.65, 0.5); ctx.arc(x - sz * 0.1, y - sz * 0.15, sz * 0.22, 0, TAU); ctx.fill()
+        ctx.restore()
+
+
+# ======================================================================
+#  ESTABLISHING SHOT (high angle over the whole oval)
+# ======================================================================
+EST_F, EST_H = 900.0, 260.0          # focal (px) and camera height (m)
+EST_CW, EST_CH, EST_CX = 2600, 1000, 1300   # ground canvas; horizon at row 0
+OVAL_L, OVAL_R, OVAL_Z0, TRACK_WD = 200.0, 128.0, 520.0, 24.0
+_EST = {}
+
+
+def _eproj(X, Z, Y=0.0):
+    return EST_CX + EST_F * X / Z, EST_F * (EST_H - Y) / Z
+
+
+def _oval_pt(s, off=0.0):
+    """Point on the oval: s in [0,1) param along perimeter (clockwise from the finish on
+    the far/home straight), off = lateral offset outward in m."""
+    L, R = OVAL_L, OVAL_R + off
+    per = 4 * L + 2 * math.pi * R
+    d = (s % 1.0) * per
+    # home straight: far side (Z0+R), running from X=+L to X=-L (right->left as seen)... use clockwise
+    if d < 2 * L:
+        return (L - d, OVAL_Z0 + R)
+    d -= 2 * L
+    if d < math.pi * R:
+        a = d / R
+        return (-L - R * math.sin(a), OVAL_Z0 + R * math.cos(a))
+    d -= math.pi * R
+    if d < 2 * L:
+        return (-L + d, OVAL_Z0 - R)
+    d -= 2 * L
+    a = d / R
+    return (L + R * math.sin(a), OVAL_Z0 - R * math.cos(a))
+
+
+def _oval_poly(ctx, off, n=240):
+    for i in range(n + 1):
+        X, Z = _oval_pt(i / n, off)
+        u, v = _eproj(X, Z)
+        if i == 0:
+            ctx.move_to(u, v)
+        else:
+            ctx.line_to(u, v)
+    ctx.close_path()
+
+
+def _est_build():
+    s, c = _surf(EST_CW, EST_CH)
+    r = rng(808)
+    f, h = EST_F, EST_H
+    # ---- ground base: far urban land fading to horizon ----
+    g = _lin(c, 0, 0, 0, EST_CH, [(0, (0.26, 0.15, 0.28)), (0.06, (0.12, 0.08, 0.17)), (0.3, (0.06, 0.05, 0.11)),
+                                   (1, (0.035, 0.03, 0.07))])
+    c.set_source(g); c.paint()
+    # bay water on the right-far
+    c.save()
+    c.move_to(EST_CX + 300, 0); c.line_to(EST_CW, 0); c.line_to(EST_CW, 150); c.curve_to(2100, 120, 1800, 40, EST_CX + 300, 0)
+    c.close_path()
+    g = _lin(c, 0, 0, 0, 150, [(0, (0.3, 0.2, 0.35)), (1, (0.08, 0.07, 0.16))])
+    c.set_source(g); c.fill_preserve(); c.clip()
+    for i in range(160):     # light reflections on water: vertical shimmer streaks
+        x = r.uniform(EST_CX + 300, EST_CW); y = r.uniform(0, 140)
+        c.set_source_rgba(1, r.uniform(0.6, 0.9), 0.6, r.uniform(0.1, 0.35))
+        c.rectangle(x, y, 1.5, r.uniform(4, 14)); c.fill()
+    c.restore()
+    # streets converging to the vanishing point with sodium lights
+    for i in range(40):
+        X = r.uniform(-4000, 4000)
+        Z0 = 760 * (1 + r.random() * 4); Z1 = Z0 * r.uniform(1.5, 4)
+        u0, v0 = _eproj(X, Z0); u1, v1 = _eproj(X, Z1)
+        c.set_source_rgba(1.0, 0.62, 0.3, r.uniform(0.08, 0.2)); c.set_line_width(1.0)
+        c.move_to(u0, v0); c.line_to(u1, v1); c.stroke()
+    for i in range(16):     # cross streets (horizontal segments)
+        Z = 760 * (1.0 + r.random() ** 1.5 * 10)
+        v = f * h / Z
+        x0 = r.uniform(0, EST_CW); L = r.uniform(200, 900)
+        c.set_source_rgba(1.0, 0.7, 0.4, r.uniform(0.08, 0.2)); c.set_line_width(max(0.6, 1.2 * 760 / Z))
+        c.move_to(x0, v); c.line_to(x0 + L, v); c.stroke()
+    # expressways: bright light rivers curving through the city
+    for k in range(3):
+        c.new_path()
+        pts = []
+        Zb = 760 + k * 500
+        for j in range(60):
+            X = -3500 + j * 120
+            Z = Zb + 400 * math.sin(j * 0.12 + k * 2) + j * 8 * (k - 1)
+            pts.append(_eproj(X, max(700, Z)))
+        for w_, a_, col in ((5, 0.12, (1, 0.6, 0.3)), (1.6, 0.6, (1, 0.8, 0.5))):
+            c.move_to(*pts[0])
+            for p_ in pts[1:]:
+                c.line_to(*p_)
+            c.set_line_width(w_); c.set_source_rgba(*col, a_); c.stroke()
+    # far buildings blocks with windows (Z 780..3200)
+    vmax = f * h / 760.0
+    dens_map = _fbm2(64, 128, (3, 6), 4, seed=77)
+    def dens_at(u, v):
+        return dens_map[int(clamp(v / vmax) * 63), int(clamp(u / EST_CW) * 127)]
+    blocks = []
+    for i in range(1400):
+        Z = 770 + (r.random() ** 1.4) * 3000
+        X = r.uniform(-1.4, 1.4) * Z
+        u, v = _eproj(X, Z)
+        if r.random() > dens_at(u, v) * 1.6 - 0.2:
+            continue
+        blocks.append((Z, X))
+    blocks.sort(key=lambda b: -b[0])
+    for (Z, X) in blocks:
+        u, v = _eproj(X, Z)
+        bw = r.uniform(14, 50) * f / Z
+        bh = r.uniform(6, 45) * f / Z
+        dd = clamp((Z - 770) / 3000)
+        c.set_source_rgb(0.04 + 0.12 * dd, 0.035 + 0.07 * dd, 0.08 + 0.14 * dd)
+        c.rectangle(u - bw / 2, v - bh, bw, bh); c.fill()
+        c.set_source_rgba(0.13 + 0.1 * dd, 0.1 + 0.05 * dd, 0.2 + 0.1 * dd, 1)       # roof seen from above
+        c.rectangle(u - bw / 2, v - bh - bw * 0.25, bw, bw * 0.25); c.fill()
+        nwx = max(1, int(bw / 2.6)); nwy = max(1, int(bh / 3.0))
+        pc = r.choice([(1, 0.85, 0.6), (0.85, 0.92, 1), (1, 0.75, 0.45)])
+        for a in range(nwx):
+            for b in range(nwy):
+                if r.random() < 0.4:
+                    c.set_source_rgba(*pc, r.uniform(0.45, 1.0))
+                    c.rectangle(u - bw / 2 + 0.8 + a * 2.6, v - bh + 1.2 + b * 3.0, 1.2, 1.3); c.fill()
+    # carpet of city lights (clustered)
+    n_ok = 0
+    while n_ok < 14000:
+        v = 1 + (r.random() ** 1.8) * (vmax - 1)
+        u = r.uniform(0, EST_CW)
+        if r.random() > dens_at(u, v) * 1.7 - 0.25:
+            continue
+        n_ok += 1
+        Z = f * h / v
+        sz = clamp(700 / Z, 0.35, 1.3)
+        col = r.choice([(1, 0.8, 0.5), (1, 0.8, 0.5), (1, 0.65, 0.35), (0.85, 0.92, 1), (1, 1, 1)])
+        c.set_source_rgba(*col, r.uniform(0.3, 1.0))
+        c.arc(u, v, sz, 0, TAU); c.fill()
+    # atmospheric haze toward horizon
+    g = _lin(c, 0, 0, 0, 200, [(0, (0.85, 0.5, 0.6, 0.6)), (0.2, (0.6, 0.35, 0.5, 0.3)), (1, (0.3, 0.2, 0.4, 0))])
+    c.set_source(g); c.rectangle(0, 0, EST_CW, 200); c.fill()
+
+    # ---- racecourse grounds (dark lawn around the oval) ----
+    c.save()
+    _oval_poly(c, TRACK_WD + 70)
+    c.set_source_rgb(0.05, 0.07, 0.09); c.fill()
+    c.restore()
+    # ---- grandstands (far side, beyond home straight), facing camera ----
+    Zs = OVAL_Z0 + OVAL_R + TRACK_WD + 16
+    for (X0, X1, hgt, dz, kind) in ((-250, 60, 34, 0, "main"), (60, 200, 26, 6, "wing"), (-340, -250, 22, 8, "wing")):
+        _est_stand(c, r, X0, X1, Zs + dz, hgt, kind)
+    # ---- dirt track ring ----
+    c.save()
+    _oval_poly(c, TRACK_WD); _oval_poly(c, 0)
+    c.set_fill_rule(cairo.FILL_RULE_EVEN_ODD)
+    g = _lin(c, 0, _eproj(0, OVAL_Z0 + OVAL_R + TRACK_WD)[1], 0, _eproj(0, OVAL_Z0 - OVAL_R - TRACK_WD)[1],
+             [(0, (0.8, 0.63, 0.48)), (0.5, (0.66, 0.5, 0.37)), (1, (0.6, 0.45, 0.33))])
+    c.set_source(g); c.fill_preserve()
+    c.clip()
+    # grooming lines along the track (concentric)
+    for k in range(1, 12):
+        _oval_poly(c, TRACK_WD * k / 12)
+        c.set_source_rgba(0.3, 0.2, 0.15, 0.18); c.set_line_width(0.8); c.stroke()
+    # shading: outer part of the ring darker, lit patches
+    for k in range(40):
+        X, Z = _oval_pt(r.random(), TRACK_WD * r.uniform(0.2, 0.8))
+        u, v = _eproj(X, Z)
+        c.save(); c.translate(u, v); c.scale(1, 0.35)
+        _glow(c, 0, 0, r.uniform(40, 120) * f / Z, (0.35, 0.22, 0.15) if r.random() < 0.5 else (1, 0.9, 0.75), 0.18)
+        c.restore()
+    c.restore()
+    # ---- infield ----
+    c.save()
+    _oval_poly(c, -2)
+    g = _lin(c, 0, _eproj(0, OVAL_Z0 + OVAL_R)[1], 0, _eproj(0, OVAL_Z0 - OVAL_R)[1],
+             [(0, (0.12, 0.2, 0.19)), (0.5, (0.09, 0.16, 0.16)), (1, (0.07, 0.12, 0.13))])
+    c.set_source(g); c.fill_preserve(); c.clip()
+    # mowing stripes
+    for k in range(-14, 15):
+        X = k * 26
+        u0, v0 = _eproj(X - 13, OVAL_Z0 - OVAL_R); u1, v1 = _eproj(X - 13, OVAL_Z0 + OVAL_R)
+        u2, v2 = _eproj(X, OVAL_Z0 + OVAL_R); u3, v3 = _eproj(X, OVAL_Z0 - OVAL_R)
+        c.move_to(u0, v0); c.line_to(u1, v1); c.line_to(u2, v2); c.line_to(u3, v3); c.close_path()
+        c.set_source_rgba(0.3, 0.45, 0.4, 0.07); c.fill()
+    # pond with reflections
+    c.save()
+    pu, pv = _eproj(-90, OVAL_Z0 + 30)
+    c.translate(pu, pv); c.scale(1.0, 0.42)
+    c.arc(0, 0, 70, 0, TAU)
+    g = cairo.RadialGradient(0, -30, 5, 0, 0, 70)
+    g.add_color_stop_rgb(0, 0.16, 0.16, 0.32); g.add_color_stop_rgb(1, 0.03, 0.04, 0.1)
+    c.set_source(g); c.fill()
+    c.restore()
+    for i in range(10):
+        x = pu + r.uniform(-50, 50); y = pv + r.uniform(-18, 18)
+        c.set_source_rgba(1, 0.9, 0.7, 0.4); c.rectangle(x, y, r.uniform(4, 12), 1); c.fill()
+    # inner track (training) : thin sand loop
+    _oval_poly(c, -34)
+    c.set_source_rgba(0.5, 0.4, 0.32, 0.55); c.set_line_width(5); c.stroke()
+    # big screen in infield (back side dark, facing stand)
+    su, sv = _eproj(20, OVAL_Z0 + OVAL_R - 30)
+    c.set_source_rgb(0.04, 0.04, 0.07); c.rectangle(su - 90, sv - 42, 180, 38); c.fill()
+    c.rectangle(su - 3, sv - 6, 6, 8); c.fill()
+    c.restore()
+    # ---- rails (white) ----
+    for off, wmul in ((TRACK_WD, 1.0), (0, 1.0)):
+        n = 360
+        for i in range(n):
+            X0, Z0 = _oval_pt(i / n, off); X1, Z1 = _oval_pt((i + 1) / n, off)
+            u0, v0 = _eproj(X0, Z0, 1.2); u1, v1 = _eproj(X1, Z1, 1.2)
+            c.move_to(u0, v0); c.line_to(u1, v1)
+            c.set_line_width(max(0.9, 1500 / Z0 * wmul * 0.9))
+            c.set_source_rgba(0.97, 0.97, 1.0, 0.95); c.stroke()
+    # floodlight wash over the whole course
+    c.save(); c.set_operator(cairo.OPERATOR_ADD)
+    cu, cv = _eproj(0, OVAL_Z0 + 20)
+    c.translate(cu, cv); c.scale(1, 0.42)
+    _glow(c, 0, 0, 900, (0.55, 0.42, 0.3), 0.35)
+    c.restore()
+    # finish post on home straight
+    fu, fv = _eproj(-60, OVAL_Z0 + OVAL_R + TRACK_WD + 2)
+    c.set_source_rgb(1, 1, 1); c.rectangle(fu - 1, fv - 14, 2, 14); c.fill()
+    c.arc(fu, fv - 16, 3.2, 0, TAU); c.fill()
+    # ---- near-side grounds (foreground): trees, lamps, parking with car lights ----
+    Zn = OVAL_Z0 - OVAL_R - TRACK_WD - 40
+    trees = []
+    for i in range(700):
+        Z = r.uniform(200, Zn)
+        X = r.uniform(-1.0, 1.0) * Z * 1.3
+        if abs(X) < 380 and Z > Zn - 30:
+            continue
+        trees.append((Z, X))
+    for rowZ in (Zn - 5, Zn - 60, 250):       # tree lines along paths
+        for X in np.arange(-900, 900, 9):
+            trees.append((rowZ + r.uniform(-4, 4), X + r.uniform(-3, 3)))
+    trees.sort(key=lambda a: -a[0])
+    for (Z, X) in trees:
+        u, v = _eproj(X, Z)
+        if not (-50 < u < EST_CW + 50):
+            continue
+        _tree_clump_est(c, r, u, v, 4.2 * f / Z)
+    for i in range(70):     # lamp posts
+        Z = r.uniform(250, Zn); X = r.uniform(-1.0, 1.0) * Z * 1.3
+        u, v = _eproj(X, Z); u2, v2 = _eproj(X, Z, 8)
+        c.set_source_rgba(0.12, 0.12, 0.16, 1); c.set_line_width(1); c.move_to(u, v); c.line_to(u2, v2); c.stroke()
+        _glow(c, u2, v2, 14, (1, 0.8, 0.5), 0.6)
+    # road along the bottom with car lights
+    for Z, colr in ((300, (1, 0.25, 0.2)), (292, (1, 0.95, 0.85))):
+        v = f * h / Z
+        for i in range(90):
+            u = r.uniform(0, EST_CW)
+            c.set_source_rgba(*colr, 0.85)
+            c.arc(u, v, 1.6, 0, TAU); c.fill()
+            _glow(c, u, v, 8, colr, 0.35)
+    # ---- floodlight towers ring (drawn last, far to near) ----
+    towers = []
+    for i in range(22):
+        X, Z = _oval_pt((i + 0.5) / 22, TRACK_WD + 14)
+        towers.append((Z, X))
+    for i in range(6):
+        X, Z = _oval_pt((i + 0.25) / 6, -20)
+        towers.append((Z, X))
+    towers.sort(key=lambda a: -a[0])
+    heads = []
+    for (Z, X) in towers:
+        u, v = _eproj(X, Z); u2, v2 = _eproj(X, Z, 42)
+        sc = f / Z
+        c.set_source_rgba(0.18, 0.17, 0.22, 1); c.set_line_width(max(1.0, 0.9 * sc))
+        c.move_to(u, v); c.line_to(u2, v2); c.stroke()
+        # light pool on the ground
+        c.save(); c.translate(u, v); c.scale(1, 0.33)
+        _glow(c, 0, 0, 50 * sc, (1, 0.9, 0.7), 0.3)
+        c.restore()
+        heads.append((u2, v2, sc))
+    for (u2, v2, sc) in heads:
+        _glow(c, u2, v2, 22 * sc, FLOOD, 0.45)
+        c.set_source_rgb(0.15, 0.14, 0.18); c.rectangle(u2 - 3.5 * sc, v2 - 2 * sc, 7 * sc, 4 * sc); c.fill()
+        c.set_source_rgb(*FLOOD_CORE); c.rectangle(u2 - 3 * sc, v2 - 1.5 * sc, 6 * sc, 3 * sc); c.fill()
+    return dict(surf=s, heads=heads)
+
+
+def _tree_clump_est(c, r, u, v, sz):
+    for k in range(5):
+        x = u + r.uniform(-sz, sz) * 0.8; y = v - sz * r.uniform(0.6, 1.5)
+        rr_ = sz * r.uniform(0.45, 0.8)
+        g = cairo.RadialGradient(x - rr_ * 0.3, y - rr_ * 0.5, 0, x, y, rr_)
+        g.add_color_stop_rgb(0, 0.10, 0.17, 0.19); g.add_color_stop_rgb(1, 0.03, 0.05, 0.07)
+        c.set_source(g); c.arc(x, y, rr_, 0, TAU); c.fill()
+
+
+def _est_stand(c, r, X0, X1, Z, hgt, kind):
+    f = EST_F
+    ua, va = _eproj(X0, Z); ub, vb = _eproj(X1, Z)
+    top = va - hgt * f / Z
+    # roof (seen from above): trapezoid back into depth
+    ua2, va2 = _eproj(X0, Z + 22, hgt); ub2, vb2 = _eproj(X1, Z + 22, hgt)
+    c.set_source_rgb(0.1, 0.09, 0.15)
+    c.move_to(ua, top); c.line_to(ub, top); c.line_to(ub2, vb2); c.line_to(ua2, va2); c.close_path(); c.fill()
+    c.set_source_rgba(0.9, 0.9, 1.0, 0.85); c.set_line_width(1.2); c.move_to(ua, top); c.line_to(ub, top); c.stroke()
+    # face: warm glowing tiers
+    g = _lin(c, 0, top, 0, va, [(0, (0.55, 0.38, 0.34)), (0.3, (1.0, 0.85, 0.62)), (0.5, (0.75, 0.55, 0.45)),
+                                (0.72, (1.0, 0.9, 0.7)), (1, (0.7, 0.55, 0.5))])
+    c.set_source(g); c.rectangle(ua, top, ub - ua, va - top); c.fill()
+    # crowd stipple
+    for i in range(int((ub - ua) * (va - top) * 0.35)):
+        x = r.uniform(ua, ub); y = r.uniform(top + 2, va - 1)
+        col = r.choice(_CLOTH)
+        c.set_source_rgba(*_mute(col, (0.4, 0.3, 0.3), 0.5), 0.8)
+        c.rectangle(x, y, 1.2, 1.2); c.fill()
+    for yy in np.linspace(top + 3, va - 2, 5):
+        c.set_source_rgba(1, 0.95, 0.85, 0.5); c.rectangle(ua, yy, ub - ua, 0.8); c.fill()
+    for x in np.arange(ua, ub, 7):
+        _glow(c, x, top + 2, 5, (1, 0.9, 0.7), 0.5)
+    c.save(); c.translate((ua + ub) / 2, (top + va) / 2); c.scale(1, 0.35)
+    _glow(c, 0, 0, (ub - ua) * 0.62, (1, 0.8, 0.55), 0.3)
+    c.restore()
+
+
+def _est():
+    if not _EST:
+        _EST.update(_est_build())
+    return _EST
+
+
+def draw_racecourse_establishing(ctx, t, cam=0.0, *, horses=False, race_s=0.0, flash=0.3):
+    """High-angle wide shot of 大井 at night. cam 0 -> looking up at the sky (course
+    below frame), cam 1 -> tilted down & pushed in on the glowing oval.
+    horses: draw a tiny pack of glowing dots at oval param race_s (0..1)."""
+    E_ = _est()
+    k = smoothstep(0, 1, cam)
+    hz = lerp(1250, 250, k)
+    zoom = lerp(0.92, 1.1, cam)
+    draw_sky(ctx, t, horizon_y=hz, stars=1.0, moon=(1480, hz - 830 + 120 * k, 60), clouds=0.55, glow=1.0)
+    draw_city(ctx, t, hz + 1, cam_x=0, parallax=0, scale=0.36 * zoom, lights=1.0, tower=True)
+    ox = 960 - EST_CX * zoom
+    ctx.save()
+    ctx.translate(ox, hz); ctx.scale(zoom, zoom)
+    ctx.set_source_surface(E_["surf"], 0, 0)
+    ctx.get_source().set_filter(cairo.FILTER_BILINEAR)
+    ctx.paint()
+    # dynamic: floodlight shimmer, horse dots, stand flashes
+    for i, (u, v, sc) in enumerate(E_["heads"]):
+        a = 0.3 + 0.08 * math.sin(t * 3 + i)
+        _glow(ctx, u, v, 80 * sc, FLOOD, a)
+        _glow(ctx, u, v, 14 * sc, FLOOD_CORE, 0.9)
+        _star_flare(ctx, u, v, 26 * sc, (1, 1, 1), 0.65, rot=0.0)
+    if horses:
+        for j in range(12):
+            s_ = race_s - j * 0.0035 - 0.002 * _hash(j, 3)
+            X, Z = _oval_pt(s_, 4 + 16 * _hash(j, 4))
+            u, v = _eproj(X, Z, 1.5)
+            _glow(ctx, u, v, 7, (1, 0.95, 0.85), 0.6)
+            ctx.set_source_rgb(0.2, 0.1, 0.08); ctx.arc(u, v, 1.6, 0, TAU); ctx.fill()
+    fi = int(t * FPS)
+    Zs = OVAL_Z0 + OVAL_R + TRACK_WD + 16
+    for q in range(int(3 + 12 * flash)):
+        X = -340 + 540 * _hash(fi * 17 + q, 5)
+        u, v = _eproj(X, Zs, 4 + 26 * _hash(fi * 17 + q, 6))
+        _glow(ctx, u, v, 9, (1, 1, 1), 0.8)
     ctx.restore()

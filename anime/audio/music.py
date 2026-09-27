@@ -83,8 +83,9 @@ SEC = {
 
 class Track:
     def __init__(self, name, prog, bank=0, drums=False, pan=0.0, gain=0.0, rev=0.25, width=1.0,
-                 lp=None, hp=None, delay=None):
+                 lp=None, hp=None, delay=None, pre=0.0):
         self.name, self.prog, self.bank, self.drums = name, prog, bank, drums
+        self.pre = pre  # attack compensation: notes start this much early so the sample's attack lands on time
         self.pan, self.gain, self.rev, self.width = pan, gain, rev, width
         self.lp, self.hp, self.delay = lp, hp, delay
         self.notes = []  # (t, dur, key, vel)
@@ -154,18 +155,19 @@ def compose():
     T("ai_bell", 98, pan=0.15, gain=-15, rev=0.5)
     T("piano", 0, pan=0.05, gain=6, rev=0.32)
     T("harp", 46, pan=-0.35, gain=-3, rev=0.35)
-    T("str_pad", 49, pan=0.0, gain=-7, rev=0.4, width=1.2)
-    T("str_trem", 44, pan=0.2, gain=-9, rev=0.35)
-    T("str_lo", 48, pan=0.25, gain=6, rev=0.25)       # celli/violas gallop ostinato
-    T("str_16", 48, pan=-0.25, gain=5, rev=0.3)       # 16th ostinato
-    T("vln", 48, pan=-0.3, gain=3, rev=0.35)          # violin melody
-    T("bass", 43, pan=0.1, gain=-5, rev=0.2)
-    T("horn", 60, pan=0.3, gain=-5, rev=0.4)
+    T("str_pad", 49, pan=0.0, gain=-7, rev=0.4, width=1.2, pre=0.07)
+    T("str_trem", 44, pan=0.2, gain=-9, rev=0.35, pre=0.04)
+    T("str_lo", 41, pan=0.25, gain=1, rev=0.25)        # violas/celli gallop ostinato (fast-attack viola)
+    T("pizz", 45, pan=0.35, gain=-6, rev=0.25)         # pizzicato doubling for bite
+    T("str_16", 41, pan=-0.25, gain=0, rev=0.3)        # 16th ostinato
+    T("vln", 48, pan=-0.3, gain=3, rev=0.35, pre=0.05)  # violin melody
+    T("bass", 43, pan=0.1, gain=-5, rev=0.2, pre=0.02)
+    T("horn", 60, pan=0.3, gain=-5, rev=0.4, pre=0.025)
     T("tpt", 56, pan=-0.1, gain=-6, rev=0.35)
-    T("brass", 61, pan=0.0, gain=-9, rev=0.35)
-    T("lowbrass", 57, pan=0.15, gain=-8, rev=0.3)
-    T("tuba", 58, pan=0.1, gain=-8, rev=0.25)
-    T("choir", 52, pan=0.0, gain=-5, rev=0.5, width=1.3)
+    T("brass", 61, pan=0.0, gain=-9, rev=0.35, pre=0.03)
+    T("lowbrass", 57, pan=0.15, gain=-8, rev=0.3, pre=0.03)
+    T("tuba", 58, pan=0.1, gain=-8, rev=0.25, pre=0.02)
+    T("choir", 52, pan=0.0, gain=-5, rev=0.5, width=1.3, pre=0.04)
     T("timp", 47, pan=-0.1, gain=-6, rev=0.3)
     T("taiko", 116, pan=0.0, gain=-2, rev=0.25)
     T("kit", 48, bank=128, drums=True, pan=0.0, gain=-7, rev=0.3)
@@ -236,7 +238,7 @@ def compose():
     for bar, h in enumerate(harm):
         b0 = 2 + bar * 4
         hush = bar in (3, 4)  # 「まだ……まだだよ。」 — hold back
-        vbase = 72 + bar * 7 - (18 if hush else 0)
+        vbase = 72 + bar * 7 - (10 if hush else 0)
         S.note("bass", D, b0, 4, root[h], vbase + 5, legato=1)
         for beat in range(4):
             for off, dd, acc in ((0, 0.45, 12), (0.5, 0.22, 0), (0.75, 0.22, 4)):  # gallop: dum da-da
@@ -519,7 +521,11 @@ def main():
     ensure_sf2()
     S = compose()
     NN = N + TAIL
-    jobs = [(tr.name, tr.prog, tr.bank, tr.drums, tr.notes, NN) for tr in S.tr.values() if tr.notes]
+    for tr in S.tr.values():   # pizzicato doubles the gallop ostinato's accented "dum" (first 16th of each beat)
+        if tr.name == "str_lo":
+            S.tr["pizz"].notes = [(t, 0.2, k, v) for t, d, k, v in tr.notes if d > 0.15]
+    jobs = [(tr.name, tr.prog, tr.bank, tr.drums, [(max(0.0, t - tr.pre), d, k, v) for t, d, k, v in tr.notes], NN)
+            for tr in S.tr.values() if tr.notes]
     jobs.append(("_crash", 48, 128, True, [(0.0, 5.0, n("A3"), 120)], 6 * SR))
     jobs.sort(key=lambda j: -len(j[4]))
     with mp.Pool(4, initializer=_init) as pool:
@@ -571,9 +577,9 @@ def main():
     g = dsp.curve([
         (0.0, -60), (0.3, -60), (0.35, 0), (5.2, 0), (6.0, 2), (6.6, 3),  # s01 -> s02
         (14.3, 3), (15.0, -5), (15.4, -8), (17.2, -4), (18.05, -12), (18.42, -12), (18.47, 0),
-        (19.3, -3), (24.4, -5), (27.8, -4), (29.55, -2), (29.6, 0), (32.9, 0), (33.0, 1), (40.1, 1),
-        (40.2, 2), (45.0, 2.5), (45.04, -70), (45.3, -70), (45.55, -8), (47.2, -8), (47.38, 0),
-        (50.0, -1), (50.73, -4), (57.4, -3), (58.0, -4), (59.2, -18), (59.85, -50), (60.0, -120),
+        (19.3, -3), (24.4, -3), (27.8, -3), (29.55, -2), (29.6, 0), (32.9, 0), (33.0, 3), (40.1, 3),
+        (40.2, 4), (45.0, 4.5), (45.04, -70), (45.3, -70), (45.55, -8), (47.2, -8), (47.38, 0),
+        (50.0, -1), (50.73, 0), (57.4, 0), (58.0, -1), (59.2, -18), (59.85, -50), (60.0, -120),
     ], NN, "db")
     mix *= g[:, None]
     mix += swells
