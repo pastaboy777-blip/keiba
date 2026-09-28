@@ -1,0 +1,122 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+ *{margin:0;padding:0;box-sizing:border-box;font-family:'WenQuanYi Zen Hei','IPAGothic',sans-serif;}
+ body{background:#000;}
+ .card{width:1400px;position:relative;overflow:hidden;background:#12100e;padding:30px 34px 26px;}
+
+ /* 集中線 */
+ .lines{position:absolute;inset:-45% -14% -14% -14%;pointer-events:none;
+   background:repeating-conic-gradient(from 0deg at 50% 12%,
+     rgba(255,255,255,.13) 0deg 1.5deg, rgba(255,255,255,0) 1.5deg 5.6deg);}
+ /* 網点（ハーフトーン） */
+ .tone{position:absolute;inset:0;pointer-events:none;opacity:.5;
+   background-image:radial-gradient(rgba(255,255,255,.16) 1.6px, transparent 1.7px);
+   background-size:9px 9px;}
+ .inner{position:relative;}
+
+ .kicker{color:#ffd400;font-size:20px;font-weight:900;letter-spacing:2px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ .head{display:flex;align-items:center;gap:20px;margin-top:2px;height:170px;}
+ .gekiga{font-size:118px;font-weight:900;letter-spacing:-4px;line-height:1;
+   color:#e8232a;-webkit-text-stroke:22px #000;paint-order:stroke fill;
+   transform:skewX(-9deg) rotate(-3deg);
+   text-shadow:11px 11px 0 rgba(0,0,0,.85);}
+ .dateblk{flex:1;padding-left:16px;}
+ .dateblk .d1{color:#fff;font-size:46px;font-weight:900;letter-spacing:1px;
+   -webkit-text-stroke:10px #000;paint-order:stroke fill;transform:skewX(-6deg);display:inline-block;}
+ .dateblk .d2{color:#ffd400;font-size:26px;font-weight:900;margin-top:6px;
+   -webkit-text-stroke:6px #000;paint-order:stroke fill;}
+ .burst{width:164px;height:164px;flex:0 0 164px;background:#ffd400;
+   clip-path:polygon(50.00% 0.00%,55.09% 11.33%,62.94% 1.70%,64.92% 13.97%,75.00% 6.70%,73.74% 19.06%,85.36% 14.64%,80.94% 26.26%,93.30% 25.00%,86.03% 35.08%,98.30% 37.06%,88.67% 44.91%,100.00% 50.00%,88.67% 55.09%,98.30% 62.94%,86.03% 64.92%,93.30% 75.00%,80.94% 73.74%,85.36% 85.36%,73.74% 80.94%,75.00% 93.30%,64.92% 86.03%,62.94% 98.30%,55.09% 88.67%,50.00% 100.00%,44.91% 88.67%,37.06% 98.30%,35.08% 86.03%,25.00% 93.30%,26.26% 80.94%,14.64% 85.36%,19.06% 73.74%,6.70% 75.00%,13.97% 64.92%,1.70% 62.94%,11.33% 55.09%,0.00% 50.00%,11.33% 44.91%,1.70% 37.06%,13.97% 35.08%,6.70% 25.00%,19.06% 26.26%,14.64% 14.64%,26.26% 19.06%,25.00% 6.70%,35.08% 13.97%,37.06% 1.70%,44.91% 11.33%);display:flex;align-items:center;justify-content:center;
+   filter:drop-shadow(7px 7px 0 rgba(0,0,0,.8));}
+ .burst span{color:#111;font-size:31px;font-weight:900;line-height:1.1;text-align:center;
+   transform:rotate(-7deg);}
+
+ .lead{margin-top:12px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:12px 18px;color:#111;font-size:19px;font-weight:800;line-height:1.55;
+   box-shadow:9px 9px 0 rgba(0,0,0,.6);}
+ .lead .r{color:#e8232a;} .lead .b{color:#0d4d9c;}
+
+ .cols{display:flex;margin:18px 0 8px;padding:0 10px;color:#ffd400;font-size:16px;font-weight:900;
+   -webkit-text-stroke:4px #000;paint-order:stroke fill;}
+ .cR{flex:0 0 116px;} .cH{flex:0 0 434px;} .cA{flex:0 0 306px;} .cM{flex:1;}
+
+ .row{position:relative;display:flex;align-items:stretch;background:#fff;border:6px solid #000;
+   border-radius:3px;margin-bottom:14px;padding:14px 16px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .row .corner{position:absolute;left:0;top:0;bottom:0;width:116px;pointer-events:none;opacity:.45;
+   background-image:radial-gradient(rgba(0,0,0,.55) 1.5px, transparent 1.6px);background-size:7px 7px;}
+
+ .rN{flex:0 0 116px;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;}
+ .rN .n{color:#e8232a;font-size:44px;font-weight:900;line-height:1;
+   -webkit-text-stroke:7px #000;paint-order:stroke fill;transform:skewX(-8deg);}
+ .rN .d{color:#111;font-size:13px;font-weight:900;margin-top:6px;background:#ffd400;
+   border:2px solid #000;padding:1px 5px;}
+
+ .hm{flex:0 0 434px;display:flex;align-items:center;gap:10px;padding-left:8px;}
+ .at{flex:0 0 306px;display:flex;align-items:center;gap:9px;}
+ .mk{font-size:36px;font-weight:900;color:#e8232a;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .mk2{font-size:34px;font-weight:900;color:#0d4d9c;-webkit-text-stroke:3.5px #000;paint-order:stroke fill;}
+ .nm{font-size:27px;font-weight:900;color:#111;letter-spacing:0;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .nm2{font-size:25px;font-weight:900;color:#111;white-space:nowrap;transform:skewX(-5deg);display:inline-block;}
+ .sb{width:68px;height:68px;flex:0 0 68px;background:#ffd400;clip-path:polygon(50.00% 0.00%,56.63% 16.65%,69.13% 3.81%,68.89% 21.73%,85.36% 14.64%,78.27% 31.11%,96.19% 30.87%,83.35% 43.37%,100.00% 50.00%,83.35% 56.63%,96.19% 69.13%,78.27% 68.89%,85.36% 85.36%,68.89% 78.27%,69.13% 96.19%,56.63% 83.35%,50.00% 100.00%,43.37% 83.35%,30.87% 96.19%,31.11% 78.27%,14.64% 85.36%,21.73% 68.89%,3.81% 69.13%,16.65% 56.63%,0.00% 50.00%,16.65% 43.37%,3.81% 30.87%,21.73% 31.11%,14.64% 14.64%,31.11% 21.73%,30.87% 3.81%,43.37% 16.65%);
+   display:flex;align-items:center;justify-content:center;margin-right:-4px;}
+ .sb span{color:#111;font-size:20px;font-weight:900;transform:rotate(-10deg);}
+
+ .memo{flex:1;color:#1b1b1b;font-size:14px;line-height:1.6;padding-left:14px;
+   border-left:4px solid #000;align-self:center;}
+ .memo b{color:#0d4d9c;} .memo b.r{color:#e8232a;}
+
+ .foot{position:relative;margin-top:6px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:18px 24px;color:#111;font-size:21px;font-weight:900;line-height:1.6;
+   box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .foot .r{color:#e8232a;} .foot .b{color:#0d4d9c;}
+ .yell{position:absolute;right:-6px;top:-52px;background:#ffd400;border:5px solid #000;
+   padding:6px 16px;font-size:26px;font-weight:900;color:#111;transform:rotate(-4deg);
+   box-shadow:6px 6px 0 rgba(0,0,0,.7);}
+ .sig{text-align:right;color:#ffd400;font-size:18px;font-weight:900;margin-top:20px;
+   -webkit-text-stroke:5px #000;paint-order:stroke fill;}
+
+ /* ---- 表・囲み（劇画スキン） ---- */
+ .sec{margin-top:20px;background:#fff;border:6px solid #000;border-radius:3px;
+   padding:20px 24px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .sh{color:#111;font-size:31px;font-weight:900;margin-bottom:14px;display:inline-block;
+   transform:skewX(-5deg);border-bottom:7px solid #e8232a;padding-bottom:3px;}
+ table{width:100%;border-collapse:collapse;margin-top:8px;}
+ th{background:#111;color:#ffd400;font-size:20px;font-weight:900;padding:9px 5px;border:2px solid #000;}
+ td{font-size:22px;font-weight:800;color:#111;padding:10px 5px;border:2px solid #000;text-align:center;}
+ td.l{text-align:left;} td.lap{font-size:19px;font-family:monospace;letter-spacing:-.5px;}
+ tr.hi td{background:#ffe9a8;} tr.bad td{background:#ffdcdc;color:#a11100;} tr.win td{background:#d9ecd9;}
+ .note{margin-top:15px;color:#1b1b1b;font-size:20px;font-weight:800;line-height:1.62;}
+ .note b{color:#0d4d9c;} .note b.r{color:#e8232a;}
+ .big{margin-top:20px;background:#111;border:6px solid #ffd400;border-radius:3px;
+   padding:22px 26px;box-shadow:10px 10px 0 rgba(0,0,0,.6);}
+ .big .bh{color:#ffd400;font-size:31px;font-weight:900;margin-bottom:15px;}
+ .big .it{color:#fff;font-size:23px;font-weight:800;line-height:1.62;margin-bottom:13px;}
+ .big .it:last-child{margin-bottom:0;}
+ .big .no{color:#ffd400;font-size:27px;font-weight:900;}
+ .big .y{color:#ffd400;} .big .c{color:#8fd9ff;} .big .r{color:#ff9b9b;}
+ .dateblk .d1{font-size:42px;}
+
+.box{background:#fff;border:3px solid #111;border-radius:6px;padding:12px 18px 10px;margin:11px 0}
+.bt{font-size:29px;font-weight:900;color:#111;border-bottom:5px solid #e8232a;display:inline-block;padding-bottom:2px;margin-bottom:9px}
+.r{color:#e8232a;font-weight:900}.b{color:#1f4e9c;font-weight:900}.c{color:#555;font-weight:700}
+table.t{width:100%;border-collapse:collapse;font-size:23px}
+table.t th{background:#111;color:#fff;font-weight:900;padding:7px 5px;font-size:19px;border:2px solid #111}
+table.t td{border:2px solid #ccc;padding:7px 5px;font-weight:800;color:#111;text-align:center;background:#fff}
+table.t td.l{text-align:left;font-size:24px}
+table.t td.hi{background:#fdeaea;color:#e8232a;font-weight:900}
+table.t td.lo{background:#eef1f7;color:#1f4e9c;font-weight:900}
+table.t td.gr{background:#f4f4f4;color:#999;font-size:20px}
+table.t td.thin{color:#aaa;font-size:20px}
+table.t tr.none td{background:#f7f7f7;color:#999}
+table.t td.lred{background:#f4c4c4;color:#8f1016;font-weight:900}
+.warn{background:#ffd400;border:4px solid #111;border-radius:6px;padding:11px 18px;margin:9px 0;
+  font-size:22px;font-weight:900;line-height:1.5;color:#111}
+.warn b{color:#e8232a}
+.rn{font-size:26px;font-weight:900;color:#111;margin:0 0 5px}
+.rn span{background:#111;color:#fff;padding:2px 12px;border-radius:4px;margin-right:9px}
+</style></head>
+<body><div class="card"><div class="lines"></div><div class="tone"></div><div class="inner">
+<div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>
+<div class="head"><div class="gekiga">調</div><div class="dateblk"><div class="d1">9/29(火) 船橋 1R〜5R ── 調教</div><div class="d2">追った日ごとに順位 ／ 20260929 船橋 ── 12R 148頭 ／ 追い切り 446本（日付あり 209本・固定行 237本）</div></div><div class="burst"><span>日ごとの<br>順位</span></div></div>
+<div class="warn">読み方 ── <b>「追組／流組」を見る。</b>脚色を無視した「その日全体」は、流した馬が下に沈むだけ。<b>本数が20を下回る日は灰色</b>にした。上位4分の1に入った馬は馬名を赤くしてある。時計そのものは出していない。</div><div class="box"><div class="rn"><span>1R</span>ダ1200 ／ 12頭</div><table class="t"><tr><th style="width:56px">馬番</th><th style="width:300px">馬名</th><th style="width:86px">追日</th><th style="width:96px">コース</th><th style="width:60px">馬場</th><th style="width:118px">脚色</th><th style="width:170px">追組／流組</th><th style="width:150px">その日全体</th><th style="width:80px">本数</th></tr><tr class="none"><td>1</td><td class="l">オーデンルビー</td><td colspan="6">追い切りなし（日付のある追いが無い）</td><td>0</td></tr><tr><td>2</td><td class="l">アオイヒビキ</td><td>9/25</td><td>外</td><td>良</td><td>一杯</td><td class="lo">追組 29/34</td><td class="">44/61</td><td>1</td></tr><tr><td>3</td><td class="l">ミリオンヒット</td><td>9/25</td><td>外</td><td>良</td><td>馬なり</td><td class="lo">流組 25/26</td><td class="lo">59/61</td><td>2</td></tr><tr><td>4</td><td class="l lred">マッドリボンガール</td><td>9/25</td><td>外</td><td>良</td><td>馬なり</td><td class="hi">流組 6/26</td><td class="">24/61</td><td>2</td></tr><tr><td>5</td><td class="l">ブロードファイラム</td><td>9/25</td><td>外</td><td>良</td><td>一杯</td><td class="">追組 26/34</td><td class="">37/61</td><td>2</td></tr><tr><td>6</td><td class="l">ヴェルダリオ</td><td>9/25</td><td>外</td><td>良</td><td>一杯</td><td class="">追組 20/34</td><td class="">29/61</td><td>1</td></tr><tr><td>7</td><td class="l">ワンダフルグレイス</td><td>9/19</td><td>外</td><td>良</td><td>強め</td><td class="thin">追組 7/15</td><td class="">17/48</td><td>3</td></tr><tr><td>8</td><td class="l">グラフィティウォー</td><td>9/24</td><td>外</td><td>稍</td><td>馬なり</td><td class="thin">流組 4/9</td><td class="">11/22</td><td>1</td></tr><tr class="none"><td>9</td><td class="l">ラッキー</td><td colspan="6">追い切りなし（日付のある追いが無い）</td><td>0</td></tr><tr><td>10</td><td class="l">カナーリオ</td><td>9/25</td><td>外</td><td>良</td><td>馬なり</td><td class="">流組 12/26</td><td class="">39/61</td><td>2</td></tr><tr class="none"><td>11</td><td class="l">イマキュレイト</td><td colspan="6">追い切りなし（日付のある追いが無い）</td><td>0</td></tr><tr><td>12</td><td class="l">ブラックムート</td><td>9/25</td><td>外</td><td>良</td><td>馬なり</td><td class="">流組 20/26</td><td class="lo">53/61</td><td>1</td></tr></table></div><div class="box"><div class="rn"><span>2R</span>ダ1200 ／ 12頭</div><table class="t"><tr><th style="width:56px">馬番</th><th style="width:300px">馬名</th><th style="width:86px">追日</th><th style="width:96px">コース</th><th style="width:60px">馬場</th><th style="width:118px">脚色</th><th style="width:170px">追組／流組</th><th style="width:150px">その日全体</th><th style="width:80px">本数</th></tr><tr><td>1</td><td class="l lred">ジオパークムーン</td><td>9/25</td><td>外</td><td>良</td><td>一杯</td><td class="">追組 11/34</td><td class="hi">15/61</td><td>1</td></tr><tr class="none"><td>2</td><td class="l">グリンネル</td><td colspan="6">追い切りなし（日付のある追いが無い）</td><td>0</td></tr><tr><td>3</td><td class="l">エガリテアリエル</td><td>9/25</td><td>外</td><td>良</td><td>一杯</td><td class="">追組 18/34</td><td class="">23/61</td><td>2</td></tr><tr><td>4</td><td class="l">テルケンユミトケン</td><td>9/12</td><td>外</td><td>不</td><td>馬なり</td><td class="thin">流組 7/14</td><td class="thin">9/16</td><td>1</td></tr><tr><td>5</td><td class="l">エッグスクランブル</td><td>9/25</td><td>外</td><td>良</td><td>馬なり</td><td class="">流組 13/26</td><td class="">41/61</td><td>1</td></tr><tr><td>6</td><td class="l">マーベラスティアラ</td><td>9/25</td><td>川崎</td><td>重</td><td>馬なり</td><td class="thin">流組 12/16</td><td class="lo">16/20</td><td>3</td></tr><tr><td>7</td><td class="l">ソルヴェイ</td><td>9/12</td><td>外</td><td>不</td><td>馬なり</td><td class="thin">流組 12/14</td><td class="thin">14/16</td><td>1</td></tr><tr><td>8</td><td class="l">ヨドノハニー</td><td>9/24</td><td>外</td><td>稍</td><td>馬なり</td><td class="thin">流組 6/9</td><td class="">17/22</td><td>2</td></tr><tr><td>9</td><td class="l">ランドフスカ</td><td>9/25</td><td>外</td><td>良</td><td>馬なり</td><td class="lo">流組 24/26</td><td class="lo">57/61</td><td>2</td></tr><tr><td>10</td><td class="l">タイセイグローバル</td><td>9/24</td><td>外</td><td>稍</td><td>一杯</td><td class="thin">追組 8/12</td><td class="">14/22</td><td>1</td></tr><tr><td>11</td><td class="l">ウィルスカイ</td><td>9/25</td><td>外</td><td>良</td><td>強め</td><td class="lo">追組 31/34</td><td class="">46/61</td><td>1</td></tr><tr><td>12</td><td class="l">エターナルフィズ</td><td>9/26</td><td>外</td><td>稍</td><td>馬なり</td><td class="thin">流組 1/1</td><td class="thin">1/1</td><td>1</td></tr></table></div><div class="box"><div class="rn"><span>3R</span>ダ1200 ／ 12頭</div><table class="t"><tr><th style="width:56px">馬番</th><th style="width:300px">馬名</th><th style="width:86px">追日</th><th style="width:96px">コース</th><th style="width:60px">馬場</th><th style="width:118px">脚色</th><th style="width:170px">追組／流組</th><th style="width:150px">その日全体</th><th style="width:80px">本数</th></tr><tr><td>1</td><td class="l">テセラグラディウス</td><td>9/25</td><td>川崎</td><td>重</td><td>馬なり</td><td class="thin">流組 3/16</td><td class="">7/20</td><td>1</td></tr><tr><td>2</td><td class="l">エイシンジンジャー</td><td>9/24</td><td>外</td><td>稍</td><td>末一杯</td><td class="thin">追組 12/12</td><td class="lo">21/22</td><td>2</td></tr><tr class="none"><td>3</td><td class="l">キチョウ</td><td colspan="6">追い切りなし（日付のある追いが無い）</td><td>0</td></tr><tr class="none"><td>4</td><td class="l">モーニンジェーピー</td><td colspan="6">追い切りなし（日付のある追いが無い）</td><td>0</td></tr><tr><td>5</td><td class="l lred">ワンダージャーニー</td><td>9/25</td><td>外</td><td>良</td><td>馬なり</td><td class="hi">流組 4/26</td><td class="hi">10/61</td><td>3</td></tr><tr><td>6</td><td class="l">ボンシャンス</td><td>9/25</td><td>外</td><td>良</td><td>稍一杯</td><td class="">追組 23/34</td><td class="">33/61</td><td>3</td></tr><tr><td>7</td><td class="l lred">ギガントマキア</td><td>9/25</td><td>川崎</td><td>重</td><td>馬なり</td><td class="thin">流組 2/16</td><td class="hi">4/20</td><td>1</td></tr><tr><td>8</td><td class="l">イニシエート</td><td>9/19</td><td>外</td><td>良</td><td>馬なり</td><td class="">流組 24/33</td><td class="lo">39/48</td><td>1</td></tr><tr><td>9</td><td class="l">アメリカンサンデー</td><td>9/25</td><td>川崎</td><td>重</td><td>馬なり</td><td class="thin">流組 5/16</td><td class="">9/20</td><td>2</td></tr><tr><td>10</td><td class="l">スマイルフレイヤ</td><td>9/25</td><td>外</td><td>良</td><td>一杯</td><td class="lo">追組 34/34</td><td class="lo">61/61</td><td>2</td></tr><tr><td>11</td><td class="l lred">マリノレーヴェ</td><td>9/25</td><td>外</td><td>良</td><td>馬なり</td><td class="hi">流組 7/26</td><td class="">26/61</td><td>1</td></tr><tr><td>12</td><td class="l">ミコディパーチャ</td><td>9/25</td><td>外</td><td>良</td><td>馬なり</td><td class="lo">流組 23/26</td><td class="lo">56/61</td><td>2</td></tr></table></div><div class="box"><div class="rn"><span>4R</span>ダ1500 ／ 12頭</div><table class="t"><tr><th style="width:56px">馬番</th><th style="width:300px">馬名</th><th style="width:86px">追日</th><th style="width:96px">コース</th><th style="width:60px">馬場</th><th style="width:118px">脚色</th><th style="width:170px">追組／流組</th><th style="width:150px">その日全体</th><th style="width:80px">本数</th></tr><tr><td>1</td><td class="l">プラネタリーアワー</td><td>9/25</td><td>外</td><td>良</td><td>馬なり</td><td class="">流組 16/26</td><td class="lo">47/61</td><td>2</td></tr><tr><td>2</td><td class="l lred">モンドシュピーゲル</td><td>9/25</td><td>外</td><td>良</td><td>強め</td><td class="">追組 12/34</td><td class="hi">16/61</td><td>3</td></tr><tr><td>3</td><td class="l">モリインビクタス</td><td>9/5</td><td>外</td><td>重</td><td>馬なり</td><td class="thin">流組 2/4</td><td class="thin">3/5</td><td>1</td></tr><tr class="none"><td>4</td><td class="l">リバテイー</td><td colspan="6">追い切りなし（日付のある追いが無い）</td><td>0</td></tr><tr><td>5</td><td class="l lred">スコーレブロー</td><td>9/24</td><td>外</td><td>稍</td><td>馬なり</td><td class="thin">流組 2/9</td><td class="hi">4/22</td><td>2</td></tr><tr><td>6</td><td class="l">ミラクルガイ</td><td>9/25</td><td>川崎</td><td>重</td><td>馬なり</td><td class="thin">流組 6/16</td><td class="">10/20</td><td>1</td></tr><tr><td>7</td><td class="l lred">ローレルクラウン</td><td>9/25</td><td>外</td><td>良</td><td>一杯</td><td class="hi">追組 7/34</td><td class="hi">11/61</td><td>2</td></tr><tr><td>8</td><td class="l">ミーサーク</td><td>9/25</td><td>外</td><td>良</td><td>馬なり</td><td class="">流組 14/26</td><td class="">42/61</td><td>3</td></tr><tr><td>9</td><td class="l">ベイビーメイビー</td><td>9/25</td><td>外</td><td>良</td><td>一杯</td><td class="">追組 19/34</td><td class="">25/61</td><td>1</td></tr><tr><td>10</td><td class="l">グリンフォンテン</td><td>9/25</td><td>外</td><td>良</td><td>馬なり</td><td class="">流組 8/26</td><td class="">27/61</td><td>1</td></tr><tr><td>11</td><td class="l">ゴーレム</td><td>9/25</td><td>外</td><td>良</td><td>一杯</td><td class="lo">追組 30/34</td><td class="">45/61</td><td>2</td></tr><tr><td>12</td><td class="l">キタノマヒロ</td><td>9/25</td><td>外</td><td>良</td><td>馬なり</td><td class="">流組 18/26</td><td class="lo">50/61</td><td>2</td></tr></table></div><div class="box"><div class="rn"><span>5R</span>ダ1200 ／ 11頭</div><table class="t"><tr><th style="width:56px">馬番</th><th style="width:300px">馬名</th><th style="width:86px">追日</th><th style="width:96px">コース</th><th style="width:60px">馬場</th><th style="width:118px">脚色</th><th style="width:170px">追組／流組</th><th style="width:150px">その日全体</th><th style="width:80px">本数</th></tr><tr><td>1</td><td class="l">ブロードヒーロー</td><td>9/25</td><td>川崎</td><td>重</td><td>馬なり</td><td class="thin">流組 9/16</td><td class="">13/20</td><td>1</td></tr><tr><td>2</td><td class="l lred">クレイジーロッカー</td><td>9/25</td><td>外</td><td>良</td><td>強め</td><td class="">追組 10/34</td><td class="hi">14/61</td><td>3</td></tr><tr><td>3</td><td class="l">ハッピーフェイス</td><td>9/25</td><td>外</td><td>良</td><td>一杯</td><td class="lo">追組 28/34</td><td class="">40/61</td><td>2</td></tr><tr><td>4</td><td class="l">シェナシャングリラ</td><td>9/24</td><td>川崎</td><td>不</td><td>馬なり</td><td class="thin">流組 2/3</td><td class="thin">2/3</td><td>1</td></tr><tr><td>5</td><td class="l">コパノベリーズ</td><td>9/12</td><td>外</td><td>不</td><td>馬なり</td><td class="thin">流組 2/14</td><td class="thin">4/16</td><td>1</td></tr><tr><td>6</td><td class="l lred">ステルスハンター</td><td>9/25</td><td>外</td><td>良</td><td>馬なり</td><td class="hi">流組 3/26</td><td class="hi">6/61</td><td>3</td></tr><tr><td>7</td><td class="l lred">モリケン</td><td>9/24</td><td>外</td><td>稍</td><td>一杯</td><td class="thin">追組 1/12</td><td class="hi">1/22</td><td>3</td></tr><tr><td>8</td><td class="l lred">ジョリージャイヴ</td><td>9/25</td><td>川崎</td><td>重</td><td>一杯</td><td class="thin">追組 3/4</td><td class="hi">5/20</td><td>1</td></tr><tr><td>9</td><td class="l">コーズマーサ</td><td>9/24</td><td>外</td><td>稍</td><td>強め</td><td class="thin">追組 10/12</td><td class="">16/22</td><td>2</td></tr><tr><td>10</td><td class="l">オドゥーラ</td><td>9/25</td><td>外</td><td>良</td><td>一杯</td><td class="">追組 24/34</td><td class="">34/61</td><td>3</td></tr><tr><td>11</td><td class="l">ウィズラブ</td><td>9/5</td><td>外</td><td>重</td><td>馬なり</td><td class="thin">流組 1/4</td><td class="thin">2/5</td><td>1</td></tr></table></div></div></div></body></html>
