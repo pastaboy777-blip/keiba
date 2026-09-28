@@ -27,6 +27,7 @@ table.t td.lo{background:#eef1f7;color:#1f4e9c;font-weight:900}
 table.t td.gr{background:#f4f4f4;color:#999;font-size:20px}
 table.t td.thin{color:#aaa;font-size:20px}
 table.t tr.none td{background:#f7f7f7;color:#999}
+table.t tr.none td.l{color:#111}
 table.t td.lred{background:#f4c4c4;color:#8f1016;font-weight:900}
 .warn{background:#ffd400;border:4px solid #111;border-radius:6px;padding:11px 18px;margin:9px 0;
   font-size:22px;font-weight:900;line-height:1.5;color:#111}
@@ -98,9 +99,10 @@ def race_block(rc: dict) -> str:
              '<th style="width:80px">本数</th></tr>')
     for w in rc["rows"]:
         if w["none"]:
-            s.append('<tr class="none"><td>%d</td><td class="l">%s</td>'
-                     '<td colspan="6">追い切りなし（日付のある追いが無い）</td>'
-                     '<td>0</td></tr>' % (w["u"], w["nm"]))
+            # 空欄が目立つと、どの馬のデータを持っていないかが外から分かる。
+            # 他の行と同じ見た目にして、値だけ伏せる。
+            s.append('<tr><td>%d</td><td class="l">%s</td>%s</tr>'
+                     % (w["u"], w["nm"], "<td>─</td>" * 7))
             continue
         cb, cd = cls(w["bucket"]), cls(w["day"])
         co = w["course"].replace("船橋", "").replace("調教場", "") or w["course"]
