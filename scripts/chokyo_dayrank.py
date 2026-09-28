@@ -96,18 +96,19 @@ def collect_day(date: str, place: str):
     if not rids:
         raise SystemExit("%s %s の開催が見つからない" % (date, place))
     time.sleep(SLEEP)
-    byr, allw = {}, []
+    byr, allw, rid_of = {}, [], {}
     for rid in rids:
         hs = parse_race(rid)
         r = int(rid[10:12])
         byr[r] = hs
+        rid_of[r] = rid
         for h in hs:
             h["R"] = r
             for w in h["追切"]:
                 w["馬名"] = h["馬名"]
                 w["R"] = r
                 allw.append(w)
-    return byr, allw
+    return byr, allw, rid_of
 
 
 def load_bucket(kyaku: str) -> str:
@@ -139,8 +140,15 @@ def last_dated(h: dict):
     return d[-1] if d else None
 
 
-def show(hs: list[dict], r: int) -> None:
-    print("\n■ %dR ── %d頭" % (r, len(hs)))
+def distance(rid: str) -> str:
+    """出馬表から距離。調教ページには載っていない。"""
+    h = get("/chihou/syutuba/%s" % rid)
+    m = re.search(r"([\d,]{3,5})\s?m", h)
+    return ("ダ" + m.group(1).replace(",", "")) if m else "?"
+
+
+def show(hs: list[dict], r: int, dist: str = "") -> None:
+    print("\n■ %dR %s ── %d頭" % (r, dist, len(hs)))
     for h in sorted(hs, key=lambda x: x["馬番"]):
         w = last_dated(h)
         n_d = sum(1 for x in h["追切"] if x["追日"])
@@ -172,7 +180,7 @@ def main() -> None:
     a = ap.parse_args()
     if not os.environ.get("KEIBABOOK_COOKIE"):
         sys.exit("KEIBABOOK_COOKIE が未設定")
-    byr, allw = collect_day(a.date, a.place)
+    byr, allw, rid_of = collect_day(a.date, a.place)
     n_h = sum(len(v) for v in byr.values())
     if n_h <= len(byr):
         sys.exit("Cookie が切れている（各レース先頭馬のみ）。scratchpad/.kbcookie を取り直す。")
@@ -190,7 +198,7 @@ def main() -> None:
                 print("  %s %-8s %-3s %3d本" % (k[0], k[1], k[2], n))
     for r in sorted(byr):
         if a.all or r == a.r:
-            show(byr[r], r)
+            show(byr[r], r, distance(rid_of[r]))
 
 
 if __name__ == "__main__":
