@@ -40,7 +40,7 @@ MIN_POOL = 20
 WARN_COLOR = ('<div class="warn">読み方 ── <b>「追組／流組」を見る。</b>'
               '脚色を無視した「その日全体」は、流した馬が下に沈むだけ。'
               '<b>本数が20を下回る日は灰色</b>にした。'
-              '上位4分の1に入った馬は馬名を赤くしてある。時計そのものは出していない。</div>')
+              '時計そのものは出していない。</div>')
 WARN_PLAIN = ('<div class="warn">読み方 ── <b>「追組／流組」を見る。</b>'
               '脚色を無視した「その日全体」は、流した馬が下に沈むだけ。'
               '分母が小さい日は順位に意味がないので、頭数を見て判断する。'
@@ -96,6 +96,26 @@ def cls(s: str) -> str:
     return "hi" if q <= 0.25 else "lo" if q >= 0.75 else ""
 
 
+LIGHT = ("馬なり", "馬也", "楽走")
+PICK = None   # "light-slow" なら、馬なり系 × 中位〜遅い を赤にする
+
+
+def where(w):
+    """束ねた中の位置を0〜1で。薄い日は追組/流組のほうを見る。どちらも薄ければ None。"""
+    for key in ("day", "bucket"):
+        f = frac(w[key])
+        if f and f[1] >= MIN_POOL:
+            return (f[0] - 1) / float(f[1])
+    return None
+
+
+def picked(w) -> bool:
+    if PICK != "light-slow":
+        return False
+    p = where(w)
+    return w["kyaku"] in LIGHT and p is not None and p >= 0.25
+
+
 def race_block(rc: dict) -> str:
     s = ['<div class="box"><div class="rn"><span>%dR</span>%s ／ %d頭</div>'
          % (rc["r"], rc["dist"], rc["n"])]
@@ -117,7 +137,9 @@ def race_block(rc: dict) -> str:
         s.append('<tr><td>%d</td><td class="%s">%s</td><td>%s</td><td>%s</td><td>%s</td>'
                  '<td>%s</td><td class="%s">%s組 %s</td><td class="%s">%s</td>'
                  '<td>%d</td></tr>'
-                 % (w["u"], "l lred" if "hi" in (cb, cd) else "l", w["nm"], w["d"], co,
+                 % (w["u"],
+                    "l lred" if (picked(w) if PICK else "hi" in (cb, cd)) else "l",
+                    w["nm"], w["d"], co,
                     w["baba"], w["kyaku"], cb, w["bk"], w["bucket"], cd, w["day"], w["n"]))
     s.append("</table></div>")
     return "".join(s)
@@ -128,14 +150,17 @@ def main() -> None:
     ap.add_argument("src")
     ap.add_argument("--no-color", action="store_true",
                     help="赤・青を付けず、数字だけ並べる")
+    ap.add_argument("--pick", choices=["light-slow"],
+                    help="赤くする条件。light-slow = 馬なり系 × 中位〜遅い")
     ap.add_argument("--title", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--from-r", type=int, default=1)
     ap.add_argument("--to-r", type=int, default=12)
     a = ap.parse_args()
+    global cls, PICK
     if a.no_color:
-        global cls
         cls = lambda s: ""
+    PICK = a.pick
     meta, races = parse(a.src)
     use = [r for r in races if a.from_r <= r["r"] <= a.to_r]
     if not use:
