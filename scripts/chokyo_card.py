@@ -37,6 +37,14 @@ table.t td.lred{background:#f4c4c4;color:#8f1016;font-weight:900}
 </style></head>
 """
 MIN_POOL = 20
+WARN_COLOR = ('<div class="warn">読み方 ── <b>「追組／流組」を見る。</b>'
+              '脚色を無視した「その日全体」は、流した馬が下に沈むだけ。'
+              '<b>本数が20を下回る日は灰色</b>にした。'
+              '上位4分の1に入った馬は馬名を赤くしてある。時計そのものは出していない。</div>')
+WARN_PLAIN = ('<div class="warn">読み方 ── <b>「追組／流組」を見る。</b>'
+              '脚色を無視した「その日全体」は、流した馬が下に沈むだけ。'
+              '分母が小さい日は順位に意味がないので、頭数を見て判断する。'
+              '色は付けていない。時計そのものは出していない。</div>')
 HEAD = re.compile(r"^■ (\d+)R (\S+) ── (\d+)頭")
 ROW = re.compile(
     r"^\s*(\d+) (.+?)\s+(\d\d/\d\d) (\S+) ([良稍重不]) ／ (\S+?)\s*\(負荷[\d.]+\) ／ "
@@ -118,11 +126,16 @@ def race_block(rc: dict) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("src")
+    ap.add_argument("--no-color", action="store_true",
+                    help="赤・青を付けず、数字だけ並べる")
     ap.add_argument("--title", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--from-r", type=int, default=1)
     ap.add_argument("--to-r", type=int, default=12)
     a = ap.parse_args()
+    if a.no_color:
+        global cls
+        cls = lambda s: ""
     meta, races = parse(a.src)
     use = [r for r in races if a.from_r <= r["r"] <= a.to_r]
     if not use:
@@ -136,11 +149,8 @@ def main() -> None:
             '<div class="dateblk"><div class="d1">%s %dR〜%dR ── 調教</div>'
             '<div class="d2">追った日ごとに順位 ／ %s</div></div>'
             '<div class="burst"><span>日ごとの<br>順位</span></div></div>\n'
-            % (a.title, use[0]["r"], use[-1]["r"], meta) +
-            '<div class="warn">読み方 ── <b>「追組／流組」を見る。</b>'
-            '脚色を無視した「その日全体」は、流した馬が下に沈むだけ。'
-            '<b>本数が20を下回る日は灰色</b>にした。'
-            '上位4分の1に入った馬は馬名を赤くしてある。時計そのものは出していない。</div>'
+            % (a.title, use[0]["r"], use[-1]["r"], meta)
+            + (WARN_PLAIN if a.no_color else WARN_COLOR)
             + "".join(race_block(r) for r in use)
             + "</div></div></body></html>")
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
