@@ -1,0 +1,145 @@
+[
+ {
+  "year": "2025",
+  "going": "重",
+  "time": "2:29.17",
+  "sec": 149.17,
+  "horse": "ダリズ",
+  "age": "3",
+  "wt": "56.5",
+  "jockey": "バルザロ",
+  "n": 17
+ },
+ {
+  "year": "2024",
+  "going": "重",
+  "time": "2:31.58",
+  "sec": 151.58,
+  "horse": "Bluestocking",
+  "age": "4",
+  "wt": "58",
+  "jockey": "ライアン",
+  "n": 15
+ },
+ {
+  "year": "2023",
+  "going": "稍重",
+  "time": "2:25.50",
+  "sec": 145.5,
+  "horse": "Ace Impact",
+  "age": "3",
+  "wt": "56.5",
+  "jockey": "Ｃ．デム",
+  "n": 15
+ },
+ {
+  "year": "2022",
+  "going": "重",
+  "time": "2:35.71",
+  "sec": 155.71,
+  "horse": "Alpinista",
+  "age": "5",
+  "wt": "58",
+  "jockey": "モリス",
+  "n": 20
+ },
+ {
+  "year": "2021",
+  "going": "重",
+  "time": "2:37.62",
+  "sec": 157.62,
+  "horse": "Torquator Tasso",
+  "age": "4",
+  "wt": "59.5",
+  "jockey": "ピーチュ",
+  "n": 14
+ },
+ {
+  "year": "2019",
+  "going": "重",
+  "time": "2:31.97",
+  "sec": 151.97,
+  "horse": "Waldgeist",
+  "age": "5",
+  "wt": "59.5",
+  "jockey": "ブドー",
+  "n": 12
+ },
+ {
+  "year": "2018",
+  "going": "良",
+  "time": "2:29.24",
+  "sec": 149.24,
+  "horse": "Enable",
+  "age": "4",
+  "wt": "58",
+  "jockey": "デットー",
+  "n": 19
+ },
+ {
+  "year": "2017",
+  "going": "重",
+  "time": "2:28.69",
+  "sec": 148.69,
+  "horse": "Enable",
+  "age": "3",
+  "wt": "55",
+  "jockey": "デットー",
+  "n": 18
+ },
+ {
+  "year": "2016",
+  "going": "良",
+  "time": "2:23.6",
+  "sec": 143.6,
+  "horse": "Found",
+  "age": "4",
+  "wt": "58",
+  "jockey": "ムーア",
+  "n": 16
+ },
+ {
+  "year": "2015",
+  "going": "良",
+  "time": "2:27.2",
+  "sec": 147.2,
+  "horse": "Golden Horn",
+  "age": "3",
+  "wt": "56",
+  "jockey": "デットー",
+  "n": 17
+ },
+ {
+  "year": "2014",
+  "going": "良",
+  "time": "2:26.0",
+  "sec": 146.0,
+  "horse": "Treve",
+  "age": "4",
+  "wt": "58",
+  "jockey": "ジャルネ",
+  "n": 20
+ },
+ {
+  "year": "2013",
+  "going": "重",
+  "time": "2:32.04",
+  "sec": 152.04,
+  "horse": "Treve",
+  "age": "3",
+  "wt": "54.5",
+  "jockey": "ジャルネ",
+  "n": 17
+ },
+ {
+  "year": "2012",
+  "going": "重",
+  "time": "2:37.6",
+  "sec": 157.6,
+  "horse": "ソレミア",
+  "age": "4",
+  "wt": "58",
+  "jockey": "ペリエ",
+  "n": 18
+ }
+]
