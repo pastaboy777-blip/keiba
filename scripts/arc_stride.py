@@ -132,3 +132,39 @@ line("   2025 ダリズ %d完歩で %d回 → %.1f完歩に1回"
 line("   2026 ダリズ %d完歩で %d回 → %.1f完歩に1回"
      % (t["2026"]["strides_last400"], t["2026"]["changes"],
         t["2026"]["strides_last400"] / max(t["2026"]["changes"], 1)))
+
+line()
+line("■ 53完歩の『中身』── 1本の手前を何完歩もたせたか")
+for y in ("2025", "2026"):
+    t = D["temae_observed"][y]
+    ch, st = t["changes"], t["strides_last400"]
+    holds = ch + 1                      # n回替えれば手前の区間は n+1 本
+    per = st / float(holds)
+    line("   %s  %d完歩 ／ %d回替え → 手前の区間 %d本 ／ 1本あたり %.1f完歩 (%.2f秒)"
+         % (y, st, ch, holds, per, per * rows[y]["sdur"]))
+
+line()
+line("■ 区間ごとに『1完歩あたり何ミリ秒』縮まったか")
+line("   替えが起きたのは直線＝T5・T6。T4はまだコーナー。")
+line()
+line("   %-14s %-8s %-8s %-9s %s" % ("区間", "2025", "2026", "差(秒)", "1完歩あたり"))
+nper = SEG / sl
+seg_gain = {}
+for k, lab in (("T4", "600→400m"), ("T5", "400→200m"), ("T6", "200→ARR")):
+    x, z = daryz["2025"][k], daryz["2026"][k]
+    g_ms = 1000 * ((z - x) / nper)
+    seg_gain[k] = g_ms
+    line("   %-14s %-8.2f %-8.2f %-9.2f %+.1f ms" % (lab, x, z, z - x, g_ms))
+line()
+line("   → 縮まり幅は T4 %+.1f → T5 %+.1f → T6 %+.1f ms で、ゴールに近づくほど小さい"
+     % (seg_gain["T4"], seg_gain["T5"], seg_gain["T6"]))
+line("     替えが集中した直線(T5/T6)のほうが、替えのないコーナー(T4)より縮まっていない")
+
+line()
+line("■ 替えのコストを見積もる")
+line("   2026は2025より3回多く替えている。1回の替えが1完歩に乗せる遅れを仮に置くと：")
+extra = D["temae_observed"]["2026"]["changes"] - D["temae_observed"]["2025"]["changes"]
+for cost_ms in (10, 20, 30):
+    tot = extra * cost_ms / 1000.0
+    line("     1回 %2dms なら 3回で %.3f秒 ＝ 53完歩ならして %.1f ms/完歩  （馬場で得た24.3msの %.0f%%）"
+         % (cost_ms, tot, 1000 * tot / STR_LAST400, 100 * (1000 * tot / STR_LAST400) / 24.3))
