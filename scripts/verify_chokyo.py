@@ -16,7 +16,7 @@ HEAD = re.compile(r"^■ (\d+)R (\S+) ── (\d+)頭")
 ROW = re.compile(
     r"^\s*(\d+) (.+?)\s+(\d\d/\d\d) (\S+) ([良稍重不]) ／ (\S+?)\s*\(負荷([\d.]+)\) ／ "
     r"([追流])組 (\d+)/(\d+)\s+／ その日 (\d+)/(\d+)\s+／ 同脚色 (\d+)/(\d+)\s+／ (\d+)本")
-MIN_POOL = 20   # その日の母数がこれ未満なら順位を使わない
+MIN_POOL = 20   # その日の母数がこれ未満なら順位を使わない（--min-pool で変えられる）
 
 
 def load_day(d: str):
@@ -89,9 +89,14 @@ def show(rows, lab, base, w=30):
 
 
 def main():
+    global MIN_POOL
     ap = argparse.ArgumentParser()
     ap.add_argument("dirs", nargs="+")
+    ap.add_argument("--min-pool", type=int, default=MIN_POOL,
+                    help="その日の母数がこれ未満なら順位を使わない（既定 %d）" % MIN_POOL)
     a = ap.parse_args()
+    MIN_POOL = a.min_pool
+    print("■ 母数のしきい値 %d本" % MIN_POOL)
     ALL = []
     for d in a.dirs:
         rows = load_day(d)
