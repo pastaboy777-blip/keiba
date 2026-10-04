@@ -1,0 +1,49 @@
+{
+  "_note": "France Galop Statistiques Tracking の画像から読み取り。T1=DEP→1000m(1400m), T2=1000→800, T3=800→600, T4=600→400, T5=400→200, T6=200→ARR。単位は秒。確実に読めたセルだけを入れている。",
+  "2025": {
+    "date": "2025-10-05",
+    "course": "PARISLONGCHAMP",
+    "redk_1er": "1:02.15",
+    "going_netkeiba": "重",
+    "horses": [
+      {"name": "DARYZ", "fin": 1, "jockey": "M. BARZALONA", "vmax": 63.65,
+       "T1": 88.41, "T2": 12.82, "T3": 12.40, "T4": 11.90, "T5": 11.56, "T6": 12.04,
+       "official": "2:29.17", "last600_sheet": 35.52, "strides_last400": 53},
+      {"name": "MINNIE HAUK", "fin": 2, "jockey": "C. SOUMILLON", "vmax": 63.58,
+       "T4": 11.90, "T5": 11.62, "T6": 12.22, "official": "2:29.20", "last600_sheet": 35.75},
+      {"name": "KALPANA", "fin": 7, "jockey": "C. KEANE", "vmax": 64.76,
+       "T5": 11.75, "T6": 12.72, "official": "2:30.23", "last600_sheet": 36.24},
+      {"name": "ARROW EAGLE", "fin": 6, "jockey": "I. MENDIZABAL", "vmax": 63.94,
+       "T5": 11.60, "T6": 12.39, "official": "2:30.18", "last600_sheet": 35.68}
+    ],
+    "vmax_field": [63.65, 63.58, 63.58, 63.32, 63.32, 63.94, 64.76, 63.29, 64.12,
+                   64.40, 65.48, 62.28, 64.33, 65.16, 64.01, 63.43, 64.62]
+  },
+  "2026": {
+    "date": "2026-10-04",
+    "course": "PARISLONGCHAMP",
+    "redk_1er": "1:01.29",
+    "going_netkeiba": null,
+    "horses": [
+      {"name": "DARYZ", "fin": 1, "jockey": "M. BARZALONA", "vmax": 67.03,
+       "T1": 89.35, "T2": 12.59, "T3": 11.84, "T4": 11.00, "T5": 10.84, "T6": 11.47,
+       "official": "2:27.11", "strides_last400": 53},
+      {"name": "MINNIE HAUK", "fin": 10, "jockey": "W. BUICK", "vmax": 66.28,
+       "T4": 11.18, "T5": 11.17, "T6": 11.63, "official": "2:27.78"},
+      {"name": "KALPANA", "fin": 5, "jockey": "C. KEANE", "vmax": 66.89,
+       "T4": 11.03, "T5": 11.11, "T6": 11.61, "official": "2:27.69"},
+      {"name": "ARROW EAGLE", "fin": 12, "jockey": "I. MENDIZABAL", "vmax": 66.67,
+       "T4": 11.17, "T5": 10.99, "T6": 11.83, "official": "2:28.05",
+       "_caveat": "T1/T2の計測が欠けている行。T4以降だけ使う"}
+    ],
+    "vmax_field": [67.03, 66.49, 66.74, 66.00, 66.89, 66.31, 67.75, 67.57, 67.39,
+                   66.28, 66.71, 66.67, 66.38, 65.16, 65.41, 65.63]
+  },
+  "temae_observed": {
+    "_source": "ファンクの目視。こちらで検証したものではない。",
+    "2025": {"horse": "DARYZ", "strides_last400": 53, "changes": 1},
+    "2026": {"horse": "DARYZ", "strides_last400": 53, "changes": 4},
+    "2012": {"horse": "ソレミア", "changes": 0, "note": "1着・重い馬場"},
+    "2012_2nd": {"horse": "オルフェーヴル", "changes": 3, "note": "2着・ゴール寸前に失速"}
+  }
+}
