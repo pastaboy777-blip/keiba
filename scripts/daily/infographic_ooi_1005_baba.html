@@ -1,0 +1,166 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP","Noto Sans CJK JP","IPAPGothic",sans-serif;
+  background:#0c0c0e;color:#f2efe9;width:1240px;padding:38px 40px 30px;
+  background-image:repeating-linear-gradient(100deg,rgba(255,255,255,.022) 0 3px,transparent 3px 9px)}
+.brandtop{font-size:12px;letter-spacing:.18em;color:#9a9288;font-weight:800;margin-bottom:6px}
+.head{display:flex;align-items:flex-end;gap:22px;border-bottom:2px solid #262429;padding-bottom:18px}
+h1{font-size:66px;font-weight:900;color:#e8362f;line-height:.95;letter-spacing:-.01em}
+h1 small{display:block;font-size:19px;color:#f2efe9;letter-spacing:.02em;margin-top:9px;font-weight:800}
+.hd2{flex:1;padding-bottom:4px}
+.hd2 .d{font-size:21px;font-weight:900}
+.hd2 .s{font-size:14px;color:#a39b90;font-weight:700;margin-top:7px;line-height:1.6}
+.hd2 .s b{color:#f5d020}
+.stamp{flex:none;width:118px;height:118px;border-radius:50%;background:#f5d020;color:#141216;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  font-size:19px;font-weight:900;line-height:1.3;box-shadow:0 0 0 4px #0c0c0e,0 0 0 7px #f5d020}
+
+.hero{background:#17161a;border:1px solid #2b2930;border-radius:12px;padding:21px 26px;margin:18px 0 16px}
+.hero .t{font-size:25px;font-weight:900;color:#f5d020;line-height:1.45;margin-bottom:10px}
+.hero p{font-size:14.5px;color:#cdc6bc;line-height:1.85}
+.hero b{color:#fff}.hero .r{color:#ff6b63;font-weight:900}
+
+.tiles{display:flex;gap:11px;margin-bottom:22px}
+.tile{flex:1;background:#17161a;border:1px solid #39353d;border-radius:10px;padding:14px 6px;text-align:center}
+.tile .n{font-size:31px;font-weight:900;color:#f5d020;line-height:1.05}
+.tile .n small{font-size:15px}
+.tile .l{font-size:11.5px;color:#a39b90;font-weight:700;line-height:1.5;margin-top:7px}
+
+.sh{font-size:19px;font-weight:900;margin:24px 0 11px;padding-left:13px;border-left:6px solid #e8362f}
+.sh span{font-size:13px;color:#8d867c;font-weight:700;margin-left:10px}
+.card{background:#141317;border:1px solid #2b2930;border-radius:11px;padding:18px 22px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:7.5px 7px;font-size:13.5px;border-bottom:1px solid #26242a;text-align:center}
+th{font-size:11.5px;color:#8d867c;font-weight:800;background:#1b1a1f;letter-spacing:.04em}
+td.l{text-align:left;font-weight:800}
+.red{color:#ff6b63;font-weight:900}.ylw{color:#f5d020;font-weight:900}.dim{color:#7e776e}
+.bar{display:flex;align-items:center;gap:12px;margin:10px 0}
+.bar .lb{flex:none;width:132px;font-size:13.5px;font-weight:800;text-align:right;color:#cdc6bc}
+.bar .tr{flex:1;background:#232128;border-radius:5px;height:25px;position:relative}
+.bar .fl{height:100%;border-radius:5px}
+.bar .vv{flex:none;width:92px;font-size:15px;font-weight:900;text-align:left}
+.ga{background:linear-gradient(90deg,#ff8a52,#e8362f)}.gb{background:linear-gradient(90deg,#6d8ba8,#48617a)}
+.chance{position:absolute;left:50%;top:-4px;bottom:-4px;width:2px;background:#f5d020;opacity:.85}
+.note{font-size:12.5px;color:#8d867c;line-height:1.75;margin-top:11px}
+.note b{color:#ff6b63}
+.nums{font-size:15px;font-weight:900;letter-spacing:.07em;color:#cdc6bc;margin-top:4px}
+.nums b{color:#f5d020;font-size:19px}
+.two{display:flex;gap:14px}.two>div{flex:1}
+
+.use{background:#f5d020;color:#141216;border-radius:12px;padding:20px 26px;margin-top:26px}
+.use .t{font-size:20px;font-weight:900;margin-bottom:12px}
+.use ol{margin-left:20px}
+.use li{font-size:14.5px;font-weight:800;line-height:1.95}
+.use li span{font-weight:700;color:#4a4335}
+.foot{margin-top:18px;font-size:12px;color:#7e776e;line-height:1.8}
+.foot b{color:#a39b90}
+.brandbot{margin-top:16px;display:flex;justify-content:space-between;font-size:11px;
+  letter-spacing:.16em;color:#5d574f;font-weight:800;border-top:1px solid #222026;padding-top:12px}
+</style></head><body>
+
+<div class="brandtop">変態か、変態以外か。</div>
+<div class="head">
+  <div><h1>内の、前<small>10/5(月) 大井 ── 今日の馬場はこうだった</small></h1></div>
+  <div class="hd2">
+    <div class="d">全10鞍 114頭</div>
+    <div class="s">発走 15:35 〜 20:50 ／ <b>全鞍とも馬場は「良」</b><br>ダ1200×3・1400×2・1600×2・1800×2・2400×1</div>
+  </div>
+  <div class="stamp">馬場<br>傾向</div>
+</div>
+
+<div class="hero">
+  <div class="t">前で粘ったのではない。<br>前にいて、なお 一番速く上がった。</div>
+  <p><b>1着馬の4角は、10鞍中9鞍が5番手以内。</b>そのうえで<b>1着馬の上がり順位は、1位が5回・3位以内が7回</b>です。逃げ・先行が垂れて差しが届く形ではなく、<span class="r">前にいた馬がそのまま一番速い脚を使っている</span>。後ろから差し切ったのは10R ショーンバローズ（9人気・4角6番手）だけでした。</p>
+</div>
+
+<div class="tiles">
+  <div class="tile"><div class="n">67<small>%</small></div><div class="l">3着内30頭のうち<br>内側半分の馬番</div></div>
+  <div class="tile"><div class="n">9<small>/10</small></div><div class="l">1着が<br>4角5番手以内</div></div>
+  <div class="tile"><div class="n">4<small>鞍</small></div><div class="l">勝ち馬の馬番が<br>「2番」だった鞍</div></div>
+  <div class="tile"><div class="n">−6.8<small>kg</small></div><div class="l">1着馬の<br>レース平均との体重差</div></div>
+  <div class="tile"><div class="n">2<small>/10</small></div><div class="l">1番人気の1着<br>（3着内は6/10）</div></div>
+</div>
+
+<div class="sh">① 枠 ── 内側半分の馬番が3着内の67%<span>偶然なら50%。前半ほど濃い</span></div>
+<div class="card">
+  <div class="bar"><div class="lb">1R〜4R</div><div class="tr"><div class="fl ga" style="width:83%"></div><div class="chance"></div></div><div class="vv red">83% <span class="dim" style="font-size:12px">10/12</span></div></div>
+  <div class="bar"><div class="lb">5R〜10R</div><div class="tr"><div class="fl gb" style="width:56%"></div><div class="chance"></div></div><div class="vv dim">56% <span style="font-size:12px">10/18</span></div></div>
+  <div class="note">黄色い縦線が「偶然なら」の50%です。<b>前半4鞍は、外から来た馬がほぼいません。</b>後半は五分に戻っています。時間に沿って見える変化はこれだけでした。</div>
+  <div style="margin-top:14px;padding-top:13px;border-top:1px solid #26242a">
+    <div style="font-size:12.5px;color:#8d867c;font-weight:800">1着馬の馬番（1R→10R／7〜14頭立て）</div>
+    <div class="nums">6 ・ 3 ・ <b>2</b> ・ <b>2</b> ・ 10 ・ <b>2</b> ・ <b>2</b> ・ 5 ・ <b>2</b> ・ 5</div>
+    <div class="note" style="margin-top:7px">平均馬番 <b>3.9番</b>（平均11.4頭立て）。<b>10鞍中4鞍の勝ち馬が馬番2番</b>です。</div>
+  </div>
+</div>
+
+<div class="sh">② 脚質 ── 1着の4角と、その上がり順位<span>前にいて、かつ速い</span></div>
+<div class="card">
+  <table>
+    <tr><th style="text-align:left">R</th><th>距離</th><th>頭数</th><th>1着馬</th><th>人気</th><th>4角</th><th>上がり順位</th><th>馬番</th></tr>
+    <tr><td class="l">1R</td><td>ダ1600</td><td>12</td><td class="l">コーントップス</td><td class="red">7人気</td><td>5番手</td><td class="ylw">1/12</td><td>6</td></tr>
+    <tr><td class="l">2R</td><td>ダ1200</td><td>12</td><td class="l">マーカンエミーオ</td><td>5人気</td><td class="ylw">1番手</td><td>6/12</td><td>3</td></tr>
+    <tr><td class="l">3R</td><td>ダ1800</td><td>7</td><td class="l">ワイドヴァリエンテ</td><td>3人気</td><td>3番手</td><td class="ylw">1/7</td><td class="ylw">2</td></tr>
+    <tr><td class="l">4R</td><td>ダ1400</td><td>9</td><td class="l">ナインエスクァイア</td><td>2人気</td><td>3番手</td><td class="ylw">1/9</td><td class="ylw">2</td></tr>
+    <tr><td class="l">5R</td><td>ダ1600</td><td>13</td><td class="l">アップタウンガール</td><td>2人気</td><td class="ylw">1番手</td><td>4/13</td><td>10</td></tr>
+    <tr><td class="l">6R</td><td>ダ1400</td><td>11</td><td class="l">プラウドメアリー</td><td>1人気</td><td class="ylw">1番手</td><td>3/11</td><td class="ylw">2</td></tr>
+    <tr><td class="l">7R</td><td>ダ2400</td><td>12</td><td class="l">ストライクノワール</td><td>1人気</td><td>3番手</td><td class="ylw">1/12</td><td class="ylw">2</td></tr>
+    <tr><td class="l">8R</td><td>ダ1800</td><td>11</td><td class="l">サンディエゴ</td><td class="red">6人気</td><td>5番手</td><td class="ylw">1/11</td><td>5</td></tr>
+    <tr><td class="l">9R</td><td>ダ1200</td><td>13</td><td class="l">カガヤキテンマ</td><td>4人気</td><td class="ylw">1番手</td><td>5/13</td><td class="ylw">2</td></tr>
+    <tr><td class="l">10R</td><td>ダ1200</td><td>14</td><td class="l">ショーンバローズ</td><td class="red">9人気</td><td class="dim">6番手</td><td>3/14</td><td>5</td></tr>
+  </table>
+  <div class="note">4角3番手以内が<b>6/10</b>、5番手以内が<b>9/10</b>。10Rの1鞍だけが例外です。</div>
+</div>
+
+<div class="sh">③ 距離で濃さが違う ── 短いほど前<span>1200mがいちばん極端</span></div>
+<div class="card">
+  <table>
+    <tr><th style="text-align:left">距離</th><th>鞍数</th><th>1着の4角</th><th>内側半分の馬番（3着内）</th></tr>
+    <tr><td class="l">ダ1200</td><td>3鞍</td><td class="ylw">1番手 ・ 1番手 ・ 6番手</td><td class="red">7/9</td></tr>
+    <tr><td class="l">ダ1400</td><td>2鞍</td><td>3番手 ・ 1番手</td><td>5/6</td></tr>
+    <tr><td class="l">ダ1600</td><td>2鞍</td><td>5番手 ・ 1番手</td><td>4/6</td></tr>
+    <tr><td class="l">ダ1800</td><td>2鞍</td><td>3番手 ・ 5番手</td><td>3/6</td></tr>
+    <tr><td class="l">ダ2400</td><td>1鞍</td><td>3番手</td><td>1/3</td></tr>
+  </table>
+  <div class="note"><b>1200mは3鞍中2鞍が4角先頭のまま押し切り</b>、3着内9頭のうち7頭が内側半分の馬番でした。距離が延びるほど、位置も枠も効きが薄くなります。</div>
+</div>
+
+<div class="sh">④ 時計からは、馬場の変化は読めません<span>どの組もクラスが揃っていない</span></div>
+<div class="card">
+  <table>
+    <tr><th style="text-align:left">距離</th><th colspan="3">同じ距離の鞍（発走時刻・クラス・勝ち時計）</th></tr>
+    <tr><td class="l">ダ1200</td><td>2R 16:07 Ｃ３ <b>1.15.2</b></td><td>9R 20:10 Ｂ１Ｂ２選抜 <span class="ylw">1.12.2</span></td><td>10R 20:50 Ｃ２ <b>1.15.1</b></td></tr>
+    <tr><td class="l">ダ1800</td><td>3R 16:40 2歳新馬 <b>1.58.9</b></td><td>8R 19:30 Ｂ３選抜 <span class="ylw">1.56.1</span></td><td class="dim">—</td></tr>
+    <tr><td class="l">ダ1600</td><td>1R 15:35 Ｃ３ <b>1.45.7</b></td><td>5R 17:45 Ｃ２ <span class="ylw">1.44.3</span></td><td class="dim">—</td></tr>
+    <tr><td class="l">ダ1400</td><td>4R 17:12 Ｂ１ <span class="ylw">1.27.3</span></td><td>6R 18:20 Ｃ２ <b>1.28.5</b></td><td class="dim">—</td></tr>
+  </table>
+  <div class="note">どの組も <b>「上のクラスのほうが速い」で説明がついてしまいます。</b> 9Rの1.12.2を見て「夜になって馬場が速くなった」と言いたくなりますが、直後の10R（Ｃ２・同じ1200m）は1.15.1に戻っています。<b>乾いた・締まったという話は、この日のデータからは出せません。</b></div>
+</div>
+
+<div class="sh">⑤ 前有利でも、「どの前の馬が勝つか」は絞れていない<span>1番人気の着順</span></div>
+<div class="card">
+  <table>
+    <tr><th>1R</th><th>2R</th><th>3R</th><th>4R</th><th>5R</th><th>6R</th><th>7R</th><th>8R</th><th>9R</th><th>10R</th></tr>
+    <tr><td>4着</td><td class="ylw">2着</td><td class="ylw">2着</td><td class="ylw">2着</td><td class="dim">13着</td><td class="red">1着</td><td class="red">1着</td><td class="dim">11着</td><td class="dim">7着</td><td class="ylw">2着</td></tr>
+  </table>
+  <div class="note">3着内は <b>6/10</b> あるのに、1着は <b>2回だけ</b>。<b>2着が4回</b>で、しかも1.3倍・1.4倍が2頭とも2着です。<br>前が止まらない馬場でも、<b>先頭に立つのがどの馬かまでは人気が当てていません。</b>馬単で1着を固定すると、絡ませながら外します。</div>
+</div>
+
+<div class="use">
+  <div class="t">明日以降、こう使う（大井は10/6・7・8・9と4日連続）</div>
+  <ol>
+    <li>内枠の先行馬を軸。<span>とくに ダ1200 と 前半のレース で濃い</span></li>
+    <li>外枠の差し馬は、上がり最速でも足りないことが多い。<span>拾うなら1着ではなく2〜3着づけ</span></li>
+    <li>鞍内で重い1/3は割引。<span>1着は10鞍で1頭だけ（3R 2歳新馬）。馬体重は発走30分前に取り直す</span></li>
+    <li>馬単は表裏。<span>1番人気は2着が4回。拮抗した鞍で1着を決め打たない</span></li>
+  </ol>
+</div>
+
+<div class="foot">
+  <b>データの出どころ</b>　枠・勝ち時計・馬体重・上がりタイム・人気は、10/5の成績ページから直接取った数字です。<br>
+  <b>4角の位置だけは、手元のカードから読んだ数字です。</b>成績ページの通過順はすでにマスクされていて再取得できません（開催当日に取る必要があります）。<br>
+  <b>これは1日・10鞍・114頭の話です。</b>過去の開催には遡っていません。明日の馬場発表が変われば、前提ごと崩れます。
+</div>
+
+<div class="brandbot"><span>2026/10/05 大井 ── 馬場傾向</span><span>変態か、変態以外か。</span></div>
+</body></html>
