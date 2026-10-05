@@ -8,7 +8,8 @@
   "age": "3",
   "wt": "56.5",
   "jockey": "バルザロ",
-  "n": 17
+  "n": 17,
+  "course": "ParisLongchamp"
  },
  {
   "year": "2024",
@@ -19,7 +20,8 @@
   "age": "4",
   "wt": "58",
   "jockey": "ライアン",
-  "n": 15
+  "n": 15,
+  "course": "ParisLongchamp"
  },
  {
   "year": "2023",
@@ -30,7 +32,8 @@
   "age": "3",
   "wt": "56.5",
   "jockey": "Ｃ．デム",
-  "n": 15
+  "n": 15,
+  "course": "ParisLongchamp"
  },
  {
   "year": "2022",
@@ -41,7 +44,8 @@
   "age": "5",
   "wt": "58",
   "jockey": "モリス",
-  "n": 20
+  "n": 20,
+  "course": "ParisLongchamp"
  },
  {
   "year": "2021",
@@ -52,7 +56,8 @@
   "age": "4",
   "wt": "59.5",
   "jockey": "ピーチュ",
-  "n": 14
+  "n": 14,
+  "course": "ParisLongchamp"
  },
  {
   "year": "2019",
@@ -63,7 +68,8 @@
   "age": "5",
   "wt": "59.5",
   "jockey": "ブドー",
-  "n": 12
+  "n": 12,
+  "course": "ParisLongchamp"
  },
  {
   "year": "2018",
@@ -74,7 +80,8 @@
   "age": "4",
   "wt": "58",
   "jockey": "デットー",
-  "n": 19
+  "n": 19,
+  "course": "ParisLongchamp"
  },
  {
   "year": "2017",
@@ -85,7 +92,8 @@
   "age": "3",
   "wt": "55",
   "jockey": "デットー",
-  "n": 18
+  "n": 18,
+  "course": "Chantilly"
  },
  {
   "year": "2016",
@@ -96,7 +104,8 @@
   "age": "4",
   "wt": "58",
   "jockey": "ムーア",
-  "n": 16
+  "n": 16,
+  "course": "Chantilly"
  },
  {
   "year": "2015",
@@ -107,7 +116,8 @@
   "age": "3",
   "wt": "56",
   "jockey": "デットー",
-  "n": 17
+  "n": 17,
+  "course": "ParisLongchamp"
  },
  {
   "year": "2014",
@@ -118,7 +128,8 @@
   "age": "4",
   "wt": "58",
   "jockey": "ジャルネ",
-  "n": 20
+  "n": 20,
+  "course": "ParisLongchamp"
  },
  {
   "year": "2013",
@@ -129,7 +140,8 @@
   "age": "3",
   "wt": "54.5",
   "jockey": "ジャルネ",
-  "n": 17
+  "n": 17,
+  "course": "ParisLongchamp"
  },
  {
   "year": "2012",
@@ -140,6 +152,7 @@
   "age": "4",
   "wt": "58",
   "jockey": "ペリエ",
-  "n": 18
+  "n": 18,
+  "course": "ParisLongchamp"
  }
 ]
