@@ -37,14 +37,9 @@ table.t td.lred{background:#f4c4c4;color:#8f1016;font-weight:900}
 </style></head>
 """
 MIN_POOL = 20
-WARN_COLOR = ('<div class="warn">読み方 ── <b>「追組／流組」を見る。</b>'
-              '脚色を無視した「その日全体」は、流した馬が下に沈むだけ。'
-              '<b>本数が20を下回る日は灰色</b>にした。'
-              '時計そのものは出していない。</div>')
-WARN_PLAIN = ('<div class="warn">読み方 ── <b>「追組／流組」を見る。</b>'
-              '脚色を無視した「その日全体」は、流した馬が下に沈むだけ。'
-              '分母が小さい日は順位に意味がないので、頭数を見て判断する。'
-              '色は付けていない。時計そのものは出していない。</div>')
+# 読み方の注記はカードに載せない（何を見ているかを外に出さないため）。
+WARN_COLOR = ''
+WARN_PLAIN = ''
 HEAD = re.compile(r"^■ (\d+)R (\S+) ── (\d+)頭")
 ROW = re.compile(
     r"^\s*(\d+) (.+?)\s+(\d\d/\d\d) (\S+) ([良稍重不]) ／ (\S+?)\s*\(負荷[\d.]+\) ／ "
@@ -172,9 +167,10 @@ def main() -> None:
             '<div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>\n'
             '<div class="head"><div class="gekiga">調</div>'
             '<div class="dateblk"><div class="d1">%s %dR〜%dR ── 調教</div>'
-            '<div class="d2">追った日ごとに順位 ／ %s</div></div>'
+            '<div class="d2">%d頭</div></div>'
             '<div class="burst"><span>日ごとの<br>順位</span></div></div>\n'
-            % (a.title, use[0]["r"], use[-1]["r"], meta)
+            % (a.title, use[0]["r"], use[-1]["r"],
+               sum(len(r["rows"]) for r in use))
             + (WARN_PLAIN if a.no_color else WARN_COLOR)
             + "".join(race_block(r) for r in use)
             + "</div></div></body></html>")
