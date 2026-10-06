@@ -167,10 +167,9 @@ def main() -> None:
             '<div class="kicker">変態か、変態以外か。 ── AIズブ穴</div>\n'
             '<div class="head"><div class="gekiga">調</div>'
             '<div class="dateblk"><div class="d1">%s %dR〜%dR ── 調教</div>'
-            '<div class="d2">%d頭</div></div>'
+            '<div class="d2">追った日ごとに順位 ／ %s</div></div>'
             '<div class="burst"><span>日ごとの<br>順位</span></div></div>\n'
-            % (a.title, use[0]["r"], use[-1]["r"],
-               sum(len(r["rows"]) for r in use))
+            % (a.title, use[0]["r"], use[-1]["r"], meta)
             + (WARN_PLAIN if a.no_color else WARN_COLOR)
             + "".join(race_block(r) for r in use)
             + "</div></div></body></html>")
