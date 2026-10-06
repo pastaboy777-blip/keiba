@@ -6,7 +6,7 @@ body{font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP","Noto Sans CJK JP","
   background-image:repeating-linear-gradient(100deg,rgba(255,255,255,.022) 0 3px,transparent 3px 9px)}
 .brandtop{font-size:12px;letter-spacing:.18em;color:#9a9288;font-weight:800;margin-bottom:6px}
 .head{display:flex;align-items:flex-end;gap:22px;border-bottom:2px solid #262429;padding-bottom:18px}
-h1{font-size:66px;font-weight:900;color:#e8362f;line-height:.95;letter-spacing:-.01em}
+h1{font-size:64px;font-weight:900;color:#e8362f;line-height:.95;letter-spacing:-.01em}
 h1 small{display:block;font-size:19px;color:#f2efe9;letter-spacing:.02em;margin-top:9px;font-weight:800}
 .hd2{flex:1;padding-bottom:4px}
 .hd2 .d{font-size:21px;font-weight:900}
@@ -14,7 +14,7 @@ h1 small{display:block;font-size:19px;color:#f2efe9;letter-spacing:.02em;margin-
 .hd2 .s b{color:#f5d020}
 .stamp{flex:none;width:118px;height:118px;border-radius:50%;background:#f5d020;color:#141216;
   display:flex;align-items:center;justify-content:center;text-align:center;
-  font-size:19px;font-weight:900;line-height:1.3;box-shadow:0 0 0 4px #0c0c0e,0 0 0 7px #f5d020}
+  font-size:17px;font-weight:900;line-height:1.3;box-shadow:0 0 0 4px #0c0c0e,0 0 0 7px #f5d020}
 
 .hero{background:#17161a;border:1px solid #2b2930;border-radius:12px;padding:21px 26px;margin:18px 0 16px}
 .hero .t{font-size:25px;font-weight:900;color:#f5d020;line-height:1.45;margin-bottom:10px}
@@ -29,24 +29,29 @@ h1 small{display:block;font-size:19px;color:#f2efe9;letter-spacing:.02em;margin-
 
 .sh{font-size:19px;font-weight:900;margin:24px 0 11px;padding-left:13px;border-left:6px solid #e8362f}
 .sh span{font-size:13px;color:#8d867c;font-weight:700;margin-left:10px}
+.sh.fix{border-left-color:#f5d020}
 .card{background:#141317;border:1px solid #2b2930;border-radius:11px;padding:18px 22px}
+.card.fix{border-color:#5c5022;background:#17160f}
 table{width:100%;border-collapse:collapse}
 th,td{padding:7.5px 7px;font-size:13.5px;border-bottom:1px solid #26242a;text-align:center}
 th{font-size:11.5px;color:#8d867c;font-weight:800;background:#1b1a1f;letter-spacing:.04em}
 td.l{text-align:left;font-weight:800}
 .red{color:#ff6b63;font-weight:900}.ylw{color:#f5d020;font-weight:900}.dim{color:#7e776e}
 .blu{color:#7fb0dd;font-weight:900}
-.flip td{font-size:15px;padding:11px 7px}
-.flip .big{font-size:22px;font-weight:900}
+.big{font-size:21px;font-weight:900}
+.bar{display:flex;align-items:center;gap:12px;margin:11px 0}
+.bar .lb{flex:none;width:168px;font-size:13.5px;font-weight:800;text-align:right;color:#cdc6bc}
+.bar .lb i{display:block;font-size:11px;color:#7e776e;font-weight:700;font-style:normal}
+.bar .tr{flex:1;background:#232128;border-radius:5px;height:27px;position:relative}
+.bar .fl{height:100%;border-radius:5px}
+.bar .vv{flex:none;width:150px;font-size:15px;font-weight:900;text-align:left}
+.bar .vv i{font-style:normal;font-size:12px;color:#7e776e;font-weight:700}
+.ga{background:linear-gradient(90deg,#ff8a52,#e8362f)}
+.gc{background:linear-gradient(90deg,#8a6f4e,#5d4a33)}
+.gb{background:linear-gradient(90deg,#6d8ba8,#48617a)}
 .note{font-size:12.5px;color:#8d867c;line-height:1.75;margin-top:11px}
 .note b{color:#ff6b63}
-.bar{display:flex;align-items:center;gap:12px;margin:10px 0}
-.bar .lb{flex:none;width:150px;font-size:13.5px;font-weight:800;text-align:right;color:#cdc6bc}
-.bar .tr{flex:1;background:#232128;border-radius:5px;height:25px;position:relative}
-.bar .fl{height:100%;border-radius:5px}
-.bar .vv{flex:none;width:98px;font-size:15px;font-weight:900;text-align:left}
-.ga{background:linear-gradient(90deg,#ff8a52,#e8362f)}.gb{background:linear-gradient(90deg,#6d8ba8,#48617a)}
-.thr{position:absolute;top:-4px;bottom:-4px;width:2px;background:#f5d020;opacity:.9}
+.strike{text-decoration:line-through;color:#6b645b}
 
 .use{background:#f5d020;color:#141216;border-radius:12px;padding:20px 26px;margin-top:26px}
 .use .t{font-size:20px;font-weight:900;margin-bottom:12px}
@@ -59,112 +64,104 @@ td.l{text-align:left;font-weight:800}
 
 <div class="brandtop">変態か、変態以外か。</div>
 <div class="head">
-  <div><h1>昨日と、逆<small>10/6(火) 大井 ── 今日の馬場はこうだった</small></h1></div>
+  <div><h1>1着は、前から<small>10/6(火) 大井 ── 4角を入れて取り直した</small></h1></div>
   <div class="hd2">
     <div class="d">全12鞍 136頭</div>
     <div class="s">発走 14:30 〜 20:50 ／ <b>全鞍とも馬場は「良」</b><br>2歳戦2鞍・11R レディスプレリュード（JpnII）を含む</div>
   </div>
-  <div class="stamp">馬場<br>傾向</div>
+  <div class="stamp">馬場傾向<br>取り直し版</div>
 </div>
 
 <div class="hero">
-  <div class="t">昨日のカードの1項目が、<br>今日ひっくり返りました。</div>
-  <p>昨日こう書きました ──「<b>鞍内で重い1/3は割引。1着は10鞍で1頭だけ</b>」。<span class="r">今日は13勝のうち7勝が重い1/3からです。</span>3着内36頭の馬体重も、レース平均より<b>平均 +10.6kg</b>。向きが逆です。<br>クラスでも距離でも割れませんでした（重い勝ち馬は2歳戦・Ｃ３・Ｃ２・Ｂ２選抜、1200〜1800とバラバラ）。<b>どちらが偶然かは、1日ずつ見ているかぎり区別がつきません。</b>分かったのは「大井は軽い馬」をルールに昇格させてはいけない、ということだけです。</p>
+  <div class="t">後方にいた47頭から、1着はゼロ。</div>
+  <p>13勝のうち <b>12勝が4角 rel 0.35以内</b>。勝ち馬のrelは最大でも <b>0.44</b>（12R ナンパセン）、平均 <b>0.15</b>。<span class="r">後ろから勝った馬は1頭もいません。</span><br>前回このカードを出したときは通過順が取れておらず、「穴の入口が<span class="strike">上がりに入れ替わった</span>」と書きました。<b>4角を入れたら、入れ替わっていませんでした。</b>③で訂正します。</p>
 </div>
 
 <div class="tiles">
-  <div class="tile"><div class="n">7<small>/13</small></div><div class="l">重い1/3からの1着<br><span style="color:#7e776e">昨日は 1/10</span></div></div>
-  <div class="tile"><div class="n">+10.6<small>kg</small></div><div class="l">3着内36頭の<br>レース平均との体重差</div></div>
-  <div class="tile"><div class="n">6<small>/12</small></div><div class="l">1番人気の1着<br><span style="color:#7e776e">昨日は 2/10</span></div></div>
-  <div class="tile"><div class="n">5<small>/5</small></div><div class="l">人気薄で来た馬が<br>上がり4位以内</div></div>
-  <div class="tile"><div class="n">61<small>%</small></div><div class="l">内側半分の馬番<br><span style="color:#7e776e">昨日は 67%</span></div></div>
+  <div class="tile"><div class="n">12<small>/13</small></div><div class="l">1着が<br>4角 rel 0.35以内</div></div>
+  <div class="tile"><div class="n">0</div><div class="l">後方47頭からの<br>1着</div></div>
+  <div class="tile"><div class="n">0.15</div><div class="l">1着の rel 平均<br><span style="color:#7e776e">0＝先頭 1＝最後方</span></div></div>
+  <div class="tile"><div class="n">55<small>%</small></div><div class="l">4角先頭クラスの<br>3着内率（31頭中17頭）</div></div>
+  <div class="tile"><div class="n">7<small>/13</small></div><div class="l">重い1/3からの1着<br><span style="color:#7e776e">10/5は 1/10</span></div></div>
 </div>
 
-<div class="sh">① 昨日と並べる<span>残ったのは「内」だけ</span></div>
+<div class="sh">① 4角の位置で割る<span>3着内だけでなく、出走136頭すべてを分母にした</span></div>
 <div class="card">
-  <table class="flip">
-    <tr><th style="text-align:left">　</th><th>10/5（10鞍）</th><th>10/6（12鞍）</th><th>　</th></tr>
+  <div class="bar"><div class="lb">4角 先頭クラス<i>rel 0.00〜0.15／31頭</i></div><div class="tr"><div class="fl ga" style="width:55%"></div></div><div class="vv red">55% <i>3着内17／1着 7</i></div></div>
+  <div class="bar"><div class="lb">前<i>rel 0.15〜0.35／22頭</i></div><div class="tr"><div class="fl ga" style="width:36%"></div></div><div class="vv red">36% <i>3着内 8／1着 5</i></div></div>
+  <div class="bar"><div class="lb">中団<i>rel 0.35〜0.60／36頭</i></div><div class="tr"><div class="fl gc" style="width:11%"></div></div><div class="vv dim">11% <i>3着内 4／1着 1</i></div></div>
+  <div class="bar"><div class="lb">後方<i>rel 0.60〜／47頭</i></div><div class="tr"><div class="fl gb" style="width:15%"></div></div><div class="vv dim">15% <i>3着内 7／<b style="color:#ff6b63">1着 0</b></i></div></div>
+  <div class="note"><b>前2帯（53頭）で、13勝のうち12勝。</b>残りの83頭が分け合ったのは1勝だけです。<br>中団（11%）が後方（15%）より低く出ていますが、36頭と47頭の差なので<b>断定はしません</b>。はっきりしているのは「前2帯」と「それ以外」の段差のほうです。</div>
+</div>
+
+<div class="sh">② 10/5と並べる<span>位置だけが動かない</span></div>
+<div class="card">
+  <table>
+    <tr><th style="text-align:left">　</th><th>10/5（114頭）</th><th>10/6（136頭）</th><th>　</th></tr>
+    <tr><td class="l">4角先頭クラスの3着内率</td><td class="blu">57%</td><td class="blu">55%</td><td class="blu">動かない</td></tr>
+    <tr><td class="l">前（0.15〜0.35）の3着内率</td><td class="blu">38%</td><td class="blu">36%</td><td class="blu">動かない</td></tr>
+    <tr><td class="l">後方からの1着</td><td class="blu big">0</td><td class="blu big">0</td><td class="blu">動かない</td></tr>
+    <tr><td class="l">1着の rel 平均</td><td class="blu">0.19</td><td class="blu">0.15</td><td class="blu">動かない</td></tr>
     <tr><td class="l">内側半分の馬番（3着内）</td><td class="dim">67%</td><td class="blu">61%</td><td class="blu">残った</td></tr>
     <tr><td class="l">重い1/3からの1着</td><td class="dim big">1/10</td><td class="red big">7/13</td><td class="red">反転</td></tr>
-    <tr><td class="l">3着内の馬体重（平均差）</td><td class="dim">1着平均 −6.8kg</td><td class="red">+10.6kg</td><td class="red">反転</td></tr>
     <tr><td class="l">1番人気の1着</td><td class="dim big">2/10</td><td class="red big">6/12</td><td class="red">反転</td></tr>
-    <tr><td class="l">人気薄で来た馬の共通点</td><td class="dim">前にいた</td><td class="red">上がりが速い</td><td class="red">反転</td></tr>
-    <tr><td class="l">上がり3位以内が3着内を占めた割合</td><td class="dim">53%</td><td class="ylw">78%</td><td class="dim">—</td></tr>
   </table>
-  <div class="note">昨日のカードを明日そのまま使うと、<b>「重い1/3は割引」と「馬単は表裏」の2項目で逆に張ることになります。</b></div>
+  <div class="note"><b>2日・250頭で、前2帯が55〜57%と36〜38%。</b>ここまで揃えば誤差の範囲です。<br>いっぽう馬体重と人気は1日で逆を向きました。<b>事前の足切りに使えるのは位置のほうで、体重と人気ではありません。</b></div>
 </div>
 
-<div class="sh">② 今日は「力通り」の日<span>1番人気が素直に1着まで来た</span></div>
+<div class="sh fix">③ 訂正 ── 穴の入口は入れ替わっていませんでした<span>前回③の差し替え</span></div>
+<div class="card fix">
+  <table>
+    <tr><th style="text-align:left">R</th><th>馬名</th><th>人気</th><th>オッズ</th><th>4角</th><th>着</th></tr>
+    <tr><td class="l">9R</td><td class="l">シルエットライド</td><td class="red">13人気</td><td class="red">235.3</td><td class="dim">12/13</td><td>3着</td></tr>
+    <tr><td class="l">7R</td><td class="l">フローラルデザイン</td><td class="red">7人気</td><td>49.2</td><td class="dim">8/10</td><td>3着</td></tr>
+    <tr><td class="l">1R</td><td class="l">カフジライオル</td><td class="red">6人気</td><td>31.8</td><td class="dim">7/10</td><td>2着</td></tr>
+    <tr><td class="l">5R</td><td class="l">ラバテラジェーン</td><td class="red">7人気</td><td>77.1</td><td>4/10</td><td>2着</td></tr>
+    <tr><td class="l">10R</td><td class="l">ヨドギミ</td><td class="red">10人気</td><td>49.5</td><td class="ylw">1/14（先頭）</td><td>3着</td></tr>
+  </table>
+  <div class="note" style="color:#bdb092">後ろから来たのは<b style="color:#f5d020">4頭、全部2着か3着</b>。10R ヨドギミにいたっては<b style="color:#f5d020">4角先頭</b>で、差してすらいません。<br>「上がりの日」に見えたのは、<b style="color:#f5d020">前にいた勝ち馬が上がりも最速だったから</b>（1着13頭のうち上がり1位が8頭）。<br>正しくは ── <b style="color:#f5d020;font-size:14.5px">勝ち馬は前。後ろから来た馬は2〜3着まで。</b></div>
+</div>
+
+<div class="sh">④ 全12鞍の勝ち馬<span>2Rは同着1着なので13頭</span></div>
 <div class="card">
   <table>
-    <tr><th>1R</th><th>2R</th><th>3R</th><th>4R</th><th>5R</th><th>6R</th><th>7R</th><th>8R</th><th>9R</th><th>10R</th><th>11R</th><th>12R</th></tr>
-    <tr><td>4着</td><td class="red">1着</td><td class="red">1着</td><td class="dim">6着</td><td class="ylw">3着</td><td class="ylw">3着</td><td class="red">1着</td><td class="dim">8着</td><td class="red">1着</td><td class="red">1着</td><td>4着</td><td class="red">1着</td></tr>
+    <tr><th style="text-align:left">R</th><th>距離</th><th>1着馬</th><th>人気</th><th>4角</th><th>rel</th><th>上がり</th><th>体重平均差</th></tr>
+    <tr><td class="l">1R</td><td>ダ1200</td><td class="l">ノースブレス</td><td>3人気</td><td class="ylw">1/10</td><td class="ylw">0.00</td><td>2/10</td><td class="red">+31 重</td></tr>
+    <tr><td class="l">2R</td><td>ダ1400</td><td class="l">トニーブライアン</td><td>2人気</td><td class="ylw">1/7</td><td class="ylw">0.00</td><td>2/7</td><td class="red">+12 重</td></tr>
+    <tr><td class="l">2R</td><td>ダ1400</td><td class="l">モンタナマジック <span class="dim">同着</span></td><td>1人気</td><td>3/7</td><td>0.33</td><td class="ylw">1/7</td><td>−4</td></tr>
+    <tr><td class="l">3R</td><td>ダ1200</td><td class="l">ムサシペニー</td><td>1人気</td><td class="ylw">1/10</td><td class="ylw">0.00</td><td class="ylw">1/10</td><td class="red">+64 重</td></tr>
+    <tr><td class="l">4R</td><td>ダ1600</td><td class="l">ルネサンスクラブ</td><td>2人気</td><td>4/14</td><td>0.23</td><td>5/14</td><td class="red">+36 重</td></tr>
+    <tr><td class="l">5R</td><td>ダ1400</td><td class="l">ブラックレッド</td><td>3人気</td><td class="ylw">2/10</td><td class="ylw">0.11</td><td>4/10</td><td class="red">+22 重</td></tr>
+    <tr><td class="l">6R</td><td>ダ1200</td><td class="l">ショウサンレックス</td><td>2人気</td><td>5/13</td><td>0.33</td><td class="ylw">1/13</td><td>−18</td></tr>
+    <tr><td class="l">7R</td><td>ダ1600</td><td class="l">キングパッション</td><td>1人気</td><td class="ylw">1/10</td><td class="ylw">0.00</td><td class="ylw">1/10</td><td>+42</td></tr>
+    <tr><td class="l">8R</td><td>ダ1400</td><td class="l">カーラエスメラルダ</td><td>2人気</td><td class="ylw">1/12</td><td class="ylw">0.00</td><td>4/12</td><td>−1</td></tr>
+    <tr><td class="l">9R</td><td>ダ1200</td><td class="l">ミルトマジック</td><td>1人気</td><td class="ylw">1/13</td><td class="ylw">0.00</td><td class="ylw">1/13</td><td>+3</td></tr>
+    <tr><td class="l">10R</td><td>ダ1400</td><td class="l">スターメイデン</td><td>1人気</td><td>4/14</td><td>0.23</td><td class="ylw">1/14</td><td class="red">+22 重</td></tr>
+    <tr><td class="l">11R</td><td>ダ1800</td><td class="l">メモリアカフェ <span class="dim">JpnII</span></td><td>2人気</td><td>4/13</td><td>0.25</td><td class="ylw">1/13</td><td>+5</td></tr>
+    <tr><td class="l">12R</td><td>ダ1800</td><td class="l">ナンパセン</td><td>1人気</td><td class="dim">5/10</td><td class="dim">0.44</td><td class="ylw">1/10</td><td class="red">+39 重</td></tr>
   </table>
-  <div class="note">1着 <b>6回</b>／3着内 <b>8回</b>（12鞍）。昨日は「3着内6/10なのに1着は2回」でした。<b>昨日のカードの「馬単は表裏」は、今日のような日には損になります。</b></div>
+  <div class="note"><b>4角1番手で勝ったのが6頭、rel 0.15以内まで広げると7頭。</b>一番後ろから勝ったのが12R ナンパセンの rel 0.44 で、それでも中団です。<b>上がり1位が8頭いますが、そのうち7頭は rel 0.35以内</b>。前にいて、なお速かったということです。</div>
 </div>
 
-<div class="sh">③ 人気薄で来た5頭は、全部「上がり上位」<span>昨日は「前にいた」だった</span></div>
+<div class="sh">⑤ 反転した2つ<span>事前ルールにしてはいけないもの</span></div>
 <div class="card">
   <table>
-    <tr><th style="text-align:left">R</th><th>馬名</th><th>人気</th><th>オッズ</th><th>着</th><th>内から何番目</th><th>上がり順位</th></tr>
-    <tr><td class="l">1R</td><td class="l">カフジライオル</td><td class="red">6人気</td><td>31.8</td><td>2着</td><td class="dim">7/10</td><td class="ylw">1位</td></tr>
-    <tr><td class="l">5R</td><td class="l">ラバテラジェーン</td><td class="red">7人気</td><td>77.1</td><td>2着</td><td>4/10</td><td class="ylw">1位</td></tr>
-    <tr><td class="l">7R</td><td class="l">フローラルデザイン</td><td class="red">7人気</td><td>49.2</td><td>3着</td><td>3/10</td><td class="ylw">3位</td></tr>
-    <tr><td class="l">9R</td><td class="l">シルエットライド</td><td class="red">13人気</td><td class="red">235.3</td><td>3着</td><td class="dim">12/13</td><td class="ylw">2位</td></tr>
-    <tr><td class="l">10R</td><td class="l">ヨドギミ</td><td class="red">10人気</td><td>49.5</td><td>3着</td><td class="dim">9/14</td><td>4位</td></tr>
+    <tr><th style="text-align:left">　</th><th>10/5</th><th>10/6</th><th>中身</th></tr>
+    <tr><td class="l">馬体重</td><td class="dim">重い1/3から1着 1/10</td><td class="red">7/13</td><td class="dim">3着内36頭の平均差 +10.6kg</td></tr>
+    <tr><td class="l">1番人気</td><td class="dim">1着 2/10・2着 4回</td><td class="red">1着 6/12</td><td class="dim">3着内は 8/12</td></tr>
   </table>
-  <div class="note"><b>5頭とも上がり4位以内、うち4頭が3位以内。</b>しかも3頭は外めの枠です。昨日の人気薄7頭は「前にいた」が共通点でした。<b>穴の入口が入れ替わっています。</b></div>
-</div>
-
-<div class="sh">④ それでも、上がり順位はまだ主変数にできません<span>ルール7の判定</span></div>
-<div class="card">
-  <div class="bar"><div class="lb">上がり3位以内の占有</div><div class="tr"><div class="fl ga" style="width:78%"></div><div class="thr" style="left:80%"></div></div><div class="vv ylw">78% <span class="dim" style="font-size:12px">基準80%</span></div></div>
-  <div class="bar"><div class="lb">上がり幅（中央値）</div><div class="tr"><div class="fl gb" style="width:64%"></div><div class="thr" style="left:80%"></div></div><div class="vv dim">3.2秒 <span style="font-size:12px">基準4.0秒</span></div></div>
-  <div class="note">黄色い縦線が基準です。<b>78%は基準のすぐ下。</b>昨日の53%からは大きく上がりましたが、上がり幅が3.2秒しかありません。ルール通りなら<b>今日も補助変数</b>で、「差しが効いた日」と言い切るには足りません。</div>
-</div>
-
-<div class="sh">⑤ 枠は、昨日より薄い<span>8枠が3勝。うち2鞍は最外</span></div>
-<div class="card">
-  <div class="note" style="margin-top:0;margin-bottom:12px">3着内36頭の「内から何番目か」を頭数で割った平均は <b>0.44</b>（0＝最内 1＝最外。偶然なら0.50）。わずかに内ですが、昨日ほどではありません。</div>
-  <table>
-    <tr><th style="text-align:left">R</th><th>1着馬</th><th>枠</th><th>内から何番目</th></tr>
-    <tr><td class="l">4R</td><td class="l">ルネサンスクラブ</td><td>8枠</td><td class="red">14/14（最外）</td></tr>
-    <tr><td class="l">7R</td><td class="l">キングパッション</td><td>8枠</td><td class="red">9/10</td></tr>
-    <tr><td class="l">10R</td><td class="l">スターメイデン</td><td>8枠</td><td class="red">14/14（最外）</td></tr>
-  </table>
-  <div class="note">昨日は10鞍中4鞍の勝ち馬が馬番2番で、最外の勝ちはゼロでした。</div>
-</div>
-
-<div class="sh">⑥ 全12鞍の勝ち馬<span>2Rは同着1着なので13頭</span></div>
-<div class="card">
-  <table>
-    <tr><th style="text-align:left">R</th><th>距離</th><th>頭数</th><th>クラス</th><th>1着馬</th><th>人気</th><th>上がり</th><th>内から</th><th>体重平均差</th></tr>
-    <tr><td class="l">1R</td><td>ダ1200</td><td>10</td><td class="dim">3歳五</td><td class="l">ノースブレス</td><td>3人気</td><td>2/10</td><td>4/10</td><td class="red">+31 重</td></tr>
-    <tr><td class="l">2R</td><td>ダ1400</td><td>7</td><td class="dim">2歳</td><td class="l">トニーブライアン</td><td>2人気</td><td>2/7</td><td>1/7</td><td class="red">+12 重</td></tr>
-    <tr><td class="l">2R</td><td>ダ1400</td><td>7</td><td class="dim">2歳（同着）</td><td class="l">モンタナマジック</td><td>1人気</td><td class="ylw">1/7</td><td>2/7</td><td>−4</td></tr>
-    <tr><td class="l">3R</td><td>ダ1200</td><td>10</td><td class="dim">2歳</td><td class="l">ムサシペニー</td><td>1人気</td><td class="ylw">1/10</td><td>5/10</td><td class="red">+64 重</td></tr>
-    <tr><td class="l">4R</td><td>ダ1600</td><td>14</td><td class="dim">Ｃ３</td><td class="l">ルネサンスクラブ</td><td>2人気</td><td>5/14</td><td class="red">14/14</td><td class="red">+36 重</td></tr>
-    <tr><td class="l">5R</td><td>ダ1400</td><td>10</td><td class="dim">Ｃ３</td><td class="l">ブラックレッド</td><td>3人気</td><td>4/10</td><td>8/10</td><td class="red">+22 重</td></tr>
-    <tr><td class="l">6R</td><td>ダ1200</td><td>13</td><td class="dim">Ｃ３</td><td class="l">ショウサンレックス</td><td>2人気</td><td class="ylw">1/13</td><td>3/13</td><td>−18</td></tr>
-    <tr><td class="l">7R</td><td>ダ1600</td><td>10</td><td class="dim">Ｃ２</td><td class="l">キングパッション</td><td>1人気</td><td class="ylw">1/10</td><td class="red">9/10</td><td>+42</td></tr>
-    <tr><td class="l">8R</td><td>ダ1400</td><td>12</td><td class="dim">バーバラ賞Ｃ２</td><td class="l">カーラエスメラルダ</td><td>2人気</td><td>4/12</td><td>4/12</td><td>−1</td></tr>
-    <tr><td class="l">9R</td><td>ダ1200</td><td>13</td><td class="dim">アキアカネ賞Ｃ２</td><td class="l">ミルトマジック</td><td>1人気</td><td class="ylw">1/13</td><td>2/13</td><td>+3</td></tr>
-    <tr><td class="l">10R</td><td>ダ1400</td><td>14</td><td class="dim">ダイヤモンドリリー特別</td><td class="l">スターメイデン</td><td>1人気</td><td class="ylw">1/14</td><td class="red">14/14</td><td class="red">+22 重</td></tr>
-    <tr><td class="l">11R</td><td>ダ1800</td><td>13</td><td class="dim">レディスプレリュード JpnII</td><td class="l">メモリアカフェ</td><td>2人気</td><td class="ylw">1/13</td><td>7/13</td><td>+5</td></tr>
-    <tr><td class="l">12R</td><td>ダ1800</td><td>10</td><td class="dim">ペガサス賞Ｂ２選抜</td><td class="l">ナンパセン</td><td>1人気</td><td class="ylw">1/10</td><td>4/10</td><td class="red">+39 重</td></tr>
-  </table>
-  <div class="note">4角の位置はこの日も取れていません。成績ページの通過順位欄が <b>****</b>、前半3Fも <b>*</b> で伏せられているためです。<b>昨日の「内の前」のうち「前」の部分は、今日は検証できていません。</b></div>
+  <div class="note">10/5のカードに書いた「<span class="strike">鞍内で重い1/3は割引</span>」は<b>取り下げます</b>。1日で逆を向きました。<br>「<span class="strike">馬単は表裏</span>」も、10/6は1番人気が素直に6勝しています。<b>どちらも日替わりで、前日のものを持ち越せません。</b></div>
 </div>
 
 <div class="use">
   <div class="t">明日以降、こう使う（大井は10/7・8・9とあと3日）</div>
   <ol>
-    <li>昨日の「重い1/3は割引」は取り下げ。<span>2日で逆を向いた。馬体重はその日のレース平均差として見るだけにして、事前ルールにしない</span></li>
-    <li>人気の信頼度は日ごとに変わる。<span>1着 2/10 → 6/12。馬単の表裏は「拮抗した鞍」だけに絞る</span></li>
-    <li>穴の入口は、その日のうちに判定する。<span>昨日は「前にいた」、今日は「上がりが速い」。前日のものを持ち越さない</span></li>
-    <li>2日とも残ったのは「内」だけ。<span>67% → 61%。ここだけが連続している</span></li>
+    <li>軸は「4角で3番手前後まで行ける馬」。<span>2日とも、前2帯（出走の4割弱）が1着をほぼ独占している</span></li>
+    <li>後ろの馬は2〜3着づけ。<span>後方からの1着は2日・90頭でゼロ。来ても2着か3着だった</span></li>
+    <li>馬体重と人気は、事前の足切りに使わない。<span>1日で逆を向いた。その日のレース平均差として見るだけにする</span></li>
+    <li>「上がり最速」だけで買わない。<span>上がり1位8頭のうち7頭は rel 0.35以内。速かったのは位置を取れた馬のほう</span></li>
   </ol>
 </div>
 
-<div class="brandbot"><span>2026/10/06 大井 ── 馬場傾向</span><span>変態か、変態以外か。</span></div>
+<div class="brandbot"><span>2026/10/06 大井 ── 馬場傾向（取り直し版）</span><span>変態か、変態以外か。</span></div>
 </body></html>
