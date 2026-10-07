@@ -256,15 +256,18 @@ def syutuba(rid: str, force: bool = False) -> tuple[dict, list[dict]]:
     for tr in _TR.finditer(h):
         c = cells(tr.group(1))
         m = re.search(r'/db/uma/(\w+)[^>]*>(?:<[^>]+>)*([^<]+)', tr.group(1))
-        if not m or len(c) < len(head):
+        if not m:
             continue
+        # ★列数が足りない行を落としてはいけない（穴12・2026-10-08）。
+        #   枠番は2頭で1マスに結合される（rowspan）ので、**2頭目の行は1列少ない**。
+        #   len(c) < len(head) で弾くと、その馬が検討から丸ごと消える。
+        #   10/8 大井11R 東京盃で 14頭中6頭しか取れず、しかも例外は出なかった。
         # ★馬名リンクの文字と、名前の列が一致するかを必ず確かめる（穴2）。
-        #   合わなければ1つずらして再確認する。黙って通すと1頭ぶん行が壊れる。
+        #   ずれていれば、ずれ幅を探して全列に同じだけ寄せる。
         real = m.group(2).replace("★", "").strip()
-        # 名前の列が本当に名前か。ずれていれば1つだけ寄せて再確認する。
         off = 0
-        if real and I["name"] < len(c) and real not in c[I["name"]]:
-            off = next((d for d in (1, -1)
+        if real and not (I["name"] < len(c) and real in c[I["name"]]):
+            off = next((d for d in (-1, 1, -2, 2, -3, 3, -4, 4)
                         if 0 <= I["name"] + d < len(c) and real in c[I["name"] + d]), None)
             if off is None:
                 continue
