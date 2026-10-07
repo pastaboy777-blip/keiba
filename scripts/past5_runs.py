@@ -20,7 +20,7 @@ HEAD = re.compile(r'\|*([^|]+?)\|+([^|]+?)\|+([^|]+?)\|\(([^)]*)\)\|+([\d.-]+)\|
 RUN = re.compile(
     r'\|(\d{1,2})\|+([良稍重不])\|+(\d{1,2})頭\|.*?(' + '|'.join(PLACES) +
     r') (\d\d)\.(\d\d)\.(\d\d)\|.*?(内|外)?(\d{3,4})(?:右|左|直)ダ.*?'
-    r'\|(\d:\d\d\.\d) \(([\d.]+)\)\|([\d.]+) (\d{3})k', re.S)
+    r'\|(\d:\d\d\.\d) \(([\d.]+)\)\|([\d.]+) (\d{3})k[^|]*\|((?:\d+-)+\d+)\|', re.S)
 c = PoliteClient(use_cache=False)
 
 
@@ -68,7 +68,8 @@ for rid in rids:
                              date='%s/%s/%s' % (g[4], g[5], g[6]),
                              course=g[7] or '', dist=int(g[8]),
                              time=g[9], margin=float(g[10]),
-                             ag=float(g[11]), wt=int(g[12])))
+                             ag=float(g[11]), wt=int(g[12]),
+                             cor=g[13], c4=int(g[13].split('-')[-1])))
         es.append(dict(nm=m.group(2).strip(), sire=m.group(1).strip(),
                        pop=(int(m.group(6)) if m.group(6).isdigit() else None),
                        runs=runs[:5]))
