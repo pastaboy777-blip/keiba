@@ -12,7 +12,7 @@ YMD, PLACE = sys.argv[1], sys.argv[2]
 OUT = sys.argv[3]
 ROW = re.compile(
     r'\|(\d+)\|+(\d+)\|+(\d+)\|+([^|]+?)\|+([牡牝セ])(\d)\s*/[^|]*\|+([\d.]+)\|+'
-    r'(\d+)\|([+-]?\d+|-)?\|+([^|]+?)\|\([^)]*\)\|+(\d:\d\d\.\d)\|+([^|]*?)\|+'
+    r'(\d+)\|([+-±]?\d+|-)?\|+([^|]+?)\|\([^)]*\)\|+(\d:\d\d\.\d)\|+([^|]*?)\|+'
     r'([\d.]+)\|+([^|]+?)\|+(\d+)\|')
 c = PoliteClient(use_cache=False)
 
@@ -80,7 +80,10 @@ for rid in rids:
         u = int(m.group(3))
         es.append(dict(f=m.group(1), waku=int(m.group(2)), u=u, nm=m.group(4).strip(),
                        sx=m.group(5), age=int(m.group(6)), kin=float(m.group(7)),
-                       wt=int(m.group(8)), dw=(m.group(9) or ''), jk=m.group(10).strip(),
+                       wt=int(m.group(8)),
+                       # 増減ゼロは「±0」と書かれている。後で int() に通せるよう 0 に直す。
+                       dw=(m.group(9) or '').replace('±0', '0'),
+                       jk=m.group(10).strip(),
                        tm=m.group(11), margin=m.group(12).strip(),
                        ag=float(m.group(13)), tr=m.group(14).strip(),
                        pop=int(m.group(15)), c4=c4.get(u)))
