@@ -11,7 +11,7 @@
       --from-r 6 --to-r 12 --out notes/live/2026-09-28/funabashi_chokyo_6_12.html
 """
 from __future__ import annotations
-import argparse, os, re
+import argparse, json, os, re
 
 SRCV = "/home/user/keiba/notes/live/2026-08-26/funabashi_baba_manga_1.html"
 CSS = """
@@ -29,6 +29,7 @@ table.t td.thin{color:#aaa;font-size:20px}
 table.t tr.none td{background:#f7f7f7;color:#999}
 table.t tr.none td.l{color:#111}
 table.t td.lred{background:#f4c4c4;color:#8f1016;font-weight:900}
+table.t td.lsml{color:#e8232a;font-weight:900}
 .warn{background:#ffd400;border:4px solid #111;border-radius:6px;padding:11px 18px;margin:9px 0;
   font-size:22px;font-weight:900;line-height:1.5;color:#111}
 .warn b{color:#e8232a}
@@ -93,6 +94,7 @@ def cls(s: str) -> str:
 
 LIGHT = ("馬なり", "馬也", "楽走")
 PICK = None   # "light-slow" なら、馬なり系 × 中位〜遅い を赤にする
+SMALL = {}    # (R, 馬番) -> True。小型馬。--small で読み込む
 
 
 def where(w):
@@ -129,11 +131,13 @@ def race_block(rc: dict) -> str:
             continue
         cb, cd = cls(w["bucket"]), cls(w["day"])
         co = w["course"].replace("船橋", "").replace("調教場", "") or w["course"]
+        nmcls = "l lred" if (picked(w) if PICK else "hi" in (cb, cd)) else "l"
+        if SMALL.get((rc["r"], w["u"])) and "hi" in (cb, cd):
+            nmcls += " lsml"      # 小型かつ調教が上位 → 馬名を赤文字に
         s.append('<tr><td>%d</td><td class="%s">%s</td><td>%s</td><td>%s</td><td>%s</td>'
                  '<td>%s</td><td class="%s">%s組 %s</td><td class="%s">%s</td>'
                  '<td>%d</td></tr>'
-                 % (w["u"],
-                    "l lred" if (picked(w) if PICK else "hi" in (cb, cd)) else "l",
+                 % (w["u"], nmcls,
                     w["nm"], w["d"], co,
                     w["baba"], w["kyaku"], cb, w["bk"], w["bucket"], cd, w["day"], w["n"]))
     s.append("</table></div>")
@@ -145,6 +149,7 @@ def main() -> None:
     ap.add_argument("src")
     ap.add_argument("--no-color", action="store_true",
                     help="赤・青を付けず、数字だけ並べる")
+    ap.add_argument("--small", help="小型馬の判定に使う past5 の JSON")
     ap.add_argument("--pick", choices=["light-slow"],
                     help="赤くする条件。light-slow = 馬なり系 × 中位〜遅い")
     ap.add_argument("--title", required=True)
@@ -152,10 +157,27 @@ def main() -> None:
     ap.add_argument("--from-r", type=int, default=1)
     ap.add_argument("--to-r", type=int, default=12)
     a = ap.parse_args()
-    global cls, PICK
+    global cls, PICK, SMALL
     if a.no_color:
         cls = lambda s: ""
     PICK = a.pick
+    if a.small:
+        import statistics
+        p5 = json.load(open(a.small, encoding="utf-8"))
+        for Rs, v in p5.items():
+            ws = {}
+            for e in v["e"]:
+                rr = [x for x in (e.get("runs") or []) if x.get("wt")]
+                if rr:
+                    ws[e["u"]] = rr[0]["wt"]      # 直近走の馬体重
+            if len(ws) < 5:
+                continue
+            vals = sorted(ws.values())
+            cut = vals[max(0, len(vals) // 3 - 1)]        # 軽いほうから1/3
+            avg = statistics.mean(vals)
+            for u, wt in ws.items():
+                if wt <= cut and wt <= avg - 20:
+                    SMALL[(int(Rs), u)] = True
     meta, races = parse(a.src)
     use = [r for r in races if a.from_r <= r["r"] <= a.to_r]
     if not use:
