@@ -12,7 +12,8 @@ YMD, PLACE = sys.argv[1], sys.argv[2]
 OUT = sys.argv[3]
 ROW = re.compile(
     r'\|(\d+)\|+(\d+)\|+(\d+)\|+([^|]+?)\|+([牡牝セ])(\d)\s*/[^|]*\|+([\d.]+)\|+'
-    r'(\d+)\|([+-±]?\d+|-)?\|+([^|]+?)\|\([^)]*\)\|+(\d:\d\d\.\d)\|+([^|]*?)\|+'
+    # 走破時計は川崎900mのように1分を切ると「54.8」と分が付かない
+    r'(\d+)\|([+-±]?\d+|-)?\|+([^|]+?)\|\([^)]*\)\|+((?:\d:)?\d\d\.\d)\|+([^|]*?)\|+'
     r'([\d.]+)\|+([^|]+?)\|+(\d+)\|')
 c = PoliteClient(use_cache=False)
 
@@ -66,7 +67,7 @@ for rid in rids:
     if not rows:
         print('%2dR 未確定' % R)
         continue
-    dm = re.search(r'ダ([\d,]+)m\(([内外])\)', tc)
+    dm = re.search(r'ダ([\d,]+)m(?:\((内|外)\))?', tc)
     bm = re.search(r'ダ：\|([良稍重不]+)', tc)
     wm = re.search(r'天候：\|([^|]+)\|', tc)
     cm = re.search(r'発走時刻\|\d\d:\d\d\|([^|]+)\|', tc)
@@ -88,7 +89,7 @@ for rid in rids:
                        ag=float(m.group(13)), tr=m.group(14).strip(),
                        pop=int(m.group(15)), c4=c4.get(u)))
     out[str(R)] = dict(rid=rid, dist=int(dm.group(1).replace(',', '')) if dm else 0,
-                       course=dm.group(2) if dm else '', baba=bm.group(1) if bm else '',
+                       course=(dm.group(2) or '') if dm else '', baba=bm.group(1) if bm else '',
                        weather=wm.group(1).strip() if wm else '',
                        cls=cm.group(1).strip() if cm else '',
                        p1=int(pm.group(1).replace(',', '')) if pm else 0,
