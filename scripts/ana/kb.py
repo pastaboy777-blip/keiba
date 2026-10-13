@@ -456,8 +456,18 @@ _CIR = {c: str(i + 1) for i, c in enumerate("①②③④⑤⑥⑦⑧⑨⑩⑪�
 def kyakushitsu(umacd: str, force: bool = False, n: int = 6):
     """『完全データ』ページ（cookie 必須）から、近走の4角位置を取る。
 
-    返すのは [{date, dist, n, chaku, c4, rel}]。rel は 0=先頭 1=最後方。
+    返すのは [{date, dist, n, chaku, c4, rel, pas}]。rel は 0=先頭 1=最後方。
     ★通過順は丸数字（①②…）が混ざる。必ず数字に直してから使う。
+
+    ★★★ pas の先頭1つは通過順ではない（穴13・2026-10-14）★★★
+      _FULL が拾う group(4) には、通過順の**前に数字がもう1つ入る**。
+          完全データ: '6 11 11 7 6'   ／ レースページ: 11-11-7-6
+          完全データ: '2 10 10 9 6'   ／ レースページ: 10-10-9-6
+      この関数は 4角（末尾）しか使わないので無事だったが、
+      **1角や「1角→4角で何番上げたか」を取るときは必ず先頭を1つ落とす。**
+      落とさないと「押し上げ幅」が丸ごと別物になる。例外は出ない。
+      検算: 2026-10-13 川崎 129頭で、先頭を落とすとレースページと完全一致した。
+      → pas には**落としたあと**のリストを入れてある。
     """
     h = get(f"/db/uma/{umacd}", f"umafull_{umacd}.html", force=force)
     out = []
@@ -480,6 +490,8 @@ def kyakushitsu(umacd: str, force: bool = False, n: int = 6):
                         dist=int(d.group(1)) if d else None,
                         surface="芝" if "芝" in head else ("障" if "障" in head else "ダ"),
                         n=field, chaku=int(m.group(5)), c4=pas[-1],
+                        # ★先頭1つは通過順ではない（穴13）。落としたものを返す。
+                        pas=pas[1:],
                         rel=(pas[-1] - 1) / (field - 1) if field > 1 else None))
     out.sort(key=lambda r: r["date"])
     return out[-n:]
