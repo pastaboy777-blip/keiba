@@ -274,18 +274,35 @@ def syutuba(rid: str, force: bool = False) -> tuple[dict, list[dict]]:
         g = lambda k: (c[I[k] + off] if I[k] is not None and 0 <= I[k] + off < len(c) else "")
         if not g("ub").isdigit():
             continue
-        # ★セルが結合されている行がまれにある（騎手と斤量が1つになる等）。
-        #   列数が合わないぶんは信用しないが、**行ごと落とすことはしない**。
-        #   落とすと、その馬が検討そのものから消える。9/14の大井11Rで1頭消えた。
+        # ★列数が合わない行でも、値は返す（穴14・2026-10-14）。
+        #   以前は bad のとき騎手・斤量・馬体重などを全部 None にしていた。
+        #   しかし枠番がrowspanでずれているだけの行が大半で、上で off を合わせれば値は正しい。
+        #   None にすると**出走の約1/3で騎手が読めず、乗り替わりの判定ができなくなる**。
+        #
+        # ★★ ただし「騎手と斤量が1マスに結合された行」がある（穴14b）★★
+        #   セルの中身が『御神本訓 55』のようになり、**それ以降の列がもう1つずれる**。
+        #   騎手だけ取って満足すると、馬体重・増減・オッズ・人気が隣の列の値になる。
+        #   → 結合を検知したら騎手と斤量を割って、後ろの列はさらに -1 して読む。
         bad = len(c) != len(head)
+        jk_raw = g("jk")
+        mm = re.match(r"^(.+?)\s+(\d+(?:\.\d)?)$", jk_raw)
+        extra = 0
+        if mm:                       # 騎手＋斤量が1マス
+            jk_val, kin_val, extra = mm.group(1), mm.group(2), -1
+        else:
+            jk_val, kin_val = (jk_raw or None), (g("kin") or None)
+        def g2(k):                   # 斤量より右の列はさらに extra ぶんずらす
+            j = I[k]
+            if j is None:
+                return ""
+            j += off + extra
+            return c[j] if 0 <= j < len(c) else ""
         out.append(dict(waku=g("waku"), ub=int(g("ub")), name=real,
                         sex=g("sex"), bli=("B" in g("bli")),
-                        jk=None if bad else g("jk"), kin=None if bad else g("kin"),
-                        stable=None if bad else g("stable"),
-                        w=None if bad else (g("w") or None),
-                        dw=None if bad else (g("dw") or None),
-                        odds=None if bad else (g("odds") or None),
-                        nin=None if bad else (g("nin") or None),
+                        jk=(jk_val or None), kin=(kin_val or None),
+                        stable=(g2("stable") or None),
+                        w=(g2("w") or None), dw=(g2("dw") or None),
+                        odds=(g2("odds") or None), nin=(g2("nin") or None),
                         partial=bad, umacd=m.group(1)))
     return meta(h), out
 
