@@ -471,47 +471,30 @@ _CIR = {c: str(i + 1) for i, c in enumerate("①②③④⑤⑥⑦⑧⑨⑩⑪�
 
 
 def kyakushitsu(umacd: str, force: bool = False, n: int = 6):
-    """『完全データ』ページ（cookie 必須）から、近走の4角位置を取る。
+    """近走の4角位置を取る。中身は zenso() に委譲している。
 
-    返すのは [{date, dist, n, chaku, c4, rel, pas}]。rel は 0=先頭 1=最後方。
-    ★通過順は丸数字（①②…）が混ざる。必ず数字に直してから使う。
+    返すのは [{date, dist, surface, n, chaku, c4, rel, pas}]。rel は 0=先頭 1=最後方。
 
-    ★★★ pas の先頭1つは通過順ではない（穴13・2026-10-14）★★★
-      _FULL が拾う group(4) には、通過順の**前に数字がもう1つ入る**。
-          完全データ: '6 11 11 7 6'   ／ レースページ: 11-11-7-6
-          完全データ: '2 10 10 9 6'   ／ レースページ: 10-10-9-6
-      この関数は 4角（末尾）しか使わないので無事だったが、
-      **1角や「1角→4角で何番上げたか」を取るときは必ず先頭を1つ落とす。**
-      落とさないと「押し上げ幅」が丸ごと別物になる。例外は出ない。
-      検算: 2026-10-13 川崎 129頭で、先頭を落とすとレースページと完全一致した。
-      → pas には**落としたあと**のリストを入れてある。
+    ★★★ 穴13（2026-10-14）の訂正 ★★★
+      もとは _FULL で通過順を拾い、**先頭を1つ落として**いた。
+      理由は _FULL の `.*?` が遅延マッチで、上りの小数の末尾
+      （'上り52.1-40.1' の '1'）を通過順の1つめとして吸うことがあるから。
+      だが**吸うかどうかは行によって違う**。吸っていない行で落とすと、
+      本物の1角が消える。
+          ルゼンチ 2026/04/12  落とすと [4,4,4] ／ 正しくは [4,4,4,4]
+      → 上りを食い切ってから捕まえる zenso() に寄せた。
+        検算: 2026/10/13 川崎 133頭、成績ページの通過順と1頭も違わない。
+      4角（末尾）はどちらでも同じなので、**これ以前の4角・rel の分析は無効に
+      ならない。** 影響があるのは 1角 と「1角→4角で何番上げたか」だけ。
     """
-    h = get(f"/db/uma/{umacd}", f"umafull_{umacd}.html", force=force)
     out = []
-    for tr in _TR.finditer(h):
-        c = cells(tr.group(1))
-        if len(c) < 6 or not re.match(r"\d{4}年\d+月\d+日", c[0]):
+    for d in zenso(umacd, force=force, n=n):
+        if d["c4"] is None or d["chaku"] is None:
             continue
-        head, blob = c[0], c[-1]
-        m = _FULL.search(blob)
-        if not m:
-            continue
-        field = int(m.group(1))
-        pas = [int(_CIR.get(ch, ch)) for ch in m.group(4).split()
-               if _CIR.get(ch, ch).isdigit()]
-        if not pas:
-            continue
-        d = re.search(r"(\d{3,4})m", head)
-        dt_ = re.match(r"(\d{4})年(\d+)月(\d+)日", head)
-        out.append(dict(date=f"{dt_.group(1)}/{int(dt_.group(2)):02d}/{int(dt_.group(3)):02d}",
-                        dist=int(d.group(1)) if d else None,
-                        surface="芝" if "芝" in head else ("障" if "障" in head else "ダ"),
-                        n=field, chaku=int(m.group(5)), c4=pas[-1],
-                        # ★先頭1つは通過順ではない（穴13）。落としたものを返す。
-                        pas=pas[1:],
-                        rel=(pas[-1] - 1) / (field - 1) if field > 1 else None))
-    out.sort(key=lambda r: r["date"])
-    return out[-n:]
+        out.append(dict(date=d["date"], dist=d["dist"], surface=None,
+                        n=d["n"], chaku=d["chaku"], c4=d["c4"],
+                        pas=d["pas"], rel=d["rel"]))
+    return out
 
 
 def surface_of(s: str | None) -> str | None:
@@ -594,3 +577,123 @@ def best_at_zone(hist, dist: int, base=None, surface=None):
     if not v:
         return None
     return min(v, key=lambda h: (int(h["chaku"]), -int(h["n"] or 0)))
+
+
+# ★通し位置はこの5語しかない（2026-10-14、キャッシュ全体で検算）。
+#   最内 1369 / 内 1349 / 中 1101 / 外 618 / 大外 254。**『最外』は存在しない。**
+#   '最内'は'内'を、'大外'は'外'を含むので、**必ず長いほうから当てる**。
+_LANE = ("最内", "大外", "内", "中", "外")
+_IN = ("最内", "内")
+_OUT = ("外", "大外")
+
+
+def zenso(umacd: str, force: bool = False, n: int = 8) -> list[dict]:
+    """『完全データ』ページ1行を**全部**ほどく（cookie 必須）。
+
+    ★★★ 通し位置（最内/内/中/外/最外）が取れる（2026-10-14 発見）★★★
+      行の実物:
+        '12頭2ｹﾞｰﾄ 459K △ 12.7(5人気) 前39.3-後 39.5 Hペース
+         上り52.1-40.1 ⑦ 6 6 5 最内 3着'
+      読み方:
+        12頭2ｹﾞｰﾄ … 頭数とゲート番
+        459K      … 馬体重（増減はこのページには無い。成績ページで取る）
+        12.7(5人気)… 単勝オッズと人気
+        前39.3-後39.5 … **その馬自身**の前半と上がり3F
+        Hペース    … レースのペース判定
+        上り52.1-40.1 … **レース**の上がり4F・上がり3F
+        ⑦ 6 6 5   … 通過順（★先頭1つは通過順ではない。穴13参照）
+        最内       … **その馬が通ったところ**。ラチ沿いを通す馬かが分かる
+        3着        … 着順
+
+    ★当日はまだ埋まっていない。
+      レース直後は '14頭7ｹﾞｰﾄ 476K 73.9(8人気) 前-後39.9 10 9 11 8 1着' のように
+      **前半・ペース・レース上り・通し位置が空欄**で、通過順の位置もずれる。
+      → **その日のレースは成績ページ（seiseki）から取る。この関数は前走以前に使う。**
+
+    返すのは [{date, venue, baba, dist, n, gate, w, odds, nin, my_1st, my_ag,
+               race_4f, race_3f, pace, lane, pas, c1, c4, rel, chaku, edge}]。
+      edge = my_ag - race_3f。**マイナスほどその馬の上がりがレースより速い。**
+      ★edge は「小さいほど良い」ではない。前で粘った馬は edge がプラスに出る。
+        2026-10-14 川崎（1ヶ月あけ・全馬ズブい日）では
+        edge +0.5〜+1.5 の36頭が11鞍中9勝、±0.5以内と+1.5以上はともに3着内18%。
+        理由は notes/live/20261014_kawasaki.md。
+    """
+    h = get(f"/db/uma/{umacd}", f"umafull_{umacd}.html", force=force)
+    out = []
+    for tr in _TR.finditer(h):
+        c = cells(tr.group(1))
+        if len(c) < 6 or not re.match(r"\d{4}年\d+月\d+日", c[0]):
+            continue
+        head, blob = c[0], c[-1]
+        if "着" not in blob:
+            continue                      # 出走取消・除外の行
+        d: dict = {}
+        m = re.match(r"(\d{4})年(\d+)月(\d+)日", head)
+        d["date"] = f"{m.group(1)}/{int(m.group(2)):02d}/{int(m.group(3)):02d}"
+        mv = re.search(r"\((.*?)・(.*?)\)", head)
+        d["baba"] = mv.group(2) if mv else None
+        mp = re.search(r"\)\s*(\S+?)(\d+)R\(.*?(\d{3,4})m\)", head)
+        d["venue"] = mp.group(1) if mp else None
+        d["dist"] = int(mp.group(3)) if mp else None
+        mn = re.search(r"(\d+)頭(\d+)ｹﾞｰﾄ", blob)
+        d["n"] = int(mn.group(1)) if mn else None
+        d["gate"] = int(mn.group(2)) if mn else None
+        mw = re.search(r"\b(\d{3})K", blob)
+        d["w"] = int(mw.group(1)) if mw else None
+        mo = re.search(r"([\d.]+)\((\d+)人気\)", blob)
+        d["odds"] = float(mo.group(1)) if mo else None
+        d["nin"] = int(mo.group(2)) if mo else None
+        ma = re.search(r"後\s*([\d.]+)", blob)
+        d["my_ag"] = float(ma.group(1)) if ma else None
+        mf = re.search(r"前\s*([\d.]+)-", blob)
+        d["my_1st"] = float(mf.group(1)) if mf else None
+        # ★820m など上がり4Fが存在しない鞍は '上り.-37.5' と出る。
+        #   [\d.]+ だと '.' を拾って float('.') で落ちる。必ず数字を含める。
+        mr = re.search(r"上り\s*([\d.]*\d[\d.]*|\.)-([\d.]*\d[\d.]*)", blob)
+        d["race_4f"] = fnum(mr.group(1)) if mr else None
+        d["race_3f"] = fnum(mr.group(2)) if mr else None
+        mc = re.search(r"([HMS])ペース", blob)
+        d["pace"] = mc.group(1) if mc else None
+        # ★通し位置。'最内' は '内' を含むので長いほうから先に当てる。
+        d["lane"] = next((w for w in _LANE
+                          if re.search(w + r"\s+\d+着", blob)), None)
+        # ★末尾の『(通し位置) N着』の手前で止める。止めないと着順を通過順として
+        #   吸い込む（当日行は レース上り が空欄なので特に起きる）。
+        # ★★★ ここでは先頭を落とさない（穴13との違い・2026-10-14）★★★
+        #   kyakushitsu() が使う _FULL は `.*?` が遅延マッチなので、上りの
+        #   小数の末尾（'40.1' の '1'）を通過順の1つめとして吸ってしまう。
+        #   だから あちらは pas[1:] が正しい。
+        #   こちらは `上り[\d.]+-[\d.]+` で上りを食い切ってから捕まえるので、
+        #   **先頭はもう本物の1角**。落とすと全部1つずれる。
+        #   検算: 2026/10/13 川崎 132頭、成績ページの通過順と1頭も違わない。
+        mq = re.search(r"(?:上り(?:[\d.]*\d[\d.]*|\.)-[\d.]*\d[\d.]*"
+                       r"|後\s*[\d.]*\d[\d.]*)"
+                       r"(?:\s*[HMS]ペース)?\s+"      # ← 上りが空欄だとペースが挟まる
+                       r"((?:[①-⑳]|\d+)(?:\s+(?:[①-⑳]|\d+))*?)"
+                       r"\s*(?:最内|大外|内|中|外)?\s*\d+着", blob)
+        pas = [int(_CIR.get(x, x)) for x in mq.group(1).split()] if mq else []
+        d["pas"] = pas
+        d["c1"] = pas[0] if pas else None
+        d["c4"] = pas[-1] if pas else None
+        d["rel"] = ((d["c4"] - 1) / (d["n"] - 1)
+                    if d["c4"] and d["n"] and d["n"] > 1 else None)
+        mk = re.search(r"(\d+)着\s*$", blob) or re.search(r"(\d+)着", blob)
+        d["chaku"] = int(mk.group(1)) if mk else None
+        d["edge"] = (d["my_ag"] - d["race_3f"]
+                     if d["my_ag"] is not None and d["race_3f"] is not None
+                     else None)
+        out.append(d)
+    out.sort(key=lambda z: z["date"])
+    return out[-n:]
+
+
+def rail(umacd: str, force: bool = False, n: int = 4) -> tuple[int, int]:
+    """直近n走で (内寄りを通した回数, 外寄りを通した回数) を返す。
+
+    内寄り = 最内・内 ／ 外寄り = 外・大外。『中』はどちらにも数えない。
+    2026-10-14 川崎では、直近4走で内寄り3回以上の58頭が8勝(3着内33%)、
+    外寄り2回以上の24頭は1勝(21%)。
+    """
+    # ★lane が空欄の行（当日ぶん）は数えない。埋まった行だけ後ろから n 走。
+    v = [z["lane"] for z in zenso(umacd, force=force, n=n + 4) if z["lane"]][-n:]
+    return (sum(1 for x in v if x in _IN), sum(1 for x in v if x in _OUT))
