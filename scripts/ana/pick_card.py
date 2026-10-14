@@ -60,7 +60,7 @@ def card(r,cls):
 
 allcards=''.join(card(r,('big' if r in BIG else 'sml')) for r in sorted(meta))
 
-ANA=[(6,12),(6,9),(12,12),(8,12),(5,8)]
+ANA=sorted([(6,12),(6,9),(12,12),(8,12),(5,8)])
 ana=''
 for r,ub in ANA:
     z=[x for x in meta[r]['live'] if x['ub']==ub][0]
