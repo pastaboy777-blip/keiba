@@ -132,6 +132,29 @@ td{padding:8px 6px;font-size:14px;border-bottom:1px solid #222026}
 .use ol{margin-left:21px}
 .use li{font-size:15px;font-weight:900;line-height:2.0}
 .use li span{font-weight:700;color:#4a4335;font-size:13px}
+
+.tiles{display:flex;gap:13px}
+.tl{flex:1;background:#17161a;border:1px solid #39353d;border-radius:11px;padding:17px 19px 15px}
+.tn{font-size:40px;font-weight:900;color:#f5d020;line-height:1}
+.tn small{font-size:17px;color:#a39b90}
+.tc{font-size:15px;font-weight:900;color:#ff6b63;margin-top:5px}
+.tc b{font-size:20px}
+.tt{font-size:16px;font-weight:900;margin-top:10px}
+.ts{font-size:12px;color:#8d867c;font-weight:700;line-height:1.65;margin-top:5px}
+.sum{display:flex;align-items:center;gap:16px;background:#e8362f;color:#fff;border-radius:11px;
+ padding:14px 20px;margin-top:13px}
+.sl{font-size:17px;font-weight:900}
+.sl b{font-size:21px}
+.sr{margin-left:auto;font-size:12.5px;font-weight:800;color:#ffd9d7}
+.row{display:flex;align-items:center;gap:15px;padding:6px 0}
+.row .lb{flex:none;width:132px;text-align:right;font-size:15px;font-weight:900}
+.row .lb i{display:block;font-size:11px;color:#7e776e;font-weight:700;font-style:normal;margin-top:2px}
+.row .tr{flex:1;background:#1c1a20;border-radius:5px;height:27px}
+.row .fl{height:100%;border-radius:5px}
+.row .vv{flex:none;width:168px;font-size:17px;font-weight:900}
+.row .vv i{font-style:normal;font-size:12px;color:#7e776e;font-weight:700;margin-left:8px}
+.hot{background:linear-gradient(90deg,#ff8a52,#e8362f)}
+.cold{background:linear-gradient(90deg,#4a4752,#343139)}
 .bb{margin-top:22px;display:flex;justify-content:space-between;font-size:10.5px;
  letter-spacing:.16em;color:#5d574f;font-weight:800;border-top:1px solid #222026;padding-top:11px}
 """
@@ -149,12 +172,25 @@ HTML=('<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>'+CSS+'
  '<div class="note">明日の穴は<b>「前走の着順が悪くて、でも最終コーナーで押し上げていた馬」</b>に集まります。</div>'
  '<div class="kill"><div class="kt">&#10006;「外を回ると崩れる」で消えた18頭 &mdash; 人気でも切る</div>'
  '<div class="kl">'+H.escape(d3)+'</div></div>'
- '<div class="use"><div class="t">当日やること</div><ol>'
- '<li>発走30分前に馬体重を取り直す<span>　このリストは前走の体重で計算しています。穴狙いなら439kg以下は切る</span></li>'
- '<li>朝イチで nichi.py を回す<span>　「上がり3位以内80%以上・上がり幅4.0秒以上」なら、このリストがそのまま使えます</span></li>'
- '<li>1〜3Rのラップで、残り1000→800mと残り400→200mの落ち込みを確認<span>　同じ形なら続行</span></li>'
- '<li>拮抗している鞍は馬単の表裏<span>　前日の1番人気は4/12しか勝っていません</span></li>'
- '</ol></div>'
+ '<div class="sh">なぜこの3つで消すのか<span>前日10/14 川崎 全12鞍136頭の実測</span></div>'
+ '<div class="tiles">'
+ '<div class="tl"><div class="tn">14<small>頭</small></div><div class="tc">1着 <b>0</b></div>'
+ '<div class="tt">前走が10頭以下</div><div class="ts">相手が薄い鞍を勝ち上がってきた馬。3着内も1頭だけ</div></div>'
+ '<div class="tl"><div class="tn">17<small>頭</small></div><div class="tc">1着 <b>0</b></div>'
+ '<div class="tt">出走間隔75日以上</div><div class="ts">1ヶ月あけは標準。2ヶ月半を超えると走れていない</div></div>'
+ '<div class="tl"><div class="tn">12<small>頭</small></div><div class="tc">1着 <b>0</b></div>'
+ '<div class="tt">外を回ると崩れる</div><div class="ts">同じ馬の内と外を比べた差。1番人気2頭・2番人気2頭が全員6着以下</div></div>'
+ '</div>'
+ '<div class="sum"><span class="sl">3つで <b>31頭</b> 消して、<b>勝ち馬はゼロ</b></span>'
+ '<span class="sr">残った105頭に12勝すべて　／　そこから前走2〜6着に絞ると 40頭で7勝・3着内48%</span></div>'
+ '<div class="sh">前日の川崎は、上がりで決まった<span>位置ではありません</span></div>'
+ '<div class="row"><div class="lb">上がり上位25%<i>25頭</i></div><div class="tr"><div class="fl hot" style="width:88%"></div></div><div class="vv">3着内 88%<i>11勝</i></div></div>'
+ '<div class="row"><div class="lb">25〜50%<i>33頭</i></div><div class="tr"><div class="fl hot" style="width:36%"></div></div><div class="vv">36%<i>1勝</i></div></div>'
+ '<div class="row"><div class="lb">50〜75%<i>35頭</i></div><div class="tr"><div class="fl cold" style="width:6%"></div></div><div class="vv" style="color:#8d867c">6%<i>0勝</i></div></div>'
+ '<div class="row"><div class="lb">下位25%<i>43頭</i></div><div class="tr"></div><div class="vv" style="color:#8d867c">0%<i>3着内ゼロ</i></div></div>'
+ '<div class="note">そしてその上がりの正体は<b>最終コーナーの出口</b>でした。3角→4角で2つ以上押し上げた19頭が3着内53%、'
+ '2つ以上下げた12頭は<b>3着内ゼロ</b>。1角→2角と向正面の動きは無関係で、<b>向正面で押し上げた馬はむしろ悪い</b>（12頭で8%）。</div>'
+
  '<div class="bb"><span>2026/10/15 川崎 &mdash; 買う馬リスト</span><span>変態か、変態以外か。</span></div>'
  '</body></html>')
 open('/tmp/claude-0/pick15.html','w',encoding='utf-8').write(HTML)
