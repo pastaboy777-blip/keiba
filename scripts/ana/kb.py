@@ -491,7 +491,7 @@ def kyakushitsu(umacd: str, force: bool = False, n: int = 6):
     for d in zenso(umacd, force=force, n=n):
         if d["c4"] is None or d["chaku"] is None:
             continue
-        out.append(dict(date=d["date"], dist=d["dist"], surface=None,
+        out.append(dict(date=d["date"], dist=d["dist"], surface=d["surface"],
                         n=d["n"], chaku=d["chaku"], c4=d["c4"],
                         pas=d["pas"], rel=d["rel"]))
     return out
@@ -632,9 +632,17 @@ def zenso(umacd: str, force: bool = False, n: int = 8) -> list[dict]:
         d["date"] = f"{m.group(1)}/{int(m.group(2)):02d}/{int(m.group(3)):02d}"
         mv = re.search(r"\((.*?)・(.*?)\)", head)
         d["baba"] = mv.group(2) if mv else None
-        mp = re.search(r"\)\s*(\S+?)(\d+)R\(.*?(\d{3,4})m\)", head)
+        mp = re.search(r"\)\s*(\S+?)(\d+)R\((.*?)\s*(\d{3,4})m\)", head)
         d["venue"] = mp.group(1) if mp else None
-        d["dist"] = int(mp.group(3)) if mp else None
+        d["dist"] = int(mp.group(4)) if mp else None
+        # ★芝とダートを混ぜて数えない（穴9）。見出しの '(ダート・右 1800m)' /
+        #   '(芝Ｃ・右 1200m)' / '(障芝・右 2880m)' から種別を取る。
+        #   これを入れないと、芝の上がり33〜34秒台が砂の分析に混入する。
+        #   2026-10-14、サダージ32走で実際に混入して結論が逆に出た。
+        cond = mp.group(3) if mp else ""
+        d["surface"] = ("障" if "障" in cond else
+                        "芝" if "芝" in cond else
+                        "ダ" if "ダート" in cond or "ダ" in cond else None)
         mn = re.search(r"(\d+)頭(\d+)ｹﾞｰﾄ", blob)
         d["n"] = int(mn.group(1)) if mn else None
         d["gate"] = int(mn.group(2)) if mn else None
