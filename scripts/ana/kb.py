@@ -697,3 +697,68 @@ def rail(umacd: str, force: bool = False, n: int = 4) -> tuple[int, int]:
     # ★lane が空欄の行（当日ぶん）は数えない。埋まった行だけ後ろから n 走。
     v = [z["lane"] for z in zenso(umacd, force=force, n=n + 4) if z["lane"]][-n:]
     return (sum(1 for x in v if x in _IN), sum(1 for x in v if x in _OUT))
+
+
+def lane_gap(umacd: str, force: bool = False, nmin: int = 2):
+    """**同じ馬の中で**「外を回ったとき」と「内を通ったとき」の着順を比べる。
+
+    ★なぜ同じ馬の中で比べるのか（2026-10-14 川崎）★
+      コーナリングの上手さを近走から測ろうとして、2回外した。
+        ・近走の「3角→4角の順位変化」の平均 … 当日の動きとの相関 0.16
+        ・通し位置と位置帯で補正した edge 指数 … 相関 0.02（**悪化した**）
+      理由は2つ。
+        ① 順位変化は他馬次第。自分が同じ走りをしても前が止まれば上がる。
+        ② edge は「残り600m」をまとめて測るので、最終コーナーの出口と直線が
+           1つの数字に混ざる。コーナーだけ切り出せない。
+      **同じ馬の外と内を比べると地力が相殺され、通った場所の差だけが残る。**
+
+    返すのは (差, 外の走数, 内の走数)。差が取れないときは (None, n外, n内)。
+      差 = 外を回ったときの着順rel の平均 − 内を通ったときの着順rel の平均
+      着順rel = (着順-1)/(頭数-1)。0=1着 1=最下位。
+      **プラスほど「外だと崩れる」馬。マイナスは外でも落ちない馬。**
+      外寄り = 外・大外 ／ 内寄り = 最内・内（『中』は使わない）
+
+    2026-10-14 川崎 136頭での実測（判定できたのは70頭）:
+        +0.20以上（外だと崩れる） 12頭 → 1着ゼロ・3着内 8%
+        -0.10以下（外でも崩れない）14頭 → 3着内29%
+      **人気で固定しても残る**のがこの指標の値打ち:
+        1〜5人気 落ちない 11頭 55% / 落ちる 13頭 23%
+        6人気以下 落ちない 26頭 19% / 落ちる 20頭 10%
+      比較: 川崎適性（他場rel − 川崎rel）は 7% vs 43% と派手に出るが、
+      人気で固定すると差が6〜8ポイントに縮む＝**ほぼオッズに入っている**。
+      川崎の出走経験数は無関係（0〜2走26%/3〜7走28%/8〜14走22%/15走+32%）。
+
+    ★これは消しの道具で、拾いの道具ではない。
+      「外でも崩れない」側は29%で全体平均26%とほぼ同じ。効くのは消す側だけ。
+      消すと穴を落とすこともある（9R 3着ベルトネ 6人気22.8倍が該当した）。
+    詳細は notes/live/20261014_kawasaki.md。
+    """
+    h = [d for d in zenso(umacd, force=force, n=99)
+         if d["chaku"] and d["n"] and d["n"] > 1 and d["lane"]]
+    rel = lambda d: (d["chaku"] - 1) / (d["n"] - 1)
+    out = [rel(d) for d in h if d["lane"] in _OUT]
+    inn = [rel(d) for d in h if d["lane"] in _IN]
+    if len(out) < nmin or len(inn) < nmin:
+        return None, len(out), len(inn)
+    return (sum(out) / len(out) - sum(inn) / len(inn)), len(out), len(inn)
+
+
+def kawasaki_apt(umacd: str, force: bool = False, nmin: int = 2):
+    """他場より川崎で走る馬かどうか。(差, 川崎の走数, 他場の走数) を返す。
+
+    差 = 他場の着順rel平均 − 川崎の着順rel平均。**プラスほど川崎で走る。**
+
+    ★人気で固定するとほとんど消える（2026-10-14 川崎）。
+      生の数字は −0.12以下が3着内7%・+0.12以上が43%で派手だが、
+      適性マイナス31頭のうち22頭が6人気以下、適性プラス38頭のうち20頭が
+      1〜5人気。**市場がすでに織り込んでいる。**
+      人気で固定した差は6〜8ポイントしかない。lane_gap のほうが残る。
+    """
+    h = [d for d in zenso(umacd, force=force, n=99)
+         if d["chaku"] and d["n"] and d["n"] > 1]
+    rel = lambda d: (d["chaku"] - 1) / (d["n"] - 1)
+    kw = [rel(d) for d in h if d["venue"] == "川崎"]
+    ot = [rel(d) for d in h if d["venue"] != "川崎"]
+    if len(kw) < nmin or len(ot) < nmin:
+        return None, len(kw), len(ot)
+    return (sum(ot) / len(ot) - sum(kw) / len(kw)), len(kw), len(ot)
