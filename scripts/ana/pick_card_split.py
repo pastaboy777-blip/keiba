@@ -37,6 +37,7 @@ for r,v in R.items():
                  live=live,dead=[x for x in v if flags(x)])
 BIG=[1,2,6,7,9,11]
 ANA=[(5,8),(6,9),(6,12),(8,12),(12,12)]
+MK=['&#9678;','&#9675;','&#9650;','&#9651;','&middot;']
 
 def card(r):
     m=meta[r]; L=m['live']; cls='big' if r in BIG else 'sml'
@@ -44,14 +45,15 @@ def card(r):
     h+='<div class="rh"><span class="rn">'+str(r)+'R</span><span class="rd">'+str(m['dist'])+'m</span>'
     h+='<span class="rt">'+m['start']+'</span>'
     h+='<span class="rz">'+(('<b>勝負</b>　' if cls=='big' else '')+str(len(L))+'/'+str(m['n'])+'頭 残')+'</span></div>'
-    for i,z in enumerate(L[:3]):
-        mk='&#9678;' if i==0 else ('&#9675;' if i==1 else '&#9651;')
-        cl='p1' if i==0 else 'p2'
-        h+='<div class="hr '+cl+'"><span class="mk">'+mk+'</span><span class="ub">'+str(z['ub'])+'</span>'
+    for i,z in enumerate(L[:5]):
+        cl='p1' if i==0 else ('p2' if i<=2 else 'p3')
+        h+='<div class="hr '+cl+'"><span class="mk">'+MK[i]+'</span><span class="ub">'+str(z['ub'])+'</span>'
         h+='<span class="nm">'+H.escape(z['name'])+'</span><span class="jk">'+H.escape((z['jk'] or '')[:5])+'</span>'
         h+='<span class="sc">'+('%+d'%score(z))+'</span></div>'
-        if i==0:
-            h+='<div class="wy">'+' &middot; '.join(why(z))+'</div>'
+        if i<=1:
+            h+='<div class="wy">'+(' &middot; '.join(why(z)) or '&mdash;')+'</div>'
+    if len(L)<5:
+        h+='<div class="few">残り'+str(len(L))+'頭。これで全部です</div>'
     h+='</div>'
     return h
 
@@ -70,31 +72,34 @@ h1 small{display:block;font-size:27px;color:#6b645b;margin-bottom:5px}
 .sh{font-size:20px;font-weight:900;margin:32px 0 13px;padding-left:13px;border-left:7px solid #e8362f}
 .sh span{font-size:13px;color:#8d867c;font-weight:700;margin-left:11px}
 .grid{display:flex;flex-wrap:wrap;gap:13px}
-.rc{background:#17161a;border:1px solid #39353d;border-radius:11px;padding:14px 16px 13px;width:calc(33.333% - 9px)}
+.rc{background:#17161a;border:1px solid #39353d;border-radius:11px;padding:14px 16px 12px;width:calc(33.333% - 9px)}
 .rc.big{border-color:#8a2b26;box-shadow:inset 0 0 0 1px #5d201c}
 .rc.sml{background:#131216;border-color:#2b2930}
-.rh{display:flex;align-items:baseline;gap:9px;border-bottom:1px solid #2b2930;padding-bottom:8px;margin-bottom:9px}
+.rh{display:flex;align-items:baseline;gap:9px;border-bottom:1px solid #2b2930;padding-bottom:8px;margin-bottom:8px}
 .rn{font-size:24px;font-weight:900;color:#f5d020}
 .sml .rn{font-size:20px;color:#8d867c}
 .rd{font-size:14px;font-weight:800}
 .rt{font-size:11.5px;color:#7e776e;font-weight:700}
 .rz{margin-left:auto;font-size:11.5px;color:#8d867c;font-weight:800}
 .rz b{color:#e8362f}
-.hr{display:flex;align-items:center;gap:8px;padding:4px 0}
+.hr{display:flex;align-items:center;gap:8px;padding:3.5px 0}
 .mk{flex:none;width:17px;font-size:14px;color:#e8362f;font-weight:900}
-.hr.p2 .mk{color:#6b645b}
+.hr.p2 .mk{color:#8d867c}.hr.p3 .mk{color:#4a4752}
 .ub{flex:none;width:21px;height:21px;line-height:21px;text-align:center;border-radius:4px;
  background:#2b2930;font-size:12px;font-weight:900}
 .hr.p1 .ub{background:#e8362f;color:#fff}
 .sml .hr.p1 .ub{background:#4a4752}
 .nm{flex:1;font-size:15px;font-weight:900;letter-spacing:-.01em}
-.hr.p2 .nm{font-size:13.5px;font-weight:800;color:#b5ada2}
+.hr.p2 .nm{font-size:13.5px;font-weight:800;color:#c4bcb1}
+.hr.p3 .nm{font-size:13px;font-weight:700;color:#8d867c}
 .jk{flex:none;font-size:11px;color:#7e776e;font-weight:700}
 .sc{flex:none;width:26px;text-align:right;font-size:14px;font-weight:900;color:#f5d020}
-.hr.p2 .sc{color:#6b645b;font-size:12.5px}
+.hr.p2 .sc{color:#8d867c;font-size:12.5px}.hr.p3 .sc{color:#5d574f;font-size:12px}
 .sml .sc{color:#8d867c}
-.wy{font-size:11.5px;color:#ff8a52;font-weight:700;margin:3px 0 7px 25px;line-height:1.5}
+.wy{font-size:11.5px;color:#ff8a52;font-weight:700;margin:2px 0 6px 25px;line-height:1.5}
+.hr.p2+.wy{color:#9a9288;font-size:11px}
 .sml .wy{color:#8d867c}
+.few{font-size:11px;color:#5d574f;font-weight:700;margin:6px 0 0 25px}
 table{width:100%;border-collapse:collapse;margin-top:4px}
 td{padding:8px 6px;font-size:14px;border-bottom:1px solid #222026}
 .ar{width:46px;color:#f5d020;font-weight:900;font-size:15px}
@@ -108,55 +113,36 @@ td{padding:8px 6px;font-size:14px;border-bottom:1px solid #222026}
 .kill .kt{font-size:15px;font-weight:900;color:#ff6b63;margin-bottom:8px}
 .kill .kl{font-size:12.5px;color:#a39b90;font-weight:700;line-height:1.95}
 .tiles{display:flex;gap:13px}
-.tl{flex:1;background:#17161a;border:1px solid #39353d;border-radius:11px;padding:17px 19px 15px}
-.tn{font-size:40px;font-weight:900;color:#f5d020;line-height:1}
-.tn small{font-size:17px;color:#a39b90}
-.tc{font-size:15px;font-weight:900;color:#ff6b63;margin-top:5px}
-.tc b{font-size:20px}
-.tt{font-size:16px;font-weight:900;margin-top:10px}
-.ts{font-size:12px;color:#8d867c;font-weight:700;line-height:1.65;margin-top:5px}
+.tl{flex:1;background:#17161a;border:1px solid #39353d;border-radius:11px;padding:19px 21px 17px}
+.tn{font-size:46px;font-weight:900;color:#f5d020;line-height:1}
+.tn small{font-size:19px;color:#a39b90}
+.tc{font-size:16px;font-weight:900;color:#ff6b63;margin-top:6px}
+.tc b{font-size:22px}
+.tt{font-size:17px;font-weight:900;margin-top:11px}
+.ts{font-size:12.5px;color:#8d867c;font-weight:700;line-height:1.7;margin-top:6px}
 .sum{display:flex;align-items:center;gap:16px;background:#e8362f;color:#fff;border-radius:11px;
- padding:14px 20px;margin-top:13px}
-.sl{font-size:17px;font-weight:900}
-.sl b{font-size:21px}
-.sr{margin-left:auto;font-size:12.5px;font-weight:800;color:#ffd9d7}
-.row{display:flex;align-items:center;gap:15px;padding:6px 0}
-.row .lb{flex:none;width:132px;text-align:right;font-size:15px;font-weight:900}
-.row .lb i{display:block;font-size:11px;color:#7e776e;font-weight:700;font-style:normal;margin-top:2px}
-.row .tr{flex:1;background:#1c1a20;border-radius:5px;height:27px}
+ padding:16px 22px;margin-top:13px}
+.sl{font-size:19px;font-weight:900}
+.sl b{font-size:24px}
+.sr{margin-left:auto;font-size:13px;font-weight:800;color:#ffd9d7}
+.row{display:flex;align-items:center;gap:15px;padding:7px 0}
+.row .lb{flex:none;width:138px;text-align:right;font-size:16px;font-weight:900}
+.row .lb i{display:block;font-size:11.5px;color:#7e776e;font-weight:700;font-style:normal;margin-top:2px}
+.row .tr{flex:1;background:#1c1a20;border-radius:5px;height:30px}
 .row .fl{height:100%;border-radius:5px}
-.row .vv{flex:none;width:168px;font-size:17px;font-weight:900}
-.row .vv i{font-style:normal;font-size:12px;color:#7e776e;font-weight:700;margin-left:8px}
+.row .vv{flex:none;width:178px;font-size:18px;font-weight:900}
+.row .vv i{font-style:normal;font-size:12.5px;color:#7e776e;font-weight:700;margin-left:8px}
 .hot{background:linear-gradient(90deg,#ff8a52,#e8362f)}
 .cold{background:linear-gradient(90deg,#4a4752,#343139)}
 .bb{margin-top:22px;display:flex;justify-content:space-between;font-size:10.5px;
  letter-spacing:.16em;color:#5d574f;font-weight:800;border-top:1px solid #222026;padding-top:11px}
 """
-
-EV = ('<div class="sh">なぜこの3つで消すのか<span>前日10/14 川崎 全12鞍136頭の実測</span></div>'
- '<div class="tiles">'
- '<div class="tl"><div class="tn">14<small>頭</small></div><div class="tc">1着 <b>0</b></div>'
- '<div class="tt">前走が10頭以下</div><div class="ts">相手が薄い鞍を勝ち上がってきた馬。3着内も1頭だけ</div></div>'
- '<div class="tl"><div class="tn">17<small>頭</small></div><div class="tc">1着 <b>0</b></div>'
- '<div class="tt">出走間隔75日以上</div><div class="ts">1ヶ月あけは標準。2ヶ月半を超えると走れていない</div></div>'
- '<div class="tl"><div class="tn">12<small>頭</small></div><div class="tc">1着 <b>0</b></div>'
- '<div class="tt">外を回ると崩れる</div><div class="ts">同じ馬の内と外を比べた差。1番人気2頭・2番人気2頭が全員6着以下</div></div>'
- '</div>'
- '<div class="sum"><span class="sl">3つで <b>31頭</b> 消して、<b>勝ち馬はゼロ</b></span>'
- '<span class="sr">残った105頭に12勝すべて　／　そこから前走2〜6着に絞ると 40頭で7勝・3着内48%</span></div>'
- '<div class="sh">前日の川崎は、上がりで決まった<span>位置ではありません</span></div>'
- '<div class="row"><div class="lb">上がり上位25%<i>25頭</i></div><div class="tr"><div class="fl hot" style="width:88%"></div></div><div class="vv">3着内 88%<i>11勝</i></div></div>'
- '<div class="row"><div class="lb">25〜50%<i>33頭</i></div><div class="tr"><div class="fl hot" style="width:36%"></div></div><div class="vv">36%<i>1勝</i></div></div>'
- '<div class="row"><div class="lb">50〜75%<i>35頭</i></div><div class="tr"><div class="fl cold" style="width:6%"></div></div><div class="vv" style="color:#8d867c">6%<i>0勝</i></div></div>'
- '<div class="row"><div class="lb">下位25%<i>43頭</i></div><div class="tr"></div><div class="vv" style="color:#8d867c">0%<i>3着内ゼロ</i></div></div>'
- '<div class="note">そしてその上がりの正体は<b>最終コーナーの出口</b>でした。3角→4角で2つ以上押し上げた19頭が3着内53%、'
- '2つ以上下げた12頭は<b>3着内ゼロ</b>。1角→2角と向正面の動きは無関係で、<b>向正面で押し上げた馬はむしろ悪い</b>（12頭で8%）。</div>')
+HEAD='<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>'+CSS+'</style></head><body>'
 
 def build(rs, title_small, title, badge, path):
     cards=''.join(card(r) for r in rs)
     nlive=sum(len(meta[r]['live']) for r in rs)
     ntot=sum(meta[r]['n'] for r in rs)
-    ndead=ntot-nlive
     ana=''
     for r,ub in ANA:
         if r not in rs: continue
@@ -172,25 +158,59 @@ def build(rs, title_small, title, badge, path):
     anasec=''
     if ana:
         anasec=('<div class="sh">穴で狙うなら<span>前走の着順は悪いが、最終コーナーで押し上げていた馬</span></div>'
-                '<table>'+ana+'</table>'
-                '<div class="note">明日の穴は<b>「前走の着順が悪くて、でも最終コーナーで押し上げていた馬」</b>に集まります。</div>')
+                '<table>'+ana+'</table>')
     killsec=''
     if d3:
         killsec=('<div class="kill"><div class="kt">&#10006;「外を回ると崩れる」で消えた'+str(len(d3))+'頭 &mdash; 人気でも切る</div>'
                  '<div class="kl">'+H.escape('　'.join(d3))+'</div></div>')
-    HTML=('<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>'+CSS+'</style></head><body>'
-     '<div class="bt">変態か、変態以外か。</div>'
+    HTML=(HEAD+'<div class="bt">変態か、変態以外か。</div>'
      '<h1><small>'+title_small+'</small>'+title+'</h1>'
-     '<div class="sub">10/15（木）川崎　'+badge+'<span>'+str(ntot)+'頭から'+str(ndead)+'頭を消して、点数順に並べています</span></div>'
+     '<div class="sub">10/15（木）川崎　'+badge+'<span>'+str(ntot)+'頭から'+str(ntot-nlive)+'頭を消して、各レース上位5頭</span></div>'
      '<div class="lead">消す基準は3つ。<b>前走が10頭以下／出走間隔75日以上／外を回ると崩れる馬。</b><br>'
      '点数は <b>前走2〜6着・脚を残している・いつも前にいる・最終コーナーで上げる・ラチ沿いを通す</b> の積み上げです。</div>'
      '<div class="sh">'+badge+'<span>赤枠が勝負どころ</span></div><div class="grid">'+cards+'</div>'
-     +anasec+killsec+EV+
+     +anasec+killsec+
      '<div class="bb"><span>2026/10/15 川崎 '+badge+' &mdash; 買う馬リスト</span><span>変態か、変態以外か。</span></div>'
      '</body></html>')
     open(path,'w',encoding='utf-8').write(HTML)
     print(path, nlive, '/', ntot)
 
-build([1,2,3,4,5,6],'10/15 川崎 前半','1R〜6R','1R〜6R','/tmp/claude-0/pick15_a.html')
-build([7,8,9,10,11,12],'10/15 川崎 後半','7R〜12R','7R〜12R','/tmp/claude-0/pick15_b.html')
+build([1,2,3,4,5,6],'10/15 川崎 前半','1R〜6R','1R〜6R','/tmp/claude-0/p15a.html')
+build([7,8,9,10,11,12],'10/15 川崎 後半','7R〜12R','7R〜12R','/tmp/claude-0/p15b.html')
+
+EV=(HEAD+'<div class="bt">変態か、変態以外か。</div>'
+ '<h1><small>10/15 川崎の買い方</small>なぜ、そう消すのか。</h1>'
+ '<div class="sub">前日 10/14（水）川崎 全12鞍 136頭の実測<span>この日の数字だけで作っています</span></div>'
+ '<div class="lead">前日の川崎は<b>上がり勝負の日</b>でした。位置ではありません。<br>'
+ 'そしてその上がりの正体は<b>最終コーナーの出口</b>です。ラップを残り距離で揃えると、12鞍すべての最も遅いハロンが'
+ '<b>残り1000→800m</b>か<b>残り400→200m</b>のどちらかに集まります。</div>'
+ '<div class="sh">消す3つ<span>どれも1着ゼロ</span></div>'
+ '<div class="tiles">'
+ '<div class="tl"><div class="tn">14<small>頭</small></div><div class="tc">1着 <b>0</b></div>'
+ '<div class="tt">前走が10頭以下</div><div class="ts">相手が薄い鞍を勝ち上がってきた馬。3着内も1頭だけ</div></div>'
+ '<div class="tl"><div class="tn">17<small>頭</small></div><div class="tc">1着 <b>0</b></div>'
+ '<div class="tt">出走間隔75日以上</div><div class="ts">1ヶ月あけは標準。2ヶ月半を超えると走れていない</div></div>'
+ '<div class="tl"><div class="tn">12<small>頭</small></div><div class="tc">1着 <b>0</b></div>'
+ '<div class="tt">外を回ると崩れる</div><div class="ts">同じ馬の内を通った走りと外を回った走りを比べた差。'
+ '1番人気2頭・2番人気2頭が入って全員6着以下</div></div>'
+ '</div>'
+ '<div class="sum"><span class="sl">3つで <b>31頭</b> 消して、<b>勝ち馬はゼロ</b></span>'
+ '<span class="sr">残った105頭に12勝すべて　／　そこから前走2〜6着に絞ると 40頭で7勝・3着内48%</span></div>'
+ '<div class="sh">前日は、上がりで決まった<span>位置ではありません</span></div>'
+ '<div class="row"><div class="lb">上がり上位25%<i>25頭</i></div><div class="tr"><div class="fl hot" style="width:88%"></div></div><div class="vv">3着内 88%<i>11勝</i></div></div>'
+ '<div class="row"><div class="lb">25〜50%<i>33頭</i></div><div class="tr"><div class="fl hot" style="width:36%"></div></div><div class="vv">36%<i>1勝</i></div></div>'
+ '<div class="row"><div class="lb">50〜75%<i>35頭</i></div><div class="tr"><div class="fl cold" style="width:6%"></div></div><div class="vv" style="color:#8d867c">6%<i>0勝</i></div></div>'
+ '<div class="row"><div class="lb">下位25%<i>43頭</i></div><div class="tr"></div><div class="vv" style="color:#8d867c">0%<i>3着内ゼロ</i></div></div>'
+ '<div class="sh">決まったのは最終コーナー<span>1角→2角と向正面の動きは無関係でした</span></div>'
+ '<div class="row"><div class="lb">2つ以上 上げた<i>19頭</i></div><div class="tr"><div class="fl hot" style="width:53%"></div></div><div class="vv">3着内 53%<i>4勝</i></div></div>'
+ '<div class="row"><div class="lb">1つ上げた<i>19頭</i></div><div class="tr"><div class="fl hot" style="width:37%"></div></div><div class="vv">37%<i>1勝</i></div></div>'
+ '<div class="row"><div class="lb">動かず<i>27頭</i></div><div class="tr"><div class="fl hot" style="width:30%"></div></div><div class="vv">30%<i>3勝</i></div></div>'
+ '<div class="row"><div class="lb">1つ下げた<i>23頭</i></div><div class="tr"><div class="fl cold" style="width:9%"></div></div><div class="vv" style="color:#8d867c">9%<i>1勝</i></div></div>'
+ '<div class="row"><div class="lb">2つ以上 下げた<i>12頭</i></div><div class="tr"></div><div class="vv" style="color:#8d867c">0%<i>3着内ゼロ</i></div></div>'
+ '<div class="note">向正面（2角→3角）で押し上げた馬は<b>12頭で3着内8%</b>と、むしろ悪い結果でした。'
+ '残り800→600mは前日いちばん速い区間（平均12.05秒）で、そこで動かすと最後に残らない形です。</div>'
+ '<div class="bb"><span>2026/10/15 川崎 &mdash; 買い方の根拠</span><span>変態か、変態以外か。</span></div>'
+ '</body></html>')
+open('/tmp/claude-0/p15c.html','w',encoding='utf-8').write(EV)
+print('/tmp/claude-0/p15c.html')
 
