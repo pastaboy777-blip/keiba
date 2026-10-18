@@ -43,7 +43,7 @@ WARN_COLOR = ''
 WARN_PLAIN = ''
 HEAD = re.compile(r"^■ (\d+)R (\S+) ── (\d+)頭")
 ROW = re.compile(
-    r"^\s*(\d+) (.+?)\s+(\d\d/\d\d) (\S+) ([良稍重不]) ／ (\S+?)\s*\(負荷[\d.?]+\) ／ "
+    r"^\s*(\d+) (.+?)\s+(\d\d/\d\d) (\S+?)\s+(?:([良稍重不])\s+)?／ (\S+?)\s*\(負荷[\d.?]+\) ／ "
     r"([追流?])組 (\S+)\s+／ その日 (\S+)\s+／ 同脚色 (\S+)\s+／ (\d+)本")
 NONE = re.compile(r"^\s*(\d+) (.+?)\s+日付のある追い切りなし")
 
@@ -71,7 +71,7 @@ def parse(path: str):
         if m:
             cur["rows"].append(dict(
                 u=int(m.group(1)), nm=m.group(2).strip(), d=m.group(3).lstrip("0").replace("/0", "/"),
-                course=m.group(4), baba=m.group(5), kyaku=m.group(6), bk=m.group(7),
+                course=m.group(4), baba=m.group(5) or "─", kyaku=m.group(6), bk=m.group(7),
                 bucket=m.group(8), day=m.group(9), n=int(m.group(11)), none=False))
     return meta, races
 
