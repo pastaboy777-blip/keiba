@@ -47,7 +47,17 @@ def parse_seiseki(h):
             if digs: tsuka = [int(x) for x in digs]; any_real = True
         rows.append({"chaku": int(c[0]), "umaban": int(c[nmi - 1]), "umacd": cm.group(1),
                      "name": c[nmi], "tsuka": tsuka, "agari": agari, "nk": nk, "wt": wt})
-    return {"date": date, "track": track, "dist": dist, "masked": not any_real, "rows": rows}
+    # ラップ・平均ハロン・レースの上がりも拾う（cookie が無いと ＊＊＊＊＊ になる）
+    t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", h))
+    i = t.find("ラップタイム")
+    lap = re.findall(r"\d+\.\d", t[i:i + 140].split("払戻")[0]) if i >= 0 else []
+    mavg = re.search(r"平均ハロン\s+([\d.]+)", t)
+    mag = re.search(r"上り\s*上り([\d.]+)－([\d.]+)", t)
+    return {"date": date, "track": track, "dist": dist, "masked": not any_real, "rows": rows,
+            "lap": [float(v) for v in lap],
+            "avg_f": float(mavg.group(1)) if mavg else None,
+            "race_4f": float(mag.group(1)) if mag else None,
+            "race_3f": float(mag.group(2)) if mag else None}
 
 def _seen():
     if not os.path.exists(DATA): return set()
