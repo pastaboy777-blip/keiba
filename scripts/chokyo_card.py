@@ -43,8 +43,8 @@ WARN_COLOR = ''
 WARN_PLAIN = ''
 HEAD = re.compile(r"^■ (\d+)R (\S+) ── (\d+)頭")
 ROW = re.compile(
-    r"^\s*(\d+) (.+?)\s+(\d\d/\d\d) (\S+) ([良稍重不]) ／ (\S+?)\s*\(負荷[\d.]+\) ／ "
-    r"([追流])組 (\S+)\s+／ その日 (\S+)\s+／ 同脚色 (\S+)\s+／ (\d+)本")
+    r"^\s*(\d+) (.+?)\s+(\d\d/\d\d) (\S+) ([良稍重不]) ／ (\S+?)\s*\(負荷[\d.?]+\) ／ "
+    r"([追流?])組 (\S+)\s+／ その日 (\S+)\s+／ 同脚色 (\S+)\s+／ (\d+)本")
 NONE = re.compile(r"^\s*(\d+) (.+?)\s+日付のある追い切りなし")
 
 
@@ -130,16 +130,21 @@ def race_block(rc: dict) -> str:
                      % (w["u"], w["nm"], "<td>─</td>" * 7))
             continue
         cb, cd = cls(w["bucket"]), cls(w["day"])
+        if w["bk"] == "?":
+            # 直線だけの追い切りは負荷が読めない。順位を出さず、色も付けない。
+            cb = cd = "gr"
         co = w["course"].replace("船橋", "").replace("調教場", "") or w["course"]
         nmcls = "l lred" if (picked(w) if PICK else "hi" in (cb, cd)) else "l"
         if SMALL.get((rc["r"], w["u"])) and "hi" in (cb, cd):
             nmcls += " lsml"      # 小型かつ調教が上位 → 馬名を赤文字に
         s.append('<tr><td>%d</td><td class="%s">%s</td><td>%s</td><td>%s</td><td>%s</td>'
-                 '<td>%s</td><td class="%s">%s組 %s</td><td class="%s">%s</td>'
+                 '<td>%s</td><td class="%s">%s</td><td class="%s">%s</td>'
                  '<td>%d</td></tr>'
                  % (w["u"], nmcls,
                     w["nm"], w["d"], co,
-                    w["baba"], w["kyaku"], cb, w["bk"], w["bucket"], cd, w["day"], w["n"]))
+                    w["baba"], w["kyaku"],
+                    cb, '直' if w["bk"] == '?' else ('%s組 %s' % (w["bk"], w["bucket"])),
+                    cd, '─' if w["bk"] == '?' else w["day"], w["n"]))
     s.append("</table></div>")
     return "".join(s)
 
