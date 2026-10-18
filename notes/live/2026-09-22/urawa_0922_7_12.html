@@ -135,14 +135,10 @@ table.t td.gr{background:#f4f4f4;color:#888;font-size:21px}
 .rtop{font-size:26px;font-weight:900;color:#111;margin:0 0 4px}
 .rtop span{background:#111;color:#fff;padding:2px 12px;border-radius:4px;margin-right:9px}
 .rtop em{font-style:normal;font-size:20px;font-weight:800;color:#555;margin-left:8px}
-.bars{display:flex;align-items:flex-end;gap:5px;height:150px;border-bottom:3px solid #111;margin:8px 0 0}
-.bars .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}
-.bars .v{font-size:19px;font-weight:900;color:#111;margin-bottom:3px}
-.bars .bar{width:100%;background:#9aa6b8;border-radius:3px 3px 0 0}
-.bars .col.hot .bar{background:#e8232a}.bars .col.hot .v{color:#e8232a}
-.bars .col.cold .bar{background:#1f4e9c}.bars .col.cold .v{color:#1f4e9c}
-.xax{display:flex;gap:5px;margin:4px 0 8px}
-.xax div{flex:1;text-align:center;font-size:18px;font-weight:800;color:#666}
+.chart{margin:10px 0 6px}
+.chart svg{width:100%;height:auto;display:block}
+.lgd{font-size:20px;font-weight:800;color:#555;margin:2px 0 6px}
+.lgd b{display:inline-block;width:26px;height:6px;border-radius:3px;margin:0 6px 0 14px;vertical-align:middle}
 </style></head>
 
 <body><div class="card"><div class="lines"></div><div class="tone"></div><div class="inner">
@@ -243,23 +239,8 @@ table.t td.gr{background:#f4f4f4;color:#888;font-size:21px}
 <div class="sec"><div class="sh">② 鞍ごとのラップと1〜3着</div>
 <div class="rcard"><div class="rtop"><span>7R</span>ダ1400 不良 13頭<em>秋うらら（あきうらら）特別　３歳一</em></div>
 <div style="font-size:21px;font-weight:800;color:#333;margin:2px 0 0">前半3F 36.7 ／ レース上がり3F 39.1 ／ 最大減速 <b style="color:#e8232a">+1.6秒（6F目）</b></div>
-<div class="bars">
-<div class="col"><div class="v">12.8</div><div class="bar" style="height:87px"></div></div>
-<div class="col cold"><div class="v">11.7</div><div class="bar" style="height:39px"></div></div>
-<div class="col"><div class="v">12.2</div><div class="bar" style="height:61px"></div></div>
-<div class="col"><div class="v">13.0</div><div class="bar" style="height:96px"></div></div>
-<div class="col"><div class="v">11.9</div><div class="bar" style="height:48px"></div></div>
-<div class="col hot"><div class="v">13.5</div><div class="bar" style="height:118px"></div></div>
-<div class="col"><div class="v">13.7</div><div class="bar" style="height:126px"></div></div>
-</div><div class="xax">
-<div>1F</div>
-<div>2F</div>
-<div>3F</div>
-<div>4F</div>
-<div>5F</div>
-<div>6F</div>
-<div>7F</div>
-</div>
+<div class="chart"><svg viewBox="0 0 1180 330" xmlns="http://www.w3.org/2000/svg"><line x1="58" y1="31.9" x2="1157" y2="31.9" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="37.9" font-size="18" fill="#999" font-weight="700" text-anchor="end">11.3</text><line x1="58" y1="92.7" x2="1157" y2="92.7" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="98.7" font-size="18" fill="#999" font-weight="700" text-anchor="end">12.0</text><line x1="58" y1="153.4" x2="1157" y2="153.4" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="159.4" font-size="18" fill="#999" font-weight="700" text-anchor="end">12.7</text><line x1="58" y1="214.2" x2="1157" y2="214.2" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="220.2" font-size="18" fill="#999" font-weight="700" text-anchor="end">13.4</text><line x1="58" y1="274.9" x2="1157" y2="274.9" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="280.9" font-size="18" fill="#999" font-weight="700" text-anchor="end">14.1</text><text x="58" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">1F</text><text x="235" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">2F</text><text x="413" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">3F</text><text x="590" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">4F</text><text x="767" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">5F</text><text x="945" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">6F</text><text x="1122" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">7F</text><polyline points="58.0,162.3 235.3,64.1 412.7,108.7 590.0,180.2 767.3,81.9 944.7,224.9 1122.0,242.7" fill="none" stroke="#111" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="58.0" cy="162.3" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="235.3" cy="64.1" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="412.7" cy="108.7" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="590.0" cy="180.2" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="767.3" cy="81.9" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="944.7" cy="224.9" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="1122.0" cy="242.7" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="944.7" cy="224.9" r="11" fill="#e8232a"/><text x="944.7" y="204.9" font-size="21" font-weight="900" fill="#e8232a" text-anchor="middle">13.5</text><circle cx="235.3" cy="64.1" r="11" fill="#1f4e9c"/><text x="235.3" y="96.1" font-size="21" font-weight="900" fill="#1f4e9c" text-anchor="middle">11.7</text></svg></div>
+<div class="lgd">上に行くほど速い　<b style="background:#1f4e9c"></b>最速ハロン<b style="background:#e8232a"></b>落ち込みの底</div>
 <table class="t"><tr><th style="width:62px">着</th><th style="width:70px">馬番</th><th>馬</th><th style="width:90px">人気</th><th style="width:90px">4角</th><th style="width:110px">上り順</th><th style="width:90px">通し</th><th style="width:120px">馬体重</th></tr>
 <tr><td>1着</td><td>12</td><td class="l">パッツンドレス</td><td class="">3人気</td><td class="hi">1番手</td><td class="">4位</td><td>最内</td><td>466k(-2)</td></tr>
 <tr><td>2着</td><td>1</td><td class="l">バルカニクス</td><td class="hi">9人気</td><td class="">4番手</td><td class="hi">3位</td><td>内</td><td>501k(+4)</td></tr>
@@ -267,29 +248,8 @@ table.t td.gr{background:#f4f4f4;color:#888;font-size:21px}
 </table></div>
 <div class="rcard"><div class="rtop"><span>8R</span>ダ2000 重 11頭<em>秋の夜（あきのよ）特別　Ｃ３　選抜馬イ</em></div>
 <div style="font-size:21px;font-weight:800;color:#333;margin:2px 0 0">前半3F 38.1 ／ レース上がり3F 41.6 ／ 最大減速 <b style="color:#e8232a">+1.9秒（9F目）</b></div>
-<div class="bars">
-<div class="col"><div class="v">13.1</div><div class="bar" style="height:78px"></div></div>
-<div class="col cold"><div class="v">11.6</div><div class="bar" style="height:36px"></div></div>
-<div class="col"><div class="v">13.4</div><div class="bar" style="height:87px"></div></div>
-<div class="col"><div class="v">12.7</div><div class="bar" style="height:67px"></div></div>
-<div class="col"><div class="v">13.3</div><div class="bar" style="height:84px"></div></div>
-<div class="col"><div class="v">13.4</div><div class="bar" style="height:87px"></div></div>
-<div class="col"><div class="v">13.8</div><div class="bar" style="height:98px"></div></div>
-<div class="col"><div class="v">13.0</div><div class="bar" style="height:75px"></div></div>
-<div class="col hot"><div class="v">14.9</div><div class="bar" style="height:129px"></div></div>
-<div class="col"><div class="v">13.7</div><div class="bar" style="height:95px"></div></div>
-</div><div class="xax">
-<div>1F</div>
-<div>2F</div>
-<div>3F</div>
-<div>4F</div>
-<div>5F</div>
-<div>6F</div>
-<div>7F</div>
-<div>8F</div>
-<div>9F</div>
-<div>10F</div>
-</div>
+<div class="chart"><svg viewBox="0 0 1180 330" xmlns="http://www.w3.org/2000/svg"><line x1="58" y1="31.9" x2="1157" y2="31.9" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="37.9" font-size="18" fill="#999" font-weight="700" text-anchor="end">11.0</text><line x1="58" y1="92.7" x2="1157" y2="92.7" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="98.7" font-size="18" fill="#999" font-weight="700" text-anchor="end">12.1</text><line x1="58" y1="153.4" x2="1157" y2="153.4" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="159.4" font-size="18" fill="#999" font-weight="700" text-anchor="end">13.2</text><line x1="58" y1="214.2" x2="1157" y2="214.2" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="220.2" font-size="18" fill="#999" font-weight="700" text-anchor="end">14.4</text><line x1="58" y1="274.9" x2="1157" y2="274.9" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="280.9" font-size="18" fill="#999" font-weight="700" text-anchor="end">15.5</text><text x="58" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">1F</text><text x="176" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">2F</text><text x="294" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">3F</text><text x="413" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">4F</text><text x="531" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">5F</text><text x="649" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">6F</text><text x="767" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">7F</text><text x="886" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">8F</text><text x="1004" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">9F</text><text x="1122" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">10F</text><polyline points="58.0,145.3 176.2,64.1 294.4,161.5 412.7,123.6 530.9,156.1 649.1,161.5 767.3,183.2 885.6,139.9 1003.8,242.7 1122.0,177.8" fill="none" stroke="#111" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="58.0" cy="145.3" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="176.2" cy="64.1" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="294.4" cy="161.5" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="412.7" cy="123.6" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="530.9" cy="156.1" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="649.1" cy="161.5" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="767.3" cy="183.2" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="885.6" cy="139.9" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="1003.8" cy="242.7" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="1122.0" cy="177.8" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="1003.8" cy="242.7" r="11" fill="#e8232a"/><text x="1003.8" y="222.7" font-size="21" font-weight="900" fill="#e8232a" text-anchor="middle">14.9</text><circle cx="176.2" cy="64.1" r="11" fill="#1f4e9c"/><text x="176.2" y="96.1" font-size="21" font-weight="900" fill="#1f4e9c" text-anchor="middle">11.6</text></svg></div>
+<div class="lgd">上に行くほど速い　<b style="background:#1f4e9c"></b>最速ハロン<b style="background:#e8232a"></b>落ち込みの底</div>
 <table class="t"><tr><th style="width:62px">着</th><th style="width:70px">馬番</th><th>馬</th><th style="width:90px">人気</th><th style="width:90px">4角</th><th style="width:110px">上り順</th><th style="width:90px">通し</th><th style="width:120px">馬体重</th></tr>
 <tr><td>1着</td><td>4</td><td class="l">マーニク</td><td class="">5人気</td><td class="">3番手</td><td class="hi">2位</td><td>最内</td><td>462k(-5)</td></tr>
 <tr><td>2着</td><td>11</td><td class="l">ウインオアシス</td><td class="">2人気</td><td class="hi">1番手</td><td class="">9位</td><td>内</td><td>514k(-6)</td></tr>
@@ -297,23 +257,8 @@ table.t td.gr{background:#f4f4f4;color:#888;font-size:21px}
 </table></div>
 <div class="rcard"><div class="rtop"><span>9R</span>ダ1500 重 12頭<em>秋晴（あきばれ）特別　Ｃ２二</em></div>
 <div style="font-size:21px;font-weight:800;color:#333;margin:2px 0 0">前半3F 37.9 ／ レース上がり3F 38.6 ／ 最大減速 <b style="color:#e8232a">+2.3秒（2F目）</b></div>
-<div class="bars">
-<div class="col"><div class="v">10.9</div><div class="bar" style="height:36px"></div></div>
-<div class="col hot"><div class="v">13.2</div><div class="bar" style="height:110px"></div></div>
-<div class="col"><div class="v">13.8</div><div class="bar" style="height:129px"></div></div>
-<div class="col"><div class="v">12.8</div><div class="bar" style="height:97px"></div></div>
-<div class="col cold"><div class="v">11.6</div><div class="bar" style="height:59px"></div></div>
-<div class="col"><div class="v">13.4</div><div class="bar" style="height:116px"></div></div>
-<div class="col"><div class="v">13.6</div><div class="bar" style="height:122px"></div></div>
-</div><div class="xax">
-<div>1F</div>
-<div>2F</div>
-<div>3F</div>
-<div>4F</div>
-<div>5F</div>
-<div>6F</div>
-<div>7F</div>
-</div>
+<div class="chart"><svg viewBox="0 0 1180 330" xmlns="http://www.w3.org/2000/svg"><line x1="58" y1="31.9" x2="1157" y2="31.9" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="37.9" font-size="18" fill="#999" font-weight="700" text-anchor="end">10.4</text><line x1="58" y1="92.7" x2="1157" y2="92.7" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="98.7" font-size="18" fill="#999" font-weight="700" text-anchor="end">11.4</text><line x1="58" y1="153.4" x2="1157" y2="153.4" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="159.4" font-size="18" fill="#999" font-weight="700" text-anchor="end">12.4</text><line x1="58" y1="214.1" x2="1157" y2="214.1" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="220.1" font-size="18" fill="#999" font-weight="700" text-anchor="end">13.3</text><line x1="58" y1="274.9" x2="1157" y2="274.9" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="280.9" font-size="18" fill="#999" font-weight="700" text-anchor="end">14.3</text><text x="58" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">1F</text><text x="235" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">2F</text><text x="413" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">3F</text><text x="590" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">4F</text><text x="767" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">5F</text><text x="945" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">6F</text><text x="1122" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">7F</text><polyline points="58.0,64.1 235.3,205.8 412.7,242.7 590.0,181.1 767.3,107.2 944.7,218.1 1122.0,230.4" fill="none" stroke="#111" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="58.0" cy="64.1" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="235.3" cy="205.8" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="412.7" cy="242.7" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="590.0" cy="181.1" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="767.3" cy="107.2" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="944.7" cy="218.1" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="1122.0" cy="230.4" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="235.3" cy="205.8" r="11" fill="#e8232a"/><text x="235.3" y="185.8" font-size="21" font-weight="900" fill="#e8232a" text-anchor="middle">13.2</text><circle cx="767.3" cy="107.2" r="11" fill="#1f4e9c"/><text x="767.3" y="139.2" font-size="21" font-weight="900" fill="#1f4e9c" text-anchor="middle">11.6</text></svg></div>
+<div class="lgd">上に行くほど速い　<b style="background:#1f4e9c"></b>最速ハロン<b style="background:#e8232a"></b>落ち込みの底</div>
 <table class="t"><tr><th style="width:62px">着</th><th style="width:70px">馬番</th><th>馬</th><th style="width:90px">人気</th><th style="width:90px">4角</th><th style="width:110px">上り順</th><th style="width:90px">通し</th><th style="width:120px">馬体重</th></tr>
 <tr><td>1着</td><td>11</td><td class="l">インファンタ</td><td class="hi">8人気</td><td class="hi">2番手</td><td class="">4位</td><td>最内</td><td>490k(-1)</td></tr>
 <tr><td>2着</td><td>10</td><td class="l">ロワゾブルーチヌ</td><td class="">1人気</td><td class="">5番手</td><td class="hi">3位</td><td>外</td><td>492k(-2)</td></tr>
@@ -321,23 +266,8 @@ table.t td.gr{background:#f4f4f4;color:#888;font-size:21px}
 </table></div>
 <div class="rcard"><div class="rtop"><span>10R</span>ダ1400 重 12頭<em>秋桜（こすもす）特別　Ｂ３三Ｃ１一</em></div>
 <div style="font-size:21px;font-weight:800;color:#333;margin:2px 0 0">前半3F 37.0 ／ レース上がり3F 38.8 ／ 最大減速 <b style="color:#e8232a">+1.3秒（6F目）</b></div>
-<div class="bars">
-<div class="col"><div class="v">12.3</div><div class="bar" style="height:58px"></div></div>
-<div class="col cold"><div class="v">12.0</div><div class="bar" style="height:41px"></div></div>
-<div class="col"><div class="v">12.7</div><div class="bar" style="height:80px"></div></div>
-<div class="col"><div class="v">12.6</div><div class="bar" style="height:74px"></div></div>
-<div class="col"><div class="v">12.0</div><div class="bar" style="height:41px"></div></div>
-<div class="col hot"><div class="v">13.3</div><div class="bar" style="height:113px"></div></div>
-<div class="col"><div class="v">13.5</div><div class="bar" style="height:124px"></div></div>
-</div><div class="xax">
-<div>1F</div>
-<div>2F</div>
-<div>3F</div>
-<div>4F</div>
-<div>5F</div>
-<div>6F</div>
-<div>7F</div>
-</div>
+<div class="chart"><svg viewBox="0 0 1180 330" xmlns="http://www.w3.org/2000/svg"><line x1="58" y1="31.9" x2="1157" y2="31.9" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="37.9" font-size="18" fill="#999" font-weight="700" text-anchor="end">11.7</text><line x1="58" y1="92.7" x2="1157" y2="92.7" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="98.7" font-size="18" fill="#999" font-weight="700" text-anchor="end">12.2</text><line x1="58" y1="153.4" x2="1157" y2="153.4" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="159.4" font-size="18" fill="#999" font-weight="700" text-anchor="end">12.8</text><line x1="58" y1="214.2" x2="1157" y2="214.2" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="220.2" font-size="18" fill="#999" font-weight="700" text-anchor="end">13.3</text><line x1="58" y1="274.9" x2="1157" y2="274.9" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="280.9" font-size="18" fill="#999" font-weight="700" text-anchor="end">13.8</text><text x="58" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">1F</text><text x="235" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">2F</text><text x="413" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">3F</text><text x="590" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">4F</text><text x="767" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">5F</text><text x="945" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">6F</text><text x="1122" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">7F</text><polyline points="58.0,99.8 235.3,64.1 412.7,147.4 590.0,135.5 767.3,64.1 944.7,218.9 1122.0,242.7" fill="none" stroke="#111" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="58.0" cy="99.8" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="235.3" cy="64.1" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="412.7" cy="147.4" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="590.0" cy="135.5" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="767.3" cy="64.1" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="944.7" cy="218.9" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="1122.0" cy="242.7" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="944.7" cy="218.9" r="11" fill="#e8232a"/><text x="944.7" y="198.9" font-size="21" font-weight="900" fill="#e8232a" text-anchor="middle">13.3</text><circle cx="235.3" cy="64.1" r="11" fill="#1f4e9c"/><text x="235.3" y="96.1" font-size="21" font-weight="900" fill="#1f4e9c" text-anchor="middle">12.0</text></svg></div>
+<div class="lgd">上に行くほど速い　<b style="background:#1f4e9c"></b>最速ハロン<b style="background:#e8232a"></b>落ち込みの底</div>
 <table class="t"><tr><th style="width:62px">着</th><th style="width:70px">馬番</th><th>馬</th><th style="width:90px">人気</th><th style="width:90px">4角</th><th style="width:110px">上り順</th><th style="width:90px">通し</th><th style="width:120px">馬体重</th></tr>
 <tr><td>1着</td><td>10</td><td class="l">ピーチピーチ</td><td class="">3人気</td><td class="hi">1番手</td><td class="">4位</td><td>内</td><td>478k(+2)</td></tr>
 <tr><td>2着</td><td>11</td><td class="l">タフコール</td><td class="">2人気</td><td class="hi">1番手</td><td class="">8位</td><td>最内</td><td>488k(+9)</td></tr>
@@ -345,23 +275,8 @@ table.t td.gr{background:#f4f4f4;color:#888;font-size:21px}
 </table></div>
 <div class="rcard"><div class="rtop"><span>11R</span>ダ1500 重 12頭<em>秋彼岸（あきひがん）特別　Ｂ３一</em></div>
 <div style="font-size:21px;font-weight:800;color:#333;margin:2px 0 0">前半3F 35.3 ／ レース上がり3F 39.6 ／ 最大減速 <b style="color:#e8232a">+1.4秒（6F目）</b></div>
-<div class="bars">
-<div class="col"><div class="v">11.2</div><div class="bar" style="height:37px"></div></div>
-<div class="col cold"><div class="v">11.8</div><div class="bar" style="height:56px"></div></div>
-<div class="col"><div class="v">12.3</div><div class="bar" style="height:73px"></div></div>
-<div class="col"><div class="v">13.6</div><div class="bar" style="height:115px"></div></div>
-<div class="col"><div class="v">12.1</div><div class="bar" style="height:66px"></div></div>
-<div class="col hot"><div class="v">13.5</div><div class="bar" style="height:112px"></div></div>
-<div class="col"><div class="v">14.0</div><div class="bar" style="height:128px"></div></div>
-</div><div class="xax">
-<div>1F</div>
-<div>2F</div>
-<div>3F</div>
-<div>4F</div>
-<div>5F</div>
-<div>6F</div>
-<div>7F</div>
-</div>
+<div class="chart"><svg viewBox="0 0 1180 330" xmlns="http://www.w3.org/2000/svg"><line x1="58" y1="31.9" x2="1157" y2="31.9" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="37.9" font-size="18" fill="#999" font-weight="700" text-anchor="end">10.7</text><line x1="58" y1="92.7" x2="1157" y2="92.7" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="98.7" font-size="18" fill="#999" font-weight="700" text-anchor="end">11.6</text><line x1="58" y1="153.4" x2="1157" y2="153.4" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="159.4" font-size="18" fill="#999" font-weight="700" text-anchor="end">12.6</text><line x1="58" y1="214.2" x2="1157" y2="214.2" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="220.2" font-size="18" fill="#999" font-weight="700" text-anchor="end">13.6</text><line x1="58" y1="274.9" x2="1157" y2="274.9" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="280.9" font-size="18" fill="#999" font-weight="700" text-anchor="end">14.5</text><text x="58" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">1F</text><text x="235" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">2F</text><text x="413" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">3F</text><text x="590" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">4F</text><text x="767" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">5F</text><text x="945" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">6F</text><text x="1122" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">7F</text><polyline points="58.0,64.1 235.3,102.3 412.7,134.3 590.0,217.2 767.3,121.5 944.7,210.8 1122.0,242.7" fill="none" stroke="#111" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="58.0" cy="64.1" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="235.3" cy="102.3" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="412.7" cy="134.3" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="590.0" cy="217.2" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="767.3" cy="121.5" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="944.7" cy="210.8" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="1122.0" cy="242.7" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="944.7" cy="210.8" r="11" fill="#e8232a"/><text x="944.7" y="190.8" font-size="21" font-weight="900" fill="#e8232a" text-anchor="middle">13.5</text><circle cx="235.3" cy="102.3" r="11" fill="#1f4e9c"/><text x="235.3" y="134.3" font-size="21" font-weight="900" fill="#1f4e9c" text-anchor="middle">11.8</text></svg></div>
+<div class="lgd">上に行くほど速い　<b style="background:#1f4e9c"></b>最速ハロン<b style="background:#e8232a"></b>落ち込みの底</div>
 <table class="t"><tr><th style="width:62px">着</th><th style="width:70px">馬番</th><th>馬</th><th style="width:90px">人気</th><th style="width:90px">4角</th><th style="width:110px">上り順</th><th style="width:90px">通し</th><th style="width:120px">馬体重</th></tr>
 <tr><td>1着</td><td>2</td><td class="l">ハーモニーロワ</td><td class="">3人気</td><td class="">3番手</td><td class="">4位</td><td>内</td><td>499k(+2)</td></tr>
 <tr><td>2着</td><td>7</td><td class="l">ネライウチ</td><td class="">6人気</td><td class="hi">1番手</td><td class="">5位</td><td>内</td><td>498k(+2)</td></tr>
@@ -369,29 +284,8 @@ table.t td.gr{background:#f4f4f4;color:#888;font-size:21px}
 </table></div>
 <div class="rcard"><div class="rtop"><span>12R</span>ダ2000 重 12頭<em>月見（つきみ）特別　Ｂ２Ｂ３ア　選抜馬</em></div>
 <div style="font-size:21px;font-weight:800;color:#333;margin:2px 0 0">前半3F 38.0 ／ レース上がり3F 38.6 ／ 最大減速 <b style="color:#e8232a">+1.4秒（9F目）</b></div>
-<div class="bars">
-<div class="col"><div class="v">12.8</div><div class="bar" style="height:85px"></div></div>
-<div class="col cold"><div class="v">11.9</div><div class="bar" style="height:40px"></div></div>
-<div class="col"><div class="v">13.3</div><div class="bar" style="height:110px"></div></div>
-<div class="col"><div class="v">13.0</div><div class="bar" style="height:95px"></div></div>
-<div class="col"><div class="v">13.1</div><div class="bar" style="height:100px"></div></div>
-<div class="col"><div class="v">13.0</div><div class="bar" style="height:95px"></div></div>
-<div class="col"><div class="v">13.6</div><div class="bar" style="height:125px"></div></div>
-<div class="col"><div class="v">12.0</div><div class="bar" style="height:45px"></div></div>
-<div class="col hot"><div class="v">13.4</div><div class="bar" style="height:115px"></div></div>
-<div class="col"><div class="v">13.2</div><div class="bar" style="height:105px"></div></div>
-</div><div class="xax">
-<div>1F</div>
-<div>2F</div>
-<div>3F</div>
-<div>4F</div>
-<div>5F</div>
-<div>6F</div>
-<div>7F</div>
-<div>8F</div>
-<div>9F</div>
-<div>10F</div>
-</div>
+<div class="chart"><svg viewBox="0 0 1180 330" xmlns="http://www.w3.org/2000/svg"><line x1="58" y1="31.9" x2="1157" y2="31.9" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="37.9" font-size="18" fill="#999" font-weight="700" text-anchor="end">11.6</text><line x1="58" y1="92.7" x2="1157" y2="92.7" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="98.7" font-size="18" fill="#999" font-weight="700" text-anchor="end">12.2</text><line x1="58" y1="153.4" x2="1157" y2="153.4" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="159.4" font-size="18" fill="#999" font-weight="700" text-anchor="end">12.8</text><line x1="58" y1="214.2" x2="1157" y2="214.2" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="220.2" font-size="18" fill="#999" font-weight="700" text-anchor="end">13.3</text><line x1="58" y1="274.9" x2="1157" y2="274.9" stroke="#e3e3e3" stroke-width="2"/><text x="50" y="280.9" font-size="18" fill="#999" font-weight="700" text-anchor="end">13.9</text><text x="58" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">1F</text><text x="176" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">2F</text><text x="294" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">3F</text><text x="413" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">4F</text><text x="531" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">5F</text><text x="649" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">6F</text><text x="767" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">7F</text><text x="886" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">8F</text><text x="1004" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">9F</text><text x="1122" y="318" font-size="19" fill="#777" font-weight="800" text-anchor="middle">10F</text><polyline points="58.0,158.7 176.2,64.1 294.4,211.2 412.7,179.7 530.9,190.2 649.1,179.7 767.3,242.7 885.6,74.6 1003.8,221.7 1122.0,200.7" fill="none" stroke="#111" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="58.0" cy="158.7" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="176.2" cy="64.1" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="294.4" cy="211.2" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="412.7" cy="179.7" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="530.9" cy="190.2" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="649.1" cy="179.7" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="767.3" cy="242.7" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="885.6" cy="74.6" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="1003.8" cy="221.7" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="1122.0" cy="200.7" r="7" fill="#fff" stroke="#111" stroke-width="4"/><circle cx="1003.8" cy="221.7" r="11" fill="#e8232a"/><text x="1003.8" y="201.7" font-size="21" font-weight="900" fill="#e8232a" text-anchor="middle">13.4</text><circle cx="176.2" cy="64.1" r="11" fill="#1f4e9c"/><text x="176.2" y="96.1" font-size="21" font-weight="900" fill="#1f4e9c" text-anchor="middle">11.9</text></svg></div>
+<div class="lgd">上に行くほど速い　<b style="background:#1f4e9c"></b>最速ハロン<b style="background:#e8232a"></b>落ち込みの底</div>
 <table class="t"><tr><th style="width:62px">着</th><th style="width:70px">馬番</th><th>馬</th><th style="width:90px">人気</th><th style="width:90px">4角</th><th style="width:110px">上り順</th><th style="width:90px">通し</th><th style="width:120px">馬体重</th></tr>
 <tr><td>1着</td><td>3</td><td class="l">ジュンビクトワール</td><td class="">5人気</td><td class="hi">1番手</td><td class="hi">3位</td><td>最内</td><td>520k(+8)</td></tr>
 <tr><td>2着</td><td>12</td><td class="l">サンズ</td><td class="">1人気</td><td class="hi">1番手</td><td class="hi">1位</td><td>内</td><td>529k(-2)</td></tr>
