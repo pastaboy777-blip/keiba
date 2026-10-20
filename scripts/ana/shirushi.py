@@ -173,6 +173,8 @@ h1 small{display:block;font-size:68px;color:#6b645b;margin-bottom:5px}
 .sub span{color:#a39b90;font-size:38px;font-weight:700;margin-left:10px}
 .lead{font-size:38px;color:#cdc6bc;line-height:1.7;margin:24px 0 0;border-left:9px solid #f5d020;padding-left:26px}
 .lead b{color:#fff}
+.lead .pt{display:block;margin:12px 0 0 0;padding-left:4px}
+.lead .pt b{color:#f5d020}
 .sh{font-size:54px;font-weight:900;margin:52px 0 24px;padding-left:22px;border-left:12px solid #e8362f}
 .sh span{font-size:34px;color:#8d867c;font-weight:700;margin-left:11px}
 .grid{display:flex;flex-wrap:wrap;gap:20px}
@@ -255,15 +257,19 @@ HTML = ('<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>' + C
         '<div class="bt">変態か、変態以外か。</div>'
         '<h1><small>10/21 浦和</small>買う馬リスト</h1>'
         '<div class="sub">10/21（水）浦和　' + BADGE + '<span>各レース5頭。赤枠が勝負どころ</span></div>'
-        '<div class="lead">昨日の浦和11鞍117頭から組み直しました。'
-        '<b>勝ち馬11頭のうち10頭が上がり1位か2位。</b>上がり4位以下の80頭は勝ちゼロでした。<br>'
-        'そこで<b>最後に差せる馬から採っています。</b>上がりは今日と同じ距離帯で走ったときの数字しか'
-        '使っていません。800mで止まらなかった馬が1400mでも止まるとは限らないからです。<br>'
-        '位置は<b>中団前め（差せる位置）をいちばん高く</b>見ています。逃げ切り型は残しますが上には置きません。'
-        '4角で7割より後ろになる馬は外し、馬体重は昨日効かなかったので使っていません。</div>'
+        '<div class="lead">昨日の浦和は、<b>勝った11頭のうち10頭が「直線でいちばん速かった馬」</b>でした。'
+        '前にいるだけの馬は、最後に止まって残れていません。<br>'
+        'そこで今日は<b>最後に伸びる馬</b>から選んでいます。見ているのは、この3つだけです。<br>'
+        '<span class="pt"><b>&#9312; 同じ距離で速かったか</b>　'
+        '800mで速かった馬が1400mでも速いとは限りません。今日と近い距離の走りだけを見ます。</span>'
+        '<span class="pt"><b>&#9313; 差せる位置にいるか</b>　'
+        '逃げる馬でも、後ろすぎる馬でもなく、<b>中団の前め</b>から伸びてくる形です。</span>'
+        '<span class="pt"><b>&#9314; コーナーで前に出られるか</b>　'
+        '道中で順位を上げられる馬。昨日の穴はこの形が中心でした。</span>'
+        '馬体重は昨日は差が出なかったので、今日は使っていません。</div>'
         + (('<div class="lead" style="border-left-color:#e8362f;margin-top:16px">'
-            '<b>9R以降は照明が入ります。</b>ここからは<b>ラチ沿いを追走できる馬</b>を加点しています。'
-            '逃げ切りでも後方一気でもなく、<b>内をロスなく追走して直線で出てくる形</b>です。</div>')
+            '<b>9R以降はナイターです。</b>ここからは<b>内のラチ沿いをロスなく回ってこられる馬</b>を'
+            '上に置いています。逃げ切りでも、後方から大外を回る形でもありません。</div>')
            if any(r in NIGHT for r in RS) else '')
         + '<div class="sh">' + BADGE + '</div><div class="grid">' +
         ''.join(card(r) for r in RS) + '</div>' +
