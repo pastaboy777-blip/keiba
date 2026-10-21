@@ -66,11 +66,18 @@ def _seen():
 def capture(rid, seen):
     if rid in seen: return "skip"
     fpath = os.path.join(M.ARC, f"kekka_{rid}.html")
-    # 常にライブ取得(古いキャッシュのマスクを避ける)
-    M._get(f"{M.BASE}/chihou/seiseki/{rid}", fpath) if not os.path.exists(fpath) else None
+    # 常にライブ取得(古いキャッシュのマスクを避ける)。
+    # 走った直後に取ると通過が未掲載のことがあり、それをキャッシュすると
+    # 以降ずっとマスク扱いになる。10/21 の9Rが実際にこれで落ちた。
+    if os.path.exists(fpath): os.remove(fpath)
+    M._get(f"{M.BASE}/chihou/seiseki/{rid}", fpath)
     h = open(fpath, encoding="utf-8", errors="replace").read()
     rec = parse_seiseki(h)
     if not rec["rows"]: return "empty"
+    if rec["masked"]:
+        # 通過が出ていない。保存すると取り直せなくなるので、キャッシュごと捨てる
+        os.remove(fpath)
+        return "masked"
     rec["rid"] = rid
     with open(DATA, "a") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
