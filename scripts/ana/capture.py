@@ -49,11 +49,16 @@ def parse_seiseki(h):
                      "name": c[nmi], "tsuka": tsuka, "agari": agari, "nk": nk, "wt": wt})
     # ラップ・平均ハロン・レースの上がりも拾う（cookie が無いと ＊＊＊＊＊ になる）
     t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", h))
+    # 天候・馬場・クラス。ヘッダが「… 1400m (ダート・左) 曇・良」「発走 12:20 ２歳三 サラ系…」の形
+    mb = re.search(r"\([^)]*[・･][^)]*\)\s*([^\s・･]+)[・･]([^\s]+)", t)
+    mc = re.search(r"発走\s*\d+:\d+\s+(\S+?)\s+サラ", t)
     i = t.find("ラップタイム")
     lap = re.findall(r"\d+\.\d", t[i:i + 140].split("払戻")[0]) if i >= 0 else []
     mavg = re.search(r"平均ハロン\s+([\d.]+)", t)
     mag = re.search(r"上り\s*上り([\d.]+)－([\d.]+)", t)
     return {"date": date, "track": track, "dist": dist, "masked": not any_real, "rows": rows,
+            "tenko": mb.group(1) if mb else None, "baba": mb.group(2) if mb else None,
+            "cls": mc.group(1) if mc else None,
             "lap": [float(v) for v in lap],
             "avg_f": float(mavg.group(1)) if mavg else None,
             "race_4f": float(mag.group(1)) if mag else None,
