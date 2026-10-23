@@ -1,10 +1,11 @@
-"""印を打つ ── 過去走・調教・馬体重・枠を1本にまとめた版。
+"""印を打つ ── 過去走・調教・馬体重・枠・血統を1本にまとめた版。
 
-  python3 card.py <card.json> <cyokyo.json> [--waku in|out|none] [R...]
+  python3 card.py <card.json> <cyokyo.json> [ped.json] [--waku in|out|none] [R...]
   python3 card.py ... --why 5        # その鞍の内訳を全部出す
 
   card.json   … card23.py が吐く楽天の出馬表（過去5走・馬体重・枠つき）
   cyokyo.json … cyokyo.py の parse 結果を鞍ごとに並べたもの
+  ped.json    … kettou.py の parse 結果を鞍ごとに並べたもの（任意）
 
 ── 何を見るか（CLAUDE.md「買う馬リストの組み方」＋ 10/23 の反省）
 
@@ -14,6 +15,23 @@
   ④ 枠       その日の馬場傾向。--waku in で内、out で外を加点
   ⑤ 調教     その調教場の3F中央値との差（★10/23から追加）
   ⑥ 馬体重   その馬が3着内に来たときの体重帯との差（★10/23から追加）
+  ⑦ 血統     母系3代以内にサンデーサイレンスがいるか（★10/24から追加）
+
+── ⑦を入れた理由（10/23 浦和の成立11鞍・127頭を数えた結果）
+
+  母父父がSS   36頭  6勝(16.7%)  3着内38.9%  平均人気6.0
+  母父がSS      5頭  1勝(20.0%)  3着内40.0%  平均人気6.4
+  いない       86頭  4勝( 4.7%)  3着内19.8%  平均人気6.5
+
+  3倍以上ちがうのに平均人気はほぼ同じ。オッズには入っていない。
+  一方、父系（ストームキャット系／エーピーインディ系／キングマンボ系…）は
+  どの系統も勝率6〜13%に収まって **分かれなかった**。
+  11R単体を読んだときは「父系に米国ダートの血があるか」で分かれたように
+  見えたが、11鞍に広げると父系は効かず、効いていたのは母系のサンデーだった。
+  1鞍の読み解きを一般化してはいけない、という実例。
+
+  ただしこれも **1日・11鞍・127頭** の話。母父父SSは36頭で6勝しかない。
+  点は控えめ（+2）にしてある。
 
 ── 10/23 で外した2つを、ここで潰している
 
@@ -214,12 +232,27 @@ def cy_pt(c):
 
 # ────────────────────────── 本体
 
+def ped_pt(ped):
+    """母系3代以内のサンデーサイレンス。並びは
+       0父 1父父 2父父父 3父父母 4父母 5父母父 6父母母
+       7母 8母父 9母父父 10母父母 11母母 12母母父 13母母母"""
+    if not ped:
+        return 0, ""
+    for i, lab in ((8, "母父"), (9, "母父父"), (12, "母母父")):
+        if len(ped) > i and "サンデーサイレンス" in ped[i]:
+            return 2, lab + "SS"
+    return 0, ""
+
+
 def main():
     if len(sys.argv) < 3:
         print(__doc__); return
     D = json.load(open(sys.argv[1]))
     CY = json.load(open(sys.argv[2]))
     args = sys.argv[3:]
+    PED = {}
+    if args and args[0].endswith(".json"):
+        PED = json.load(open(args[0])); args = args[1:]
     waku = "none"
     if "--waku" in args:
         waku = args[args.index("--waku") + 1]
@@ -232,11 +265,16 @@ def main():
     for R in rs:
         v = D[str(R)]; d = v["dist"]
         cyd = {z["ub"]: z for z in CY.get(str(R), [])}
+        pd = PED.get(str(R), {})
         rows, base = [], []
         for h in v["horses"]:
             z = prof(h, d, MED)
             c = cy_prof(cyd.get(h["ub"]), CMED)
             cs, cw = cy_pt(c)
+            pz = pd.get(str(h["ub"])) or {}
+            ps, pw = ped_pt(pz.get("ped"))
+            cs += ps
+            cw = "・".join(x for x in (cw, pw) if x)
             if z is None:
                 rows.append([h, None, None, c, cs, cw])      # 履歴なしは後で埋める
             else:
