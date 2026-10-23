@@ -105,6 +105,35 @@ if CMP:
 hid = resolve(TARGET)
 if not hid:
     sys.exit('馬が見つからない')
+
+# ── その血がどの経路で入っているかを名前で出す ───────────────
+ROUTE = opt('--route')
+if ROUTE:
+    tgt = [i for i, v in G.items() if v['nm'] == ROUTE]
+    if not tgt:
+        sys.exit(f'{ROUTE} がグラフにない')
+    tgt = set(tgt)
+    found = []
+
+    def rec(i, g, chain):
+        if not i or g > DEPTH:
+            return
+        n = G.get(i)
+        nm = (n or {}).get('nm', i)
+        if i in tgt and g:
+            found.append((g, chain))
+            return
+        if not n:
+            return
+        rec(n['s'], g + 1, chain + [(G.get(n['s'], {}).get('nm', '?'), '父')])
+        rec(n['d'], g + 1, chain + [(G.get(n['d'], {}).get('nm', '?'), '母')])
+    rec(hid, 0, [])
+    found.sort()
+    print(f'# {G.get(hid,{}).get("nm", TARGET)} → {ROUTE} の経路（{DEPTH}代以内・{len(found)}本）\n')
+    for g, ch in found:
+        side = ch[0][1] if ch else '?'
+        print(f'  {g}代（{side}側）  ' + ' → '.join(nm for nm, _ in ch))
+    sys.exit()
 P, reach = paths(hid, DEPTH)
 full = [2 ** g for g in range(DEPTH + 1)]
 print(f'# {G.get(hid,{}).get("nm", TARGET)}  ({hid})')
