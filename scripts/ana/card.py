@@ -1,189 +1,287 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""これから走る1鞍を読む。数えるだけ。重みは置かない。
+"""印を打つ ── 過去走・調教・馬体重・枠を1本にまとめた版。
 
-数えるのは3つ＋2つ。全部その日の出馬表と各馬の履歴だけで足りる。
+  python3 card.py <card.json> <cyokyo.json> [--waku in|out|none] [R...]
+  python3 card.py ... --why 5        # その鞍の内訳を全部出す
 
-  ① 出走間隔          そのレースの中で、誰が浮いているか
-  ② 前走距離との差     延長か短縮か
-  ③ 直近の上がり順位   ★ただし【同じ距離帯】に限る
-  ④ 道悪（重＋不良）の成績
-  ⑤ 馬体重と増減      ★発走直前まで出ない。--force で取り直す
-  ⑥ レース平均からの馬体重差 ★「大きい馬」ではなく「この鞍で大きい馬」
-  ⑦ 同じ距離帯・**全場**の成績と、その帯での最高着順
-     ★場で絞ると重賞路線の実績が消える（kb.at_zone の説明を読むこと）
+  card.json   … card23.py が吐く楽天の出馬表（過去5走・馬体重・枠つき）
+  cyokyo.json … cyokyo.py の parse 結果を鞍ごとに並べたもの
 
-★⑥を絶対値でなく相対で出す理由（2026-09-15 大井・終日不良）:
-    勝ち馬の馬体重は、そのレースの平均より 1600m以上で +18.3kg、
-    1200m以下で +0.9kg だった。距離が延びるほど大型が効いている。
-    480kgが大きいかどうかは、相手を見ないと決まらない。
+── 何を見るか（CLAUDE.md「買う馬リストの組み方」＋ 10/23 の反省）
 
-★③に距離帯の縛りを付けた理由（2026-09-15 大井6R）:
-    ポリループは直近2走とも上がり1位だった。ただし2走とも1400m。
-    今日は1600mへの延長で、上がり8位まで落ちて5着。1.9倍。
-    距離帯をまたいだ上がり順位は、そのままでは持ち越せない。
+  ① 上がり   今日と同じ距離帯だけ。場×距離の中央値との差で見る（ルール2）
+  ② 位置     中団前め（相対0.30〜0.55）を最上位。逃げ切り型は残すが上には置かない
+  ③ gain     1角→4角でいくつ前へ出られるか
+  ④ 枠       その日の馬場傾向。--waku in で内、out で外を加点
+  ⑤ 調教     その調教場の3F中央値との差（★10/23から追加）
+  ⑥ 馬体重   その馬が3着内に来たときの体重帯との差（★10/23から追加）
 
-★①を「機械的に」拾う理由（同日 11R）:
-    その日の勝ち馬12頭のうち6頭が中3週以上あいていた（328日・313日・98日…）。
-    11Rの勝ち馬スマイルマンボは313日ぶりで、この表でも間隔1位に立っていた。
-    それを「極端すぎる」という主観で買い目から外して、外した。
-    → 間隔が上位2番目までの馬には★が付く。**★は消さない**、が使い方。
+── 10/23 で外した2つを、ここで潰している
 
-★履歴が引けない馬を切らないこと（2026-09-15 6R / 2026-09-14 11R）:
-    クイーンアン（中央から転入・履歴が別体系）3.5倍 → 1着。消した。
-    ナインエスクァイア（履歴が引けず）3.7倍 → 1着。相手から外した。
-    **2日連続で、同じ理由で、同じ結果。**「データが無い」を「弱い」として扱っていた。
-    転入初戦は“この条件での比較対象がいない”だけで、能力とは別の話。
-    → 履歴が引けない馬・行が壊れた馬には「?」が付く。**? も ★ と同じく残す。**
+  **履歴が引けない馬を最下位に落とさない。**
+  CLAUDE.md ルール6で「切らない」としているのに、点が付かないせいで
+  実質いちばん下に沈んでいた。10/23は8R⑨レドゥローズ(2人気)と
+  12R⑦キタイノホシ(3人気)が **どちらも勝った**。市場は評価していて、
+  こちらだけが評価できていなかった。
+  → 過去走が引けない馬には「その鞍の中央値」を与え、そのうえで調教の点を足す。
 
-★⑤（同日 6R）:
-    勝ったクイーンアンは +29kg（462→491）。中央の芝18頭立て14着からの転入。
-    馬体重は出馬表では空欄で、発走直前に入る。1回取って終わりにすると見落とす。
-
-使い方:
-    python3 scripts/ana/card.py --date 20260915 --place 大井 --race 11
-    python3 scripts/ana/card.py --date 20260915 --place 大井 --race 11 --force
+  **調教でいちばん動いた馬を印に反映する。**
+  10/23の6Rは⑩アルディバの追い切りが全140頭で最速（浦和3F38.2・
+  その調教場の平均より3.1秒速い）で、こちらも「▲から○に上げるのが筋」と
+  書いていたのに▲のままにして、その馬が勝った。言語化できていたのに
+  点数に入っていなかった。→ 調教を項目として入れた。
 """
-from __future__ import annotations
+import sys, json, statistics as st
 
-import argparse
-import statistics as st
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import kb
+MK = ["◎", "○", "▲", "△", "△"]
+FORCE, DROP = {}, {}          # {R: {順位: 馬番}} / {R: [馬番]}
 
 
-def zone(d: int) -> str:
-    """距離帯。上がり順位はこの中でしか比べない。"""
-    return "短" if d <= 1200 else ("マ" if d <= 1700 else "長")
+# ────────────────────────── 過去走
+
+def band(runs, d):
+    if d <= 1000:
+        return [r for r in runs if r["dist"] <= 1000]
+    return [r for r in runs if abs(r["dist"] - d) <= 200]
 
 
-def agari_rank(h, base, want: str):
-    """その馬の直近の『上がり順位』を、同じ距離帯の走から拾う。
+def medians(D):
+    """出馬表に載る過去走ぜんぶから、場×距離の上がりの中央値を作る"""
+    pool = {}
+    for v in D.values():
+        for h in v["horses"]:
+            for r in h["past"]:
+                pool.setdefault((r["venue"], r["dist"]), []).append(r["agari"])
+    return {k: st.median(v) for k, v in pool.items() if len(v) >= 4}
 
-    上がり順位は【そのレースの全出走馬の上がり】が要る。馬ページには自分の分しか
-    無いので、その走の成績ページを引き直す。取れなければ None を返す。
-    """
-    for r in reversed(h):
-        if kb.to_date(r["date"]) >= base:
-            continue
-        d = kb.dist_of(r["dist"])
-        if not d or zone(d) != want or "大井" not in (r["place"] or ""):
-            continue
-        pre = kb.prefix(r["date"].replace("/", ""), "大井")
-        if not pre:
-            continue
-        for rr in range(1, 13):
-            rid = kb.rid_of(pre, rr, r["date"].replace("/", ""))
-            _, rows = kb.seiseki(rid)
-            me = next((x for x in rows if x["name"] == r["_name"]), None)
-            if not me or not me["agari"]:
-                continue
-            ag = sorted(x["agari"] for x in rows if x["agari"])
-            return dict(date=r["date"][5:], n=len(rows), chaku=me["chaku"],
-                        rank=ag.index(me["agari"]) + 1, nag=len(ag), ag=me["agari"],
-                        dist=d)
+
+def prof(h, d, MED):
+    runs = h["past"]
+    if not runs:
         return None
-    return None
+    b = band(runs, d)
+    use = b or runs
+    z = {"xband": not b}
+    e = [r["agari"] - MED[(r["venue"], r["dist"])]
+         for r in b if (r["venue"], r["dist"]) in MED]
+    z["edge"] = round(sum(e) / len(e), 2) if e else None
+    z["bedge"] = round(min(e), 2) if e else None
+    pr = [(r["c4"] - 1) / max(1, r["n"] - 1) for r in use if r["c4"]]
+    z["prel"] = round(sum(pr) / len(pr), 3) if pr else None
+    g = [r["c1"] - r["c4"] for r in use if r["c1"] and r["c4"]]
+    z["gain"] = round(sum(g) / len(g), 2) if g else None
+    z["inrate"] = round(sum(1 for r in use if r["chaku"] <= 3) / len(use), 2)
+    z["frontwin"] = sum(1 for r in use if r["c4"] and r["c4"] <= 3 and r["chaku"] <= 3)
+    p = runs[0]
+    z["pchaku"], z["psa"], z["pdist"], z["pven"] = (
+        p["chaku"], p["sa"], p["dist"], p["venue"])
+    z["pgain"] = (p["c1"] - p["c4"]) if (p["c1"] and p["c4"]) else None
+    # 馬体重（好走帯との差）
+    ws = [r["w"] for r in runs if r.get("w")]
+    if ws:
+        good = [r["w"] for r in runs if r.get("w") and r["chaku"] <= 3]
+        z["wband"] = round(st.mean(good) if good else st.mean(ws), 1)
+        z["pw"] = runs[0].get("w")
+        z["wd"] = round(z["pw"] - z["wband"], 1) if z["pw"] else None
+        z["wrange"] = max(ws) - min(ws)
+        z["ngood"] = len(good)
+    else:
+        z["wband"] = z["pw"] = z["wd"] = None
+        z["wrange"], z["ngood"] = 0, 0
+    return z
 
+
+# ────────────────────────── 調教
+
+def cy_med(CY):
+    pool = {}
+    for v in CY.values():
+        for zz in v:
+            for r in zz["runs"]:
+                t = fnum(r["times"].get("3F"))
+                if t:
+                    pool.setdefault(r["course"], []).append(t)
+    return {k: st.median(v) for k, v in pool.items() if len(v) >= 5}
+
+
+def fnum(v):
+    try:
+        return float(v)
+    except Exception:
+        return None
+
+
+def cy_prof(z, CMED):
+    if z is None:
+        return None
+    ds = [fnum(r["times"].get("3F")) - CMED[r["course"]]
+          for r in z["runs"]
+          if fnum(r["times"].get("3F")) and r["course"] in CMED]
+    return {"best": round(min(ds), 2) if ds else None,
+            "n": z["nrun"], "ya": z["ya"], "tanpyo": z["tanpyo"],
+            "gap11": z["gap11"]}
+
+
+# ────────────────────────── 点をつける
+
+def score(z, waku, d, wk):
+    s = 0
+    e = z["edge"]
+    if e is not None:
+        if e <= -0.8: s += 5
+        elif e <= -0.4: s += 4
+        elif e <= 0.0: s += 3
+        elif e <= 0.4: s += 1
+        elif e >= 1.0: s -= 2
+    b = z["bedge"]
+    if b is not None:
+        if b <= -1.2: s += 2
+        elif b <= -0.6: s += 1
+    if z["xband"]:
+        s -= 1
+    ir = z["inrate"]
+    if ir >= 0.5: s += 3
+    elif ir >= 0.33: s += 2
+    elif ir == 0: s -= 2
+    if z["frontwin"] >= 2: s += 2
+    g = z["gain"]
+    if g is not None:
+        if g >= 2: s += 3
+        elif g >= 1: s += 2
+        elif g <= -2.5: s -= 3
+        elif g <= -1: s -= 1
+    p = z["prel"]
+    if p is not None:
+        if p < 0.15: s += 1
+        elif p < 0.30: s += 2
+        elif p < 0.55: s += 3
+        elif p < 0.70: s += 0
+        else: s -= 3
+        if z["xband"]: s -= 1
+        # ★ 後ろすぎる馬でも、上がりが毎回平均以下で道中に上げているなら
+        #   減点しない（10/23 10R ④ゴールドソニックの形）
+        if p >= 0.55 and (e is not None and e <= -0.3) and (g or 0) >= 0.5:
+            s += 3
+    pc = z["pchaku"]
+    if pc and 2 <= pc <= 6: s += 1
+    s += waku_pt(wk, d, waku)
+    s += weight_pt(z)
+    return s
+
+
+def waku_pt(wk, d, mode):
+    if not wk or mode == "none":
+        return 0
+    if mode == "in":
+        return 2 if wk <= 3 else (-1 if wk >= 7 else 0)
+    if mode == "out":
+        return 2 if wk >= 7 else (-1 if wk <= 2 else 0)
+    return 0
+
+
+def weight_pt(z):
+    """好走帯から離れていたら割り引く。体重がほとんど動かない馬では見ない"""
+    if not z["ngood"] or z["wrange"] < 10 or z["wd"] is None:
+        return 0
+    if z["wd"] >= 10:
+        return -2          # 大きく太め残り
+    if z["wd"] >= 6:
+        return -1
+    if z["wd"] <= -10:
+        return -2          # 細すぎ
+    if z["wd"] <= -6:
+        return -1
+    return 0
+
+
+def cy_pt(c):
+    """調教。その調教場の3F中央値との差で見る"""
+    if c is None:
+        return 0, ""
+    s, w = 0, []
+    if c["n"] == 0:
+        return -1, "追い切りの時計なし"
+    if c["best"] is not None:
+        if c["best"] <= -2.0: s += 4; w.append("3F %+.1f秒" % c["best"])
+        elif c["best"] <= -1.2: s += 3; w.append("3F %+.1f秒" % c["best"])
+        elif c["best"] <= -0.6: s += 2; w.append("3F %+.1f秒" % c["best"])
+        elif c["best"] >= 0.8: s -= 1; w.append("3F %+.1f秒" % c["best"])
+    if c["ya"] and c["ya"] != "→":
+        s += 2; w.append("矢印" + c["ya"])
+    if c["n"] == 1:
+        s -= 1; w.append("1本だけ")
+    return s, "・".join(w)
+
+
+# ────────────────────────── 本体
 
 def main():
-    ap = argparse.ArgumentParser(description="これから走る1鞍を数える")
-    ap.add_argument("--date", required=True)
-    ap.add_argument("--place", default="大井")
-    ap.add_argument("--race", type=int, required=True)
-    ap.add_argument("--force", action="store_true", help="出馬表を取り直す（馬体重が入る）")
-    ap.add_argument("--no-agari", action="store_true", help="上がり順位を引かない（速い）")
-    a = ap.parse_args()
+    if len(sys.argv) < 3:
+        print(__doc__); return
+    D = json.load(open(sys.argv[1]))
+    CY = json.load(open(sys.argv[2]))
+    args = sys.argv[3:]
+    waku = "none"
+    if "--waku" in args:
+        waku = args[args.index("--waku") + 1]
+    why = int(args[args.index("--why") + 1]) if "--why" in args else None
+    rs = [int(x) for x in args if x.isdigit()] or sorted(int(k) for k in D)
+    if why:
+        rs = [why]
+    MED, CMED = medians(D), cy_med(CY)
 
-    base = kb.to_date(f"{a.date[:4]}/{a.date[4:6]}/{a.date[6:]}")
-    pre = kb.prefix(a.date, a.place)
-    if not pre:
-        print(f"× {a.date} に {a.place} が見つかりません")
-        return
-    rid = kb.rid_of(pre, a.race, a.date)
-    m, runners = kb.syutuba(rid, force=a.force)
-    if not runners:
-        print(f"× 出馬表が取れません（{rid}）")
-        return
-    td, tz = m["dist"], zone(m["dist"])
-    print(f"■ {a.place}{a.race}R  ダ{td}m {m['course'] or ''}  {len(runners)}頭"
-          f"   発走{m['start'] or '?'}  馬場{m['baba'] or '?'}")
-    if not any(x["w"] for x in runners):
-        print("  ※馬体重がまだ出ていません。発走30分前に --force で取り直すこと")
-    if not kb.has_cookie():
-        print("  ※cookie未設定。通過順位・前半3Fは取れません（脚質は直接測れない）")
+    for R in rs:
+        v = D[str(R)]; d = v["dist"]
+        cyd = {z["ub"]: z for z in CY.get(str(R), [])}
+        rows, base = [], []
+        for h in v["horses"]:
+            z = prof(h, d, MED)
+            c = cy_prof(cyd.get(h["ub"]), CMED)
+            cs, cw = cy_pt(c)
+            if z is None:
+                rows.append([h, None, None, c, cs, cw])      # 履歴なしは後で埋める
+            else:
+                s = score(z, waku, d, h.get("waku")) + cs
+                rows.append([h, s, z, c, cs, cw]); base.append(s)
+        # ★ 履歴が引けない馬は最下位に落とさず、その鞍の中央値＋調教分を与える
+        mid = round(st.median(base)) if base else 0
+        for r in rows:
+            if r[1] is None:
+                r[1] = mid + r[4]
+                r[5] = ("履歴が引けません。中央値から" +
+                        ("＋調教 " + r[5] if r[5] else "")).strip()
+        rows = [r for r in rows if r[0]["ub"] not in DROP.get(R, [])]
+        rows.sort(key=lambda r: -r[1])
+        f = FORCE.get(R)
+        if f:
+            dd = {r[0]["ub"]: r for r in rows}
+            picked = [u for u in f.values() if u in dd]
+            rest = [r for r in rows if r[0]["ub"] not in picked]
+            out = []
+            for i in range(len(rows)):
+                if i in f and f[i] in dd: out.append(dd[f[i]])
+                elif rest: out.append(rest.pop(0))
+            rows = out
 
-    rec = []
-    for x in runners:
-        h = kb.uma(x["umacd"]) if x["umacd"] else []
-        for r in h:
-            r["_name"] = x["name"]
-        last = kb.last_run(h, base)
-        pd = kb.dist_of(last["dist"]) if last else None
-        n1, w1, t1 = kb.at(h, a.place, td, base)
-        n2, w2, t2 = kb.wet(h, base)
-        nz = kb.at_zone(h, td, base)          # ★全場・同じ距離帯（場で絞らない）
-        bz = kb.best_at_zone(h, td, base)
-        ar = None if a.no_agari else agari_rank(h, base, tz)
-        rec.append(dict(x=x, gap=kb.interval(h, base), pd=pd, last=last,
-                        cond=(n1, w1, t1), wet=(n2, w2, t2), ar=ar,
-                        zone=nz, best=bz,
-                        unknown=(not h) or bool(x.get("partial"))))
-
-    # ★ 間隔が浮いている馬（機械的に。主観で外さない）
-    g = sorted((r for r in rec if r["gap"]), key=lambda r: -r["gap"])
-    star = {id(r) for r in g[:2]}
-    gaps = [r["gap"] for r in rec if r["gap"]]
-    if gaps:
-        print(f"\n  ▸ 間隔: 中央値 {st.median(gaps):.0f}日 / 最長 {max(gaps)}日 / "
-              f"中2週(≦17日)以内 {sum(1 for v in gaps if v <= 17)}頭")
-    ext = sum(1 for r in rec if r["pd"] and r["pd"] < td)
-    sho = sum(1 for r in rec if r["pd"] and r["pd"] > td)
-    print(f"  ▸ 距離: 延長 {ext}頭 / 短縮 {sho}頭 / 同距離 {len(rec)-ext-sho}頭")
-
-    # ⑥ レース平均からの馬体重差。「大きい馬」でなく「この鞍で大きい馬」を出す
-    #    ★0kg や空欄を平均に混ぜない（混ぜると全馬の差が壊れる）
-    ws = [int(r["x"]["w"]) for r in rec
-          if (r["x"]["w"] or "").isdigit() and int(r["x"]["w"]) > 100]
-    avg = st.mean(ws) if ws else None
-    if avg:
-        print(f"  ▸ 馬体重: レース平均 {avg:.0f}kg"
-              f"（最重 {max(ws)} / 最軽 {min(ws)}）")
-
-    print(f"\n  {'★':<2}{'番':>2} {'馬名':<15}{'人気':>3}{'単勝':>7}{'体重':>7}{'平均差':>7}"
-          f"{'間隔':>6}{'距離':>6}  {a.place+str(td)+'m':<12}{'全場'+tz+'帯':<13}{'道悪':<12}"
-          f"{'この距離帯の最高着'}")
-    for r in sorted(rec, key=lambda z: int(z["x"]["nin"]) if (z["x"]["nin"] or "").isdigit() else 99):
-        x = r["x"]
-        dd = f"{td - r['pd']:+d}" if r["pd"] else "—"
-        ar = r["ar"]
-        arl = (f"{ar['date']} {ar['dist']}m {ar['n']}頭 {ar['chaku']}着 "
-               f"→ 上り{ar['rank']}/{ar['nag']}位") if ar else "—"
-        b = r["best"]
-        bzl = (f"{b['date'][2:]} {b['place'][:4]} {b['klass'] or '':<4}{b['dist']} "
-               f"{b['n']}頭{b['chaku']}着" + (f"  / {arl}" if ar else "")) if b else arl
-        rel = (f"{int(x['w'])-avg:+.0f}kg"
-               if avg and (x["w"] or "").isdigit() and int(x["w"]) > 100 else "—")
-        mk = "★" if id(r) in star else ""
-        if r["unknown"]:
-            mk += "?"
-        print(f"  {mk:<2}{x['ub']:>2} {x['name']:<15}"
-              f"{(x['nin'] or '-'):>3}{(x['odds'] or '-'):>7}"
-              f"{(x['w'] or '-'):>5}{(x['dw'] or ''):>4}{rel:>7}"
-              f"{(str(r['gap'])+'日' if r['gap'] else '—'):>6}{dd:>6}  "
-              f"{'{}走{}勝{}好走'.format(*r['cond']):<12}"
-              f"{'{}走{}勝{}好走'.format(*r['zone']):<13}"
-              f"{'{}走{}勝{}好走'.format(*r['wet']):<12}{bzl}")
-
-    unk = [r["x"]["name"] for r in rec if r["unknown"]]
-    print("\n  ★＝そのレースで間隔が長いほうから2頭。**買い目から機械的に外さない**")
-    if unk:
-        print(f"  ?＝履歴が引けない/行が壊れた馬（{len(unk)}頭: {'・'.join(unk)}）")
-        print("     転入初戦などで比較対象がいないだけ。**弱いという意味ではない。切らない**")
-    print("  ※重みは置いていません。数えただけです。")
+        gap = (rows[0][1] - rows[1][1]) if len(rows) > 1 else 0
+        print("=" * 104)
+        print("%2dR %4dm %-16s %2d頭  枠=%s  ◎と2位の差 %+d%s" % (
+            R, d, (v.get("cls") or "")[:16], len(rows), waku, gap,
+            "  ★拮抗。1着を決め打ちしない（馬単は表裏）" if gap <= 1 else ""))
+        for i, (h, s, z, c, cs, cw) in enumerate(rows if why else rows[:5]):
+            mk = MK[i] if i < 5 else "  "
+            tag = ""
+            if z:
+                tag = "上%s 位%s gain%s 3着内%.0f%% 体重%s" % (
+                    ("%+.2f" % z["edge"]) if z["edge"] is not None else " 帯なし",
+                    ("%.2f" % z["prel"]) if z["prel"] is not None else "─",
+                    ("%+.1f" % z["gain"]) if z["gain"] is not None else " ─",
+                    100 * z["inrate"],
+                    ("%+.0f" % z["wd"]) if z["wd"] is not None else "─")
+            print("  %-2s %2d %s %-13s %+3d  %s" % (
+                mk, h["ub"], ("%d枠" % h["waku"]) if h.get("waku") else "  ",
+                h["name"][:13], s, tag))
+            if cw:
+                print("        調教%+d  %s" % (cs, cw))
 
 
 if __name__ == "__main__":
