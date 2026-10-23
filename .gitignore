@@ -29,3 +29,6 @@ out/
 # 収集した中間ファイル
 out/
 out_*.log
+
+# 東スポ「温故知新」の本文（他社記事なので手元だけ。ツールは scripts/ana/onko.py）
+notes/onko/
