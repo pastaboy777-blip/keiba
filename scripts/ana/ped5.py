@@ -86,13 +86,18 @@ def parse(h):
         name = re.sub(r"\s*\(.+?\)\s*$", "", name)
         if not name:
             continue
-        cells.append((GEN.get(rs, 5), name, 'class="red"' in m.group(2)))
-    gens, red = {}, set()
-    for g, n, r in cells:
+        mid = re.search(r'/horse/(\w{8,12})/', m.group(2))
+        cells.append((GEN.get(rs, 5), name, 'class="red"' in m.group(2),
+                      mid.group(1) if mid else None))
+    gens, red, ids = {}, set(), {}
+    for g, n, r, i in cells:
         gens.setdefault(g, []).append(n)
         if r:
             red.add(n)
+        if i:
+            ids[n] = i
     gens['red'] = red
+    gens['ids'] = ids
     return gens
 
 
