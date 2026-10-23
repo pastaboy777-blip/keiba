@@ -71,11 +71,26 @@ def _curl(url, enc="utf-8", follow=False):
 
 
 def rk(url):
-    h = _curl(url)
-    if len(h) < STUB_LEN:
-        raise Blocked("楽天が短いページ（%d字）を返しました。絞られています。"
-                      "時間を空けてください" % len(h))
-    return h
+    """楽天のページ。**0字と「短いページ」は別の症状**なので分けて扱う。
+
+      0字              … 通信が落ちただけ（curl が何も持って帰らない）。リトライする
+      3,000字前後       … 「JavaScriptが無効の為…」のスタブ。絞られている。止める
+
+    同じ扱いにしていたため、1回のタイムアウトで1日ぶんの取得が止まっていた
+    （2026-10-24、大井10/6の3Rで0字が返って10鞍落とした）。
+    """
+    for wait in (5, 15, None):
+        h = _curl(url)
+        if len(h) >= STUB_LEN:
+            return h
+        if len(h) > 0:                      # スタブが返っている → 粘らない
+            break
+        if wait is None:
+            break
+        time.sleep(wait)
+    raise Blocked("楽天が %d字 を返しました。%s" % (
+        len(h), "通信が3回続けて落ちました" if not h else
+                "スタブです（絞られています）。時間を空けてください"))
 
 
 def nk(url):
