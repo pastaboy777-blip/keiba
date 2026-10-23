@@ -50,10 +50,40 @@ def text(h):
 
 
 def meta(h):
+    """ld+json の headline と datePublished。
+
+    headline は素の UTF-8 で入っている。ここで unicode_escape を噛ませると
+    二重エンコードになって「ç½äºåèª¿æå¸«」のように化ける（実際に化かした）。
+    エスケープは \\/ と \\" を戻すだけでよい。
+    """
     m = re.search(r'"headline":"(.*?)","', h)
     d = re.search(r'"datePublished":"(\d{4}-\d\d-\d\d)', h)
-    ttl = m.group(1).encode().decode("unicode_escape") if m else ""
-    return ttl.replace("\\/", "/"), (d.group(1) if d else "")
+    ttl = m.group(1) if m else ""
+    return ttl.replace("\\/", "/").replace('\\"', '"'), (d.group(1) if d else "")
+
+
+def repair():
+    """化けたタイトル行を、本文1行目（DOM由来なので正しい）から作り直す"""
+    store = json.load(open(IDX)) if os.path.exists(IDX) else {}
+    n = 0
+    for fn in sorted(os.listdir(OUT)):
+        if not fn.endswith(".txt"):
+            continue
+        p = os.path.join(OUT, fn)
+        ls = open(p).read().split("\n")
+        body = [x for x in ls if x and not x.startswith("#")]
+        if not body:
+            continue
+        ttl = body[0].split(" | ")[0].strip()
+        if ls[0].startswith("# ") and ls[0][2:] == ttl:
+            continue
+        ls[0] = "# " + ttl
+        open(p, "w").write("\n".join(ls))
+        i = fn[:-4]
+        store.setdefault(i, {})["title"] = ttl
+        n += 1
+    json.dump(store, open(IDX, "w"), ensure_ascii=False, indent=0)
+    print("タイトルを直しました %d本" % n)
 
 
 def build_index():
@@ -125,6 +155,8 @@ def main():
         fetch()
     elif cmd == "grep":
         grep(sys.argv[2:])
+    elif cmd == "repair":
+        repair()
     elif cmd == "stat":
         store = json.load(open(IDX)) if os.path.exists(IDX) else {}
         got = [f for f in os.listdir(OUT) if f.endswith(".txt")] if os.path.isdir(OUT) else []
