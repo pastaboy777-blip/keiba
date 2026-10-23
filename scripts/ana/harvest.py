@@ -145,11 +145,36 @@ def flat(t):
 ROW = re.compile(r"(?=(?<!\d)\d{1,2}\s+\d\s+\d{1,2}\s+[ァ-ヶー]{2,}\s+[牡牝セ騸扇]\d)")
 
 
+def corners(t):
+    """「１角 (3,6),(2,9),11,8…」を {角: [[同着グループ], …]} に。rakuten.py と同じ形"""
+    out = {}
+    for k, lab in ((1, "１角"), (2, "２角"), (3, "３角"), (4, "４角")):
+        m = re.search(lab + r"\s+([0-9(),=\- ]+?)(?:[１-４]角|■|$)", t)
+        if not m:
+            continue
+        seq = []
+        for g in re.findall(r"\(([\d,]+)\)|(\d+)", m.group(1)):
+            seq.append([int(x) for x in g[0].split(",")] if g[0] else [int(g[1])])
+        if seq:
+            out[k] = seq
+    return out
+
+
+def pos_of(seq, ub):
+    """括弧つきの並びから、その馬番の順位（括弧内は同位）"""
+    p = 1
+    for g in seq:
+        if ub in g:
+            return p
+        p += len(g)
+    return None
+
+
 def do_res(base, label):
     store = load(label, "res")
     for R in range(1, 17):
         key = str(R)
-        if key in store:
+        if key in store and "corner" in store[key]:   # 通過順まで入っていれば飛ばす
             continue
         t = flat(rk(PERF + base + "%02d" % R))
         i = t.find("全着順")
@@ -160,25 +185,36 @@ def do_res(base, label):
             time.sleep(SLEEP); continue
         md = re.search(r"(ダ|芝)([\d,]+)m", t)
         mb = re.search(r"天候：\s*(\S+)\s+(?:ダ|芝)：\s*(\S+)", t)
+        ml = re.search(r"ハロンタイム\s+([\d.\- ]+?)\s+上がり", t)
+        cn = corners(t)
         rows = []
         for p in ROW.split(t[i:i + 5000])[1:]:
-            m = re.match(r"(\d{1,2})\s+\d\s+(\d{1,2})\s+([ァ-ヶー]{2,})\s", p)
+            m = re.match(r"(\d{1,2})\s+(\d)\s+(\d{1,2})\s+([ァ-ヶー]{2,})\s", p)
             if not m:
                 continue
             nums = re.findall(r"(?<![\d.:])(\d{1,2})(?![\d.:])", p)
             mw = re.search(r"\s(\d{3})\s+([-+±]\d+)\s", p)
+            mdw = re.search(r"\s\d{3}\s+([-+±]\d+)\s", p)
             mag = re.search(r"\s([34]\d\.\d)\s", p)
-            rows.append({"chaku": int(m.group(1)), "ub": int(m.group(2)),
-                         "name": m.group(3), "nk": int(nums[-1]) if nums else None,
+            ub = int(m.group(3))
+            rows.append({"chaku": int(m.group(1)), "waku": int(m.group(2)), "ub": ub,
+                         "name": m.group(4), "nk": int(nums[-1]) if nums else None,
                          "w": int(mw.group(1)) if mw else None,
-                         "agari": float(mag.group(1)) if mag else None})
+                         "dw": mdw.group(1).replace("±", "+") if mdw else None,
+                         "agari": float(mag.group(1)) if mag else None,
+                         # 1角と4角の通過順。gain = 1角 − 4角（プラスが押し上げた）
+                         "c1": pos_of(cn[1], ub) if 1 in cn else None,
+                         "c4": pos_of(cn[4], ub) if 4 in cn else None})
         store[key] = {"R": R, "dist": int(md.group(2).replace(",", "")) if md else None,
                       "tenko": mb.group(1) if mb else None,
-                      "baba": mb.group(2) if mb else None, "rows": rows}
+                      "baba": mb.group(2) if mb else None,
+                      "lap": [float(v) for v in ml.group(1).split("-")] if ml else [],
+                      "corner": {str(k): v for k, v in cn.items()}, "rows": rows}
         w = [x for x in rows if x["chaku"] == 1]
-        print("%2dR %4dm %-3s %2d頭  1着 %-12s %s人気" % (
+        print("%2dR %4dm %-3s %2d頭  1着 %-12s %s人気  角%s ラップ%d" % (
             R, store[key]["dist"] or 0, store[key]["baba"] or "?", len(rows),
-            w[0]["name"] if w else "?", w[0]["nk"] if w else "?"), flush=True)
+            w[0]["name"] if w else "?", w[0]["nk"] if w else "?",
+            "".join(str(k) for k in sorted(cn)) or "なし", len(store[key]["lap"])), flush=True)
         save(label, "res", store)
         time.sleep(SLEEP)
     names = sorted({x["name"] for v in store.values() for x in v["rows"]})
