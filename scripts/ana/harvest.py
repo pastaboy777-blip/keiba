@@ -17,11 +17,16 @@ base16 は楽天の RACEID の頭16桁。その日の一覧から拾う。
 
 ── ★ 2026-10-24 に学んだこと（必ず読むこと）
 
-短時間に叩きすぎて **楽天と netkeiba の両方に絞られた**。
+短時間に叩きすぎて **楽天に絞られた**。
 
-  netkeiba … 馬名検索が 0バイト を返すようになった
   楽天     … ページが約3,000文字のスタブ（「JavaScriptが無効の為…」）だけになり、
              1時間前に取れていたページまで同じ状態になった
+
+同時に「netkeibaの馬名検索が0バイトを返す」とも書いたが、**これは誤診だった**
+（2026-10-24 に判明）。完全一致が1頭だけのとき netkeiba は一覧を出さず
+`/horse/<ID>/` へ **302で飛ばす**。`-L` なしで本文だけ見ると0バイトになる。
+名前次第で通ったり落ちたりしていたのはそのため。`nk_search()` で直した。
+**「0バイト＝絞られている」と決めつける前に HTTPコードを見ること。**
 
 その日のうちに、楽天（浦和5日分の結果・ラップ・出馬表・日程走査）、競馬ブック
 （調教・血統60鞍）、netkeiba（菊花賞253ページ＋浦和の途中まで）を重ねたのが原因。
@@ -53,9 +58,15 @@ class Blocked(Exception):
     pass
 
 
-def _curl(url, enc="utf-8"):
-    r = subprocess.run(["curl", "-sS", "--max-time", "45", "-A", UA, url],
-                       capture_output=True, timeout=70)
+MARK = "\n@@EFFECTIVE@@"
+
+
+def _curl(url, enc="utf-8", follow=False):
+    """follow=True のとき、本文のあとに最終URLを付けて返す（リダイレクト先を見るため）"""
+    cmd = ["curl", "-sS", "--max-time", "45", "-A", UA]
+    if follow:
+        cmd += ["-L", "-w", MARK + "%{url_effective}"]
+    r = subprocess.run(cmd + [url], capture_output=True, timeout=70)
     return r.stdout.decode(enc, "replace")
 
 
@@ -73,6 +84,31 @@ def nk(url):
         raise Blocked("netkeibaが %d字 しか返しません。絞られています。"
                       "時間を空けてください" % len(h))
     return h
+
+
+def nk_search(name):
+    """馬名から netkeiba の馬IDを引く。
+
+    ★ 完全一致が1頭だけのとき、netkeiba は一覧を出さずに
+      /horse/<ID>/ へ **302で飛ばす**。-L を付けずに本文だけ見ると0バイトになり、
+      「絞られている」と誤判定する（2026-10-24 に実際にそう読み違えた）。
+      だからここはリダイレクト先のURLから拾う。
+    """
+    u = NK + "/?pid=horse_list&word=" + urllib.parse.quote(name, encoding="euc-jp")
+    out = _curl(u, "euc-jp", follow=True)
+    body, _, eff = out.rpartition(MARK)
+    if not body:
+        body, eff = out, ""
+    m = re.search(r"/horse/(\w{8,12})", eff)
+    if m:                                   # 1頭に確定 → 飛ばされた先がその馬
+        return m.group(1)
+    if len(body) < 3000:
+        raise Blocked("netkeibaが %d字 しか返しません（リダイレクトでもない）。"
+                      "絞られています。時間を空けてください" % len(body))
+    for i, nm in re.findall(r'/horse/(\w{8,12})/?"[^>]*>\s*([^<]{2,24}?)\s*</a>', body):
+        if nm.strip() == name:
+            return i
+    return None
 
 
 def path(label, kind):
@@ -143,12 +179,7 @@ def do_ids(label):
     todo = [n for n in names if n not in store]
     print("未取得 %d頭" % len(todo), flush=True)
     for k, n in enumerate(todo, 1):
-        h = nk(NK + "/?pid=horse_list&word=" + urllib.parse.quote(n, encoding="euc-jp"))
-        hid = None
-        for i, nm in re.findall(r'/horse/(\w{8,12})/?"[^>]*>\s*([^<]{2,24}?)\s*</a>', h):
-            if nm.strip() == n:
-                hid = i; break
-        store[n] = hid
+        store[n] = nk_search(n)
         if k % 10 == 0 or k == len(todo):
             save(label, "ids", store)
             print("  %4d/%d  取れた %d" % (k, len(todo),
