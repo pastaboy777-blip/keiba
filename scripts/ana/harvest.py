@@ -86,28 +86,41 @@ def nk(url):
     return h
 
 
-def nk_search(name):
+HIT = re.compile(r'/horse/(\w{8,12})/?"[^>]*>\s*([^<]{1,24}?)\s*</a>')
+
+
+def nk_search(name, maxpage=10):
     """馬名から netkeiba の馬IDを引く。
 
     ★ 完全一致が1頭だけのとき、netkeiba は一覧を出さずに
       /horse/<ID>/ へ **302で飛ばす**。-L を付けずに本文だけ見ると0バイトになり、
       「絞られている」と誤判定する（2026-10-24 に実際にそう読み違えた）。
       だからここはリダイレクト先のURLから拾う。
+
+    ★ 検索は**部分一致**で、1ページ20頭ずつ。「ウズ」「ジュリ」のような短い馬名は
+      「メイショウウズマサ」などに埋もれて1ページ目に出てこない（180件ヒットした）。
+      完全一致が見つかるまでページを送る。
     """
-    u = NK + "/?pid=horse_list&word=" + urllib.parse.quote(name, encoding="euc-jp")
-    out = _curl(u, "euc-jp", follow=True)
-    body, _, eff = out.rpartition(MARK)
-    if not body:
-        body, eff = out, ""
-    m = re.search(r"/horse/(\w{8,12})", eff)
-    if m:                                   # 1頭に確定 → 飛ばされた先がその馬
-        return m.group(1)
-    if len(body) < 3000:
-        raise Blocked("netkeibaが %d字 しか返しません（リダイレクトでもない）。"
-                      "絞られています。時間を空けてください" % len(body))
-    for i, nm in re.findall(r'/horse/(\w{8,12})/?"[^>]*>\s*([^<]{2,24}?)\s*</a>', body):
-        if nm.strip() == name:
-            return i
+    w = urllib.parse.quote(name, encoding="euc-jp")
+    for page in range(1, maxpage + 1):
+        u = NK + "/?pid=horse_list&word=" + w + ("&page=%d" % page if page > 1 else "")
+        out = _curl(u, "euc-jp", follow=True)
+        body, _, eff = out.rpartition(MARK)
+        if not body:
+            body, eff = out, ""
+        m = re.search(r"/horse/(\w{8,12})", eff)
+        if m:                               # 1頭に確定 → 飛ばされた先がその馬
+            return m.group(1)
+        if len(body) < 3000:
+            raise Blocked("netkeibaが %d字 しか返しません（リダイレクトでもない）。"
+                          "絞られています。時間を空けてください" % len(body))
+        hits = HIT.findall(body)
+        for i, nm in hits:
+            if nm.strip() == name:
+                return i
+        if len(hits) < 20:                  # 最終ページまで見た
+            return None
+        time.sleep(SLEEP)
     return None
 
 
