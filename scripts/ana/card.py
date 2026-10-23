@@ -48,7 +48,14 @@
   書いていたのに▲のままにして、その馬が勝った。言語化できていたのに
   点数に入っていなかった。→ 調教を項目として入れた。
 """
-import sys, json, statistics as st
+import sys, os, json, importlib.util, statistics as st
+
+# kettou.py を隣から読む。python3 -I だとスクリプトのディレクトリが
+# sys.path に入らないので import では取れない
+_kt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kettou.py")
+_spec = importlib.util.spec_from_file_location("kettou", _kt_path)
+kettou = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(kettou)
 
 MK = ["◎", "○", "▲", "△", "△"]
 FORCE, DROP = {}, {}          # {R: {順位: 馬番}} / {R: [馬番]}
@@ -233,14 +240,29 @@ def cy_pt(c):
 # ────────────────────────── 本体
 
 def ped_pt(ped):
-    """母系3代以内のサンデーサイレンス。並びは
-       0父 1父父 2父父父 3父父母 4父母 5父母父 6父母母
-       7母 8母父 9母父父 10母父母 11母母 12母母父 13母母母"""
+    """血統の点。浦和・第7回（10/19〜23）の56鞍628頭で数えた結果に合わせてある。
+
+       父は他系統 × 母系にサンデー   214頭 12.1%勝 31.3%複  平均人気6.3
+       父は他系統 × サンデー無し     242頭  8.3%勝 24.8%複  平均人気6.1
+       父サンデー系 × 母系にもSS      15頭  6.7%勝 26.7%複  平均人気6.5
+       父サンデー系のみ             157頭  5.7%勝 23.6%複  平均人気6.2
+
+    勝率が2倍ちがうのに平均人気は4群とも6.1〜6.5でほぼ同じ。
+    白井寿昭元調教師の言う「掛け合わせ」の形で、父で他系統のパワーを入れ、
+    母系からサンデーの切れを取る。父にも母にもサンデーだと沈む。
+
+    ただし 1開催・浦和だけ の数字。しかも card.py に入れても印は改善しなかった
+    （母系SSの馬は上がりが0.36秒速く、血統の効果はすでに上がりの点に入っている）。
+    点は小さくしてある。詳細は notes/live/ketto_urawa.md
+    """
     if not ped:
         return 0, ""
-    for i, lab in ((8, "母父"), (9, "母父父"), (12, "母母父")):
-        if len(ped) > i and "サンデーサイレンス" in ped[i]:
-            return 2, lab + "SS"
+    sire_ss = kettou.sire_line(ped) == "サンデー系"
+    hss = kettou.haha_ss(ped)
+    if sire_ss:
+        return -2, "父サンデー系"
+    if hss:
+        return 2, hss + "SS"
     return 0, ""
 
 
