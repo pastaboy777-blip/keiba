@@ -35,7 +35,7 @@ if os.path.exists(CACHE):
             EXP.add(x['id'])
         else:
             G[x['id']] = dict(nm=x['nm'], s=x.get('s'), d=x.get('d'))
-F = open(CACHE, 'a', encoding='utf-8')
+F = open(CACHE, 'a', encoding='utf-8', buffering=1)   # 行ごとに書き出す（並列で走らせても行が混ざらない）
 
 
 def put(hid, nm, s=None, d=None):
