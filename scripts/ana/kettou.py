@@ -23,7 +23,8 @@ import re, sys, time, subprocess, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONF = os.path.join(HERE, "kb.conf")
-URL = "https://p.keibabook.co.jp/chihou/kettou/"
+URL = "https://p.keibabook.co.jp/chihou/kettou/"      # 後方互換のため残す
+BASE = "https://p.keibabook.co.jp/%s/kettou/"
 POS = ["父", "父父", "父父父", "父父母", "父母", "父母父", "父母母",
        "母", "母父", "母父父", "母父母", "母母", "母母父", "母母母"]
 
@@ -84,7 +85,9 @@ KOKU = "USA|IRE|GB|FR|CAN|AUS|NZ|GER|ARG|BRZ|ITY|JPN|SAF|CHI|URU|TUR"
 
 
 def get(rid):
-    r = subprocess.run(["curl", "-sS", "--max-time", "40", "-K", CONF, URL + rid],
+    """rid の桁数で中央／地方を分ける。地方=16桁、中央=12桁（kb.area() と同じ考え）"""
+    url = BASE % ("cyuou" if len(rid) == 12 else "chihou") + rid
+    r = subprocess.run(["curl", "-sS", "--max-time", "40", "-K", CONF, url],
                        capture_output=True)
     return r.stdout.decode("utf-8", "replace")
 
@@ -93,7 +96,9 @@ def parse(h):
     """{馬番: {'name':…, 'sei':…, 'ped':[14頭ぶんの祖先名]}}"""
     t = re.sub(r"<[^>]+>", " ", h).replace("&nbsp;", " ")
     t = re.sub(r"\s+", " ", t)
-    i = t.find("血統表 全馬を表示")
+    # ★見出しは地方が「血統表 全馬を表示」、中央は「全馬を表示」だけ。
+    #   地方の文言で決め打ちしていたため、中央は静かに0件を返していた。
+    i = t.find("全馬を表示")
     if i < 0:
         return {}
     t = t[i:]
