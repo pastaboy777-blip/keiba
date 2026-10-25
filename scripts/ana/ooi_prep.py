@@ -32,10 +32,14 @@ SIRE_CUT = {'リアルスティール': '-12.4', 'スワーヴリチャード': 
             'オルフェーヴル': '-23', 'シルバーステート': '-13'}
 
 ped = {}
-for l in open(SP + '/ped2026.jsonl', encoding='utf-8'):
+import os
+for _f in ('ped2026.jsonl', 'ped_extra.jsonl'):   # 前開催ぶん＋前走日から足したぶん
+  if not os.path.exists(SP + '/' + _f):
+    continue
+  for l in open(SP + '/' + _f, encoding='utf-8'):
     x = json.loads(l)
     ped[html.unescape(x['nm'])] = {k: (html.unescape(v) if isinstance(v, str) else v)
-                                    for k, v in x.items()}
+                                   for k, v in x.items()}
 
 # 前開催の大井（10/4〜10/9）
 prev = {}
