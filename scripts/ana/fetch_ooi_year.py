@@ -53,10 +53,18 @@ for ymd, rid in todo:
     p = get(f'https://keiba.rakuten.co.jp/race_performance/list/RACEID/{rid}')
     if not p:
         continue
-    head = ' '.join(clean(p[:9000])[:60])
-    dm = re.search(r'(\d{3,4})\s*m', head)
-    dist = int(dm.group(1)) if dm else None
-    bm = re.search(r'(良|稍重|重|不良)', head)
+    # 見出しは ["ダ1,200m(外)", "天候：", "晴", "ダ：", "良", …] の並び
+    L = clean(p)
+    head = ' '.join(L[:160])
+    dm = re.search(r'[ダ芝]\s*([\d,]{3,5})\s*m', head)
+    dist = int(dm.group(1).replace(',', '')) if dm else None
+    bm = re.search(r'[ダ芝]\s*[：:]\s*(良|稍重|重|不良)', head)
+    tm = re.search(r'天候\s*[：:]\s*(\S+?)\s', head)
+    cls = ''
+    for k, v in enumerate(L[:160]):
+        if re.match(r'^(ダ|芝)\s*[：:]$', v) and k + 3 < len(L):
+            cls = L[k + 4] if L[k + 3] == '発走時刻' else ''
+    
     rows = []
     for tb in re.findall(r'<table.*?</table>', p, re.S):
         for tr in re.findall(r'<tr[^>]*>(.*?)</tr>', tb, re.S):
@@ -75,8 +83,9 @@ for ymd, rid in todo:
         if rows:
             break
     f.write(json.dumps(dict(rid=rid, ymd=ymd, dist=dist,
-                            baba=bm.group(1) if bm else '', n=len(rows),
-                            e=rows), ensure_ascii=False) + '\n')
+                            baba=bm.group(1) if bm else '',
+                            tenki=tm.group(1) if tm else '', cls=cls,
+                            n=len(rows), e=rows), ensure_ascii=False) + '\n')
     tot += 1
     if tot % 50 == 0:
         print(f'  {tot}/{len(todo)}鞍 ({ymd})', flush=True)
