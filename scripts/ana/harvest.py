@@ -211,6 +211,10 @@ def do_res(base, label):
             mw = re.search(r"\s(\d{3})\s+([-+±]\d+)\s", p)
             mdw = re.search(r"\s\d{3}\s+([-+±]\d+)\s", p)
             mag = re.search(r"\s([34]\d\.\d)\s", p)
+            # 騎手は「▲西優哉 (大井)」、調教師は上がりの直後。人気がその次に来る
+            mj = re.search(r"([^\s(]{2,10})\s*\((?:大井|川崎|船橋|浦和|門別|高知|佐賀|"
+                           r"金沢|笠松|園田|姫路|名古屋|盛岡|水沢|帯広|美浦|栗東)\)", p)
+            mt = re.search(r"\s[34]\d\.\d\s+([ァ-ヶー一-龥]{2,6})\s+\d{1,2}(?!\d)", p)
             ub = int(m.group(3))
             rows.append({"chaku": int(m.group(1)), "waku": int(m.group(2)), "ub": ub,
                          "name": m.group(4), "nk": int(nums[-1]) if nums else None,
@@ -219,7 +223,9 @@ def do_res(base, label):
                          "agari": float(mag.group(1)) if mag else None,
                          # 1角と4角の通過順。gain = 1角 − 4角（プラスが押し上げた）
                          "c1": pos_of(cn[1], ub) if 1 in cn else None,
-                         "c4": pos_of(cn[4], ub) if 4 in cn else None})
+                         "c4": pos_of(cn[4], ub) if 4 in cn else None,
+                         "jk": re.sub(r"^[▲△☆★◇◎]", "", mj.group(1)) if mj else None,
+                         "tr": mt.group(1) if mt else None})
         store[key] = {"R": R, "dist": int(md.group(2).replace(",", "")) if md else None,
                       "tenko": mb.group(1) if mb else None,
                       "baba": mb.group(2) if mb else None,
