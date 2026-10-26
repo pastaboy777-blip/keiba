@@ -49,8 +49,20 @@ for l in open(SP + '/ooi_2026_runs.jsonl', encoding='utf-8'):
         if not (t and a):
             continue
         cell[(r['dist'], r['baba'])].append((t - a, a))
+    # その鞍の中央値。クラスの速さがそのまま入っているので、
+    # ここからの差を取るとクラスを抜いた「相手との差」になる。
+    v = [(sec(e['tm']), fnum(e['ag'])) for e in r['e']]
+    v = [x for x in v if x[0] and x[1]]
+    if len(v) < 5:
+        continue
+    ch, ca = st.median([x[0] - x[1] for x in v]), st.median([x[1] for x in v])
+    for e in r['e']:
+        t, a = sec(e['tm']), fnum(e['ag'])
+        if not (t and a):
+            continue
         runs[e['nm']].append(dict(
             ymd=r['ymd'], dist=r['dist'], baba=r['baba'], t=t, h=t - a, a=a,
+            ch=(t - a) - ch, ca=a - ca,
             f=int(e['f']) if str(e['f']).isdigit() else None,
             pop=int(e['pop']) if str(e['pop']).isdigit() else None,
             wt=e['wt'], jk=e['jk'], tr=e['tr'], R=int(r['rid'][-2:])))
@@ -105,7 +117,8 @@ def legs(nm, n=5):
     return dict(n=len(rs), rs=rs, pp=(st.median(pp) if pp else None),
                 dh=st.median([r['dh'] for r in rs]),
                 da=st.median([r['da'] for r in rs]),
-                dh_b=min(r['dh'] for r in rs), da_b=min(r['da'] for r in rs))
+                ch=st.median([r['ch'] for r in rs]),
+                ca=st.median([r['ca'] for r in rs]))
 
 
 C = json.load(open(CARD, encoding='utf-8'))
@@ -113,10 +126,14 @@ o = ['# 大井 2026/10/27 ── 普段の脚で足りる鞍\n',
      f'馬場は **{BABA}** で置いた。水準は今年の大井 915鞍の距離×馬場ごとの中央値。\n',
      '各馬の自前半・上りは、**過去の実測をそのまま**明日の水準に置き直したもの。'
      '伸びる前提は置いていない。見込み＝自前半＋上り、壁＝その鞍の見込み3位。\n',
-     '印は今年の大井 6,856頭での実測から（同じ層の平均との比）。\n',
-     '  ◎ … 直近3走の人気が9番人気以下で、見込み3位以内（19.9%／層平均8.1%の2.5倍）\n',
-     '  ○ … 直近3走の人気が6〜8番人気で、見込み3位以内（31.9%／層平均20.4%の1.6倍）\n',
-     '  ・ … 見込み3位以内だが市場も見ている（40.7%／全体25.4%）\n']
+     '同じ距離・馬場でも鞍によって走破時計が11.5秒ちがう（クラス）。上のクラスほど'
+     '上りが速いので、距離×馬場だけで測るとクラスを馬の脚として読んでしまう。'
+     '**絶対（距離×馬場で補正した時計）と鞍内偏差（クラスを抜いた相手との差）を半々**'
+     'で混ぜた。\n',
+     '印は今年の大井 6,959頭での実測から（同じ層の平均との比）。\n',
+     '  ◎ … 直近3走の人気が9番人気以下で、見込み3位以内（22.8%／層平均8.1%の2.8倍）\n',
+     '  ○ … 直近3走の人気が6〜8番人気で、見込み3位以内（32.7%／層平均20.4%の1.6倍）\n',
+     '  ・ … 見込み3位以内だが市場も見ている（42.2%／全体22.9%）\n']
 
 PICK = []
 for R in sorted(C, key=int):
@@ -125,15 +142,24 @@ for R in sorted(C, key=int):
     m = med(D, BABA)
     if not m:
         continue
+    # 絶対（距離×馬場だけで補正した時計）と、鞍内偏差（クラスを抜いた相手との差）を
+    # 半々で混ぜる。今年の大井で測ると、どちらか一方より半々がいちばん当たった。
+    #   全馬 42.2%（絶対だけ40.6／鞍内だけ40.4）
+    #   直近人気9番人気以下 22.8%（絶対だけ19.5／鞍内だけ18.2）
+    gg = [(e, legs(e['nm'])) for e in r['e']]
+    hv = [(e, g) for e, g in gg if g]
+    if len(hv) < 3:
+        continue
+    lh = st.median([m[0] + g['dh'] for _, g in hv])    # この鞍の自前半の見当
+    la = st.median([m[1] + g['da'] for _, g in hv])    # 同じく上り
     rows = []
-    for e in r['e']:
-        g = legs(e['nm'])
+    for e, g in gg:
         if not g:
             rows.append((None, e, None))
             continue
-        ph, pa = m[0] + g['dh'], m[1] + g['da']
-        rows.append((ph + pa, e, dict(g, ph=ph, pa=pa,
-                                      pb=(m[0] + g['dh_b']) + (m[1] + g['da_b']))))
+        ph = (m[0] + g['dh'] + lh + g['ch']) / 2
+        pa = (m[1] + g['da'] + la + g['ca']) / 2
+        rows.append((ph + pa, e, dict(g, ph=ph, pa=pa)))
     have = sorted([x for x in rows if x[0]], key=lambda z: z[0])
     bar = have[2][0] if len(have) >= 3 else None
     o.append(f"\n## {R}R　{D}m　{r['n']}頭"
