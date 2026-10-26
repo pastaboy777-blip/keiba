@@ -121,7 +121,10 @@ def main():
     if "--date" in a:
         s = a[a.index("--date") + 1]
         today = dt.date(int(s[:4]), int(s[4:6]), int(s[6:8]))
-    only = [int(x) for x in a[1:] if x.isdigit()]
+    # ★ --min / --date の「値」をRと間違えて拾わないこと。
+    #   素で a[1:] を数字で拾うと --min 3 の 3 を「3Rだけ」と読む。
+    skip = {a.index(f) + 1 for f in ("--min", "--date") if f in a}
+    only = [int(x) for i, x in enumerate(a) if i and i not in skip and x.isdigit()]
     print(__doc__.split("──")[0].strip())
     print("  ①普段は後ろ（4角平均5番手以降） ②距離が±200m以上変わる ③間隔30日以上"
           "　／ %d つ以上で表示" % mn)
