@@ -15,7 +15,11 @@ with sync_playwright() as p:
     page = browser.new_page(viewport={"width": width, "height": 900}, device_scale_factor=2)
     page.goto("file://" + html_path)
     page.wait_for_timeout(300)
-    el = page.query_selector(".card") or page
-    el.screenshot(path=out_path)
+    # .card があればその要素だけ、無ければページ全体（縦に長くても全部入る）
+    el = page.query_selector(".card")
+    if el:
+        el.screenshot(path=out_path)
+    else:
+        page.screenshot(path=out_path, full_page=True)
     browser.close()
 print("wrote", out_path)
