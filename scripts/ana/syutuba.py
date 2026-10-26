@@ -17,6 +17,7 @@ base16 は楽天の RACEID の頭16桁。その日の一覧から拾う。
   馬ごと … 馬番・枠・馬名・過去5走
   過去走 … 着順・馬場・頭数・場・日付・距離・芝ダ・人気・斤量・着差・
            上がり3F・馬体重・そのときの枠・通過順（c1 と c4 つき）
+           走破タイム t（秒）と、自前半 zen＝t−上がり3F
 
 ── ★ 当日に取り直すこと（CLAUDE.md ルール3）
 
@@ -69,6 +70,16 @@ def flat(t):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t))
 
 
+def secs(s):
+    """走破タイム「1:41.2」「41.2」を秒に。★ 自前半＝走破タイム−上がり3F。
+       楽天は前半タイムを出さないが、引き算で出る。"""
+    m, _, r = s.rpartition(":")
+    try:
+        return round(int(m) * 60 + float(r), 1) if m else float(r)
+    except ValueError:
+        return None
+
+
 def one(base, R):
     h = get(CARD + "%s%02d" % (base, R))
     t = flat(h)
@@ -89,9 +100,11 @@ def one(base, R):
         for m in PAST.finditer(fb):
             (ch, baba, n, ven, dt, dist, sur, nk, kin, tm, sa, ag, w, wk, ts) = m.groups()
             q = [int(y) for y in ts.split("-") if y.isdigit()]
+            sec, agf = secs(tm), float(ag)
             runs.append({"chaku": int(ch), "baba": baba, "n": int(n), "venue": ven,
                          "date": dt, "dist": int(dist), "sur": sur, "nk": int(nk),
-                         "kin": float(kin), "sa": float(sa), "agari": float(ag),
+                         "kin": float(kin), "sa": float(sa), "agari": agf,
+                         "t": sec, "zen": round(sec - agf, 1) if sec else None,
                          "w": int(w), "waku": int(wk), "tsuka": q,
                          "c1": q[0] if q else None, "c4": q[-1] if q else None})
         # ★ 当日だけ入る欄。前日は空
