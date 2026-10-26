@@ -32,24 +32,24 @@ WHY = {
  'ダスマパーティ': '前走1200mを<b>37.5＋40.3</b>で9番人気5着。不良1200mの水準は'
                '<b>36.5＋39.3</b>。<b>上りの水準が1秒ぶん下りてくる</b>ので、'
                'この脚のままで足りる',
- 'ソレイユダーム': '<b>37.6＋40.2</b>。ダスマパーティと同型で<b>見込みは同値</b>。'
+ 'ソレイユダーム': '<b>37.6＋40.2</b>。ダスマパーティと同型で<b>置き直した時計は同値</b>。'
                '2Rはこの2頭で押さえたい',
  'ポロリス': '10番人気で負け続けている。前走1600mの<b>65.2＋41.0</b>は、'
             '不良1600mの水準<b>64.0＋40.9</b>とほぼ同じ。'
-            '伸びなくても水準どおりで足りる。<b>鞍内1位</b>',
- 'ルカドリーマー': '139日ぶり。1400mの<b>51.2＋40.4</b>を1600mの水準に置き直すと壁ちょうど。'
-              '4Rは上位3頭が0.3秒に収まる横一線',
+            '伸びなくても水準どおりで足りる',
+ 'ルカドリーマー': '139日ぶり。1400mの<b>51.2＋40.4</b>を1600mの水準に置き直すと3番手と同値。'
+              '<b>鞍内3位</b>。4Rは上位3頭が0.3秒に収まる横一線',
  'ハッピーワイド': '前走<b>64.9＋41.3</b>で5着。自前半が水準より1秒速い側にある。'
                 '前に行ける脚を持ったまま9番人気まで落ちた',
  'コロラドフォンテン': '前走1800mを<b>79.2＋39.3</b>。200m短くなって<b>鞍内1位</b>、'
-                  '壁まで0.5秒の余裕',
+                  '3番手に0.5秒の差',
  'ゴーディアンノット': '15走ぶん実測がある。1200mは4走して古い順に<b>2着・5着・7着・2着</b>、'
-                 '最速上り37.2。<b>鞍内1位</b>で壁まで0.5秒',
+                 '最速上り37.2。<b>鞍内1位</b>で3番手に0.5秒の差',
  'ドレッドノート': '前走1400mで<b>49.5＋39.2</b>の3着。1200mに下りて自前半36.0は'
               '鞍内で最速クラス',
  'グリスタン': '2400mを<b>119.6＋42.0</b>まで走っている。1800mは<b>600mの短縮</b>。'
-            '壁まで0.9秒',
- 'ショウナンカブト': '1600重で<b>64.2＋38.1</b>。この上りを2000mの水準に置くと壁ちょうど。'
+            '<b>鞍内2位</b>で3番手に0.9秒の差',
+ 'ショウナンカブト': '1600重で<b>64.2＋38.1</b>。この上りを2000mの水準に置くと<b>鞍内3位</b>。'
                 '522kgでこの鞍の最重量クラス',
  'ムットクルフェ': '前走1400mを<b>48.4＋38.0</b>。2000mで<b>上りの水準が2.3秒下りる</b>',
 }
@@ -71,7 +71,7 @@ def tbl(mk):
     h = [f'<section><div class="sh"><span class="badge" style="background:{c}">{mk}</span>'
          f'<h2>{ttl}</h2><span class="sub">{sub}</span></div>',
          '<table><thead><tr><th>R</th><th>番</th><th>馬名</th><th>距離</th>'
-         '<th>見込み</th><th>壁</th><th>鞍内</th><th>自前半</th><th>上り</th>'
+         '<th>鞍内</th><th>自前半</th><th>上り</th>'
          '<th>直近人気</th><th>買える理由</th></tr></thead><tbody>']
     for r in rows[mk]:
         L = r['last']
@@ -84,8 +84,7 @@ def tbl(mk):
             f'<tr style="--c:{c}"><td class="r">{r["R"]}R</td><td class="u">{r["u"]}</td>'
             f'<td class="nm">{html.escape(r["nm"])}{ov}</td>'
             f'<td class="d">{ds}</td>'
-            f'<td class="big">{r["pt"]:.1f}</td><td class="bar">{r["bar"]:.1f}</td>'
-            f'<td class="rk">{r["rk"]}/{r["n"]}</td>'
+            f'<td class="rk"><b>{r["rk"]}</b>/{r["n"]}</td>'
             f'<td class="mono">{r["ph"]}</td><td class="mono">{r["pa"]}</td>'
             f'<td class="pp">{r["pp"]:g}人</td><td class="why">{r["why"]}</td></tr>')
     return '\n'.join(h) + '</tbody></table></section>'
@@ -127,10 +126,9 @@ tr td:first-child{{border-left:4px solid var(--c);padding-left:16px}}
 .d{{width:132px;font-size:15px;font-weight:700;white-space:nowrap}}
 .ar{{color:#6e6a64;margin:0 5px;font-weight:400}}
 .dm{{font-size:12px;color:#8e8a84;font-weight:500}}
-.big{{font-weight:800;font-size:23px;width:88px;font-variant-numeric:tabular-nums}}
-.bar{{color:#8e8a84;width:72px;font-variant-numeric:tabular-nums}}
-.rk{{width:66px;font-variant-numeric:tabular-nums;color:#cfccc8}}
-.mono{{width:74px;font-variant-numeric:tabular-nums;color:#b5b1ab}}
+.rk{{width:84px;font-variant-numeric:tabular-nums;color:#8e8a84;font-size:17px}}
+.rk b{{font-size:23px;font-weight:800;color:#e8e6e3}}
+.mono{{width:84px;font-variant-numeric:tabular-nums;color:#b5b1ab}}
 .pp{{width:84px;font-weight:700;color:var(--c)}}
 .why{{color:#cfccc8;font-size:15px;line-height:1.7}}
 .why b{{color:#fff}}
@@ -154,19 +152,19 @@ footer .hl{{color:#ff8a5c;font-weight:700}}
 <b>同じ数字</b>。速くなったのは馬ではなくレースのほう。──だから探すのは「伸びそうな馬」ではなく、
 <span class="hl">今日と同じ脚で足りる鞍</span>。<br>
 距離×馬場ごとの水準（自前半・上り3Fの中央値）に、その馬の実測のズレをそのまま置き直す。
-<b>壁はその鞍の見込み3位</b>。<br>
+置き直した時計が<b>その鞍の3番手に届くか</b>だけを見る。<br>
 ただし同じ距離・馬場でも鞍によって走破時計が <b>11.5秒</b> ちがう。
 <span class="hl">上のクラスほど上りが速い</span>（上のクラスの鞍は水準より上り −1.03秒、下のクラスは +0.98秒）ので、
 距離×馬場だけで測ると<b>クラスの速さを馬の脚として読んでしまう</b>。
 絶対時計と鞍内偏差（クラスを抜いた相手との差）を<b>半々</b>で混ぜてある。
 </p>
 <div class="tiles">
- <div class="tile"><div class="k">見込み3位以内</div><div class="v">42.2<small>%</small></div>
+ <div class="tile"><div class="k">鞍内3位以内</div><div class="v">42.2<small>%</small></div>
   <div class="n">全出走は 22.9%。6,959頭で測った</div></div>
- <div class="tile"><div class="k">直近人気 9番人気以下 × 見込み3位以内</div>
+ <div class="tile"><div class="k">直近人気 9番人気以下 × 鞍内3位以内</div>
   <div class="v" style="color:#d95926">22.8<small>%</small></div>
   <div class="n">同じ層の平均 8.1% ── <b>2.8倍</b>（クラス補正前は19.5%）</div></div>
- <div class="tile"><div class="k">直近人気 6〜8番人気 × 見込み3位以内</div>
+ <div class="tile"><div class="k">直近人気 6〜8番人気 × 鞍内3位以内</div>
   <div class="v" style="color:#3987e5">32.7<small>%</small></div>
   <div class="n">同じ層の平均 20.4% ── <b>1.6倍</b></div></div>
  <div class="tile"><div class="k">10/26 を事前情報だけで走らせたら</div>
@@ -197,7 +195,7 @@ footer .hl{{color:#ff8a5c;font-weight:700}}
 <p class="note">8頭の事実関係（馬番・距離・前走距離・間隔・上り）は
 <b>ほぼ全部そのとおり</b>だった。そのうち
 <b>ゴーディアンノット・ショウナンカブト・ルカドリーマー</b>の3頭は、
-この水準の置き直しでも壁を越える。上の表にそのまま入っている。
+この水準の置き直しでも鞍内3位以内に入る。上の表にそのまま入っている。
 フラグランツァはクラス補正を入れると2番人気まで評価が上がり、妙味の側から外れた。</p>
 </section>
 <footer>
@@ -205,7 +203,7 @@ footer .hl{{color:#ff8a5c;font-weight:700}}
 ただし<span class="hl">時計は後半にかけて速くなっている</span>──同じ距離で並べると
 1600mが 1R 43.19 → 5R 42.31 → 8R 42.02、1200mが 2R 40.74 → 4R 40.46 → 7R 40.08 → 10R 39.96 → 11R 38.71。
 水準との差でも <b>1〜6R +1.21秒 → 7〜12R +0.49秒</b>で、馬場は<b>乾く方向</b>に動いていた。<br>
-「鞍内」が4位でも壁と同値なら拾っている（4R⑪ハッピーワイド）。<br>良に戻っても上の11頭はそのまま残る（壁も一緒に動くため）。<b>馬場待ちは不要。</b>
+「鞍内」は置き直した時計の鞍内順位。4位でも3番手と同値なら拾う（4R⑪ハッピーワイド）。<br>良に戻っても上の11頭はそのまま残る（鞍の全体が一緒に動くため）。<b>馬場待ちは不要。</b>
 朝に馬場状態を取り直し、発走30分前にオッズで印を打ち直す。<br>
 相手は <b>4〜6番人気</b>で埋めたい。10/26 は 2〜3番人気 29.2% に対して <b>4〜6番人気 36.1%</b> だった。
 </footer>
