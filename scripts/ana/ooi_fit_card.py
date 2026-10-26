@@ -57,7 +57,7 @@ G = {'◎': ('#d95926', '条件が下りてきた馬', '直近3走の人気が9�
      '○': ('#3987e5', '穴で押さえたい', '直近3走の人気が6〜8番人気。今年の大井で 32.7%（同じ層の平均 20.4%）')}
 
 rows = {'◎': [], '○': []}
-for p in sorted(P, key=lambda z: (z['R'], z['pt'])):
+for p in sorted(P, key=lambda z: (z['R'], int(z['u']))):
     R = str(p['R'])
     k = (R, f"{p['mk']} {p['u']}")
     ln = line.get(k, {})
