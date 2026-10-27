@@ -54,7 +54,11 @@ def wrap(nm):
     return html.escape(nm[:k]) + '<br>' + html.escape(nm[k:])
 
 
-NR = len({p['R'] for p in P})
+RS = sorted({p['R'] for p in P})
+NR = len(RS)
+# レースごとの色（検証ずみの5色から順に）
+PAL = ['#d95926', '#3987e5', '#199e70', '#c98500', '#d55181']
+RCOL = {r: PAL[i % len(PAL)] for i, r in enumerate(RS)}
 
 rows = []
 for p in P:
@@ -66,7 +70,7 @@ for p in P:
     pos = f"{p['pos']:.1f}" if p['pos'] is not None else '－'
     g = f"{p['gain']:+.1f}" if p['gain'] is not None else '－'
     rows.append(
-      f'<tr><td class=r>{p["R"]}<span class=rr>R</span>'
+      f'<tr style="--rc:{RCOL[p["R"]]}"><td class=r>{p["R"]}<span class=rr>R</span>'
       f'<br><span class=dm>{p["dist"]}m</span></td>'
       f'<td class=u>{p["u"]}</td>'
       f'<td class=nm>{wrap(p["nm"])}<span class=si>{html.escape(p["sire"])}</span></td>'
@@ -104,11 +108,11 @@ th{{font-size:12px;color:#8e8a84;font-weight:500;text-align:left;padding:0 10px 
 td{{padding:15px 10px;border-bottom:1px solid #1d1d1a;font-size:16px;vertical-align:top}}
 tr:nth-child(odd) td{{background:#0e0e0d}}
 
-.r{{width:126px;color:#e8e6e3;font-weight:800;font-size:44px;line-height:1.05;
- border-left:4px solid #3a3a36;padding-left:18px;font-variant-numeric:tabular-nums}}
-.rr{{font-size:26px;color:#8e8a84;margin-left:3px}}
+.r{{width:126px;color:var(--rc);font-weight:800;font-size:44px;line-height:1.05;
+ border-left:6px solid var(--rc);padding-left:18px;font-variant-numeric:tabular-nums}}
+.rr{{font-size:26px;color:var(--rc);opacity:.6;margin-left:3px}}
 .dm{{display:inline-block;margin-top:9px;font-size:17px;color:#8e8a84;font-weight:600}}
-.u{{width:76px;font-weight:800;font-size:44px;color:#d95926;line-height:1.05;
+.u{{width:76px;font-weight:800;font-size:44px;color:#e8e6e3;line-height:1.05;
  font-variant-numeric:tabular-nums}}
 .nm{{width:270px;font-weight:800;font-size:32px;line-height:1.24;
  letter-spacing:.01em}}
