@@ -41,6 +41,26 @@ WHY = {
  'サラン': '大井は初出走',
 }
 
+# 長い馬名は意味の切れ目で2行にする（数字は前半の文字数）
+BREAK = {'イノセントワールド': 5, 'ユイノサンバンカン': 3, 'クリムゾンバースト': 5,
+         'グレートロッタリー': 4, 'アップタウンガール': 6, 'カルサパラストリス': 3,
+         'ヤッティライネン': 4, 'ムーンシェイド': 3, 'ディアローラ': 0,
+         'ウィルアトレ': 0, 'サラン': 0}
+
+
+def maru(n):
+    """馬番を丸数字に。20を超えたらそのまま。"""
+    n = int(n)
+    return chr(0x2460 + n - 1) if 1 <= n <= 20 else str(n)
+
+
+def wrap(nm):
+    k = BREAK.get(nm, 5 if len(nm) >= 9 else 0)
+    if not k:
+        return html.escape(nm)
+    return html.escape(nm[:k]) + '<br>' + html.escape(nm[k:])
+
+
 rows = []
 for p in P:
     why = WHY.get(p['nm'], '')
@@ -56,8 +76,8 @@ for p in P:
     g = f"{p['gain']:+.1f}" if p['gain'] is not None else '－'
     rows.append(
       f'<tr><td class=r>{p["R"]}R<br><span class=dm>{p["dist"]}m {p["n"]}頭</span></td>'
-      f'<td class=u>{p["u"]}</td>'
-      f'<td class=nm>{html.escape(p["nm"])}<span class=si>{html.escape(p["sire"])}</span></td>'
+      f'<td class=u>{maru(p["u"])}</td>'
+      f'<td class=nm>{wrap(p["nm"])}<span class=si>{html.escape(p["sire"])}</span></td>'
       f'<td class="sm{" dim" if thin else ""}">{ag}<br><span class=un>SD {sd}</span></td>'
       f'<td class=sm>{p["nsd"]}<span class=un>走</span><br>'
       f'<span class=un>全{p["nrun"]}走</span></td>'
@@ -71,7 +91,7 @@ HTML = f'''<!doctype html><html lang=ja><head><meta charset=utf-8>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{background:#0a0a0a;color:#e8e6e3;font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
- padding:46px 54px 38px;width:2090px;-webkit-font-smoothing:antialiased}}
+ padding:46px 54px 38px;width:2010px;-webkit-font-smoothing:antialiased}}
 h1{{font-size:39px;font-weight:800}} h1 .ac{{color:#d95926}}
 .tag{{display:inline-block;background:#d95926;color:#fff;font-size:15px;font-weight:700;
  padding:4px 12px;border-radius:5px;margin-left:14px;vertical-align:7px}}
@@ -90,9 +110,10 @@ td{{padding:15px 10px;border-bottom:1px solid #1d1d1a;font-size:16px;vertical-al
 .r{{width:100px;color:#cfccc8;font-weight:700;font-size:17px;
  border-left:4px solid #3a3a36;padding-left:16px}}
 .dm{{font-size:12px;color:#8e8a84;font-weight:500}}
-.u{{width:48px;font-weight:800;font-size:24px;color:#e8e6e3}}
-.nm{{width:352px;font-weight:800;font-size:32px;line-height:1.2;
- letter-spacing:.01em;white-space:nowrap}}
+.u{{width:56px;font-weight:800;font-size:31px;color:#e8e6e3;
+ line-height:1}}
+.nm{{width:270px;font-weight:800;font-size:32px;line-height:1.24;
+ letter-spacing:.01em}}
 .si{{display:block;font-size:13px;font-weight:500;color:#8e8a84;margin-top:7px}}
 .sm{{width:88px;color:#cfccc8;font-variant-numeric:tabular-nums;line-height:1.55;
  font-size:19px;font-weight:700;white-space:nowrap}}
