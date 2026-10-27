@@ -48,12 +48,6 @@ BREAK = {'イノセントワールド': 5, 'ユイノサンバンカン': 3, '�
          'ウィルアトレ': 0, 'サラン': 0}
 
 
-def maru(n):
-    """馬番を丸数字に。20を超えたらそのまま。"""
-    n = int(n)
-    return chr(0x2460 + n - 1) if 1 <= n <= 20 else str(n)
-
-
 def wrap(nm):
     k = BREAK.get(nm, 5 if len(nm) >= 9 else 0)
     if not k:
@@ -76,7 +70,7 @@ for p in P:
     g = f"{p['gain']:+.1f}" if p['gain'] is not None else '－'
     rows.append(
       f'<tr><td class=r>{p["R"]}R<br><span class=dm>{p["dist"]}m {p["n"]}頭</span></td>'
-      f'<td class=u>{maru(p["u"])}</td>'
+      f'<td class=u>{p["u"]}</td>'
       f'<td class=nm>{wrap(p["nm"])}<span class=si>{html.escape(p["sire"])}</span></td>'
       f'<td class="sm{" dim" if thin else ""}">{ag}<br><span class=un>SD {sd}</span></td>'
       f'<td class=sm>{p["nsd"]}<span class=un>走</span><br>'
@@ -110,8 +104,8 @@ td{{padding:15px 10px;border-bottom:1px solid #1d1d1a;font-size:16px;vertical-al
 .r{{width:100px;color:#cfccc8;font-weight:700;font-size:17px;
  border-left:4px solid #3a3a36;padding-left:16px}}
 .dm{{font-size:12px;color:#8e8a84;font-weight:500}}
-.u{{width:56px;font-weight:800;font-size:31px;color:#e8e6e3;
- line-height:1}}
+.u{{width:62px;font-weight:800;font-size:34px;color:#e8e6e3;line-height:1;
+ font-variant-numeric:tabular-nums}}
 .nm{{width:270px;font-weight:800;font-size:32px;line-height:1.24;
  letter-spacing:.01em}}
 .si{{display:block;font-size:13px;font-weight:500;color:#8e8a84;margin-top:7px}}
