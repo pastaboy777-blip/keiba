@@ -14,7 +14,7 @@ P = json.load(open(LIST, encoding='utf-8'))
 WHY = {
  'グレートロッタリー':
    '1600mを4走して上がり 40.4・41.3・40.6・40.9。<b>0.9秒の幅に収まり、'
-   'ばらつき0.34はこの11頭で最小</b>。440kgは鞍の中央より<b>39kg軽い</b>。'
+   'ばらつき0.34はこの11頭で最小</b>。<b>440kg</b>。'
    '壁まで<b>+0.30</b>で、今年 28.4% の条件に入る',
  'ムーンシェイド':
    '450kgで<b>普段4角1番手</b>。この11頭で唯一はっきり前に行ける。'
@@ -22,16 +22,15 @@ WHY = {
    '前走は1600mを1番人気3着',
  'アップタウンガール':
    '<b>上がり39.9はこの11頭で最速</b>。鞍内2位で壁まで<b>+0.30</b>、'
-   '普段4角3.0番手から<b>3→4角も+0.5</b>と押し上げる。455kgで−26kg',
+   '普段4角3.0番手から<b>3→4角も+0.5</b>と押し上げる。<b>455kg</b>',
  'カルサパラストリス':
    '<b>1600mを5走、ばらつき0.52</b>で材料がいちばん厚い。上がり40.1は11頭で2番目に速い。'
-   '445kgは鞍の中央より<b>36kg軽い</b>',
+   '<b>445kg</b>',
  'ヤッティライネン':
    '<b>443kgで10走ぶんの実測</b>。1200mでは上がり 38.0・38.5・38.7・39.2・39.4 を使えている。'
    '普段4角8番手から<b>3→4角+1.0</b>と押し上げる',
  'ユイノサンバンカン':
-   '<b>1600mを5走</b>、上がり40.6でばらつき0.92。462kgで鞍の中央より19kg軽い。'
-   '普段4角7番手',
+   '<b>1600mを5走</b>、上がり40.6でばらつき0.92。<b>462kg</b>で普段4角7番手',
  'クリムゾンバースト':
    '前走1600mで上がり<b>40.4</b>。466kgで普段4角6番手。1600m→1200mの短縮',
  'ウィルアトレ':
@@ -55,7 +54,6 @@ for p in P:
     sl = f"{p['slack']:+.2f}" if p['slack'] is not None else '－'
     pos = f"{p['pos']:.1f}" if p['pos'] is not None else '－'
     g = f"{p['gain']:+.1f}" if p['gain'] is not None else '－'
-    dw = (f"<span class=un>{p['dw']:+d}</span>" if p['dw'] is not None else '')
     rows.append(
       f'<tr><td class=r>{p["R"]}R<br><span class=dm>{p["dist"]}m {p["n"]}頭</span></td>'
       f'<td class=u>{p["u"]}</td>'
@@ -63,7 +61,7 @@ for p in P:
       f'<td class="sm{" dim" if thin else ""}">{ag}<br><span class=un>SD {sd}</span></td>'
       f'<td class=sm>{p["nsd"]}<span class=un>走</span><br>'
       f'<span class=un>全{p["nrun"]}走</span></td>'
-      f'<td class=sm>{p["wt"] or "－"}<span class=un>kg</span><br>{dw}</td>'
+      f'<td class=sm>{p["wt"] or "－"}<span class=un>kg</span></td>'
       f'<td class=sm>{pos}<span class=un>番手</span><br><span class=un>{g}</span></td>'
       f'<td class=big>{sl}</td>'
       f'<td class=rk>{rk}</td><td class=rk>{hrk}</td><td class=rk>{ark}</td>'
@@ -103,8 +101,8 @@ td{{padding:15px 10px;border-bottom:1px solid #1d1d1a;font-size:16px;vertical-al
 .big{{width:88px;font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;color:#cfccc8}}
 .rk{{width:64px;color:#b5b1ab;font-variant-numeric:tabular-nums;font-size:16px}}
 .why{{color:#cfccc8;font-size:15px;line-height:1.72}}
-.why b{{color:#fff}} .why .w{{color:#c98500;font-weight:700}}
-.sm .w{{color:#c98500;font-weight:700;font-size:14px}}
+.why b{{color:#fff}} .why .w{{color:#cfccc8;font-weight:700}}
+.sm .w{{color:#8e8a84;font-weight:500;font-size:14px}}
 footer{{margin-top:30px;padding-top:20px;border-top:1px solid #262622;
  font-size:15px;line-height:1.85;color:#a5a19b}}
 footer b{{color:#fff}} footer .hl{{color:#ff8a5c;font-weight:700}}
