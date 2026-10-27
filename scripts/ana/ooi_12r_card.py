@@ -22,7 +22,6 @@ def cell(p, c):
         return '<td colspan=7 class=none>人気薄の候補なし</td>'
     ds = (f"{p['pd']}<span class=ar>→</span>{p['dist']}" if p['pd'] and p['pd'] != p['dist']
           else f"{p['dist']}m")
-    sd = f"{p['sd']:.2f}" if p['sd'] is not None else '－'
     extra = (f'2位と<b>{p["lead"]:+.2f}</b>' if p['kind'] == '本命'
              else f'壁まで<b>{p["slack"]:+.2f}</b>')
     return (f'<td class=u style="--c:{c}">{p["uu"]}</td>'
@@ -31,11 +30,31 @@ def cell(p, c):
             f'<td class=ex style="--c:{c}">{extra}</td>'
             f'<td class=rk><b>{p["rk"]}</b>/{p["nr"]}</td>'
             f'<td class=rk><b>{p["hrk"]}</b>/{p["nr"]}</td>'
-            f'<td class=sm>{p["wt"] or "－"}<span class=un>kg</span><br>'
-            f'<span class=un>SD {sd}</span></td>'
+            f'<td class=rk>{(str(p["ark"])+"/"+str(p["nar"])) if p.get("ark") else "－"}</td>'
+            f'<td class=sm>{p["wt"] or "－"}<span class=un>kg</span></td>'
             f'<td class=pp>{p["pp"]:g}<span class=un>人</span><br>'
             f'<span class=un>{p["ppop"]}人{p["pf"]}着</span></td>')
 
+
+# 脚注はその日の中身から組む
+hon = [p for p in P if p['kind'] == '本命']
+ana = [p for p in P if p['kind'] == '穴']
+strong = [p for p in hon if p['lead'] >= 0.5]
+flat = [p for p in hon if p['lead'] <= 0.05]
+ok = [p for p in ana if p['slack'] >= 0.3]
+even = [p for p in ana if 0 <= p['slack'] < 0.3]
+nm = lambda v: '・'.join(f"{p['R']}R{chr(0x2460 + int(p['uu']) - 1)}{p['nm']}"
+                         if int(p['uu']) <= 20 else f"{p['R']}R{p['uu']}{p['nm']}" for p in v)
+FOOT = ('<b>本命の強さは「2位との差」で決まる。</b>'
+        '差が0.5秒以上あれば3着内 <b>72.9%</b>・勝ち <b>40.1%</b>、0.2秒未満だと 45.5% まで落ちる。'
+        + (f'この日 0.5秒以上は <b>{nm(strong)}</b>。' if strong
+           else '<span class=hl>この日は0.5秒以上がひとつもない。</span>')
+        + (f' 2位との差がない（横一線）のは {nm(flat)} で、ここは本命から入らない。' if flat else '')
+        + '<br><b>穴は余裕0.3秒以上が条件（28.4%）。</b>'
+        + (f'この日の該当は <b>{nm(ok)}</b>。' if ok
+           else '<span class=hl>この日それを満たす穴はいない。</span>')
+        + (f' 壁と同値（18.7%）が {nm(even)}。' if even else '')
+        + ' 残りは届いていない。<b>穴は無理に全鞍買う形ではない。</b><br>')
 
 rows = []
 for R in sorted(BY):
@@ -108,15 +127,12 @@ footer b{{color:#fff}} footer .hl{{color:#ff8a5c;font-weight:700}}
   <div class=n>壁とほぼ同値だと 18.7% に落ちる</div></div>
 </div>
 <table><thead><tr><th></th><th class=h colspan=2>本命</th>
-<th>2位との差</th><th>鞍内</th><th>自前半</th><th>馬体重／SD</th><th>直近／前走</th>
+<th>2位との差</th><th>鞍内</th><th>自前半</th><th>上り</th><th>馬体重</th><th>直近／前走</th>
 <th></th><th class=a colspan=2>穴</th>
-<th>壁までの余裕</th><th>鞍内</th><th>自前半</th><th>馬体重／SD</th><th>直近／前走</th>
+<th>壁までの余裕</th><th>鞍内</th><th>自前半</th><th>上り</th><th>馬体重</th><th>直近／前走</th>
 </tr></thead><tbody>{''.join(rows)}</tbody></table>
 <footer>
-<b>本命の強さは「2位との差」で決まる。</b>差が0.5秒以上あれば3着内 <b>72.9%</b>・勝ち <b>40.1%</b>、
-0.2秒未満だと 45.5% まで落ちる。表の「2位との差」を見て張り分ける。<br>
-<b>穴は余裕0.3秒以上が条件（28.4%）。</b><span class=hl>この日それを満たす穴は1頭もいない。</span>いちばん近いのが 5R⑧・7R⑪・10R⑨ の壁と同値（18.7%）。9R⑤ヤンノカステップは唯一その条件を満たしたが、鞍内1位なので本命に入っている。<b>穴は無理に全鞍買う形ではない。</b><br>
-<b>11R⑧サヨノトレイダーは前走が3/24で7か月ぶり。</b>上がりの安定は今年3月までの数字で、鮮度が違う。<br>
+{FOOT}
 馬場は良で置いた。朝に取り直し、<b>1〜3鞍走ってから</b>以降の3着ラインを直す。
 発走30分前にオッズで印を打ち直す。
 </footer></body></html>'''
