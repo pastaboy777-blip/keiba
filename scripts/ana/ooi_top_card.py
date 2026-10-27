@@ -34,18 +34,22 @@ WHY = {
    '<b>鞍内1位・自前半3位</b>、2位との差+0.20。499kgで普段4角4.0番手。'
    '<span class=w>同距離帯0走</span>で上がりは測れない'),
 }
-COL = ['#d95926', '#d95926', '#3987e5', '#3987e5', '#8e8a84', '#8e8a84']
+# 張る厚さ（馬名で決める）。表はレース番号順に出す。
+WEIGHT = {'ブルーキャット': ('厚', '#d95926'), 'ワールドフォンテン': ('厚', '#d95926'),
+          'ナムラソラン': ('中', '#3987e5'), 'ココミサイル': ('薄', '#8e8a84'),
+          'トンスケ': ('薄', '#8e8a84'), 'リコーヒューズ': ('薄', '#8e8a84')}
+T.sort(key=lambda z: z['R'])
 
 rows = []
 for i, p in enumerate(T):
-    c = COL[i]
+    mk, c = WEIGHT.get(p['nm'], ('', '#8e8a84'))
     head, why = WHY.get(p['nm'], ('', ''))
     ar = f"{p['ark']}/{p['nar']}" if p.get('ark') else '－'
     lead = f"{p['lead']:+.2f}" if p.get('lead') is not None else '－'
     g = f"{p['gain']:+.1f}" if p.get('gain') is not None else '－'
     pos = f"{p['pos']:.1f}" if p.get('pos') is not None else '－'
     rows.append(
-      f'<tr style="--c:{c}"><td class=no>{i+1}</td>'
+      f'<tr style="--c:{c}"><td class=no>{mk}</td>'
       f'<td class=r>{p["R"]}R<br><span class=dm>{p["dist"]}m {p["n"]}頭</span></td>'
       f'<td class=u>{p["uu"]}</td>'
       f'<td class=nm>{html.escape(p["nm"])}<span class=si>{html.escape(p["sire"])}</span>'
@@ -80,7 +84,7 @@ table{{width:100%;border-collapse:collapse;margin-top:18px}}
 th{{font-size:12px;color:#8e8a84;font-weight:500;text-align:left;padding:0 10px 8px;
  border-bottom:1px solid #262622}}
 td{{padding:17px 10px;border-bottom:1px solid #1d1d1a;font-size:16px;vertical-align:top}}
-.no{{width:40px;font-size:24px;font-weight:800;color:var(--c);
+.no{{width:44px;font-size:21px;font-weight:800;color:var(--c);
  border-left:4px solid var(--c);padding-left:14px}}
 .r{{width:84px;color:#cfccc8;font-weight:700;font-size:17px}}
 .dm{{font-size:12px;color:#8e8a84;font-weight:500}}
@@ -120,16 +124,16 @@ footer b{{color:#fff}} footer .hl{{color:#ff8a5c;font-weight:700}}
   <div class=v>38.9<small>%</small></div>
   <div class=n>全体18.4%。走り終えた上がりの71.6%とは別物</div></div>
 </div>
-<table><thead><tr><th></th><th>R</th><th>番</th><th>馬名 / 父</th>
+<table><thead><tr><th>張る</th><th>R</th><th>番</th><th>馬名 / 父</th>
 <th>2位との差</th><th>鞍内</th><th>自前半</th><th>上がり</th><th>普段4角／3→4角</th>
 <th>馬体重／実測</th><th>直近</th><th>買える理由</th></tr></thead>
 <tbody>{''.join(rows)}</tbody></table>
 <footer>
 <b>今日は一点に大きく張る日ではない。</b>2位との差が0.5秒以上（3着内 72.9%・勝ち 40.1%）の鞍が
 <span class=hl>ひとつもない</span>。最大が 5R⑧ の +0.40 で、ここが上限。<br>
-<b>厚く張るなら ①5R⑧ と ②7R⑥。</b>自前半・位置・材料の厚みが全部そろう。
-③6R⑪は14頭立てで鞍内1位かつ上がり1位、配当が付くならここ。<br>
-<b>④〜⑥は鞍内1位だが欠けがある。</b>3R⑧は普段4角8番手で後ろ、2R⑦と8R⑤は同距離帯の実測が0走で
+<b>厚く張るのは 5R⑧ と 7R⑥（表の「厚」）。</b>自前半・位置・材料の厚みが全部そろう。
+6R⑪は14頭立てで鞍内1位かつ上がり1位、配当が付くならここ（「中」）。<br>
+<b>残る3頭（「薄」）は鞍内1位だが欠けがある。</b>3R⑧は普段4角8番手で後ろ、2R⑦と8R⑤は同距離帯の実測が0走で
 上がりが測れない。薄く。<br>
 馬場は良で置いた。朝に取り直し、<b>1〜3鞍走ってから</b>以降の3着ラインを直す。
 発走30分前にオッズで印を打ち直す。
