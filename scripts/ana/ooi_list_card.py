@@ -66,7 +66,8 @@ for p in P:
     pos = f"{p['pos']:.1f}" if p['pos'] is not None else '－'
     g = f"{p['gain']:+.1f}" if p['gain'] is not None else '－'
     rows.append(
-      f'<tr><td class=r>{p["R"]}R<br><span class=dm>{p["dist"]}m {p["n"]}頭</span></td>'
+      f'<tr><td class=r>{p["R"]}<span class=rr>R</span>'
+      f'<br><span class=dm>{p["dist"]}m</span></td>'
       f'<td class=u>{p["u"]}</td>'
       f'<td class=nm>{wrap(p["nm"])}<span class=si>{html.escape(p["sire"])}</span></td>'
       f'<td class="ag{" dim" if thin else ""}">{ag}<br><span class=un>SD {sd}</span></td>'
@@ -103,10 +104,11 @@ th{{font-size:12px;color:#8e8a84;font-weight:500;text-align:left;padding:0 10px 
 td{{padding:15px 10px;border-bottom:1px solid #1d1d1a;font-size:16px;vertical-align:top}}
 tr:nth-child(odd) td{{background:#0e0e0d}}
 
-.r{{width:100px;color:#8e8a84;font-weight:700;font-size:17px;
- border-left:4px solid #3a3a36;padding-left:16px}}
-.dm{{font-size:12px;color:#8e8a84;font-weight:500}}
-.u{{width:62px;font-weight:800;font-size:34px;color:#d95926;line-height:1;
+.r{{width:126px;color:#e8e6e3;font-weight:800;font-size:44px;line-height:1.05;
+ border-left:4px solid #3a3a36;padding-left:18px;font-variant-numeric:tabular-nums}}
+.rr{{font-size:26px;color:#8e8a84;margin-left:3px}}
+.dm{{display:inline-block;margin-top:9px;font-size:17px;color:#8e8a84;font-weight:600}}
+.u{{width:76px;font-weight:800;font-size:44px;color:#d95926;line-height:1.05;
  font-variant-numeric:tabular-nums}}
 .nm{{width:270px;font-weight:800;font-size:32px;line-height:1.24;
  letter-spacing:.01em}}
