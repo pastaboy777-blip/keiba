@@ -2,44 +2,75 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#0a0a0a;color:#e8e6e3;font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
- padding:52px 62px 44px;width:2060px;-webkit-font-smoothing:antialiased}
-h1{font-size:38px;font-weight:800} h1 .ac{color:#d95926}
-.lead{margin-top:13px;font-size:17px;line-height:1.75;color:#8e8a84}
-table{width:100%;border-collapse:collapse;margin-top:26px}
-th{font-size:13px;color:#8e8a84;font-weight:500;text-align:left;padding:0 13px 10px;
+ padding:46px 54px 38px;width:2000px;-webkit-font-smoothing:antialiased}
+h1{font-size:39px;font-weight:800} h1 .ac{color:#d95926}
+.tag{display:inline-block;background:#d95926;color:#fff;font-size:15px;font-weight:700;
+ padding:4px 12px;border-radius:5px;margin-left:14px;vertical-align:7px}
+.lead{margin-top:17px;font-size:19px;line-height:1.85;color:#cfccc8;max-width:1880px}
+.lead b{color:#fff} .lead .hl{color:#ff8a5c;font-weight:700}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin:26px 0 8px}
+.tile{background:#141412;border:1px solid #262622;border-radius:10px;padding:17px 19px}
+.tile .k{font-size:13px;color:#8e8a84}
+.tile .v{font-size:37px;font-weight:800;margin-top:5px;line-height:1}
+.tile .v small{font-size:18px;color:#8e8a84;margin-left:5px}
+.tile .n{font-size:13px;color:#8e8a84;margin-top:8px;line-height:1.55}
+table{width:100%;border-collapse:collapse;margin-top:18px}
+th{font-size:12px;color:#8e8a84;font-weight:500;text-align:left;padding:0 10px 8px;
  border-bottom:1px solid #262622}
-td{padding:19px 13px;border-bottom:1px solid #1d1d1a;vertical-align:middle}
-.r{width:94px;color:#8e8a84;font-weight:700;font-size:17px;line-height:1.4;
- border-left:4px solid var(--c);padding-left:14px}
-.dm{font-size:13px;font-weight:500}
-.u{width:52px;font-weight:800;font-size:27px}
-.nm{width:304px;font-weight:800;font-size:29px;letter-spacing:.01em;line-height:1.2}
-.si{display:block;font-size:13px;font-weight:500;color:#8e8a84;margin-top:6px}
-.ag{width:104px;font-size:28px;font-weight:800;font-variant-numeric:tabular-nums}
-.sd{width:92px;font-size:20px;color:#b5b1ab;font-variant-numeric:tabular-nums}
-.rn{width:78px;font-size:19px;color:#b5b1ab;font-variant-numeric:tabular-nums}
-.dim{color:#4e4a45}
-.wt{width:118px;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
-.dwv{display:block;font-size:14px;color:#8e8a84;font-weight:500;margin-top:4px}
-.po{width:96px;font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;color:#cfccc8}
-.gn{width:80px;font-size:19px;color:#b5b1ab;font-variant-numeric:tabular-nums}
-.un{font-size:13px;color:#8e8a84;margin-left:3px;font-weight:500}
-.tg{width:86px;font-size:15px;font-weight:800;color:var(--c);white-space:nowrap}
+td{padding:15px 10px;border-bottom:1px solid #1d1d1a;font-size:16px;vertical-align:top}
+.r{width:100px;color:#cfccc8;font-weight:700;font-size:17px;
+ border-left:4px solid #3a3a36;padding-left:16px}
+.dm{font-size:12px;color:#8e8a84;font-weight:500}
+.u{width:48px;font-weight:800;font-size:24px;color:#e8e6e3}
+.nm{width:272px;font-weight:800;font-size:32px;line-height:1.2;letter-spacing:.01em}
+.si{display:block;font-size:13px;font-weight:500;color:#8e8a84;margin-top:7px}
+.sm{width:88px;color:#cfccc8;font-variant-numeric:tabular-nums;line-height:1.55;
+ font-size:19px;font-weight:700}
+.sm .un{font-weight:500}
+.dim{color:#5e5a54}
+.un{font-size:12px;color:#8e8a84}
+.big{width:88px;font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;color:#cfccc8}
+.rk{width:64px;color:#b5b1ab;font-variant-numeric:tabular-nums;font-size:16px}
 .why{color:#cfccc8;font-size:15px;line-height:1.72}
-.why b{color:#fff}
-footer{margin-top:30px;padding-top:21px;border-top:1px solid #262622;
- font-size:16px;line-height:1.9;color:#a5a19b}
-footer b{color:#fff}
+.why b{color:#fff} .why .w{color:#c98500;font-weight:700}
+.sm .w{color:#c98500;font-weight:700;font-size:14px}
+footer{margin-top:30px;padding-top:20px;border-top:1px solid #262622;
+ font-size:15px;line-height:1.85;color:#a5a19b}
+footer b{color:#fff} footer .hl{color:#ff8a5c;font-weight:700}
 </style></head><body>
-<h1>10/28（水） 大井 ── <span class=ac>11頭の実測</span></h1>
-<p class=lead>上がりは同じ距離帯の直近5走の中央値、ばらつきはその標準偏差。走数はその距離の実測。
-馬体重は直近3走の中央値で、下はその鞍の中央との差。3→4角はプラスが押し上げ。</p>
+<h1>10/28（水） 大井 ── <span class=ac>上がり40の小型馬リストを当てた</span>
+<span class=tag>今年の大井 927鞍で検証ずみ</span></h1>
+<p class=lead>
+貼ってもらった11頭を、今年の大井の実測で当てた。見るのは
+<b>同じ距離帯の上がりとそのばらつき</b>、<b>馬体重</b>、<b>普段の4角位置</b>、
+置き直した時計の<b>鞍内順位</b>と<b>壁までの余裕</b>。
+<span class=hl>その距離の実測が2走以上あるのは4頭。</span>残りは走数が少ないので、上がりは参考に。
+</p>
+<div class=tiles>
+ <div class=tile><div class=k>人気薄 × 鞍内3位以内</div><div class=v>20.3<small>%</small></div>
+  <div class=n>人気薄ぜんぶは 9.3%</div></div>
+ <div class=tile><div class=k>↑ かつ 壁まで0.3秒以上の余裕</div>
+  <div class=v style="color:#d95926">28.4<small>%</small></div>
+  <div class=n>壁とほぼ同値だと 18.7%</div></div>
+ <div class=tile><div class=k>人気薄 × 普段4角3番手以内</div>
+  <div class=v style="color:#3987e5">11.6<small>%</small></div>
+  <div class=n>8番手以降は <b>7.5%</b>（−1.7pt）</div></div>
+ <div class=tile><div class=k>3→4角で順位を上げる馬</div>
+  <div class=v style="color:#c98500">30.2<small>%</small></div>
+  <div class=n>+0.5〜1.0の押し上げで <b>+7.3pt</b></div></div>
+</div>
 <table><thead><tr><th>R</th><th>番</th><th>馬名 / 父</th>
-<th>上がり</th><th>ばらつき</th><th>走数</th><th>馬体重</th><th>普段4角</th><th>3→4角</th><th></th><th>理由</th>
-</tr></thead><tbody><tr style="--c:#8e8a84"><td class=r>1R<br><span class=dm>1400m</span></td><td class=u>4</td><td class=nm>ディアローラ<span class=si>ベストウォーリア</span></td><td class="ag dim">－</td><td class=sd>－</td><td class="rn dim">0<span class=un>走</span></td><td class=wt>－<span class=un>kg</span><span class=dwv></span></td><td class=po>－<span class=un>番手</span></td><td class=gn>－</td><td class=tg>測れない</td><td class=why>大井の実測がゼロ</td></tr><tr style="--c:#8e8a84"><td class=r>1R<br><span class=dm>1400m</span></td><td class=u>5</td><td class=nm>ウィルアトレ<span class=si>ホッコータルマエ</span></td><td class="ag dim">－</td><td class=sd>－</td><td class="rn dim">0<span class=un>走</span></td><td class=wt>465<span class=un>kg</span><span class=dwv>+2</span></td><td class=po>7<span class=un>番手</span></td><td class=gn>－</td><td class=tg>測れない</td><td class=why>大井は1走だけ。1400mは未経験</td></tr><tr style="--c:#8e8a84"><td class=r>1R<br><span class=dm>1400m</span></td><td class=u>7</td><td class=nm>イノセントワールド<span class=si>ヴァンゴッホ</span></td><td class="ag dim">－</td><td class=sd>－</td><td class="rn dim">0<span class=un>走</span></td><td class=wt>452<span class=un>kg</span><span class=dwv>-10</span></td><td class=po>4<span class=un>番手</span></td><td class=gn>－</td><td class=tg>測れない</td><td class=why>大井は1走だけ。452kgで普段4角4番手だが、1400mの実測はゼロ</td></tr><tr style="--c:#d95926"><td class=r>3R<br><span class=dm>1600m</span></td><td class=u>2</td><td class=nm>グレートロッタリー<span class=si>モーニン</span></td><td class="ag">40.8</td><td class=sd>0.34</td><td class="rn">4<span class=un>走</span></td><td class=wt>440<span class=un>kg</span><span class=dwv>-39</span></td><td class=po>11<span class=un>番手</span></td><td class=gn>+0.0</td><td class=tg>推す</td><td class=why>1600mを4走して上がり 40.4・41.3・40.6・40.9。<b>0.9秒の幅に収まっていてばらつき0.34はこの11頭で最小</b>。440kgは鞍の中央より39kg軽い。貼ってもらった条件のうち<b>体重と上がりの安定が両方そろう唯一の馬</b>。ただし普段4角11番手で、前に行く形ではない</td></tr><tr style="--c:#8e8a84"><td class=r>3R<br><span class=dm>1600m</span></td><td class=u>10</td><td class=nm>サラン<span class=si>クリエイター２</span></td><td class="ag dim">－</td><td class=sd>－</td><td class="rn dim">0<span class=un>走</span></td><td class=wt>－<span class=un>kg</span><span class=dwv></span></td><td class=po>－<span class=un>番手</span></td><td class=gn>－</td><td class=tg>測れない</td><td class=why>大井の実測がゼロ</td></tr><tr style="--c:#3987e5"><td class=r>4R<br><span class=dm>1200m</span></td><td class=u>7</td><td class=nm>ムーンシェイド<span class=si>ビッグアーサー</span></td><td class="ag dim">－</td><td class=sd>－</td><td class="rn dim">0<span class=un>走</span></td><td class=wt>450<span class=un>kg</span><span class=dwv>-44</span></td><td class=po>1<span class=un>番手</span></td><td class=gn>－</td><td class=tg>位置だけ</td><td class=why>450kgで<b>普段4角1番手</b>。この11頭で唯一、はっきり前に行ける。1600m→1200mの短縮。ただし<b>大井は1走だけ</b>で、その1走も1600m。1200mの上がりもばらつきも出せない</td></tr><tr style="--c:#8e8a84"><td class=r>4R<br><span class=dm>1200m</span></td><td class=u>9</td><td class=nm>クリムゾンバースト<span class=si>ポエティックフレア</span></td><td class="ag dim">－</td><td class=sd>－</td><td class="rn dim">0<span class=un>走</span></td><td class=wt>466<span class=un>kg</span><span class=dwv>-28</span></td><td class=po>6<span class=un>番手</span></td><td class=gn>－</td><td class=tg>測れない</td><td class=why>大井は1走だけ（1600mで上がり40.4）。1200mは未経験</td></tr><tr style="--c:#8e8a84"><td class=r>5R<br><span class=dm>1600m</span></td><td class=u>1</td><td class=nm>ヤッティライネン<span class=si>ハッピースプリント</span></td><td class="ag dim">－</td><td class=sd>－</td><td class="rn dim">0<span class=un>走</span></td><td class=wt>443<span class=un>kg</span><span class=dwv>-38</span></td><td class=po>8<span class=un>番手</span></td><td class=gn>+1.0</td><td class=tg>距離が違う</td><td class=why>443kgの小型で10走ぶんの実測があるが、<b>上がり38.0〜39.9はすべて1200mのもの</b>。1600mは未経験で、この条件では測れない</td></tr><tr style="--c:#c98500"><td class=r>5R<br><span class=dm>1600m</span></td><td class=u>10</td><td class=nm>アップタウンガール<span class=si>ミスターメロディ</span></td><td class="ag">39.9</td><td class=sd>1.35</td><td class="rn">2<span class=un>走</span></td><td class=wt>455.0<span class=un>kg</span><span class=dwv>-26</span></td><td class=po>3<span class=un>番手</span></td><td class=gn>+0.5</td><td class=tg>振れる</td><td class=why>上がり39.9は11頭で最速、普段4角3番手で3→4角も+0.5と動く。ただし<b>1600mは2走だけでばらつき1.35</b>。11頭でいちばん振れる数字で、40秒を切ったのは1本だけ</td></tr><tr style="--c:#d95926"><td class=r>5R<br><span class=dm>1600m</span></td><td class=u>12</td><td class=nm>カルサパラストリス<span class=si>バゴ</span></td><td class="ag">40.1</td><td class=sd>0.52</td><td class="rn">5<span class=un>走</span></td><td class=wt>445<span class=un>kg</span><span class=dwv>-36</span></td><td class=po>6<span class=un>番手</span></td><td class=gn>+0.0</td><td class=tg>推す</td><td class=why><b>1600mを5走、ばらつき0.52</b>で材料がいちばん厚い。上がり40.1は11頭で2番目に速く、445kgで鞍の中央より36kg軽い。普段4角6番手・3→4角±0で位置は中団のまま。条件に合うが<b>前に出る動きはない</b></td></tr><tr style="--c:#8e8a84"><td class=r>5R<br><span class=dm>1600m</span></td><td class=u>14</td><td class=nm>ユイノサンバンカン<span class=si>アンライバルド</span></td><td class="ag">40.6</td><td class=sd>0.92</td><td class="rn">5<span class=un>走</span></td><td class=wt>462<span class=un>kg</span><span class=dwv>-19</span></td><td class=po>7<span class=un>番手</span></td><td class=gn>+0.0</td><td class=tg>合わない</td><td class=why>1600mを5走、上がり40.6・ばらつき0.92。462kgは鞍の中央より19kg軽いだけで<b>小型とは言いにくい</b>。上がりも11頭で遅い側</td></tr></tbody></table>
+<th>同距離の上がり</th><th>実測</th><th>馬体重</th><th>普段4角／3→4角</th>
+<th>壁まで</th><th>鞍内</th><th>自前半</th><th>上がり順</th><th>材料</th></tr></thead>
+<tbody><tr><td class=r>1R<br><span class=dm>1400m 11頭</span></td><td class=u>4</td><td class=nm>ディアローラ<span class=si>ベストウォーリア</span></td><td class="sm dim">－<br><span class=un>SD －</span></td><td class=sm>0<span class=un>走</span><br><span class=un>全0走</span></td><td class=sm>－<span class=un>kg</span><br></td><td class=sm>－<span class=un>番手</span><br><span class=un>－</span></td><td class=big>－</td><td class=rk>－</td><td class=rk>－</td><td class=rk>－</td><td class=why>大井は初出走</td></tr><tr><td class=r>1R<br><span class=dm>1400m 11頭</span></td><td class=u>5</td><td class=nm>ウィルアトレ<span class=si>ホッコータルマエ</span></td><td class="sm dim"><span class=w>他距離</span><br><span class=un>SD －</span></td><td class=sm>0<span class=un>走</span><br><span class=un>全1走</span></td><td class=sm>465<span class=un>kg</span><br><span class=un>+2</span></td><td class=sm>7.0<span class=un>番手</span><br><span class=un>－</span></td><td class=big>－</td><td class=rk>－</td><td class=rk>－</td><td class=rk>－</td><td class=why>465kgで普段4角7番手。前走は1800mを6番人気<b>4着</b>。1800m→1400mの短縮</td></tr><tr><td class=r>1R<br><span class=dm>1400m 11頭</span></td><td class=u>7</td><td class=nm>イノセントワールド<span class=si>ヴァンゴッホ</span></td><td class="sm dim"><span class=w>他距離</span><br><span class=un>SD －</span></td><td class=sm>0<span class=un>走</span><br><span class=un>全1走</span></td><td class=sm>452<span class=un>kg</span><br><span class=un>-10</span></td><td class=sm>4.0<span class=un>番手</span><br><span class=un>－</span></td><td class=big>－</td><td class=rk>－</td><td class=rk>－</td><td class=rk>－</td><td class=why><b>452kgで普段4角4番手</b>。前走は1600m稍重を4番人気<b>3着</b>。1600m→1400mの短縮</td></tr><tr><td class=r>3R<br><span class=dm>1600m 11頭</span></td><td class=u>2</td><td class=nm>グレートロッタリー<span class=si>モーニン</span></td><td class="sm">40.8<br><span class=un>SD 0.34</span></td><td class=sm>4<span class=un>走</span><br><span class=un>全6走</span></td><td class=sm>440<span class=un>kg</span><br><span class=un>-39</span></td><td class=sm>11.0<span class=un>番手</span><br><span class=un>+0.0</span></td><td class=big>+0.30</td><td class=rk>2/5</td><td class=rk>2/5</td><td class=rk>2/4</td><td class=why>1600mを4走して上がり 40.4・41.3・40.6・40.9。<b>0.9秒の幅に収まり、ばらつき0.34はこの11頭で最小</b>。440kgは鞍の中央より<b>39kg軽い</b>。壁まで<b>+0.30</b>で、今年 28.4% の条件に入る</td></tr><tr><td class=r>3R<br><span class=dm>1600m 11頭</span></td><td class=u>10</td><td class=nm>サラン<span class=si>クリエイター２</span></td><td class="sm dim">－<br><span class=un>SD －</span></td><td class=sm>0<span class=un>走</span><br><span class=un>全0走</span></td><td class=sm>－<span class=un>kg</span><br></td><td class=sm>－<span class=un>番手</span><br><span class=un>－</span></td><td class=big>－</td><td class=rk>－</td><td class=rk>－</td><td class=rk>－</td><td class=why>大井は初出走</td></tr><tr><td class=r>4R<br><span class=dm>1200m 13頭</span></td><td class=u>7</td><td class=nm>ムーンシェイド<span class=si>ビッグアーサー</span></td><td class="sm dim"><span class=w>他距離</span><br><span class=un>SD －</span></td><td class=sm>0<span class=un>走</span><br><span class=un>全1走</span></td><td class=sm>450<span class=un>kg</span><br><span class=un>-44</span></td><td class=sm>1.0<span class=un>番手</span><br><span class=un>－</span></td><td class=big>－</td><td class=rk>－</td><td class=rk>－</td><td class=rk>－</td><td class=why>450kgで<b>普段4角1番手</b>。この11頭で唯一はっきり前に行ける。人気薄で4角3番手以内は <b>11.6%</b>（+2.4pt）。1600m→1200mの短縮。前走は1600mを1番人気3着</td></tr><tr><td class=r>4R<br><span class=dm>1200m 13頭</span></td><td class=u>9</td><td class=nm>クリムゾンバースト<span class=si>ポエティックフレア</span></td><td class="sm dim"><span class=w>他距離</span><br><span class=un>SD －</span></td><td class=sm>0<span class=un>走</span><br><span class=un>全1走</span></td><td class=sm>466<span class=un>kg</span><br><span class=un>-28</span></td><td class=sm>6.0<span class=un>番手</span><br><span class=un>－</span></td><td class=big>－</td><td class=rk>－</td><td class=rk>－</td><td class=rk>－</td><td class=why>前走1600mで上がり<b>40.4</b>。466kgで普段4角6番手。1600m→1200mの短縮</td></tr><tr><td class=r>5R<br><span class=dm>1600m 14頭</span></td><td class=u>1</td><td class=nm>ヤッティライネン<span class=si>ハッピースプリント</span></td><td class="sm dim"><span class=w>他距離</span><br><span class=un>SD －</span></td><td class=sm>0<span class=un>走</span><br><span class=un>全10走</span></td><td class=sm>443<span class=un>kg</span><br><span class=un>-38</span></td><td class=sm>8.0<span class=un>番手</span><br><span class=un>+1.0</span></td><td class=big>-0.30</td><td class=rk>6/13</td><td class=rk>7/13</td><td class=rk>－</td><td class=why><b>443kgで10走ぶんの実測</b>。1200mでは上がり 38.0・38.5・38.7・39.2・39.4 を使えている。普段4角8番手から<b>3→4角+1.0</b>と押し上げる</td></tr><tr><td class=r>5R<br><span class=dm>1600m 14頭</span></td><td class=u>10</td><td class=nm>アップタウンガール<span class=si>ミスターメロディ</span></td><td class="sm">39.9<br><span class=un>SD 1.35</span></td><td class=sm>2<span class=un>走</span><br><span class=un>全2走</span></td><td class=sm>455.0<span class=un>kg</span><br><span class=un>-26</span></td><td class=sm>3.0<span class=un>番手</span><br><span class=un>+0.5</span></td><td class=big>+0.30</td><td class=rk>2/13</td><td class=rk>5/13</td><td class=rk>2/7</td><td class=why><b>上がり39.9はこの11頭で最速</b>。鞍内2位で壁まで<b>+0.30</b>、普段4角3.0番手から<b>3→4角も+0.5</b>と押し上げる。455kgで−26kg</td></tr><tr><td class=r>5R<br><span class=dm>1600m 14頭</span></td><td class=u>12</td><td class=nm>カルサパラストリス<span class=si>バゴ</span></td><td class="sm">40.1<br><span class=un>SD 0.52</span></td><td class=sm>5<span class=un>走</span><br><span class=un>全15走</span></td><td class=sm>445<span class=un>kg</span><br><span class=un>-36</span></td><td class=sm>6.0<span class=un>番手</span><br><span class=un>+0.0</span></td><td class=big>-0.10</td><td class=rk>4/13</td><td class=rk>12/13</td><td class=rk>3/7</td><td class=why><b>1600mを5走、ばらつき0.52</b>で材料がいちばん厚い。上がり40.1は11頭で2番目に速い。445kgは鞍の中央より<b>36kg軽い</b></td></tr><tr><td class=r>5R<br><span class=dm>1600m 14頭</span></td><td class=u>14</td><td class=nm>ユイノサンバンカン<span class=si>アンライバルド</span></td><td class="sm">40.6<br><span class=un>SD 0.92</span></td><td class=sm>5<span class=un>走</span><br><span class=un>全15走</span></td><td class=sm>462<span class=un>kg</span><br><span class=un>-19</span></td><td class=sm>7.0<span class=un>番手</span><br><span class=un>+0.0</span></td><td class=big>-0.50</td><td class=rk>7/13</td><td class=rk>9/13</td><td class=rk>5/7</td><td class=why><b>1600mを5走</b>、上がり40.6でばらつき0.92。462kgで鞍の中央より19kg軽い。普段4角7番手</td></tr></tbody></table>
 <footer>
-<b>11頭のうち7頭は、その距離の実測が0〜1走</b>で上がりもばらつきも出せない。
-<b>5R①ヤッティライネンの上がりは全部1200mのもの</b>で、今回の1600mは未経験。<br>
-2走以上あるのは 3R②（4走）・5R⑩（2走）・5R⑫（5走）・5R⑭（5走）。
-ばらつきがいちばん小さいのは 3R② の <b>0.34</b>、次が 5R⑫ の 0.52。
+その距離の実測が2走以上あるのは <b>3R②（4走）・5R⑩（2走）・5R⑫（5走）・5R⑭（5走）</b>。
+ばらつきがいちばん小さいのは 3R②の <b>0.34</b>、次が 5R⑫の 0.52。
+上がりがいちばん速いのは 5R⑩の <b>39.9</b>。<br>
+前に行けるのは <b>4R⑦（普段4角1番手）</b>と <b>5R⑩（3番手）</b>。押し上げがあるのは
+<b>5R①（+1.0）</b>と <b>5R⑩（+0.5）</b>。<br>
+今年の大井で測った水準 … 人気薄×鞍内3位以内 20.3%（人気薄ぜんぶ 9.3%）、
+壁まで0.3秒以上の余裕があると 28.4%。普段4角3番手以内 11.6%。
+3→4角で+0.5〜1.0の押し上げがあると 30.2%。<br>
+馬場は良で置いた。発走30分前にオッズで印を打ち直す。
 </footer></body></html>
