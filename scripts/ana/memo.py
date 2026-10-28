@@ -4,6 +4,20 @@
   python3 memo.py --card <card.json> <馬名>     # 出馬表の過去5走から
   python3 memo.py --day 1028 --R 7              # その鞍の全頭ぶん
 
+  python3 memo.py --add <馬名> <日付> "見たこと"   # 自分が見た一行を足す
+  python3 memo.py --add <馬名> --horse "..."      # その馬にずっと付くメモ
+  python3 memo.py --notes                         # 入っているメモを全部出す
+  python3 memo.py --del <馬名> <日付>              # 消す
+
+── ★ 「見た記録」は人が足す
+
+  下に書いたとおり、装具・気配・直線の進路・手前は**計算では出せない**。
+  そこは --add で入れる。入れたものは memo_note.json に残り、
+  以降このメモに **▶ 見た記録** として差し込まれる。
+
+  生成した文と人が見た文は**必ず別の行・別の印**で出す。
+  混ぜると、どこまでが数字でどこからが目なのか分からなくなる。
+
 ── ★ これは「見た記録」ではない
 
   中央の「次走へのメモ」はトラックマンが**見て**書いている。
@@ -40,7 +54,22 @@
 import sys, json, os, re, glob, unicodedata as ud
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+NOTE = os.path.join(HERE, "memo_note.json")
 _LAP = None
+
+
+def notes():
+    return json.load(open(NOTE)) if os.path.exists(NOTE) else {}
+
+
+def save_notes(d):
+    json.dump(d, open(NOTE, "w"), ensure_ascii=False, indent=1, sort_keys=True)
+
+
+def note_of(name, date=None):
+    """その馬・その日のメモ。date=None なら馬につく恒常メモ"""
+    d = notes().get(name) or {}
+    return d.get(date or "_horse") or []
 
 
 def lapidx():
@@ -154,6 +183,8 @@ def show(name, past, head=None):
     print("\n■ %s" % name)
     if head:
         print("   %s" % head)
+    for t in note_of(name):
+        print("   ▶ この馬について … %s" % t)
     for p in past:
         body, extra = write(p, name, p.get("venue"))
         print("\n   %s %s %s %dm %d頭 %d番人気" % (
@@ -161,6 +192,8 @@ def show(name, past, head=None):
         print("     %s。" % body)
         if extra:
             print("     %s" % extra)
+        for t in note_of(name, p["date"]):
+            print("     ▶ 見た記録 … %s" % t)
     print("\n   ※ 装具・パドックの気配・直線の進路・手前は見ていないので書いていない。")
 
 
@@ -168,6 +201,43 @@ def main():
     a = sys.argv[1:]
     if not a:
         print(__doc__); return
+    if "--notes" in a:
+        d = notes()
+        if not d:
+            print("まだ1件も入っていない"); return
+        for nm in sorted(d):
+            print("\n■ %s" % nm)
+            for k in sorted(d[nm]):
+                for t in d[nm][k]:
+                    print("   %-10s %s" % ("（この馬）" if k == "_horse" else k, t))
+        return
+    if "--del" in a:
+        i = a.index("--del"); nm = a[i + 1]
+        key = a[i + 2] if len(a) > i + 2 else "_horse"
+        d = notes()
+        if nm in d and key in d[nm]:
+            d[nm].pop(key)
+            if not d[nm]:
+                d.pop(nm)
+            save_notes(d); print("消した … %s %s" % (nm, key))
+        else:
+            print("見つからない … %s %s" % (nm, key))
+        return
+    if "--add" in a:
+        i = a.index("--add"); nm = a[i + 1]
+        rest = a[i + 2:]
+        key = "_horse"
+        if "--horse" in rest:
+            rest.remove("--horse")
+        elif rest and re.match(r"^\d\d\.\d\d\.\d\d$", rest[0]):
+            key = rest.pop(0)
+        txt = " ".join(rest).strip()
+        if not txt:
+            print("本文がない"); return
+        d = notes(); d.setdefault(nm, {}).setdefault(key, []).append(txt)
+        save_notes(d)
+        print("入れた … %s %s\n  ▶ %s" % (nm, "（この馬）" if key == "_horse" else key, txt))
+        return
     if "--card" in a:
         D = json.load(open(a[a.index("--card") + 1]))
         q = [x for x in a if not x.startswith("--") and not x.endswith(".json")][0]
