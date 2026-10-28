@@ -17,7 +17,8 @@ A, B, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
 UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36')
 BASE = 'https://keiba.rakuten.co.jp'
-BA = {'1813': '浦和', '1920': '船橋', '2015': '大井', '2135': '川崎'}
+# 場コードは日程ページで実際に確かめたもの（船橋は1920ではなく1914）
+BA = {'1813': '浦和', '1914': '船橋', '2015': '大井', '2135': '川崎'}
 SX = re.compile(r'^(牡|牝|セ)\d')
 
 
