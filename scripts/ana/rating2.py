@@ -101,6 +101,7 @@ for r in pre:
 for v in PERF.values():
     v.sort()
 
+NR = {}                                    # 馬 -> それまでの走の数
 STD = {}                                  # rid -> 相手関係（前日に分かる）
 LASTR = {}                                 # 馬 -> 直前に出たrid
 ROWS = []
@@ -114,6 +115,7 @@ for r in R:
         pv = [p for y, p in PERF.get(nm, []) if y < r['ymd']][-5:]
         if pv:
             cur[nm] = max(pv)
+            NR[nm] = len(pv)
     std = st.median(cur.values()) if len(cur) >= 5 else None
     if std is not None:
         STD[rid] = std
@@ -134,7 +136,7 @@ for r in R:
                              dist=r['dist'], n=len(cur), nh=len(
                                  [y for y in r['e']
                                   if y.get('f', '').isdigit()]),
-                             baba=r.get('baba'),
+                             baba=r.get('baba'), nrun=NR.get(nm, 0),
                              drop=(pstd - std) if pstd is not None else None))
     # ③ 終わってから今日に水準をつけ、点を記録する
     if cur:
