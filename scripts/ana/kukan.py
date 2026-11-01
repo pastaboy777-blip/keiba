@@ -42,6 +42,7 @@ import sys, json, os, glob, re, statistics as st, unicodedata as ud
 HERE = os.path.dirname(os.path.abspath(__file__))
 BASE = os.path.join(HERE, "kukan_base.json")
 VEN = {"ooi": "大井", "fun": "船橋", "ura": "浦和", "kaw": "川崎"}
+# ooiL* も大井。prefix3文字で引くので自然に入る
 
 
 def w(s, n):
