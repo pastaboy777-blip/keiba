@@ -157,22 +157,50 @@ def flat(t):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t))
 
 
+def secs(s):
+    """走破タイム「1:14.8」「48.2」を秒に"""
+    m, _, r = s.rpartition(":")
+    try:
+        return round(int(m) * 60 + float(r), 1) if m else float(r)
+    except ValueError:
+        return None
+
+
 ROW = re.compile(r"(?=(?<!\d)\d{1,2}\s+\d\s+\d{1,2}\s+[ァ-ヶー]{2,}\s+[牡牝セ騸扇]\d)")
 
 
 def corners(t):
-    """「１角 (3,6),(2,9),11,8…」を {角: [[同着グループ], …]} に。rakuten.py と同じ形"""
-    out = {}
+    """「１角 (3,6),(2,9),11,8…」を {角: [[同着グループ], …]} に。rakuten.py と同じ形。
+
+    ★ 記号つきの生の文字列も返す（2026-11-01 に直した）。
+
+      通過順の記号は**間隔**を表している。順位だけ見ていると全部捨ててしまう。
+
+        ( )  ほぼ横並び（同じ位置）
+        ,    1馬身以内
+        -    1〜2馬身あいた
+        =    大きくあいた
+
+      例 … ４角 `(3,5),7=4-1,6,2=8`
+           3と5は横並び、7は1馬身以内、そこから4まで**大きく開き**、
+           4と1は1〜2馬身、1と6と2は1馬身以内、2と8は大きく開く。
+
+      括弧（併走）は前から保存できていた（手元1,300鞍のうち1,268鞍に入っている）。
+      落としていたのは **群と群のあいだの , - = だけ**。これを corner_raw に残す。
+    """
+    out, raw = {}, {}
     for k, lab in ((1, "１角"), (2, "２角"), (3, "３角"), (4, "４角")):
         m = re.search(lab + r"\s+([0-9(),=\- ]+?)(?:[１-４]角|■|$)", t)
         if not m:
             continue
+        s = m.group(1).strip()
         seq = []
-        for g in re.findall(r"\(([\d,]+)\)|(\d+)", m.group(1)):
+        for g in re.findall(r"\(([\d,]+)\)|(\d+)", s):
             seq.append([int(x) for x in g[0].split(",")] if g[0] else [int(g[1])])
         if seq:
             out[k] = seq
-    return out
+            raw[k] = s
+    return out, raw
 
 
 def pos_of(seq, ub):
@@ -189,7 +217,9 @@ def do_res(base, label):
     store = load(label, "res")
     for R in range(1, 17):
         key = str(R)
-        if key in store and "corner" in store[key]:   # 通過順まで入っていれば飛ばす
+        # ★ corner_raw（記号つき）まで入っていれば飛ばす。
+        #   古いファイルは corner しか無いので、その鞍だけ取り直しになる
+        if key in store and store[key].get("corner_raw"):
             continue
         t = flat(rk(PERF + base + "%02d" % R))
         i = t.find("全着順")
@@ -201,7 +231,7 @@ def do_res(base, label):
         md = re.search(r"(ダ|芝)([\d,]+)m", t)
         mb = re.search(r"天候：\s*(\S+)\s+(?:ダ|芝)：\s*(\S+)", t)
         ml = re.search(r"ハロンタイム\s+([\d.\- ]+?)\s+上がり", t)
-        cn = corners(t)
+        cn, cnraw = corners(t)
         rows = []
         for p in ROW.split(t[i:i + 5000])[1:]:
             m = re.match(r"(\d{1,2})\s+(\d)\s+(\d{1,2})\s+([ァ-ヶー]{2,})\s", p)
@@ -210,17 +240,28 @@ def do_res(base, label):
             nums = re.findall(r"(?<![\d.:])(\d{1,2})(?![\d.:])", p)
             mw = re.search(r"\s(\d{3})\s+([-+±]\d+)\s", p)
             mdw = re.search(r"\s\d{3}\s+([-+±]\d+)\s", p)
-            mag = re.search(r"\s([34]\d\.\d)\s", p)
-            # 騎手は「▲西優哉 (大井)」、調教師は上がりの直後。人気がその次に来る
+            # 騎手は「▲西優哉 (大井)」。そのうしろは タイム → 着差 → 上がり → 調教師 → 人気
             mj = re.search(r"([^\s(]{2,10})\s*\((?:大井|川崎|船橋|浦和|門別|高知|佐賀|"
                            r"金沢|笠松|園田|姫路|名古屋|盛岡|水沢|帯広|美浦|栗東)\)", p)
-            mt = re.search(r"\s[34]\d\.\d\s+([ァ-ヶー一-龥]{2,6})\s+\d{1,2}(?!\d)", p)
+            # ★ 上がりを「行頭から最初の [34]x.x」で取ってはいけない（2026-11-01 に直した）。
+            #   800m の走破タイムは 48.2 のような形で、[34]\d\.\d に当たってしまう。
+            #   浦和800mの8鞍で、上がり3Fの欄に**走破タイムが入っていた**。
+            #   騎手の（場）より後ろだけを見て、タイム・着差・上がりを順に取る。
+            tail = p[mj.end():] if mj else ""
+            mtm = re.match(r"\s*(\d:\d\d\.\d|\d{1,2}\.\d)\s", tail)
+            rest = tail[mtm.end():] if mtm else tail
+            mag = re.search(r"([34]\d\.\d)\s", rest)
+            mt = re.search(r"[34]\d\.\d\s+([ァ-ヶー一-龥]{2,6})\s+\d{1,2}(?!\d)", rest)
+            # 着差 … タイムと上がりのあいだ。「クビ」「アタマ」「１」「３／４」「大差」など
+            sa = rest[:mag.start()].strip() if mag else ""
             ub = int(m.group(3))
             rows.append({"chaku": int(m.group(1)), "waku": int(m.group(2)), "ub": ub,
                          "name": m.group(4), "nk": int(nums[-1]) if nums else None,
                          "w": int(mw.group(1)) if mw else None,
                          "dw": mdw.group(1).replace("±", "+") if mdw else None,
                          "agari": float(mag.group(1)) if mag else None,
+                         "t": secs(mtm.group(1)) if mtm else None,
+                         "sa": sa or None,
                          # 1角と4角の通過順。gain = 1角 − 4角（プラスが押し上げた）
                          "c1": pos_of(cn[1], ub) if 1 in cn else None,
                          "c4": pos_of(cn[4], ub) if 4 in cn else None,
@@ -230,7 +271,10 @@ def do_res(base, label):
                       "tenko": mb.group(1) if mb else None,
                       "baba": mb.group(2) if mb else None,
                       "lap": [float(v) for v in ml.group(1).split("-")] if ml else [],
-                      "corner": {str(k): v for k, v in cn.items()}, "rows": rows}
+                      "corner": {str(k): v for k, v in cn.items()},
+                      # ★ 記号つきの生の通過順。間隔（, - =）はここにしか残らない
+                      "corner_raw": {str(k): v for k, v in cnraw.items()},
+                      "rows": rows}
         w = [x for x in rows if x["chaku"] == 1]
         print("%2dR %4dm %-3s %2d頭  1着 %-12s %s人気  角%s ラップ%d" % (
             R, store[key]["dist"] or 0, store[key]["baba"] or "?", len(rows),
