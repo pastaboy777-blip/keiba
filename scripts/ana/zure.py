@@ -103,6 +103,14 @@ def main():
         srt = sorted(rows, key=lambda x: float(x["h"]["odds"]))
         for i, x in enumerate(srt):
             x["mkt"] = i + 1
+        # ★ 観点① 市場の「形」── 上位2頭に何%乗っているか。馬を1頭も見ずに出る。
+        #   控除で合計が100%を超えるので、合計で割り戻して正規化する。
+        imp = [1 / float(x["h"]["odds"]) for x in rows]
+        tot = sum(imp)
+        top2 = sum(sorted(imp, reverse=True)[:2]) / tot
+        print("    市場の形 … 上位2頭に %.1f%%（残り%d頭で %.1f%%）%s" % (
+            100 * top2, n - 2, 100 * (1 - top2),
+            "  ← 集中。残りが一斉に買い得になっている可能性" if top2 >= 0.60 else ""))
         for x in sorted(rows, key=lambda x: x["mkt"] - x["mine"], reverse=True):
             d = x["mkt"] - x["mine"]
             print("      %2d番 %s 自分%2d / 市場%2d（%s倍）  ズレ%+3d  頭数あたり%+.2f%s" % (
