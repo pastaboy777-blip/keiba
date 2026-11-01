@@ -6,14 +6,30 @@
 やること
   ① 前走までの4角位置から、今日の先頭（逃げ馬）を予想する
   ② 各馬の祖先4代と、予想先頭の祖先4代との重なりを出す
-     珍しい祖先ほど重く数える（Northern Dancer のようにほぼ全頭にいる
-     祖先は軽く、固有の祖先は重く）
+     ・珍しい祖先ほど重く数える（Northern Dancer のようにほぼ全頭にいる
+       祖先は軽く、固有の祖先は重く）
+     ・共有する祖先が「両馬で同じ代数」にあるものだけ数える
   ③ レースの中で順位にする
 
-測った結果（人気薄8,845頭・層10.5%・複勝の回収66%）
-  予想先頭に似ている 上位1/3  13.2%・回収79%
-                   下位1/3   6.7%・回収44%
+②の後半は MASA氏の「形相遺伝対象までの遺伝の深さも同じ関係にある」から。
+記事のアイトーンとユーキャンスマイルも、父にKingmambo・母系にNijinsky と
+位置がそろっていることが根拠だった。
+深さを無視して重なりを全部足すより、はっきり良くなる。
+  人気薄9,512頭（層9.5%・回収61%）
+    重なりの合計        上位1/3 11.9%・回収78% ／ 下位1/3 6.1%・34%
+    同じ代数での重なり   上位1/3 15.1%・回収102% ／ 下位1/3 4.1%・26%
+
+前日に使える形（前走の4角位置から先頭を予想）でも残る。
 先頭の予想が当たるのは28%しかないが、それでも効く。
+  人気薄7,461頭（層9.3%・回収60%）
+    上位1/3 14.7%・回収89%（幅74〜101%） ／ 下位1/3 4.4%・29%
+  4場すべて同じ向き。船橋14.5%／4.2%・浦和17.6%／4.8%・川崎15.7%／4.2%
+  期間を分けても同じ。前半15.4%・回収94% ／ 後半14.3%・85%
+
+【効かなかった絞り方】父系×母父系の一致（Bランクの条件）
+  父系一致 9.2%／母父系一致 8.5%／両方一致 7.7%（220頭）
+  どれも層9.5%を下回る。重なりと掛けると12.2%→7.6%でむしろ邪魔をする。
+  ただし「系統が一致」の判定はこちらの実装なので、定義が違う可能性は残る。
 """
 import json, math, statistics as st, sys
 from collections import defaultdict
@@ -34,14 +50,17 @@ _c = {}
 
 
 def anc(h, d=DEPTH):
+    """{祖先: いちばん浅い代数}"""
     k = (h, d)
     if k in _c:
         return _c[k]
-    o = {h}
+    o = {h: 0}
     if d > 0 and h in SI:
         for p in SI[h]:
             if p:
-                o |= anc(p, d - 1)
+                for a, g in anc(p, d - 1).items():
+                    if a not in o or g + 1 < o[a]:
+                        o[a] = g + 1
     _c[k] = o
     return o
 
@@ -61,11 +80,14 @@ ANC = {}
 for nm, t in PED.items():
     s, b = t[0], t[1]
     sid, bid = (t[2], t[3]) if len(t) > 3 else (None, None)
-    a = set()
-    for nam, i in ((s, sid), (b, bid)):
+    a = {}
+    for nam, i, off in ((s, sid, 1), (b, bid, 2)):
         hid = i if (i and i in SI) else (NM.get(nam) if nam else None)
         if hid:
-            a |= anc(hid)
+            for x, g in anc(hid).items():
+                gg = g + off
+                if x not in a or gg < a[x]:
+                    a[x] = gg
     if a:
         ANC[nm] = a
 
@@ -79,7 +101,12 @@ ID2NM = {i: n for n, i in NM.items()}
 
 
 def sim(a, b):
-    return sum(W.get(x, 0) for x in (a & b))
+    """同じ代数で共有している祖先だけ数える"""
+    return sum(W.get(x, 0) for x in (set(a) & set(b)) if a[x] == b[x])
+
+
+def shared(a, b):
+    return [x for x in (set(a) & set(b)) if a[x] == b[x]]
 
 
 # ── 前走までの4角位置 ──
@@ -129,15 +156,24 @@ for k in sorted((x for x in C if str(x).isdigit()), key=int):
     print(f'  ── {k}R {r["dist"]}m {r["n"]}頭　'
           f'予想先頭 {pred["u"]}番 {pred["nm"]}'
           f'（父{(pred.get("sire") or "")[:10]}）──')
+    # 同点は同じ扱いにする。重なり0.0の馬どうしは区別できない
+    vals = sorted({round(s, 1) for _, s in rows}, reverse=True)
+    hi = rows[int(n / 3)][1] if n >= 3 else 0
+    lo = rows[int(2 * n / 3)][1] if n >= 3 else 0
     for i, (e, s) in enumerate(rows):
-        mk = '◎' if i < n / 3 else '　' if i < 2 * n / 3 else '×'
-        shared = sorted((W.get(x, 0), ID2NM.get(x, x))
-                        for x in (ANC[e['nm']] & pa))[-3:]
-        sh = '・'.join(nm for _, nm in reversed(shared))
+        mk = ('◎' if (s > hi or (s == hi and s > 0)) else
+              '×' if s <= lo else '　')
+        if s == 0:
+            mk = '×'
+        sv = sorted((W.get(x, 0), ID2NM.get(x, x), ANC[e['nm']][x])
+                    for x in shared(ANC[e['nm']], pa))[-3:]
+        sh = '・'.join(f'{nm}({g}代)' for _, nm, g in reversed(sv))
         print(f'     {mk}{e["u"]:>2} {e["nm"]:<16}重なり{s:>6.1f}  {sh}')
-        if i < n / 3:
+        if mk == '◎':
             TOP.append((int(k), e['u'], e['nm'], s, r['dist'],
                         pred['u'], pred['nm']))
+    if len(vals) <= 2:
+        print('       重なりがほとんど同点。この鞍は血統では分けられない')
     miss = [e['nm'] for e in r['e'] if e['nm'] not in ANC]
     if miss:
         print(f'       血統が引けない：{"、".join(miss)}')
