@@ -8,7 +8,10 @@ html_path = sys.argv[1]
 out_path = sys.argv[2]
 width = int(sys.argv[3]) if len(sys.argv) > 3 else 1120
 
-CHROME = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+# 入っている chromium を探す（機械を作り直すと版が変わるため）
+import glob as _g
+CHROME = next(iter(sorted(_g.glob("/opt/pw-browsers/chromium*/chrome-linux*/chrome"))[::-1]),
+              "/opt/pw-browsers/chromium/chrome")
 
 with sync_playwright() as p:
     browser = p.chromium.launch(executable_path=CHROME, args=["--no-sandbox"])
