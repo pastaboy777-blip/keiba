@@ -38,6 +38,8 @@ def get(url):
 def flat(h):
     h = re.sub(r"<script.*?</script>", " ", h, flags=re.S)
     h = re.sub(r"<style.*?</style>", " ", h, flags=re.S)
+    # ★ &nbsp; を空白に。落とさないと馬柱の列が繋がったまま読めない（一度ここで躓いた）
+    h = h.replace("&nbsp;", " ").replace("&amp;nbsp;", " ")
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", h))
 
 
@@ -177,3 +179,41 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ── 馬柱つき出馬表（shutuba_past.html）─────────────────────────
+# 1頭ぶん … <父> <馬名> <母> (<母父>) <厩舎> <脚質> 中N週 … <性齢毛> <騎手> <斤量> + 過去走
+# 過去走 … 日付 場 着順 クラス 芝/ダ距離 タイム 馬場 頭数 馬番 人気 騎手 斤量 通過順 (上がり) 馬体重(増減) 1着馬 (着差)
+PAST = re.compile(
+    r"(\d{4}\.\d\d\.\d\d) (\S+?) (\d{1,2}) .{0,24}? (芝|ダ)(\d{3,4}) (\d+:\d+\.\d) (\S) "
+    r"(\d+)頭 (\d+)番 (\d+)人 \S+ [\d.]+ ([\d\-]+) \(([\d.]+)\) (\d{3})\(([+\-]?\d+)\) \S+ \(([\d.]+)\)")
+
+HEAD_P = re.compile(
+    r"消 (\S+) ([ァ-ヶーA-Za-z]{2,}) (\S+) \(([^)]+)\) (美浦|栗東)・(\S+) +(逃|先|差|追|自)? ?中?(\d+)?週?")
+
+
+def past_card(rid):
+    """馬柱つき出馬表。{馬番: {...}} ではなく並び順のリストで返す"""
+    import subprocess as sp
+    b = sp.run(["curl", "-sS", "--max-time", "40", "-A", UA,
+                "https://race.netkeiba.com/race/shutuba_past.html?race_id=" + rid],
+               capture_output=True).stdout
+    t = flat(b.decode("utf-8", "replace"))
+    hd = head(t)
+    out = []
+    for chunk in t.split("消 ")[1:]:
+        m = HEAD_P.match("消 " + chunk[:260])
+        if not m:
+            continue
+        runs = []
+        for p in PAST.finditer(chunk[:4000]):
+            ts = [int(x) for x in p.group(11).split("-") if x.isdigit()]
+            runs.append({"date": p.group(1), "jyo": p.group(2), "chaku": int(p.group(3)),
+                         "sur": p.group(4), "dist": int(p.group(5)), "time": p.group(6),
+                         "baba": p.group(7), "n": int(p.group(8)), "ub": int(p.group(9)),
+                         "nk": int(p.group(10)), "tsuka": ts, "agari": float(p.group(12)),
+                         "w": int(p.group(13)), "dw": int(p.group(14)), "sa": float(p.group(15))})
+        out.append({"f": m.group(1), "name": m.group(2), "m": m.group(3), "mf": m.group(4),
+                    "belong": m.group(5), "tr": m.group(6), "kyaku": m.group(7),
+                    "weeks": m.group(8), "runs": runs})
+    return hd, out
