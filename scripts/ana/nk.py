@@ -117,6 +117,23 @@ def split_mid(toks):
         return None
 
 
+def laps(t):
+    """結果ページの「ラップタイム」欄。
+
+    ペース: H（ハイ）/ M（平均）/ S（スロー）のあと、
+    **200mごとの累計**が並び、そのあとに**200mごとの区間**が並ぶ。
+    欲しいのは後ろの区間のほう。
+    """
+    m = re.search(r"ラップタイム ペース: (\S+)(.*?)(?:ひとこと|※結果)", t)
+    if not m:
+        return None, []
+    nums = re.findall(r"\d+:\d\d\.\d|\d\d?\.\d", m.group(2))
+    # ★ 累計と区間は**同じ本数**。だから全体の後ろ半分がそのまま区間になる。
+    #   累計だけ「1:12.4」と分を含むので、":" で選り分けると数が合わなくなる（一度間違えた）。
+    half = nums[len(nums) // 2:]
+    return m.group(1), [float(x) for x in half if ":" not in x]
+
+
 def res(rid):
     t = flat(get("https://race.netkeiba.com/race/result.html?race_id=" + rid))
     out, seen = [], set()
@@ -131,7 +148,9 @@ def res(rid):
              "w": int(m.group(12)), "dw": m.group(13)}
         r.update(mid)
         out.append(r)
-    return head(t), sorted(out, key=lambda r: r["chaku"])
+    pace, lp = laps(t)
+    h = head(t); h["pace"], h["lap"] = pace, lp
+    return h, sorted(out, key=lambda r: r["chaku"])
 
 
 def main():
