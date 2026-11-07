@@ -1,0 +1,160 @@
+"""netkeiba から中央（JRA）の出馬表・結果を取る。地方ツールしか無かったので足した。
+
+  python3 nk.py card <race_id>     # 出馬表（枠・馬番・馬名・性齢・斤量・騎手・厩舎）
+  python3 nk.py res  <race_id>     # 結果（着順・馬番・馬名・斤量・騎手・タイム・着差・人気・上がり・通過）
+  python3 nk.py day  <YYYYMMDD>    # その日の全レースIDを総当たりで探す
+
+── race_id の作り
+
+  年4 + 場2 + 回2 + 日2 + R2
+
+  場 … 01札幌 02函館 03福島 04新潟 05東京 06中山 07中京 08京都 09阪神 10小倉
+
+  例  202605050211 = 2026年 東京 5回 2日目 11R（アルゼンチン共和国杯）
+
+── ★ このセッションで通るホスト
+
+  race.netkeiba.com と db.netkeiba.com は通る。
+  jra.go.jp / sports.yahoo.co.jp / keibalab.jp / winsight.jp / umanity.jp は
+  ネットワーク設定で塞がれていて開けない（2026-11-07 時点）。
+
+── ★ 出馬表ページは JavaScript 無しでも中身が入っている
+
+  race_list.html（日付の一覧）だけは JS で描くので空で返る。
+  そのため `day` は一覧を読まず、R を 1〜12 で総当たりして開く。
+"""
+import sys, re, subprocess
+
+UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0 Safari/537.36"
+JYO = {"01": "札幌", "02": "函館", "03": "福島", "04": "新潟", "05": "東京",
+       "06": "中山", "07": "中京", "08": "京都", "09": "阪神", "10": "小倉"}
+
+
+def get(url):
+    r = subprocess.run(["curl", "-sS", "--max-time", "30", "-A", UA, url], capture_output=True)
+    return r.stdout.decode("utf-8", "replace")
+
+
+def flat(h):
+    h = re.sub(r"<script.*?</script>", " ", h, flags=re.S)
+    h = re.sub(r"<style.*?</style>", " ", h, flags=re.S)
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", h))
+
+
+def head(t):
+    """レース名・距離・馬場・発走などの見出し"""
+    m = re.search(r"(\d+R) ([^ ]+) (\d+:\d+)発走 .{0,40}?(芝|ダ)(\d+)m ([左右]?)\s*(\S*?) ?/ ?(?:予報 )?(\S+) ?/ ?(\S+)", t)
+    d = {}
+    if m:
+        d = {"R": m.group(1), "name": m.group(2), "start": m.group(3),
+             "sur": m.group(4), "dist": int(m.group(5)), "baba": m.group(8), "wind": m.group(9)}
+    m2 = re.search(r"(\d)回 (\S+) (\d+)日目", t)
+    if m2:
+        d["kai"], d["jyo"], d["nichi"] = m2.group(1), m2.group(2), m2.group(3)
+    return d
+
+
+ROW_CARD = re.compile(
+    r"(?<![\d.])(\d{1,2}) (\d{1,2}) -- ◎ ◯ ▲ △ ☆ &amp;#10003 消 "
+    r"([ァ-ヶー]{2,}) ([牡牝セ]\d+) ([\d.]+) (\S+) (美浦|栗東|地方|海外) (\S+)")
+
+
+def card(rid):
+    t = flat(get("https://race.netkeiba.com/race/shutuba.html?race_id=" + rid))
+    out = []
+    for m in ROW_CARD.finditer(t):
+        out.append({"waku": int(m.group(1)), "ub": int(m.group(2)), "name": m.group(3),
+                    "sex": m.group(4), "kin": float(m.group(5)), "jk": m.group(6),
+                    "belong": m.group(7), "tr": m.group(8)})
+    # 馬番の重複を落とす（同じ行が二度出ることがある）
+    seen, uniq = set(), []
+    for r in out:
+        if r["ub"] in seen:
+            continue
+        seen.add(r["ub"]); uniq.append(r)
+    return head(t), sorted(uniq, key=lambda r: r["ub"])
+
+
+# 列は 着順 枠 馬番 馬名 性齢 斤量 騎手 タイム [着差] 人気 単勝 後3F [通過順] 所属 厩舎 馬体重(増減)
+# ★ 1着は着差が空、通過順はレースによって無い。真ん中はまとめて拾って後で分ける。
+ROW_RES = re.compile(
+    r"(?<![\d.])(\d{1,2}) (\d{1,2}) (\d{1,2}) ([ァ-ヶー]{2,}) ([牡牝セ]\d+) ([\d.]+) (\S+) "
+    r"(\d+:\d+\.\d)((?: [^ ]+)*?) (美浦|栗東|地方|海外) (\S+) (\d{3}) \(([^)]*)\)")
+
+
+def split_mid(toks):
+    """タイムと所属のあいだ … [着差…] 人気 単勝 後3F [通過順…]
+
+    ★ 人気は 1〜18 の整数。**最初に現れる整数**が人気で、その手前が着差。
+      着差は「ハナ」「1.1/4」など整数にならないので、これで切れる。
+    """
+    # ★ 着差が「2」のような裸の数字のことがあり、人気と取り違える。
+    #   だから単独で探さず、**人気・単勝・後3F の3つ並びが成立する位置**を探す。
+    #   後3F は必ず2桁.1桁（30〜49秒台）なので、ここが錨になる。
+    def ok(k):
+        if k + 2 >= len(toks) + 0 or k + 2 > len(toks) - 1:
+            return False
+        a, b, c = toks[k], toks[k + 1], toks[k + 2]
+        if not (a.isdigit() and 1 <= int(a) <= 18):
+            return False
+        if not re.match(r"^\d{2}\.\d$", c):
+            return False
+        try:
+            float(b)
+        except ValueError:
+            return False
+        return 29.0 < float(c) < 50.0
+
+    i = next((k for k in range(len(toks)) if ok(k)), None)
+    if i is None:
+        return None
+    sa = " ".join(toks[:i]) or None
+    nk = int(toks[i]); odds = toks[i + 1]; ag = toks[i + 2]
+    ts = [int(x) for x in re.findall(r"\d+", " ".join(toks[i + 3:]))]
+    try:
+        return {"sa": sa, "nk": nk, "odds": float(odds), "agari": float(ag), "tsuka": ts}
+    except ValueError:
+        return None
+
+
+def res(rid):
+    t = flat(get("https://race.netkeiba.com/race/result.html?race_id=" + rid))
+    out, seen = [], set()
+    for m in ROW_RES.finditer(t):
+        mid = split_mid(m.group(9).split())
+        if not mid or int(m.group(1)) in seen:
+            continue
+        seen.add(int(m.group(1)))
+        r = {"chaku": int(m.group(1)), "waku": int(m.group(2)), "ub": int(m.group(3)),
+             "name": m.group(4), "sex": m.group(5), "kin": float(m.group(6)),
+             "jk": m.group(7), "time": m.group(8), "belong": m.group(10), "tr": m.group(11),
+             "w": int(m.group(12)), "dw": m.group(13)}
+        r.update(mid)
+        out.append(r)
+    return head(t), sorted(out, key=lambda r: r["chaku"])
+
+
+def main():
+    a = sys.argv[1:]
+    if not a:
+        print(__doc__); return
+    cmd = a[0]
+    if cmd == "card":
+        h, rs = card(a[1])
+        print(h)
+        for r in rs:
+            print("  %d枠 %2d番 %-16s %s %4.1f %-7s %s %s" % (
+                r["waku"], r["ub"], r["name"], r["sex"], r["kin"], r["jk"], r["belong"], r["tr"]))
+    elif cmd == "res":
+        h, rs = res(a[1])
+        print(h)
+        for r in rs:
+            print("  %2d着 %d枠 %2d番 %-16s %4.1f %-7s %7s %-5s %2d人 %6.1f倍 通過%-12s 上%.1f" % (
+                r["chaku"], r["waku"], r["ub"], r["name"], r["kin"], r["jk"], r["time"],
+                r["sa"], r["nk"], r["odds"], "-".join(map(str, r["tsuka"])), r["agari"]))
+    else:
+        print(__doc__)
+
+
+if __name__ == "__main__":
+    main()
