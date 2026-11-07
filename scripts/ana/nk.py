@@ -189,7 +189,8 @@ PAST = re.compile(
     r"(\d+)頭 (\d+)番 (\d+)人 \S+ [\d.]+ ([\d\-]+) \(([\d.]+)\) (\d{3})\(([+\-]?\d+)\) \S+ \(([\d.]+)\)")
 
 HEAD_P = re.compile(
-    r"消 (\S+) ([ァ-ヶーA-Za-z]{2,}) (\S+) \(([^)]+)\) (美浦|栗東)・(\S+) +(逃|先|差|追|自)? ?中?(\d+)?週?")
+    r"(\S+) ([ァ-ヶーA-Za-z\u00c0-\u024f]{2,}) (\S+) \(([^)]*)\) (?:(美浦|栗東|地方|海外)[・\\.]?(\\S+))?[^ ]* ?(逃|先|差|追|自)?")
+# ★ 脚質・厩舎が空の馬でも落ちないようにした（16頭中15頭しか取れていなかった）
 
 
 def past_card(rid):
@@ -201,8 +202,14 @@ def past_card(rid):
     t = flat(b.decode("utf-8", "replace"))
     hd = head(t)
     out = []
-    for chunk in t.split("消 ")[1:]:
-        m = HEAD_P.match("消 " + chunk[:260])
+    parts = t.split("消 ")
+    for k in range(1, len(parts)):
+        chunk = parts[k]
+        # ★ 枠と馬番は「消 」の**手前**に出る（… 6 11 -- ◎ ◯ ▲ △ ☆ &#10003 消 父 馬名 …）
+        tailm = re.search(r"(\d{1,2}) (\d{1,2}) -- ◎[^消]*$", parts[k - 1])
+        waku = int(tailm.group(1)) if tailm else None
+        ub = int(tailm.group(2)) if tailm else None
+        m = HEAD_P.match(chunk[:260])
         if not m:
             continue
         runs = []
@@ -215,5 +222,5 @@ def past_card(rid):
                          "w": int(p.group(13)), "dw": int(p.group(14)), "sa": float(p.group(15))})
         out.append({"f": m.group(1), "name": m.group(2), "m": m.group(3), "mf": m.group(4),
                     "belong": m.group(5), "tr": m.group(6), "kyaku": m.group(7),
-                    "weeks": m.group(8), "runs": runs})
+                    "waku": waku, "ub": ub, "runs": runs})
     return hd, out
