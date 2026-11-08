@@ -76,6 +76,13 @@ def scan(d0, d1):
 
 MIN_R = 10      # これ未満の鞍数しか入っていない日は「途中で止まった」とみなす
 
+# ★ もともと鞍数が少なかった日。何度取り直しても MIN_R に届かないので
+#   「未取得」から外す。確かめ方 … その先のRのページを開くと
+#   タイトルにレース番号が入らない（「大井競馬場 競走成績 | 2026/10/04 ：楽天競馬」）。
+SHORT = {
+    "ooi1004": 8,   # 9R以降が存在しない。8鞍で打ち切られた日
+}
+
 
 def done_set():
     """harvest/ に既にある「場+MMDD」。
@@ -97,12 +104,14 @@ def done_set():
         m = re.search(r"(\d{4})", b[3:])
         if not m:
             continue
+        label = b[:3] + m.group(1)
         try:
-            if len(J.load(open(f))) < MIN_R:
-                continue
+            n = len(J.load(open(f)))
         except Exception:
             continue
-        s.add(b[:3] + m.group(1))
+        if n < SHORT.get(label, MIN_R):
+            continue
+        s.add(label)
     return s
 
 
@@ -118,7 +127,7 @@ def is_new(label):
         D = J.load(open(f))
     except Exception:
         return False
-    if len(D) < MIN_R:
+    if len(D) < SHORT.get(label, MIN_R):
         return False
     return all(v.get("corner_raw") is not None for v in D.values())
 
