@@ -124,26 +124,50 @@ def band(d):
     return (d - 100, d + 100)
 
 
+NANKAN = {"大井", "船橋", "浦和", "川崎"}
+
+
 def prof(h, dist):
-    """その馬の前半速度・終い速度（同じ距離帯の走だけ）"""
+    """その馬の前半速度・終い速度（同じ距離帯・**南関の走だけ**）
+
+    ★ 2026-11-08 に直した。それまで venue を一度も見ていなかった。
+
+      11/9 川崎1R の ⑦ゼルノードゥスは**5走すべて金沢**で、川崎は初。
+      その金沢の時計から前半速度14.953を出し、「先頭圏1頭だけ、楽に行ける形」
+      と書いてしまった。**金沢の時計を川崎に換算する物差しは持っていない**
+      （harvest は南関4場しか集めていない）。同じ鞍の ③ヴィヒタは
+      川崎1400mで4角1番手の実績があり、本当は⑦の単騎ではなかった。
+
+      CLAUDE.md ルール4 は「金沢・佐賀・笠松の馬を0点で沈めるな」だが、
+      ここで踏んだのは逆で、**他場の数字をそのまま信じて主役に据えた**。
+      沈めないことと、信じることは別。
+
+    返り値の4つめ n は**南関で測れた走の数**。0 なら速度は使えない。
+    5つめ ext は他場の走の数（＝0点にしないための目印）。
+    位置（c4）は場を問わず使う。どこで走っても前に行く馬は前に行く。
+    """
     lo, hi = band(dist)
-    e, l, c4 = [], [], []
+    e, l, c4, ext = [], [], [], 0
     for p in (h.get("past") or []):
+        nk = p.get("venue") in NANKAN
         if lo <= p["dist"] <= hi and p.get("t") and p.get("agari"):
-            e.append((p["dist"] - 600) / (p["t"] - p["agari"]))
-            l.append(600 / p["agari"])
+            if nk:
+                e.append((p["dist"] - 600) / (p["t"] - p["agari"]))
+                l.append(600 / p["agari"])
+            else:
+                ext += 1
         if p.get("c4"):
             c4.append((p["c4"] - 1) / max(1, p["n"] - 1))
     return (st.median(e) if e else None, st.median(l) if l else None,
-            st.median(c4) if c4 is not None and c4 else None, len(e))
+            st.median(c4) if c4 else None, len(e), ext)
 
 
 def race(v, ven):
     dist = v["dist"]
     rows = []
     for h in v["horses"]:
-        e, l, c, n = prof(h, dist)
-        rows.append({"h": h, "e": e, "l": l, "c4": c, "n": n})
+        e, l, c, n, ext = prof(h, dist)
+        rows.append({"h": h, "e": e, "l": l, "c4": c, "n": n, "ext": ext})
     es = [r["e"] for r in rows if r["e"]]
     if not es:
         return rows, None
@@ -187,10 +211,13 @@ def main():
         print("  推定隊列（前半速度の順）")
         for i, r in enumerate(rows):
             if not r["e"]:
-                print("     ―  %2d %s 測れない" % (r["h"]["ub"], w(r["h"]["name"], 14))); continue
-            print("    %2d番手 %2d %s 前半%.3f 終い%.3f  前3F%.1f 後3F%.1f  %d走" % (
+                print("     ―  %2d %s 南関で測れる走なし%s" % (
+                    r["h"]["ub"], w(r["h"]["name"], 14),
+                    "（他場%d走あり／弱いという意味ではない）" % r["ext"] if r["ext"] else "")); continue
+            print("    %2d番手 %2d %s 前半%.3f 終い%.3f  前3F%.1f 後3F%.1f  南関%d走%s" % (
                 i + 1, r["h"]["ub"], w(r["h"]["name"], 14), r["e"], r["l"],
-                600 / r["e"], 600 / r["l"], r["n"]))
+                600 / r["e"], 600 / r["l"], r["n"],
+                " +他場%d" % r["ext"] if r["ext"] else ""))
 
 
 if __name__ == "__main__":
