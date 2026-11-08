@@ -5,6 +5,13 @@
   python3 cal.py --todo                      # まだ harvest していない日を出す
   python3 cal.py --harvest fun               # 未取得の船橋を古い順に取る（1日ずつ）
   python3 cal.py --harvest fun --max 10      # 10日だけ
+  python3 cal.py --harvest ooi --upgrade     # 古い形で入っている日も取り直す
+
+── ★ --upgrade は「古い形の日」を拾い直す
+
+  corner_raw（通過順の記号）・t（走破タイム）・sa（着差）は後から足した。
+  それ以前に取った日はこの3つを持っていない。
+  harvest.py do_res は corner_raw の無い鞍だけ取り直すので、足りない分だけ埋まる。
 
 ── ★ --harvest は絞られたら**その場で止まる**
 
@@ -99,22 +106,43 @@ def done_set():
     return s
 
 
-def todo_list(ven=None):
+def is_new(label):
+    """最新の形（corner_raw・t・sa つき）で入っているか。
+    corner_raw は通過順の**記号**（( ) 横並び／, 1馬身以内／- 1〜2馬身／= 大きく開いた）。
+    古いファイルは corner しか無く、着差の目安が読めない。"""
+    import json as J
+    f = os.path.join(HERE, "harvest", "%s_res.json" % label)
+    if not os.path.exists(f):
+        return False
+    try:
+        D = J.load(open(f))
+    except Exception:
+        return False
+    if len(D) < MIN_R:
+        return False
+    return all(v.get("corner_raw") is not None for v in D.values())
+
+
+def todo_list(ven=None, upgrade=False):
+    """upgrade=True … 古い形で入っている日も「やること」に入れる。
+    harvest.py do_res は corner_raw の無い鞍だけ取り直すので、
+    足りないところだけ埋まる。"""
     C, done = load(), done_set()
     out = []
     for d in sorted(C):
         for v, b in sorted(C[d].items()):
             if ven and v != ven:
                 continue
-            if v + d[4:8] not in done:
+            label = v + d[4:8]
+            if label not in done or (upgrade and not is_new(label)):
                 out.append((d, v, b))
     return out
 
 
-def harvest(ven, mx=None):
+def harvest(ven, mx=None, upgrade=False):
     """未取得の日を古い順に harvest.py res に渡す。絞られたら止める。"""
     import subprocess
-    T = todo_list(ven)
+    T = todo_list(ven, upgrade)
     if mx:
         T = T[:mx]
     print("%s … %d日ぶん" % (ven, len(T)), flush=True)
@@ -130,7 +158,7 @@ def harvest(ven, mx=None):
             ng += 1
             break
         ok += 1
-    print("\n取れた %d日 ／ 残り %d日" % (ok, len(todo_list(ven))), flush=True)
+    print("\n取れた %d日 ／ 残り %d日" % (ok, len(todo_list(ven, upgrade))), flush=True)
 
 
 def main():
@@ -143,7 +171,7 @@ def main():
     if "--harvest" in a:
         v = a[a.index("--harvest") + 1]
         mx = int(a[a.index("--max") + 1]) if "--max" in a else None
-        harvest(v, mx); return
+        harvest(v, mx, "--upgrade" in a); return
     C = load()
     if "--list" in a:
         import collections
