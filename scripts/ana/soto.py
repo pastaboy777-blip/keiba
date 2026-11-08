@@ -1,6 +1,7 @@
 """馬ごとの「外に出せるか」── 4角で併走したとき、外側にいた割合。
 
   python3 soto.py --build                 # soto.json を作る（harvest/ 全部から）
+  python3 soto.py --build --before 1102   # 11/02 より前の鞍だけで作る（循環よけ）
   python3 soto.py <馬名の一部>             # 1頭を引く
   python3 soto.py --card <card.json>      # 出馬表の全頭を鞍ごとに出す
   python3 soto.py --stat                  # 全体の数字
@@ -48,20 +49,27 @@
      予想に使うときは、対象日より前の harvest だけで作り直すこと。
   3. 単独（併走なし）は外率に入らない。単独の多い馬は n が伸びない。
 """
-import sys, json, os, glob, collections
+import sys, json, os, re, glob, collections
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DB = os.path.join(HERE, "soto.json")
 VEN = {"ooi": "大井", "fun": "船橋", "ura": "浦和", "kaw": "川崎"}
 
 
-def build():
+def build(before=None):
+    """before に MMDD を渡すと、その日より前の harvest だけで作る。
+    ★ 予想に使うときは必ず渡すこと。当日のレースが入っていると、
+      勝った当のレースを根拠にしてしまう（docstring の限界2）。"""
     H = collections.defaultdict(lambda: {"grp": 0, "out": 0, "in": 0, "mid": 0,
                                          "solo": 0, "ven": collections.Counter()})
     races = 0
     for f in sorted(glob.glob(os.path.join(HERE, "harvest", "*_res.json"))):
-        ven = VEN.get(os.path.basename(f)[:3])
+        base = os.path.basename(f)
+        ven = VEN.get(base[:3])
         if not ven:
+            continue
+        m = re.search(r"(\d{4})", base)
+        if before and m and m.group(1) >= before:
             continue
         try:
             D = json.load(open(f))
@@ -116,7 +124,13 @@ def main():
     if not a:
         print(__doc__); return
     if "--build" in a:
-        build(); return
+        b = a[a.index("--before") + 1] if "--before" in a else None
+        global DB
+        if b:
+            DB = os.path.join(HERE, "soto_%s.json" % b)
+        build(b); return
+    if "--db" in a:
+        DB = a[a.index("--db") + 1]
     if not os.path.exists(DB):
         print("soto.json がない。--build を先に"); return
     H = json.load(open(DB))
@@ -142,7 +156,12 @@ def main():
                     print("   %2d %-16s 併走の記録なし" % (h["ub"], h["name"][:16])); continue
                 print("   %2d %s" % (h["ub"], line(h["name"], e)))
         return
-    q = a[0]
+    # ★ --db / --before の「値」を馬名と取り違えないこと（orite.py で踏んだのと同じ穴）
+    skip = {a.index(f) + 1 for f in ("--db", "--before", "--card") if f in a}
+    pos = [x for i, x in enumerate(a) if not x.startswith("--") and i not in skip]
+    if not pos:
+        print(__doc__); return
+    q = pos[0]
     hit = [(n, e) for n, e in H.items() if q in n]
     if not hit:
         print("%s に当たる馬がいません" % q); return
