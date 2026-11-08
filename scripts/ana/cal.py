@@ -3,6 +3,14 @@
   python3 cal.py --scan 20260101 20261108    # その範囲を走査して cal.json に足す
   python3 cal.py --list                      # 取れているものを場ごとに出す
   python3 cal.py --todo                      # まだ harvest していない日を出す
+  python3 cal.py --harvest fun               # 未取得の船橋を古い順に取る（1日ずつ）
+  python3 cal.py --harvest fun --max 10      # 10日だけ
+
+── ★ --harvest は絞られたら**その場で止まる**
+
+  harvest.py は楽天が短いページを返した時点で exit 1 する。
+  それを見たらループを抜ける。**粘らない。数時間空ける。**
+  resumable なので、空けてからもう一度叩けば続きから積む。
 
 ── ★ 日付の一覧ページに RACEID が入っている
 
@@ -59,6 +67,56 @@ def scan(d0, d1):
     print("\n走査 %d日 ／ 開催のあった日 %d" % (n, sum(1 for v in C.values() if v)))
 
 
+def done_set():
+    """harvest/ に既にある「場+MMDD」。
+    ★ ファイル名は ooi1004 / ooiL0112 / ooi1026res とばらばら。
+      場3文字のあと**最初に出る4桁**を MMDD とみなす。
+      単純に [3:7] で切ると ooiL0112 が「ooiL011」になって一件も当たらない
+      （実際にそれで大井81日ぶんを「未取得」と誤って出した）。"""
+    import glob
+    s = set()
+    for f in glob.glob(os.path.join(HERE, "harvest", "*_res.json")):
+        b = os.path.basename(f)
+        m = re.search(r"(\d{4})", b[3:])
+        if m:
+            s.add(b[:3] + m.group(1))
+    return s
+
+
+def todo_list(ven=None):
+    C, done = load(), done_set()
+    out = []
+    for d in sorted(C):
+        for v, b in sorted(C[d].items()):
+            if ven and v != ven:
+                continue
+            if v + d[4:8] not in done:
+                out.append((d, v, b))
+    return out
+
+
+def harvest(ven, mx=None):
+    """未取得の日を古い順に harvest.py res に渡す。絞られたら止める。"""
+    import subprocess
+    T = todo_list(ven)
+    if mx:
+        T = T[:mx]
+    print("%s … %d日ぶん" % (ven, len(T)), flush=True)
+    ok = ng = 0
+    for i, (d, v, b) in enumerate(T, 1):
+        label = v + d[4:8]
+        print("\n[%d/%d] %s %s %s" % (i, len(T), d, label, b), flush=True)
+        r = subprocess.run([sys.executable, os.path.join(HERE, "harvest.py"),
+                            "res", b, label])
+        if r.returncode != 0:
+            print("\n★ %s で止まりました。絞られている可能性。"
+                  "数時間空けて harvest.py check からやり直すこと。" % label, flush=True)
+            ng += 1
+            break
+        ok += 1
+    print("\n取れた %d日 ／ 残り %d日" % (ok, len(todo_list(ven))), flush=True)
+
+
 def main():
     a = sys.argv[1:]
     if not a:
@@ -66,6 +124,10 @@ def main():
     if "--scan" in a:
         i = a.index("--scan")
         scan(a[i + 1], a[i + 2]); return
+    if "--harvest" in a:
+        v = a[a.index("--harvest") + 1]
+        mx = int(a[a.index("--max") + 1]) if "--max" in a else None
+        harvest(v, mx); return
     C = load()
     if "--list" in a:
         import collections
@@ -78,16 +140,19 @@ def main():
                                          c[v][-1] if c[v] else "-"))
         return
     if "--todo" in a:
-        import glob
-        done = {os.path.basename(f)[:3] + os.path.basename(f)[3:7]
-                for f in glob.glob(os.path.join(HERE, "harvest", "*_res.json"))}
-        todo = []
+        import collections
+        done = done_set()
+        hv = collections.Counter(); tv = collections.Counter()
         for d in sorted(C):
             for v, b in C[d].items():
-                if v + d[4:8] not in done:
-                    todo.append((d, v, b))
-        print("未取得 %d日ぶん" % len(todo))
-        for d, v, b in todo[:40]:
+                (hv if v + d[4:8] in done else tv)[v] += 1
+        print("場   取得ずみ 未取得")
+        for v in ("ooi", "fun", "kaw", "ura"):
+            print("  %s  %5d %6d" % (v, hv[v], tv[v]))
+        t = todo_list()
+        print("\n未取得 計 %d日（4秒間隔・1日12鞍で約 %.1f時間）" % (
+            len(t), len(t) * 12 * 4 / 3600))
+        for d, v, b in t[:20]:
             print("   %s %s %s" % (d, v, b))
         return
     print(__doc__)
