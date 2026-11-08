@@ -67,19 +67,35 @@ def scan(d0, d1):
     print("\n走査 %d日 ／ 開催のあった日 %d" % (n, sum(1 for v in C.values() if v)))
 
 
+MIN_R = 10      # これ未満の鞍数しか入っていない日は「途中で止まった」とみなす
+
+
 def done_set():
     """harvest/ に既にある「場+MMDD」。
+
     ★ ファイル名は ooi1004 / ooiL0112 / ooi1026res とばらばら。
       場3文字のあと**最初に出る4桁**を MMDD とみなす。
       単純に [3:7] で切ると ooiL0112 が「ooiL011」になって一件も当たらない
-      （実際にそれで大井81日ぶんを「未取得」と誤って出した）。"""
-    import glob
+      （実際にそれで大井81日ぶんを「未取得」と誤って出した）。
+
+    ★ ファイルがあるだけでは「取得ずみ」にしない。
+      南関は1日10〜12鞍。3鞍しか入っていない日は、途中で止めたか、
+      開催中に取ったまま（11/4がそれ）。**ファイルの有無だけで判定すると
+      永久に穴が埋まらない。**harvest.py は鞍ごとに積むので、
+      もう一度 res を叩けば足りない鞍だけ埋まる。"""
+    import glob, json as J
     s = set()
     for f in glob.glob(os.path.join(HERE, "harvest", "*_res.json")):
         b = os.path.basename(f)
         m = re.search(r"(\d{4})", b[3:])
-        if m:
-            s.add(b[:3] + m.group(1))
+        if not m:
+            continue
+        try:
+            if len(J.load(open(f))) < MIN_R:
+                continue
+        except Exception:
+            continue
+        s.add(b[:3] + m.group(1))
     return s
 
 
