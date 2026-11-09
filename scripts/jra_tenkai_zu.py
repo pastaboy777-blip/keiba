@@ -152,8 +152,8 @@ def apply_position_model(rows, field, fc, *, dist, surface):
     import json
     if not POSITION_MODEL.exists():
         return
-    m = json.load(open(POSITION_MODEL)).get("4角")
-    if not m:
+    M = json.load(open(POSITION_MODEL))
+    if not M.get("4角"):
         return
     norm = lambda x, i: (x.corner_pos[i] - 1) / max(1, x.field_size - 1)  # noqa: E731
     for r in rows:
@@ -177,11 +177,22 @@ def apply_position_model(rows, field, fc, *, dist, surface):
              "gate": (r["ub"] - 1) / max(1, len(rows) - 1),
              "gate_x_short": ((r["ub"] - 1) / max(1, len(rows) - 1)) * (1.0 if dist <= 1400 else 0.0),
              "pace": 0.0, "pace_x_early": 0.0}
-        r["_pred"] = sum(w * f[k] for k, w in zip(m["features"], m["coef"]))
-    # 学習モデルの値は平均へ縮むので、並びの順位だけを使って 1(先頭)〜0(最後方) に広げる
-    ranked = sorted([r for r in rows if "_pred" in r], key=lambda r: r["_pred"])
-    for i, r in enumerate(ranked):
-        r["pos"] = 1 - i / max(1, len(ranked) - 1)
+        for lab, key in (("1角", "_p1"), ("4角", "_p4")):
+            m = M.get(lab) or M["4角"]
+            r[key] = sum(w * f[k] for k, w in zip(m["features"], m["coef"]))
+    # 学習モデルの値は平均へ縮むので、そのままでは横に広がらない
+    # 値の差(固まり具合)は残して 1(先頭)〜0(最後方) に引き伸ばす
+    for key, out in (("_p1", "pos1"), ("_p4", "pos")):
+        vals = [r[key] for r in rows if key in r]
+        if not vals:
+            continue
+        lo, hi = min(vals), max(vals)
+        for r in rows:
+            if key in r:
+                r[out] = 1 - (r[key] - lo) / max(1e-9, hi - lo)
+    for r in rows:
+        if "pos1" in r:
+            r["pos3"] = (r["pos1"] + r["pos"]) / 2
 
 
 def learned_pace(data_path: str, before: str, *, place, dist, surface, n, baba=None, race_id=None):
@@ -265,7 +276,7 @@ def apply_learned_pace(fc, rows, diff: float, *, q=(-0.5, 0.5), adv_scale: float
 LATERAL_MODEL = ROOT / "models" / "lateral_model.json"   # scripts/jra_tairetsu2d.py の学習結果(係数のみ)
 
 
-def lateral_layout(rows, fc, n, *, band=0.10, min_gap=104):
+def lateral_layout(rows, fc, n, *, band=0.10, min_gap=104, key="pos"):
     """2次元の隊列: 横=前後の想定、縦=内外の想定(上が内)。
 
     内外は scripts/jra_tairetsu2d.py で学習した「4角で併走組の外側になる度合い」
@@ -276,25 +287,25 @@ def lateral_layout(rows, fc, n, *, band=0.10, min_gap=104):
     import json
     coef = json.load(open(LATERAL_MODEL))
     w = dict(zip(coef["features"], coef["coef"]))
-    hs = sorted([r for r in rows if r["pos"] is not None], key=lambda r: -r["pos"])
+    hs = sorted([r for r in rows if r.get(key) is not None], key=lambda r: -r[key])
     out = {}
     for r in hs:
         f = {"1": 1.0, "gate": (r["ub"] - 1) / max(1, n - 1), "out_rate": 0.43, "n_lat": 0.0,
-             "nige": fc.styles[r["ub"]].nige_rate, "front": r["pos"], "field": n / 18}
+             "nige": fc.styles[r["ub"]].nige_rate, "front": r[key], "field": n / 18}
         out[r["ub"]] = sum(w[k] * f[k] for k in w)
     groups, cur, head = [], [], None
     for r in hs:
-        if head is None or head - r["pos"] <= band:
+        if head is None or head - r[key] <= band:
             cur.append(r)
-            head = r["pos"] if head is None else head
+            head = r[key] if head is None else head
         else:
             groups.append(cur)
-            cur, head = [r], r["pos"]
+            cur, head = [r], r[key]
     if cur:
         groups.append(cur)
     xs, prev = [], None
     for g in groups:
-        x = PAD + g[0]["pos"] * (WID - 2 * PAD)
+        x = PAD + g[0][key] * (WID - 2 * PAD)
         if prev is not None:
             x = min(x, prev - min_gap)
         xs.append(x)
@@ -313,6 +324,7 @@ def lateral_layout(rows, fc, n, *, band=0.10, min_gap=104):
 def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
     hs = sorted([r for r in rows if r["pos"] is not None], key=lambda r: -r["pos"])
     two_d = LATERAL_MODEL.exists()
+    stages = two_d and all("pos1" in r for r in rows if r["pos"] is not None)
     if two_d:
         cells, _ = lateral_layout(rows, fc, n)
         NL = max(1, max((lane for _, _, lane in cells), default=0) + 1)
@@ -347,6 +359,14 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
                "#00000055" if r["waku"] == 1 else "rgba(255,255,255,.45)",
                r["ub"], H.escape(r["name"][:4] if two_d else r["name"]), t, so))
 
+    board_html = ('<div class="board">%s<div class="track" style="height:%dpx"><div class="goal"></div>%s</div></div>'
+                  '<div class="xlab"><span>後方</span><span>中団</span><span>前　→　ゴール</span></div>'
+                  % (('<div class="ylab"><span>内（ラチ側）</span><span>外</span></div>' if two_d else ""),
+                     NL * LANE + 24, "\n".join(hh)))
+    if stages:
+        board_html = "".join(stage_board(rows, fc, n, key, prev, lab, rk)
+                             for key, prev, lab in (("pos1", None, "スタート後"), ("pos3", "pos1", "3コーナー"),
+                                                    ("pos", "pos3", "4コーナー")))
     pcls, ptag = {"スロー": ("slow", "S"), "ミドル": ("mid", "M"), "ハイ": ("high", "H")}[fc.pace]
     mark = max(0.02, min(0.98, 0.5 + fc.pace_index * 0.667))
     flow = {
@@ -371,7 +391,7 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
                        "差し有利" if fc.front_bias < -0.05 else ("前有利" if fc.front_bias > 0.05 else "平坦")))
     else:
         flow_sub = ""
-    memo = make_memo(fc, rows, rk)
+    memo = make_memo(fc, rows, rk, name)
     known = sum(1 for r in rows if r["pos"] is not None) / max(1, len(rows))
     if known < 0.7:
         memo = ('<p class="hold"><b>隊列は判定保留</b>(通過順の記録がある馬が %d%%)。'
@@ -390,19 +410,91 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
         '<span class="pace p-%s"><b>%s</b> %s想定</span></div>'
         '<div class="pbar p-%s"><div class="bar"><span>ゆっくり</span><span>ふつう</span><span>速い</span>'
         '<i style="left:%.1f%%"></i></div><div class="flow"><b>%s</b>　<small>%s</small></div>%s</div>'
-        '<div class="board">%s<div class="track" style="height:%dpx"><div class="goal"></div>%s</div></div>'
-        '<div class="xlab"><span>後方</span><span>中団</span><span>前　→　ゴール</span></div>'
+        '%s'
         '<div class="kenkai"><div class="kt">見解</div>%s</div>%s</div>'
         % (rno, H.escape(name), surface, dist, n, H.escape(baba or ""),
            pcls, ptag, fc.pace, pcls, mark * 100, flow, flow_sub, est_html,
-           ('<div class="ylab"><span>内（ラチ側）</span><span>外</span></div>' if two_d else ""),
-           NL * LANE + 24, "\n".join(hh), memo, miss))
+           board_html, memo, miss))
 
 
-def make_memo(fc, rows, rk) -> str:
+def stage_board(rows, fc, n, key, prev, label, rk) -> str:
+    """1時点ぶんの隊列盤面(横=前後、縦=内外)。前の時点から3頭分以上順位が動いた馬に印。"""
+    cells, _ = lateral_layout(rows, fc, n, key=key)
+    NL = max(1, max((lane for _, _, lane in cells), default=0) + 1)
+    rank = lambda k: {r["ub"]: i for i, r in enumerate(sorted([r for r in rows if r.get(k) is not None],  # noqa: E731
+                                                             key=lambda r: -r[k]))}
+    now, before = rank(key), (rank(prev) if prev else {})
+    hh = []
+    for r, x, lane in cells:
+        col, cc, t = "#d8c7ae", "#b9b9c4", ""
+        if prev and r["ub"] in before:
+            mv = before[r["ub"]] - now[r["ub"]]
+            if mv >= 3:
+                col = cc = "#6fc0ff"
+                t = '<span class="upq">▲%d頭分上げる</span>' % mv
+            elif mv <= -3:
+                t = '<span class="dn">≪%d頭分下げる</span>' % -mv
+        so = '<span class="sm">終い%d位</span>' % rk[r["ub"]] if key == "pos" and rk.get(r["ub"], 99) <= 3 else ""
+        wc = WAKU.get(r["waku"], ("#15110d", "#f2f2f4"))
+        hh.append('<div class="horse" style="left:%dpx;top:%dpx"><div class="fig">%s%s</div>'
+                  '<div class="lab"><span class="n" style="background:%s;color:%s;border-color:%s">%d</span>'
+                  '<span class="nm">%s</span></div>%s%s</div>'
+                  % (int(x), 14 + lane * LANE, HORSE.format(c=col), CHEV.format(c=cc), wc[0], wc[1],
+                     "#00000055" if r["waku"] == 1 else "rgba(255,255,255,.45)", r["ub"],
+                     H.escape(r["name"][:4]), t, so))
+    return ('<div class="stg">%s</div><div class="board"><div class="ylab"><span>内（ラチ側）</span><span>外</span></div>'
+            '<div class="track" style="height:%dpx"><div class="goal"></div>%s</div></div>'
+            '<div class="xlab"><span>後方</span><span>中団</span><span>前　→　ゴール</span></div>'
+            % (label, NL * LANE + 24, "\n".join(hh)))
+
+
+KANGAE = {
+    "スロー": ("前半がゆったり流れ、<b>先行力</b>が問われる一戦になりそうです。"
+              "前で運べる馬が残りやすく、後ろの馬は届きにくい形です"
+              "(検証: スロー想定で隊列予想の前1/3は3着内31%、後1/3は18%)。"
+              "前の組では<b>内で脚をためられる馬</b>が有利になりやすい流れです"
+              "(4角前1/3の穴: 内15% 対 外の列9%)。"),
+    "ミドル": ("<b>先行力と末脚の両方</b>が求められる展開になりそうです。"
+              "前の組が基本ですが、中団から<b>外へ持ち出して伸びる馬</b>も届きます"
+              "(検証: 4角後ろ半分では外12% 対 内8%)。"),
+    "ハイ": ("前半から流れ、<b>位置を取りに行く脚</b>と<b>しぶとさ</b>が問われる展開になりそうです。"
+            "ただし中央では、ハイ想定でも隊列予想の前1/3が最も来ています(28% 対 後1/3は12%)。"
+            "差すなら<b>外を回した馬</b>です(4角前1/3の穴: 外の列24% 対 内14%)。"),
+}
+
+
+def make_memo(fc, rows, rk, name: str = "") -> str:
     by = {r["ub"]: r for r in rows}
     nm = lambda u: "%s%s" % (chr(0x2460 + u - 1) if u <= 20 else str(u), by[u]["name"])  # noqa: E731
     lines = []
+    if getattr(fc, "diff_pred", None) is not None and "pos1" in next(iter(by.values()), {}):
+        title = re.sub(r"\(.*?\)", "", name) or "このレース"
+        est = getattr(fc, "est", None)
+        t = ("推定前半3F %.1f・後半3F %.1f" % (est["front3"], est["last3"])) if est else ""
+        lines.append("<b>%sは%sペースが予想されます</b>(確度 %s%s)。%s"
+                     % (H.escape(title), fc.pace, getattr(fc, "conf", "-"), ("、" + t) if t else "", KANGAE[fc.pace]))
+        r1 = sorted([r for r in rows if "pos1" in r], key=lambda r: -r["pos1"])
+        if r1:
+            lead = r1[0]
+            lines.append("スタートダッシュで<b>先頭を奪う可能性が高いのは %s</b>。続くのは %s。"
+                         % (nm(lead["ub"]), "・".join(nm(r["ub"]) for r in r1[1:3])))
+        r4 = sorted([r for r in rows if "pos1" in r], key=lambda r: -r["pos"])
+        rk1 = {r["ub"]: i for i, r in enumerate(r1)}
+        steady = [r for r in r4[:6] if abs(rk1[r["ub"]] - r4.index(r)) <= 1][:3]
+        if steady:
+            lines.append("3コーナーから4コーナーにかけて<b>前で安定した位置取り</b>ができそうなのは %s。"
+                         % "・".join(nm(r["ub"]) for r in steady))
+        up = sorted([r for r in rows if "pos1" in r and rk1[r["ub"]] - r4.index(r) >= 3],
+                    key=lambda r: r4.index(r) - rk1[r["ub"]])[:3]
+        if up:
+            lines.append("道中で位置を上げてくるのは %s。" % "・".join(nm(r["ub"]) for r in up))
+        top = sorted(rk, key=rk.get)[:3]
+        if top:
+            lines.append("<b>末脚</b>(近走の上がり)上位は %s。%s"
+                         % ("・".join(nm(u) for u in top),
+                            "スローでは届きにくく、前の組に絡めるかが鍵です。" if fc.pace == "スロー" else
+                            "流れが落ち着かなければ上位進出の可能性があります。"))
+        return "".join("<p>%s</p>" % x for x in lines)
     if getattr(fc, "diff_pred", None) is not None:
         lines.append("<b>流れは%s想定(前後半差 %+.2f秒)。</b>学習(1,000鞍超)では、ペースは距離・直線・頭数・芝ダで"
                      "ほぼ決まり、逃げ馬の頭数はほとんど効かなかった。"
@@ -444,6 +536,7 @@ CSS_EXTRA = """
 .bar span:nth-child(1){background:#26344a}.bar span:nth-child(2){background:#3b3022}.bar span:nth-child(3){background:#4a1f1f}
 .bar i{position:absolute;top:-2px;width:4px;height:24px;background:#fff;border-radius:2px;transform:translateX(-50%)}
 .est{display:flex;gap:26px;margin-top:8px;font-size:12px;color:var(--dim)}.est b{color:#f2f2f4;font-size:16px;margin-left:6px}
+.stg{display:inline-block;margin:14px 16px 0;background:#2e4a2a;color:#e6f2df;font-weight:800;font-size:13px;padding:4px 16px;border-radius:14px}
 .flow{margin-top:7px;font-size:12.5px}.flow small{color:var(--dim);font-size:11px}
 .kenkai{margin:6px 16px 14px;border-left:3px solid var(--acc2);background:#121216;border-radius:6px;padding:10px 14px;
  font-size:12.6px;color:#c9c9d2;line-height:1.9}
