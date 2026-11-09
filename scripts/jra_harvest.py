@@ -100,7 +100,9 @@ def main() -> None:
     if out.exists():
         for line in out.open(encoding="utf-8"):
             try:
-                done_ids.add(json.loads(line)["race_id"])
+                d = json.loads(line)
+                if d.get("distance"):          # 読み損ねた鞍は取り直す
+                    done_ids.add(d["race_id"])
             except Exception:  # noqa: BLE001
                 pass
     days_path = out.with_suffix(".days")

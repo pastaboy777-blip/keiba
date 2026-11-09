@@ -93,7 +93,7 @@ def parse_db_race(html: str, race_id: str) -> dict | None:
         r["agari_rank"] = i + 1
 
     body = _txt(html[:200000])
-    cond = re.search(r"(芝|ダ|障)\S{0,4}?(\d{3,4})m", body)
+    cond = re.search(r"(芝|ダ|障)[^\d\n]{0,8}?(\d{3,4})\s*m", body)
     baba = re.search(r"(?:芝|ダート)\s*:\s*(良|稍重|重|不良)", body)
     date = re.search(r"(20\d{2})年(\d{1,2})月(\d{1,2})日", body)
     title = re.search(r"<h1[^>]*>(.*?)</h1>", html, re.S)
