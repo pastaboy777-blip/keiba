@@ -67,6 +67,20 @@ INTERVAL_PRIOR: dict[str, float] = {
 }
 
 
+# 中央(JRA)の全体傾向プライア。南関と逆に「詰めすぎ」は割引、休み明けも割引は小さい。
+# JRA は外厩(ノーザンF天栄・しがらき等)で仕上げてから入厩するため、放牧明けでも
+# 走れる馬が多く、標準は中2〜4週。連闘・中1週は余力が無い馬の使い詰めであることが多い。
+JRA_INTERVAL_PRIOR: dict[str, float] = {
+    "rento": -0.06,
+    "naka1": -0.02,
+    "normal": 0.02,
+    "aki": 0.02,
+    "kyumei": -0.02,
+    "long_kyuyo": -0.08,
+    "unknown": 0.0,
+}
+
+
 def global_interval_prior(days: int | None, prior: dict[str, float] | None = None) -> float:
     """今回の出走間隔に対する全体傾向の加点を返す。"""
     table = prior if prior is not None else INTERVAL_PRIOR
@@ -91,6 +105,7 @@ class RunRecord:
         trainer:     調教師名(任意)
         popularity:  人気順(任意。期待との乖離を見るのに使える)
         baba:        馬場状態('良'/'稍'/'重'/'不' など。先頭1文字で判定)
+        surface:     '芝' / 'ダ'(中央は芝・ダート混在。南関は全てダート)
         corner_pos:  各コーナー通過順位(前→後)。例 [10,8,6]。脚質判定に使う
         agari_rank:  上がり3F順位(1=最速)。末脚の鋭さに使う
         days_since_last: 前走からの間隔[日]。None なら build_profile が日付列から補完。
@@ -105,6 +120,7 @@ class RunRecord:
     trainer: str | None = None
     popularity: int | None = None
     baba: str | None = None
+    surface: str | None = None
     corner_pos: list[int] = field(default_factory=list)
     agari_rank: int | None = None
     days_since_last: int | None = None

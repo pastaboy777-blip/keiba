@@ -4,6 +4,10 @@
 「叩き良化・乗り替わり・競馬場替わり・距離変更」などの手を使って
 今日のレースで走らせにいくゲーム、という捉え方に基づく。
 
+中央競馬(JRA)にも対応する。競馬場から主催を判定し、出走間隔プライアを
+JRA 用に切り替える。芝/ダート替わり(surface_fit)と、メンバー構成から決まる
+展開利(tenkai, core/tenkai.py)も特徴量に含む。
+
 馬1頭について、過去走(RunRecord 列)と今回のレース条件(RaceContext)から
 強さスコアを算出する。スコアは Plackett-Luce のストレングス exp(score) に使う。
 
@@ -16,6 +20,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Sequence
 
+from . import course as cs
 from . import interval as iv
 
 
@@ -43,6 +48,8 @@ class RaceContext:
     jockey: str | None = None
     trainer: str | None = None
     baba: str | None = None   # 馬場状態 '良'/'稍'/'重'/'不'
+    surface: str | None = None  # '芝' / 'ダ'(None は不明。南関はダート)
+    tenkai_adv: float | None = None  # 展開利(core/tenkai.forecast で算出。None は 0 扱い)
 
 
 @dataclass
@@ -121,6 +128,31 @@ def jockey_change_signal(
     return jockeys.get(ctx.jockey) - jockeys.get(runs[0].jockey)
 
 
+def _norm_surface(s: str | None) -> str | None:
+    if not s:
+        return None
+    return "芝" if s.startswith("芝") else "ダ"
+
+
+def _same_surface(r: iv.RunRecord, ctx: "RaceContext") -> bool:
+    """今回と同じ馬場(芝/ダ)の走か。どちらかが不明なら True(絞り込まない)。"""
+    a, b = _norm_surface(r.surface), _norm_surface(ctx.surface)
+    return a is None or b is None or a == b
+
+
+def surface_fit(runs: Sequence[iv.RunRecord], ctx: "RaceContext", baseline: float) -> float:
+    """芝/ダート適性。今回と同じ馬場での自身比相対成績(データ無しは 0)。
+
+    中央で重要な「芝→ダ替わり」「ダ→芝替わり」を拾う。南関(全ダート)では
+    全走が同じ馬場なので ≈0 になり影響しない。
+    """
+    today = _norm_surface(ctx.surface)
+    if today is None:
+        return 0.0
+    vals = [r.finish_strength() - baseline for r in runs if _norm_surface(r.surface) == today]
+    return sum(vals) / len(vals) if vals else 0.0
+
+
 def _place_aptitude(runs: Sequence[iv.RunRecord], place: str, baseline: float) -> float:
     vals = [r.finish_strength() - baseline for r in runs if r.place == place]
     return sum(vals) / len(vals) if vals else 0.0
@@ -135,7 +167,7 @@ def place_change_fit(
 
     替わりが無くてもその舞台が得意なら加点。データが無ければ 0。
     """
-    return _place_aptitude(runs, ctx.place, baseline)
+    return _place_aptitude([r for r in runs if _same_surface(r, ctx)], ctx.place, baseline)
 
 
 def distance_change_fit(
@@ -149,7 +181,7 @@ def distance_change_fit(
     vals = [
         r.finish_strength() - baseline
         for r in runs
-        if abs(r.distance - ctx.distance) <= band
+        if abs(r.distance - ctx.distance) <= band and _same_surface(r, ctx)
     ]
     return sum(vals) / len(vals) if vals else 0.0
 
@@ -239,6 +271,8 @@ FEATURE_NAMES: list[str] = [
     "place_fit",      # 競馬場替わり適性
     "distance_fit",   # 距離変更適性
     "fatigue",        # 使い込み疲労(負)
+    "surface_fit",    # 芝/ダート適性(中央の芝ダ替わり)
+    "tenkai",         # 展開利(ペース×脚質×コース形状)
 ]
 
 
@@ -259,6 +293,8 @@ class ScoreWeights:
     place_fit: float = 0.5
     distance_fit: float = 0.5
     fatigue: float = 1.0
+    surface_fit: float = 0.6
+    tenkai: float = 0.8
 
     def as_dict(self) -> dict[str, float]:
         return {f: getattr(self, f) for f in FEATURE_NAMES}
@@ -290,6 +326,8 @@ def horse_features(
         (_parse_date(ctx.date) - _parse_date(runs[0].date)).days if runs else None
     )
     baseline = profile.ability_baseline
+    if interval_prior is None and cs.is_jra(ctx.place):
+        interval_prior = iv.JRA_INTERVAL_PRIOR
     n_tatakii = starts_since_layoff(runs, upcoming_days)
 
     return {
@@ -306,6 +344,8 @@ def horse_features(
         "place_fit": place_change_fit(runs, ctx, baseline),
         "distance_fit": distance_change_fit(runs, ctx, baseline),
         "fatigue": fatigue_penalty(profile, upcoming_days),
+        "surface_fit": surface_fit(runs, ctx, baseline),
+        "tenkai": ctx.tenkai_adv or 0.0,
     }
 
 

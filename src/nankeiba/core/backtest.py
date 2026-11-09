@@ -16,6 +16,7 @@ from typing import Callable, Optional, Sequence
 from . import interval as iv
 from . import probability as pb
 from . import betting as bt
+from . import tenkai as tk
 from .features import RaceContext, ConnStats, horse_score, ScoreWeights
 
 
@@ -32,6 +33,9 @@ class Entry:
     umaban: int | None = None
     jockey: str | None = None
     trainer: str | None = None
+    # 結果(確定後に分かる情報)。履歴に積んで次走以降の脚質・末脚推定に使う。
+    corner_pos: list[int] = field(default_factory=list)  # 通過順位
+    agari_rank: int | None = None                         # 上がり3F順位
 
     def num(self) -> object:
         """オッズ・着順照合に使う馬番(無ければ horse_id で代用)。"""
@@ -51,6 +55,49 @@ class Race:
     result_order: list[int]                      # 着順に並べた馬番(>=3頭)
     trio_odds: dict[tuple[int, int, int], float]  # 三連複オッズ(昇順の馬番キー)
     trifecta_odds: dict[tuple[int, int, int], float]  # 三連単オッズ(着順の馬番キー)
+    surface: str | None = None                   # '芝' / 'ダ'
+    baba: str | None = None                      # 馬場状態
+
+
+def race_contexts(
+    race: Race,
+    history: dict[object, list[iv.RunRecord]],
+    *,
+    use_tenkai: bool = True,
+) -> list[tuple[Entry, list[iv.RunRecord], RaceContext]]:
+    """出走各馬の (Entry, 過去走, RaceContext) を作る。過去走のみ使用(リーク無し)。
+
+    use_tenkai=True なら、メンバー全体の過去走から展開を予想し、
+    各馬の展開利を ctx.tenkai_adv に入れる。
+    """
+    pasts = {e.num(): history.get(e.horse_id, []) for e in race.entries}
+    adv: dict[object, float] = {}
+    if use_tenkai:
+        adv = tk.tenkai_advantages(
+            pasts, place=race.place, distance=race.distance, surface=race.surface
+        )
+    out = []
+    for e in race.entries:
+        ctx = RaceContext(
+            date=race.date, place=race.place, distance=race.distance,
+            field_size=race.field_size, jockey=e.jockey, trainer=e.trainer,
+            baba=race.baba, surface=race.surface, tenkai_adv=adv.get(e.num()),
+        )
+        out.append((e, pasts[e.num()], ctx))
+    return out
+
+
+def record_result(race: Race, history: dict[object, list[iv.RunRecord]]) -> None:
+    """確定したレース結果を各馬の履歴(先頭=最新)に追記する。"""
+    pos_of = {um: i + 1 for i, um in enumerate(race.result_order)}
+    for e in race.entries:
+        rec = iv.RunRecord(
+            date=race.date, place=race.place, distance=race.distance,
+            field_size=race.field_size, finish_pos=pos_of.get(e.num(), race.field_size),
+            jockey=e.jockey, trainer=e.trainer, baba=race.baba, surface=race.surface,
+            corner_pos=list(e.corner_pos), agari_rank=e.agari_rank,
+        )
+        history.setdefault(e.horse_id, []).insert(0, rec)
 
 
 @dataclass
@@ -94,6 +141,7 @@ def run_backtest(
     max_bets: int = 8,
     temperature: float = 1.0,
     min_history: int = 3,
+    use_tenkai: bool = True,
 ) -> BacktestResult:
     """時系列にバックテストする。
 
@@ -113,16 +161,7 @@ def run_backtest(
         # --- 過去走だけでスコア化(スコアは馬番でキーづけ)---
         scores: dict[object, float] = {}
         enough = True
-        for e in race.entries:
-            past = history.get(e.horse_id, [])
-            ctx = RaceContext(
-                date=race.date,
-                place=race.place,
-                distance=race.distance,
-                field_size=race.field_size,
-                jockey=e.jockey,
-                trainer=e.trainer,
-            )
+        for e, past, ctx in race_contexts(race, history, use_tenkai=use_tenkai):
             if score_fn is not None:
                 scores[e.num()] = score_fn(past, ctx)
             else:
@@ -159,17 +198,6 @@ def run_backtest(
                 res.pnl_history.append(res.returned - res.spent)
 
         # --- 履歴更新(このレースの結果を各馬に追記。着順は馬番→順位)---
-        pos_of = {um: i + 1 for i, um in enumerate(race.result_order)}
-        for e in race.entries:
-            rec = iv.RunRecord(
-                date=race.date,
-                place=race.place,
-                distance=race.distance,
-                field_size=race.field_size,
-                finish_pos=pos_of.get(e.num(), race.field_size),
-                jockey=e.jockey,
-                trainer=e.trainer,
-            )
-            history.setdefault(e.horse_id, []).insert(0, rec)  # 先頭=最新
+        record_result(race, history)
 
     return res

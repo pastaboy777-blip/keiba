@@ -5,7 +5,7 @@
 
 馬の永続IDは馬名で代用する(同名馬は南関では稀なため実用上問題ない)。
 上がり3F順位は、レース内の上がりタイムを比較して算出する。
-馬場・距離・日付はテーブルに無いので呼び出し側で渡す。
+馬場・距離・日付・芝/ダはテーブルに無いので呼び出し側で渡す(中央は surface='芝'/'ダ')。
 
 依存ライブラリなし(標準ライブラリのみ)。
 """
@@ -29,6 +29,7 @@ def parse_result_table(
     date: str,
     distance: int,
     baba: str | None = None,
+    surface: str | None = None,
     race_id: str | None = None,
 ) -> dict:
     """コピペした結果テーブルを core/dataset.py の JSONL レコードに変換する。"""
@@ -82,6 +83,6 @@ def parse_result_table(
     return {
         "race_id": race_id or f"{date.replace('-', '')}_{place}_{distance}",
         "date": date, "place": place, "distance": distance,
-        "field_size": field, "baba": baba,
+        "field_size": field, "baba": baba, "surface": surface,
         "result": result, "trio_odds": {}, "trifecta_odds": {},
     }

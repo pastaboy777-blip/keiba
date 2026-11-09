@@ -1,6 +1,6 @@
 """三連複・三連単オッズの取得とパース。
 
-netkeiba(地方)はオッズを JavaScript から JSON API で読み込む。代表的には
+netkeiba(地方・中央とも)はオッズを JavaScript から JSON API で読み込む。代表的には
     https://nar.netkeiba.com/api/api_get_jra_odds.html?race_id=<id>&type=<n>
 のような XHR で、馬番の組み合わせ -> オッズ の辞書が返る。
 ※ エンドポイントURLと type コード(三連複/三連単の別)はサイト仕様変更で
@@ -22,8 +22,19 @@ from typing import Mapping
 ODDS_TYPE = {"trio": "b7", "trifecta": "b8"}
 ODDS_API = "https://nar.netkeiba.com/api/api_get_jra_odds.html?race_id={race_id}&type={type}"
 
+# 中央(race.netkeiba.com)。type: 1=単勝 … 7=三連複 8=三連単(要確認)
+JRA_ODDS_TYPE = {"trio": "7", "trifecta": "8"}
+JRA_ODDS_API = ("https://race.netkeiba.com/api/api_get_jra_odds.html"
+                "?race_id={race_id}&type={type}&action=update")
 
-def odds_api_url(race_id: str, bet_type: str) -> str:
+
+def odds_api_url(race_id: str, bet_type: str, *, jra: bool | None = None) -> str:
+    """オッズ API の URL。jra=None なら race_id の場コードから自動判定する。"""
+    if jra is None:
+        from .race_id import is_jra
+        jra = is_jra(race_id)
+    if jra:
+        return JRA_ODDS_API.format(race_id=race_id, type=JRA_ODDS_TYPE[bet_type])
     return ODDS_API.format(race_id=race_id, type=ODDS_TYPE[bet_type])
 
 

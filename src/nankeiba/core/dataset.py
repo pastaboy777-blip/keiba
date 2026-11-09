@@ -4,12 +4,15 @@
     {
       "race_id": "202444010101",
       "date": "2024-01-01",
-      "place": "大井",
+      "place": "大井",                # 南関4場 or 中央10場(東京・中山…)
       "distance": 1400,
+      "surface": "ダ",                # 任意: '芝'/'ダ'(中央は必須推奨)
+      "baba": "良",                   # 任意: 馬場状態
       "field_size": 12,
       "result": [
         {"finish_pos":1,"umaban":5,"horse_id":"2019104123",
-         "horse_name":"...","jockey":"...","trainer":"...","popularity":3},
+         "horse_name":"...","jockey":"...","trainer":"...","popularity":3,
+         "corner_pos":[2,2,1], "agari_rank":3},   # 任意: 通過順・上がり順位(展開予想に使う)
         ...
       ],
       "trio_odds":     {"3-5-8": 42.1, ...},   # 三連複(昇順の馬番キー)
@@ -54,6 +57,8 @@ def race_from_dict(d: dict) -> Race:
             umaban=r.get("umaban"),
             jockey=r.get("jockey"),
             trainer=r.get("trainer"),
+            corner_pos=[int(x) for x in r.get("corner_pos") or []],
+            agari_rank=r.get("agari_rank"),
         )
         for r in result
     ]
@@ -65,6 +70,7 @@ def race_from_dict(d: dict) -> Race:
         distance=int(d["distance"]), field_size=int(d.get("field_size", len(entries))),
         entries=entries, result_order=result_order,
         trio_odds=trio_odds, trifecta_odds=trifecta_odds,
+        surface=d.get("surface"), baba=d.get("baba"),
     )
 
 
@@ -79,11 +85,14 @@ def race_to_dict(race: Race) -> dict:
             "horse_id": e.horse_id,
             "jockey": e.jockey,
             "trainer": e.trainer,
+            "corner_pos": list(e.corner_pos),
+            "agari_rank": e.agari_rank,
         })
     result.sort(key=lambda r: r["finish_pos"])
     return {
         "race_id": race.race_id, "date": race.date, "place": race.place,
         "distance": race.distance, "field_size": race.field_size,
+        "surface": race.surface, "baba": race.baba,
         "result": result,
         "trio_odds": {_combo_to_key(k): v for k, v in race.trio_odds.items()},
         "trifecta_odds": {_combo_to_key(k): v for k, v in race.trifecta_odds.items()},

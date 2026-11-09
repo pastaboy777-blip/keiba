@@ -128,6 +128,38 @@ res = run_backtest(test_races, score_fn=scorer, bet_type="trio")  # 学習重み
 
 `scripts/train.py` が学習→重要度表示→検証(既定重み vs 学習重み)の一連を実演する。
 
+## 中央競馬(JRA)対応 と 展開予想
+
+南関4場に加えて **中央10場**(札幌・函館・福島・新潟・東京・中山・中京・京都・阪神・小倉)
+も扱える。競馬場名から主催を自動判定し、次を切り替える。
+
+| 項目 | 南関 | 中央 |
+|------|------|------|
+| 出走間隔プライア | 短間隔ほど有利(`INTERVAL_PRIOR`) | 中2〜4週が標準、連闘・中1週は割引(`JRA_INTERVAL_PRIOR`) |
+| 芝/ダート | 全てダート | `surface_fit` で芝ダ替わりを評価 |
+| race_id / URL | nar.netkeiba.com | race.netkeiba.com(年+場+回+日目+R) |
+
+### 展開予想(`core/tenkai.py`)
+
+各馬の過去走の**通過順位**から脚質(逃げ/先行/差し/追込)を推定し、メンバー全体から
+
+1. **ペース予想** … 逃げ候補の頭数(ハナ争い)・先行勢の厚み・距離からハイ/ミドル/スロー
+2. **隊列予想** … 序盤の位置取り順。逃げ馬が1頭だけなら「単騎逃げ濃厚」
+3. **展開利** … `(前にいる度合い) × (コースの先行有利度 − ペース)` + 単騎逃げ加点
+
+を出す。コースの先行有利度は直線の長さから計算(`core/course.py`:
+浦和220m・中山310m は前有利、東京526m・新潟外659m は差し有利)。
+展開利は特徴量 `tenkai` としてスコアに入り、バックテスト・学習でも
+レースごとに過去走だけから自動計算される(リーク無し)。
+
+```bash
+python3 scripts/tenkai_example.py   # 同じ8頭で中山芝1200と東京芝1600の展開を比較(架空データ)
+python3 scripts/collect_data.py --year 2024 --place 東京 --out data/jra.jsonl
+```
+
+展開予想には収集データに `corner_pos`(通過順)が必要。`parser.py` はヘッダ行の
+「通過」「上り」列から取得する(実ページで要確認)。通過順が無い馬は中団扱い=展開利0。
+
 ## 重み・閾値のチューニング
 
 - `core/features.py` の `ScoreWeights` で各観点の重みを手調整。
@@ -156,6 +188,8 @@ src/nankeiba/
     learn.py        重み学習(Plackett-Luce 尤度最大化・標準ライブラリ)
     learn_lgbm.py   重み学習(LightGBM lambdarank・任意)
     synth.py        検証用 合成データ生成
+    course.py       競馬場情報(南関4場+中央10場・直線長・先行有利度)
+    tenkai.py       展開予想(脚質・ペース・隊列・展開利)
   scraping/    データ収集(netkeiba 地方・ローカル実行)
 scripts/       demo / train / collect_data
 tests/         単体テスト

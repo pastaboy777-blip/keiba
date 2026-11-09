@@ -1,4 +1,4 @@
-"""netkeiba 地方(南関4場)から「結果 + 三連複/三連単オッズ」を収集する。
+"""netkeiba(南関4場 / 中央10場)から「結果 + 三連複/三連単オッズ」を収集する。
 
 出力は core/dataset.py の JSONL 形式。build_dataset.py の入力にできる。
 
@@ -12,6 +12,8 @@ parser.py / odds.py のセレクタ・エンドポイントを調整すること
 
 実行例:
     python3 scripts/collect_data.py --year 2024 --place 大井 --out data/results.jsonl
+    # 中央: race_id = 年 + 場 + 開催回 + 開催日目 + R(回1〜6・日1〜12)
+    python3 scripts/collect_data.py --year 2024 --place 東京 --out data/jra.jsonl
 """
 
 from __future__ import annotations
@@ -23,12 +25,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from nankeiba.scraping.race_id import build_race_id, NANKAN_CODES
+from nankeiba.scraping.race_id import build_race_id, ALL_CODES
+from nankeiba.scraping.urls import result_url
 from nankeiba.scraping.client import PoliteClient
 from nankeiba.scraping import parser as P
 from nankeiba.scraping import odds as O
-
-RESULT_URL = "https://nar.netkeiba.com/race/result.html?race_id={race_id}"
 
 
 def _race_to_record(race: P.ParsedRace, trio_odds, trifecta_odds) -> dict:
@@ -39,6 +40,8 @@ def _race_to_record(race: P.ParsedRace, trio_odds, trifecta_odds) -> dict:
         "place": race.place,
         "distance": race.distance,
         "field_size": race.field_size,
+        "surface": race.surface,
+        "baba": race.baba,
         "result": [
             {
                 "finish_pos": r.finish_pos,
@@ -48,6 +51,8 @@ def _race_to_record(race: P.ParsedRace, trio_odds, trifecta_odds) -> dict:
                 "jockey": r.jockey,
                 "trainer": r.trainer,
                 "popularity": r.popularity,
+                "corner_pos": r.corner_pos,
+                "agari_rank": r.agari_rank,
             }
             for r in race.rows
         ],
@@ -56,9 +61,13 @@ def _race_to_record(race: P.ParsedRace, trio_odds, trifecta_odds) -> dict:
     }
 
 
-def collect(year: int, place: str, *, kai_range=range(1, 13), day_range=range(1, 13),
+def collect(year: int, place: str, *, kai_range=None, day_range=range(1, 13),
             race_range=range(1, 13), out: str = "data/results.jsonl",
             with_odds: bool = True) -> None:
+    if kai_range is None:
+        # 中央は開催回 1〜6 程度、地方(月)は 1〜12
+        from nankeiba.scraping.race_id import JRA_CODES
+        kai_range = range(1, 7) if place in JRA_CODES else range(1, 13)
     client = PoliteClient()
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -69,7 +78,7 @@ def collect(year: int, place: str, *, kai_range=range(1, 13), day_range=range(1,
                 for rno in race_range:
                     rid = build_race_id(year, place, kai, day, rno)
                     try:
-                        html = client.get(RESULT_URL.format(race_id=rid))
+                        html = client.get(result_url(rid))
                         race = P.parse_result_page(html, rid)
                     except Exception:  # noqa: BLE001 ネット/パース失敗はスキップ
                         continue
@@ -95,9 +104,9 @@ def collect(year: int, place: str, *, kai_range=range(1, 13), day_range=range(1,
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="南関競馬 結果+オッズ収集")
+    ap = argparse.ArgumentParser(description="南関/中央競馬 結果+オッズ収集")
     ap.add_argument("--year", type=int, required=True)
-    ap.add_argument("--place", choices=list(NANKAN_CODES), required=True)
+    ap.add_argument("--place", choices=list(ALL_CODES), required=True)
     ap.add_argument("--out", default="data/results.jsonl")
     ap.add_argument("--no-odds", action="store_true", help="オッズを取得しない")
     args = ap.parse_args()

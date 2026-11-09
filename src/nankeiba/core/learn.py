@@ -23,7 +23,7 @@ from . import interval as iv
 from .features import (
     FEATURE_NAMES, RaceContext, ConnStats, ScoreWeights, horse_features,
 )
-from .backtest import Race
+from .backtest import Race, race_contexts, record_result
 
 
 # ---------------------------------------------------------------------------
@@ -51,12 +51,7 @@ def build_training_rows(
     for race in sorted(races, key=lambda r: r.date):
         pos_of = {um: i + 1 for i, um in enumerate(race.result_order)}
         rows: list[_Row] = []
-        for e in race.entries:
-            past = history.get(e.horse_id, [])
-            ctx = RaceContext(
-                date=race.date, place=race.place, distance=race.distance,
-                field_size=race.field_size, jockey=e.jockey, trainer=e.trainer,
-            )
+        for e, past, ctx in race_contexts(race, history):
             feat = horse_features(
                 past, ctx, jockeys=jockeys, trainers=trainers, interval_prior=interval_prior
             )
@@ -65,13 +60,7 @@ def build_training_rows(
         out.append(rows)
 
         # 履歴更新(このレースの結果を追記)
-        for e in race.entries:
-            rec = iv.RunRecord(
-                date=race.date, place=race.place, distance=race.distance,
-                field_size=race.field_size, finish_pos=pos_of.get(e.num(), race.field_size),
-                jockey=e.jockey, trainer=e.trainer,
-            )
-            history.setdefault(e.horse_id, []).insert(0, rec)
+        record_result(race, history)
 
     return out
 
