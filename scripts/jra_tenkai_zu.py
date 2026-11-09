@@ -136,7 +136,52 @@ def build(past: dict, waku: dict, *, place: str, dist: int, surface: str, baba: 
             "nige": fc.styles[u].nige_rate, "last": v["runs"][0] if v["runs"] else None,
         })
     rk = {r["ub"]: i + 1 for i, r in enumerate(sorted([r for r in rows if r["l"]], key=lambda r: r["l"]))}
+    apply_position_model(rows, field, fc, dist=dist, surface=surface)
     return fc, rows, rk
+
+
+POSITION_MODEL = ROOT / "models" / "position_model.json"
+
+
+def apply_position_model(rows, field, fc, *, dist, surface):
+    """学習した4角位置モデル(scripts/jra_position_model2.py)で前後の想定を置き換える。
+
+    検証: 4角の順位相関 +0.434(中央値) → +0.462。騎手の癖・ペース想定はここでは 0 扱い
+    (騎手名を出馬表から取っていないため。係数への影響は小さい)。
+    """
+    import json
+    if not POSITION_MODEL.exists():
+        return
+    m = json.load(open(POSITION_MODEL)).get("4角")
+    if not m:
+        return
+    norm = lambda x, i: (x.corner_pos[i] - 1) / max(1, x.field_size - 1)  # noqa: E731
+    for r in rows:
+        past = field.get(r["ub"], [])
+        runs = [x for x in past if x.corner_pos and x.field_size > 1]
+        if not runs:
+            continue
+        sp = fc.styles[r["ub"]]
+        sim = [x for x in runs if x.surface == surface and abs(x.distance - dist) <= 200]
+        last = past[0]
+        early = sp.early_or(0.5)
+        f = {"1": 1.0, "early": early, "known": 1.0, "nige": sp.nige_rate,
+             "med_c4": st.median(norm(x, -1) for x in runs),
+             "sim_c1": st.median(norm(x, 0) for x in sim) if sim else early,
+             "sim_c4": st.median(norm(x, -1) for x in sim) if sim else early,
+             "has_sim": 1.0 if sim else 0.0,
+             "dist_diff": (dist - last.distance) / 1000,
+             "surf_change": 1.0 if last.surface and last.surface != surface else 0.0,
+             "gain": st.median(norm(x, 0) - norm(x, -1) for x in runs),
+             "jk_bias": 0.0, "jk_change": 0.0,
+             "gate": (r["ub"] - 1) / max(1, len(rows) - 1),
+             "gate_x_short": ((r["ub"] - 1) / max(1, len(rows) - 1)) * (1.0 if dist <= 1400 else 0.0),
+             "pace": 0.0, "pace_x_early": 0.0}
+        r["_pred"] = sum(w * f[k] for k, w in zip(m["features"], m["coef"]))
+    # 学習モデルの値は平均へ縮むので、並びの順位だけを使って 1(先頭)〜0(最後方) に広げる
+    ranked = sorted([r for r in rows if "_pred" in r], key=lambda r: r["_pred"])
+    for i, r in enumerate(ranked):
+        r["pos"] = 1 - i / max(1, len(ranked) - 1)
 
 
 def learned_pace(data_path: str, before: str, *, place, dist, surface, n, baba=None, race_id=None):
@@ -195,7 +240,7 @@ def apply_learned_pace(fc, rows, diff: float, *, q=(-0.5, 0.5), adv_scale: float
 LATERAL_MODEL = ROOT / "models" / "lateral_model.json"   # scripts/jra_tairetsu2d.py の学習結果(係数のみ)
 
 
-def lateral_layout(rows, fc, n, *, band=0.06, min_gap=104):
+def lateral_layout(rows, fc, n, *, band=0.10, min_gap=104):
     """2次元の隊列: 横=前後の想定、縦=内外の想定(上が内)。
 
     内外は scripts/jra_tairetsu2d.py で学習した「4角で併走組の外側になる度合い」
