@@ -70,6 +70,37 @@ def ols(X, y, l2=1e-6):
     return [b[i] / A[i][i] if A[i][i] else 0.0 for i in range(k)]
 
 
+POS_FEATS = ["1", "early", "known", "nige", "last_c1", "med_c4", "gate", "dist_diff",
+             "surf_change", "field"]
+
+
+def pos_features(e, past, race) -> dict:
+    """隊列(序盤の位置)を予想するための1頭ぶんの特徴量。過去走だけ。"""
+    sp = tk.style_profile(past)
+    runs = [r for r in past if r.corner_pos and r.field_size > 1]
+    norm = lambda r, i: (r.corner_pos[i] - 1) / (r.field_size - 1)  # noqa: E731
+    n = race.field_size
+    last = past[0] if past else None
+    return {
+        "1": 1.0,
+        "early": sp.early_or(0.5),
+        "known": 1.0 if sp.early is not None else 0.0,
+        "nige": sp.nige_rate,
+        "last_c1": norm(runs[0], 0) if runs else 0.5,
+        "med_c4": st.median(norm(r, -1) for r in runs) if runs else 0.5,
+        "gate": ((e.umaban or 1) - 1) / max(1, n - 1),
+        "dist_diff": ((race.distance - last.distance) / 1000) if last else 0.0,
+        "surf_change": 1.0 if last and last.surface and race.surface and last.surface != race.surface else 0.0,
+        "field": n / 18,
+    }
+
+
+def mean_rank_corr(groups):
+    vals = [rank_corr(xs, ys) for xs, ys in groups if len(xs) >= 5]
+    vals = [v for v in vals if v == v]
+    return (st.mean(vals) if vals else float("nan")), len(vals)
+
+
 PACE_FEATS = ["1", "nige_sum", "front_share", "dist_km", "front_bias", "field", "known_share"]
 
 
@@ -113,11 +144,27 @@ def main() -> None:
     history: dict = {}
     P = []   # ペース行
     A = []   # 展開利行 (adv, 着順の強さ, 実際の diff)
+    Q = []   # 隊列: 1鞍ごと [{"x":特徴量, "pred":今の予想位置, "c1":実際1角, "c4":実際4角}]
     for d, race in zip(raw, races):
         ctxs = race_contexts(race, history)
         pasts = {e.num(): p for e, p, _ in ctxs}
         fc = tk.forecast(pasts, place=race.place, distance=race.distance, surface=race.surface)
         pc = pace_of(d.get("lap") or [], race.distance)
+        if sel(d):
+            rows = []
+            for e, past, _ in ctxs:
+                if e.corner_pos and race.field_size > 1:
+                    rows.append({
+                        "x": pos_features(e, past, race),
+                        "pred": fc.styles[e.num()].early_or(0.5),
+                        "c1": (e.corner_pos[0] - 1) / (race.field_size - 1),
+                        "c4": (e.corner_pos[-1] - 1) / (race.field_size - 1),
+                        "lead": e.corner_pos[0] == 1,
+                    })
+            if len(rows) >= 5:
+                Q.append({"date": d["date"], "rows": rows, "fc_lead": fc.order[0] if fc.order else None,
+                          "lead_um": [e.num() for e, _, _ in ctxs if e.corner_pos and e.corner_pos[0] == 1],
+                          "known": sum(r["x"]["known"] for r in rows) / len(rows)})
         if sel(d) and pc:
             P.append({"date": d["date"], "pi": fc.pace_index, "y": pc["diff"],
                       "x": pace_features(fc, race.place, race.distance, race.surface, race.field_size),
@@ -128,6 +175,39 @@ def main() -> None:
                 if fc.styles[u].early is not None and u in pos:
                     A.append((adv, 1 - pos[u] / max(1, n - 1), pc["diff"], d["date"]))
         record_result(race, history)
+
+    print("== 0. 隊列(序盤の位置取り)予想の検証と学習 ==")
+    Qk = [q for q in Q if q["known"] >= 0.7]   # 通過順の履歴がある馬が7割以上の鞍
+    print(f"  対象 {len(Qk)} 鞍(全 {len(Q)} 鞍のうち、過去の通過順が揃っている鞍)")
+    if Qk:
+        m1, n1 = mean_rank_corr([([r["pred"] for r in q["rows"]], [r["c1"] for r in q["rows"]]) for q in Qk])
+        m4, _ = mean_rank_corr([([r["pred"] for r in q["rows"]], [r["c4"] for r in q["rows"]]) for q in Qk])
+        lead_hit = sum(1 for q in Qk if q["fc_lead"] in q["lead_um"]) / len(Qk)
+        print(f"  今の隊列予想 vs 実際の1角: 1鞍あたり順位相関 平均 {m1:+.3f}(n={n1})  4角: {m4:+.3f}")
+        print(f"  ハナ(1角先頭)の的中率: {lead_hit:.1%}   参考: 当てずっぽう ≒ {st.mean(1/len(q['rows']) for q in Qk):.1%}")
+        tr = [q for q in Qk if q["date"] < cut]
+        te = [q for q in Qk if q["date"] >= cut]
+        if len(tr) > 30 and te:
+            X = [[r["x"][f] for f in POS_FEATS] for q in tr for r in q["rows"]]
+            y = [r["c1"] for q in tr for r in q["rows"]]
+            w = ols(X, y)
+            pp = lambda r: sum(wi * r["x"][f] for wi, f in zip(w, POS_FEATS))  # noqa: E731
+            lm1, _ = mean_rank_corr([([pp(r) for r in q["rows"]], [r["c1"] for r in q["rows"]]) for q in te])
+            bm1, _ = mean_rank_corr([([r["pred"] for r in q["rows"]], [r["c1"] for r in q["rows"]]) for q in te])
+            lhit = 0
+            for q in te:
+                best = min(range(len(q["rows"])), key=lambda i: pp(q["rows"][i]))
+                lhit += q["rows"][best]["lead"]
+            bhit = sum(1 for q in te if q["fc_lead"] in q["lead_um"])
+            print(f"  学習した隊列モデル(検証区間): 1角との順位相関 {lm1:+.3f}  (今の予想 {bm1:+.3f})")
+            print(f"  ハナ的中(検証区間): 学習 {lhit / len(te):.1%}  今の予想 {bhit / len(te):.1%}")
+            print("  係数(+ ほど後ろ):")
+            for f, wi in zip(POS_FEATS, w):
+                print(f"    {f:<12s} {wi:+.3f}")
+            Path(a.outdir).mkdir(parents=True, exist_ok=True)
+            json.dump({"features": POS_FEATS, "coef": w, "cut": cut},
+                      open(Path(a.outdir) / "position_model.json", "w"), ensure_ascii=False, indent=1)
+    print()
 
     print("== 1. 展開(ペース)の検証 ==")
     print(f"  ラップのある鞍: {len(P)}")
