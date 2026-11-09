@@ -6,6 +6,7 @@ venv/
 
 # スクレイピングのキャッシュ・収集データ
 data/cache/
+data/cache_win5_board/
 data/*.parquet
 data/*.csv
 data/*.sqlite
@@ -14,3 +15,27 @@ data/*.db
 .DS_Store
 .idea/
 .vscode/
+
+# 穴馬発掘ツール(scripts/ana) ── cookie とスクレイピングキャッシュは除外
+scripts/ana/kb.conf
+scripts/ana/arc/
+scripts/ana/*.html
+scripts/ana/bt_model.json
+
+# 収集ツールの実行ログと出力（生成物なのでコミットしない）
+out_*.log
+out/
+
+# 収集した中間ファイル
+out/
+out_*.log
+
+# 東スポ「温故知新」の本文（他社記事なので手元だけ。ツールは scripts/ana/onko.py）
+notes/onko/
+scripts/ana/ped_cache.json
+
+# harvest.py が集めた中間データ（他社サイトからの収集物）
+scripts/ana/harvest/
+
+# soto.py の日付切り出し版（soto.py --build --before で再生成できる）
+scripts/ana/soto_[0-9][0-9][0-9][0-9].json

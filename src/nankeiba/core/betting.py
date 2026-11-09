@@ -37,6 +37,8 @@ def select_ev_bets(
     kelly: bool = False,
     bankroll: float = 10000.0,
     kelly_fraction: float = 0.25,
+    bet_unit: float = 100.0,
+    max_exposure: float = 0.5,
 ) -> list[Bet]:
     """期待値プラスの買い目を選ぶ。
 
@@ -49,6 +51,11 @@ def select_ev_bets(
         kelly: True ならケリー基準(分数ケリー)で配分
         bankroll: ケリー時の総資金
         kelly_fraction: 分数ケリー係数(0.25=クォーターケリー)
+        bet_unit: ケリー時の購入単位(実馬券は100円単位。切り捨てで丸め、
+                  1単位に満たない買い目は購入しない)
+        max_exposure: 1レースで賭ける総額の上限(資金比)。分数ケリーの
+                  各点を素朴に足すと過剰投下になりうるため、合計が
+                  bankroll*max_exposure を超える場合は比例配分で縮小する
 
     Returns:
         購入する Bet のリスト(EV 降順)。
@@ -67,14 +74,27 @@ def select_ev_bets(
     if max_bets is not None:
         candidates = candidates[:max_bets]
 
-    for b in candidates:
-        if kelly:
-            # ケリー: f* = (p*(odds-1) - (1-p)) / (odds-1) = (p*odds - 1)/(odds-1)
+    if kelly:
+        # 各買い目の分数ケリー配分(現在資金に対する希望投下額)
+        # ケリー: f* = (p*(odds-1) - (1-p)) / (odds-1) = (p*odds - 1)/(odds-1)
+        raw: list[float] = []
+        for b in candidates:
             b_odds = b.odds - 1.0
             f = (b.prob * b.odds - 1.0) / b_odds if b_odds > 0 else 0.0
             f = max(0.0, f) * kelly_fraction
-            b.stake = round(bankroll * f, 1)
-        else:
+            raw.append(bankroll * f)
+        # レース総投下額を資金比で上限クリップ(比例縮小)
+        total = sum(raw)
+        cap = bankroll * max_exposure
+        if total > cap and total > 0:
+            scale = cap / total
+            raw = [r * scale for r in raw]
+        # 購入単位に切り捨て(1単位未満は買わない)
+        for b, r in zip(candidates, raw):
+            units = int(r // bet_unit) if bet_unit > 0 else 0
+            b.stake = units * bet_unit
+    else:
+        for b in candidates:
             b.stake = stake_per_bet
     # ステークが 0 のものは除外
     return [b for b in candidates if b.stake > 0]

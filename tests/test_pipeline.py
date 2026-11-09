@@ -92,6 +92,35 @@ class TestBetting(unittest.TestCase):
         self.assertEqual(spent, 100.0)
         self.assertEqual(ret, 1000.0)
 
+    def test_kelly_stake_units_and_edge(self):
+        # エッジが大きいほど張る額が増え、100円単位に丸められる
+        probs = {(1, 2, 3): 0.3}
+        odds = {(1, 2, 3): 10.0}  # f* = (0.3*10-1)/9 = 0.222..., quarter kelly ~5.6%
+        bets = bt.select_ev_bets(probs, odds, ev_threshold=1.0, kelly=True,
+                                 bankroll=100000.0, kelly_fraction=0.25)
+        self.assertEqual(len(bets), 1)
+        self.assertEqual(bets[0].stake % 100, 0.0)          # 100円単位
+        self.assertAlmostEqual(bets[0].stake, 5500.0, delta=100.0)  # ~5.6% of 100k
+
+    def test_kelly_sub_unit_is_dropped(self):
+        # 資金が小さくケリー配分が1単位に満たなければ買わない
+        probs = {(1, 2, 3): 0.3}
+        odds = {(1, 2, 3): 10.0}
+        bets = bt.select_ev_bets(probs, odds, ev_threshold=1.0, kelly=True,
+                                 bankroll=500.0, kelly_fraction=0.25)
+        self.assertEqual(bets, [])
+
+    def test_kelly_exposure_cap(self):
+        # 多点で希望投下額が資金比上限を超えたら比例縮小される
+        probs = {(1, 2, 3): 0.5, (1, 2, 4): 0.5, (1, 3, 4): 0.5}
+        odds = {(1, 2, 3): 5.0, (1, 2, 4): 5.0, (1, 3, 4): 5.0}  # 各 f* 大
+        bets = bt.select_ev_bets(probs, odds, ev_threshold=1.0, kelly=True,
+                                 bankroll=100000.0, kelly_fraction=1.0,
+                                 max_exposure=0.3)
+        total = sum(b.stake for b in bets)
+        # 上限(=30000)を丸め誤差の範囲で超えない
+        self.assertLessEqual(total, 30000.0 + 1e-6)
+
 
 class TestBacktestSmoke(unittest.TestCase):
     def test_runs_and_produces_sane_output(self):
@@ -104,6 +133,36 @@ class TestBacktestSmoke(unittest.TestCase):
         self.assertGreater(res.spent, 0)
         self.assertGreater(res.n_bet_races, 0)
         self.assertTrue(0.2 < res.roi < 5.0, f"ROI out of sane range: {res.roi}")
+
+    def test_kelly_bankroll_evolves(self):
+        # ケリーモード: 資金推移が記録され、複利で spent/returned と整合する。
+        races, jockeys, trainers = synth.generate_season(n_races=300, seed=1)
+        res = run_backtest(races, jockeys=jockeys, trainers=trainers,
+                           bet_type="trio", ev_threshold=1.3, min_history=4,
+                           kelly=True, bankroll=100000.0, kelly_fraction=0.25)
+        self.assertEqual(res.initial_bankroll, 100000.0)
+        # 資金推移の点数 = 賭けたレース数(破産で打ち切られない限り)
+        if not res.ruined:
+            self.assertEqual(len(res.bankroll_history), res.n_bet_races)
+        # 最終資金 = 初期 + 総損益(複利でも損益の合計は一致する)
+        self.assertAlmostEqual(
+            res.final_bankroll, res.initial_bankroll + (res.returned - res.spent),
+            places=4,
+        )
+        # ドローダウンは 0〜1、成長率は非負
+        self.assertTrue(0.0 <= res.max_drawdown <= 1.0)
+        self.assertGreaterEqual(res.growth, 0.0)
+
+    def test_kelly_ruin_stops(self):
+        # 破産を誘発(強気ケリー×高閾値でない緩い設定でも、極端係数で下振れ確認)。
+        # ここでは「破産したら bankroll_history 末尾が 0 以下」の整合だけを検証する。
+        races, jockeys, trainers = synth.generate_season(n_races=300, seed=1)
+        res = run_backtest(races, jockeys=jockeys, trainers=trainers,
+                           bet_type="trifecta", ev_threshold=1.0, min_history=4,
+                           kelly=True, bankroll=1000.0, kelly_fraction=1.0,
+                           max_exposure=1.0)
+        if res.ruined:
+            self.assertLessEqual(res.bankroll_history[-1], 0.0)
 
 
 class TestFeatures(unittest.TestCase):
@@ -224,6 +283,84 @@ class TestLearn(unittest.TestCase):
         res = run_backtest(races, jockeys=jockeys, trainers=trainers,
                            score_fn=scorer, bet_type="trio", min_history=4)
         self.assertGreater(res.spent, 0)
+
+
+class TestLearnedPriors(unittest.TestCase):
+    def test_interval_prior_shape(self):
+        from nankeiba.core.priors import learn_interval_prior
+        races, _, _ = synth.generate_season(n_races=800, seed=7)
+        prior = learn_interval_prior(races)
+        # 全バケットのキーがそろい、値は有限
+        for b in ("rento", "naka1", "normal", "aki", "kyumei", "long_kyuyo", "unknown"):
+            self.assertIn(b, prior)
+            self.assertTrue(isfinite(prior[b]))
+        self.assertEqual(prior["unknown"], 0.0)
+        # 南関の全体傾向: 短間隔ほど有利(連闘 > 休み明け)
+        self.assertGreater(prior["rento"], prior["kyumei"])
+
+    def test_tatakii_bonus_learns_and_overrides(self):
+        from nankeiba.core.priors import learn_tatakii_bonus
+        from nankeiba.core.features import tatakii_bonus
+        races, _, _ = synth.generate_season(n_races=800, seed=7)
+        table = learn_tatakii_bonus(races, max_n=6)
+        self.assertTrue(all(isinstance(k, int) and isfinite(v) for k, v in table.items()))
+        # 休み明け(1走目)より叩き3走目のほうが高い(叩き良化)
+        self.assertGreater(table.get(3, 0.0), table.get(1, 0.0))
+        # table を渡すと features.tatakii_bonus の値が上書きされる
+        self.assertEqual(tatakii_bonus(3, table), table[3])
+        # max_n を超える走番は最大キーにクランプ
+        self.assertEqual(tatakii_bonus(99, table), table[max(table)])
+
+    def test_learned_prior_flows_through_features(self):
+        from nankeiba.core.priors import learn_priors
+        races, _, _ = synth.generate_season(n_races=400, seed=2)
+        ip, tt = learn_priors(races)
+        runs = [iv.RunRecord("2024-02-20", "大井", 1400, 12, 3)]
+        ctx = RaceContext("2024-03-01", "大井", 1400, 12, jockey="J01")  # 間隔10日=連闘
+        f_prior = horse_features(runs, ctx, interval_prior=ip, tatakii_table=tt)
+        f_hand = horse_features(runs, ctx)
+        # プライアを差し替えると interval_fit / tatakii が変わりうる(キーは不変)
+        self.assertEqual(set(f_prior), set(f_hand))
+
+
+class TestConnEstimation(unittest.TestCase):
+    def test_place_rate_metric(self):
+        from nankeiba.core import dataset as ds
+        races, _, _ = synth.generate_season(n_races=300, seed=5)
+        jw, _ = ds.derive_conn_stats(races, metric="win")
+        jp, _ = ds.derive_conn_stats(races, metric="place", place_k=3)
+        # 好走率(3着内)は勝率より高い水準になる
+        self.assertGreater(jp.default, jw.default)
+        self.assertTrue(all(0.0 <= v <= 1.0 for v in jp.rates.values()))
+
+    def test_uplift_centered_and_leak_safe(self):
+        from nankeiba.core import dataset as ds
+        races, _, _ = synth.generate_season(n_races=300, seed=5)
+        ju, tu = ds.derive_conn_uplift(races)
+        # 上積みは 0 中心(default=0)、値は有限で妥当な幅
+        self.assertEqual(ju.default, 0.0)
+        self.assertEqual(tu.default, 0.0)
+        self.assertTrue(all(isfinite(v) and -1.0 < v < 1.0 for v in ju.rates.values()))
+        # jockey_power 特徴量 = get(name) - default にそのまま上積みが乗る
+        from nankeiba.core.features import ConnStats
+        self.assertIsInstance(ju, ConnStats)
+
+
+class TestLgbmOptional(unittest.TestCase):
+    def test_lgbm_scorer_if_available(self):
+        try:
+            import lightgbm  # noqa: F401
+        except ImportError:
+            self.skipTest("lightgbm 未導入(任意依存)")
+        from nankeiba.core.learn_lgbm import train_lgbm_scorer
+        races, jockeys, trainers = synth.generate_season(n_races=400, seed=3)
+        scorer = train_lgbm_scorer(races, jockeys=jockeys, trainers=trainers,
+                                   min_history=4, num_boost_round=30)
+        ctx = RaceContext("2024-06-01", "大井", 1400, 10, jockey="J01")
+        s = scorer([iv.RunRecord("2024-05-20", "大井", 1400, 10, 2)], ctx)
+        self.assertTrue(isfinite(s))
+        res = run_backtest(races, score_fn=scorer, bet_type="trio", min_history=4)
+        self.assertGreaterEqual(res.spent, 0)
 
 
 class TestPastedIngest(unittest.TestCase):
