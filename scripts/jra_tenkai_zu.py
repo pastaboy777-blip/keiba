@@ -215,7 +215,32 @@ def learned_pace(data_path: str, before: str, *, place, dist, surface, n, baba=N
         pred += 0.3 * st_.mean(prev)
     margin = min(abs(pred - q[0]), abs(pred - q[1]))
     conf = "高" if margin >= 0.99 else ("中" if margin >= 0.39 else "低")
-    return pred, len(tr), conf, q
+    est = estimate_times(rows, me, before, race_id)
+    return pred, len(tr), conf, q, est
+
+
+def estimate_times(rows, me, before, race_id):
+    """推定 前半3F・後半3F・タイム(scripts/jra_time_model.py の係数)。検証の平均誤差 0.65/0.65/1.22秒。"""
+    import json
+    import statistics as st_
+    path = ROOT / "models" / "time_model.json"
+    if not path.exists():
+        return None
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from jra_time_model import TimeModel, target
+    M = json.load(open(path))
+    out = {}
+    for k in ("front3", "last3", "time"):
+        m = TimeModel(k)
+        m.w, m.cell, m.wb = M[k]["w"], M[k]["cell"], M[k]["wb"]
+        v = m.predict(me)
+        prev = [target(d, k) - m.predict(d) for d in rows
+                if d["date"] == before and d["place"] == me["place"] and d["surface"] == me["surface"]
+                and race_id and d["race_id"] < race_id and d["result"][0].get("time")]
+        if prev:
+            v += M.get("day_weight", 0.5) * st_.mean(prev)
+        out[k] = v
+    return out
 
 
 def apply_learned_pace(fc, rows, diff: float, *, q=(-0.5, 0.5), adv_scale: float = 0.6, lone_bonus: float = 0.15):
@@ -330,6 +355,12 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
         "high": "→ 前が垂れる。後ろから差せる形",
     }[pcls]
     es = sorted([r["e"] for r in rows if r["e"]], reverse=True)
+    est = getattr(fc, "est", None)
+    est_html = ""
+    if est:
+        mm, ss = divmod(est["time"], 60)
+        est_html = ('<div class="est"><span>推定タイム <b>%d:%04.1f</b></span><span>推定前半3F <b>%.1f</b></span>'
+                    '<span>推定後半3F <b>%.1f</b></span></div>' % (mm, ss, est["front3"], est["last3"]))
     if getattr(fc, "diff_pred", None) is not None:
         flow_sub = ("想定の前後半差 %+.2f秒(%s)・<b>ペース確度 %s</b>・コース平均+馬場+当日の流れ、%d鞍から学習"
                     % (fc.diff_pred, "後半が速い＝前半ゆったり" if fc.diff_pred > 0 else "前半が速い",
@@ -358,12 +389,12 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
         '<span class="rd">%s　<b>%s%dm</b> ／ %d頭 ／ %s</span>'
         '<span class="pace p-%s"><b>%s</b> %s想定</span></div>'
         '<div class="pbar p-%s"><div class="bar"><span>ゆっくり</span><span>ふつう</span><span>速い</span>'
-        '<i style="left:%.1f%%"></i></div><div class="flow"><b>%s</b>　<small>%s</small></div></div>'
+        '<i style="left:%.1f%%"></i></div><div class="flow"><b>%s</b>　<small>%s</small></div>%s</div>'
         '<div class="board">%s<div class="track" style="height:%dpx"><div class="goal"></div>%s</div></div>'
         '<div class="xlab"><span>後方</span><span>中団</span><span>前　→　ゴール</span></div>'
         '<div class="kenkai"><div class="kt">見解</div>%s</div>%s</div>'
         % (rno, H.escape(name), surface, dist, n, H.escape(baba or ""),
-           pcls, ptag, fc.pace, pcls, mark * 100, flow, flow_sub,
+           pcls, ptag, fc.pace, pcls, mark * 100, flow, flow_sub, est_html,
            ('<div class="ylab"><span>内（ラチ側）</span><span>外</span></div>' if two_d else ""),
            NL * LANE + 24, "\n".join(hh), memo, miss))
 
@@ -412,6 +443,7 @@ CSS_EXTRA = """
 .bar span{flex:1;text-align:center;font-size:10.5px;line-height:20px;color:#c9c9d2}
 .bar span:nth-child(1){background:#26344a}.bar span:nth-child(2){background:#3b3022}.bar span:nth-child(3){background:#4a1f1f}
 .bar i{position:absolute;top:-2px;width:4px;height:24px;background:#fff;border-radius:2px;transform:translateX(-50%)}
+.est{display:flex;gap:26px;margin-top:8px;font-size:12px;color:var(--dim)}.est b{color:#f2f2f4;font-size:16px;margin-left:6px}
 .flow{margin-top:7px;font-size:12.5px}.flow small{color:var(--dim);font-size:11px}
 .kenkai{margin:6px 16px 14px;border-left:3px solid var(--acc2);background:#121216;border-radius:6px;padding:10px 14px;
  font-size:12.6px;color:#c9c9d2;line-height:1.9}
@@ -486,10 +518,10 @@ def main() -> None:
 
     fc, rows, rk = build(past, waku, place=place, dist=dist, surface=surface, baba=baba)
     if a.pace_data:
-        diff, nl, conf, q = learned_pace(a.pace_data, a.date, place=place, dist=dist, surface=surface,
+        diff, nl, conf, q, est = learned_pace(a.pace_data, a.date, place=place, dist=dist, surface=surface,
                                          n=len(rows), baba=baba, race_id=a.race_id)
         apply_learned_pace(fc, rows, diff, q=q)
-        fc.n_learn, fc.conf = nl, conf
+        fc.n_learn, fc.conf, fc.est = nl, conf, est
     body = render_race(rno, name, dist, surface, baba, len(rows), fc, rows, rk)
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(page(a.date, place, rno, body, learned=bool(a.pace_data)), encoding="utf-8")
