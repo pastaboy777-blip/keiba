@@ -173,7 +173,8 @@ def main() -> None:
             n = race.field_size
             for u, adv in fc.advantage.items():
                 if fc.styles[u].early is not None and u in pos:
-                    A.append((adv, 1 - pos[u] / max(1, n - 1), pc["diff"], d["date"]))
+                    A.append((adv, 1 - pos[u] / max(1, n - 1), pc["diff"], d["date"],
+                              fc.styles[u].early, P[-1]["x"]))
         record_result(race, history)
 
     print("== 0. 隊列(序盤の位置取り)予想の検証と学習 ==")
@@ -236,6 +237,19 @@ def main() -> None:
                       f"  実際の前後半差 平均 {st.mean(p['y'] for p in g):+.2f}秒")
 
     print("\n== 2. 展開利の検証(展開利 vs 着順の強さ) ==")
+    if A and P:
+        # 学習したペース(条件だけ・学習区間で作る)で展開利を作り直す
+        cf = ["1", "dist_km", "front_bias", "field"]
+        trp = [p for p in P if p["date"] < cut]
+        if len(trp) > 20:
+            wc = ols([[p["x"][f] for f in cf] for p in trp], [p["y"] for p in trp])
+            te = [x for x in A if x[3] >= cut]
+            new = [(0.5 - x[4]) * sum(wi * x[5][f] for wi, f in zip(wc, cf)) for x in te]
+            orc = [(0.5 - x[4]) * x[2] for x in te]
+            print(f"  [検証区間 n={len(te)}] 学習ペースで作った展開利: 順位相関 {rank_corr(new, [x[1] for x in te]):+.3f}"
+                  f"  / 今の展開利 {rank_corr([x[0] for x in te], [x[1] for x in te]):+.3f}")
+            print(f"  参考(上限の目安): 実際のペースが分かっていた場合 {rank_corr(orc, [x[1] for x in te]):+.3f}"
+                  f"  / 単に前にいる馬ほど上 {rank_corr([0.5 - x[4] for x in te], [x[1] for x in te]):+.3f}")
     if A:
         print(f"  全体 n={len(A)}  順位相関 {rank_corr([x[0] for x in A], [x[1] for x in A]):+.3f}")
         q = st.quantiles([x[2] for x in A], n=3)

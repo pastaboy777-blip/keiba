@@ -139,6 +139,50 @@ def build(past: dict, waku: dict, *, place: str, dist: int, surface: str, baba: 
     return fc, rows, rk
 
 
+def learned_pace(data_path: str, before: str, *, place, dist, surface, n) -> tuple[float, int]:
+    """条件(距離・直線・頭数・芝ダ)で決まる前後半差[秒]を、before より前の鞍だけで学習して返す。
+
+    notes/live/jra_learn_01.md: ペースは条件でほぼ決まり(検証相関 +0.71)、
+    逃げ率などメンバー構成の上乗せはゼロだった。+ は後半が速い(前半ゆったり)。
+    """
+    import json
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import jra_learn as J
+    from nankeiba.core import course as cs
+    from nankeiba.scraping.db_race import pace_of
+    X = lambda pl, di, su, fs: [1.0, di / 1000, cs.front_bias(pl, su), fs / 18, 1.0 if su == "芝" else 0.0]  # noqa: E731
+    xs, ys = [], []
+    for line in open(data_path, encoding="utf-8"):
+        d = json.loads(line)
+        if d.get("date", "") >= before or d.get("surface") not in ("芝", "ダ"):
+            continue
+        pc = pace_of(d.get("lap") or [], d["distance"])
+        if pc:
+            xs.append(X(d["place"], d["distance"], d["surface"], d["field_size"]))
+            ys.append(pc["diff"])
+    w = J.ols(xs, ys)
+    return sum(a * b for a, b in zip(w, X(place, dist, surface, n))), len(ys)
+
+
+def apply_learned_pace(fc, rows, diff: float, *, adv_scale: float = 0.6, lone_bonus: float = 0.15):
+    """学習したペースで fc のペース表示と展開利を置き換える。
+
+    コース形状は条件モデルに入っているので、展開利は「ペースの傾き」だけで決める
+    (前後半差 + = 前半ゆったり = 前の馬に向く)。
+    """
+    fc.diff_pred = diff
+    fc.pace_index = max(-1.0, min(1.0, -diff / 2))
+    fc.pace = "ハイ" if diff <= -0.5 else ("スロー" if diff >= 0.5 else "ミドル")
+    tilt = -fc.pace_index
+    for u, sp in fc.styles.items():
+        adv = adv_scale * (0.5 - sp.early_or()) * tilt
+        if u == fc.lone_leader:
+            adv += lone_bonus
+        fc.advantage[u] = adv
+    for r in rows:
+        r["adv"] = fc.advantage.get(r["ub"], 0.0)
+
+
 def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
     hs = sorted([r for r in rows if r["pos"] is not None], key=lambda r: -r["pos"])
     cells, lanes = [], []
@@ -179,7 +223,11 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
         "high": "→ 前が垂れる。後ろから差せる形",
     }[pcls]
     es = sorted([r["e"] for r in rows if r["e"]], reverse=True)
-    if len(es) >= 3:
+    if getattr(fc, "diff_pred", None) is not None:
+        flow_sub = ("条件(距離・直線・頭数・芝ダ)で決まる前後半差 %+.2f秒(%s)・%d鞍から学習"
+                    % (fc.diff_pred, "後半が速い＝前半ゆったり" if fc.diff_pred > 0 else "前半が速い",
+                       getattr(fc, "n_learn", 0)))
+    elif len(es) >= 3:
         flow_sub = ("先頭圏3頭の前半速度 %.2fm/s(この鞍の中央値 %.2fm/s)・コース %s"
                     % (st.mean(es[:3]), st.median(es),
                        "差し有利" if fc.front_bias < -0.05 else ("前有利" if fc.front_bias > 0.05 else "平坦")))
@@ -209,7 +257,13 @@ def make_memo(fc, rows, rk) -> str:
     by = {r["ub"]: r for r in rows}
     nm = lambda u: "%s%s" % (chr(0x2460 + u - 1) if u <= 20 else str(u), by[u]["name"])  # noqa: E731
     lines = []
-    if fc.leaders:
+    if getattr(fc, "diff_pred", None) is not None:
+        lines.append("<b>流れは%s想定(前後半差 %+.2f秒)。</b>学習(1,000鞍超)では、ペースは距離・直線・頭数・芝ダで"
+                     "ほぼ決まり、逃げ馬の頭数はほとんど効かなかった。"
+                     % (fc.pace, fc.diff_pred))
+        if fc.leaders:
+            lines.append("ハナ候補は %s。" % "・".join(nm(u) for u in fc.leaders))
+    elif fc.leaders:
         if fc.lone_leader is not None:
             lines.append("<b>%s の単騎逃げが濃厚。</b>競りかける馬がおらず、流れは落ち着きやすい。"
                          % nm(fc.lone_leader))
@@ -254,7 +308,7 @@ CSS_EXTRA = """
 """
 
 
-def page(date: str, place: str, rno: str, body: str) -> str:
+def page(date: str, place: str, rno: str, body: str, learned: bool = False) -> str:
     css_path = ROOT / "scripts" / "ana" / "zu.css"
     css = css_path.read_text(encoding="utf-8") if css_path.exists() else ""
     y, m, d = date.split("-")
@@ -264,15 +318,18 @@ def page(date: str, place: str, rno: str, body: str) -> str:
         '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>展開予想 %s %sR</title>'
         '<style>%s%s</style></head><body>'
         '<div class="head"><div class="kicker">%s.%s.%s %s — %s</div><h1>展開予想 ／ %sR</h1>'
-        '<div class="sub">過去走の<b>4コーナー通過順</b>で隊列を組み、<b>逃げ候補の数・先行勢の厚み・距離</b>と'
-        '<b>直線の長さ</b>から流れを読んだものです。<b>右が前</b>、馬番は枠の色'
+        '<div class="sub">%s<b>右が前</b>、馬番は枠の色'
         '(1白 2黒 3赤 4青 5黄 6緑 7橙 8桃)。</div></div>'
         '<div class="note"><span class="sm">終い○位</span> は芝1800m以上の近走の上がり3F(中央値)が'
         'この鞍で何番目に速いか(場・流れの補正なし)。<span class="q">青＝1角から4角で押し上げる馬</span>。'
         '縦の並びは重なりを避けただけで、内・外ではありません。</div>'
         '%s<div class="tail">印は買い目の保証ではありません。レース当日以降の走は使っていません。</div>'
         '</body></html>'
-        % (date, rno, css, CSS_EXTRA, y, m, d, wd, place, rno, body))
+        % (date, rno, css, CSS_EXTRA, y, m, d, wd, place, rno,
+           ("過去走の<b>4コーナー通過順</b>で隊列を組み、流れは<b>過去の中央の鞍から学習した"
+            "「距離・直線・頭数・芝ダで決まる前後半差」</b>で読んだものです。" if learned else
+            "過去走の<b>4コーナー通過順</b>で隊列を組み、<b>逃げ候補の数・先行勢の厚み・距離</b>と"
+            "<b>直線の長さ</b>から流れを読んだものです。"), body))
 
 
 def main() -> None:
@@ -284,6 +341,7 @@ def main() -> None:
     ap.add_argument("--place")
     ap.add_argument("--race-no")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
     a = ap.parse_args()
 
     if a.shutuba and a.past:
@@ -307,9 +365,13 @@ def main() -> None:
     baba = bm.group(1) if bm else None
 
     fc, rows, rk = build(past, waku, place=place, dist=dist, surface=surface, baba=baba)
+    if a.pace_data:
+        diff, nl = learned_pace(a.pace_data, a.date, place=place, dist=dist, surface=surface, n=len(rows))
+        apply_learned_pace(fc, rows, diff)
+        fc.n_learn = nl
     body = render_race(rno, name, dist, surface, baba, len(rows), fc, rows, rk)
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(a.out).write_text(page(a.date, place, rno, body), encoding="utf-8")
+    Path(a.out).write_text(page(a.date, place, rno, body, learned=bool(a.pace_data)), encoding="utf-8")
     print(fc.summary())
     print("→", a.out)
 
