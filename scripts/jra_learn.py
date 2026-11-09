@@ -266,7 +266,7 @@ def main() -> None:
     for d, race in zip(raw, races):
         if race.date >= cut and sel(d):
             ctxs = race_contexts(race, history)
-            if all(len(p) >= a.min_history for _, p, _ in ctxs) and len(ctxs) >= 5:
+            if sum(len(p) >= a.min_history for _, p, _ in ctxs) >= 0.8 * len(ctxs) and len(ctxs) >= 5:
                 nr += 1
                 scores = {e.num(): scorer(p, c) for e, p, c in ctxs}
                 s = pb.strengths_from_scores(scores)
