@@ -139,32 +139,41 @@ def build(past: dict, waku: dict, *, place: str, dist: int, surface: str, baba: 
     return fc, rows, rk
 
 
-def learned_pace(data_path: str, before: str, *, place, dist, surface, n) -> tuple[float, int]:
-    """条件(距離・直線・頭数・芝ダ)で決まる前後半差[秒]を、before より前の鞍だけで学習して返す。
+def learned_pace(data_path: str, before: str, *, place, dist, surface, n, baba=None, race_id=None):
+    """前後半差[秒]の想定と確度。before より前の鞍だけで作る(当日の前のレースは使う)。
 
-    notes/live/jra_learn_01.md: ペースは条件でほぼ決まり(検証相関 +0.71)、
-    逃げ率などメンバー構成の上乗せはゼロだった。+ は後半が速い(前半ゆったり)。
+    scripts/jra_pace_model.py の比較で最良だった「コース(場×芝ダ×距離)平均 + 馬場 + 当日のずれ」。
+    検証(706鞍): 3区分の的中 64%、大外れ(スロー⇔ハイ) 2.8%。
+    確度は想定値が区分の境目からどれだけ離れているか: 高(≥0.99秒)的中84% / 中(≥0.39秒)59% / 低 50%。
+    返り値: (想定差, 学習鞍数, 確度, (ハイ境, スロー境))
     """
     import json
+    import statistics as st_
     sys.path.insert(0, str(ROOT / "scripts"))
-    import jra_learn as J
-    from nankeiba.core import course as cs
+    from jra_pace_model import PaceModel
     from nankeiba.scraping.db_race import pace_of
-    X = lambda pl, di, su, fs: [1.0, di / 1000, cs.front_bias(pl, su), fs / 18, 1.0 if su == "芝" else 0.0]  # noqa: E731
-    xs, ys = [], []
+    rows = []
     for line in open(data_path, encoding="utf-8"):
         d = json.loads(line)
-        if d.get("date", "") >= before or d.get("surface") not in ("芝", "ダ"):
-            continue
-        pc = pace_of(d.get("lap") or [], d["distance"])
-        if pc:
-            xs.append(X(d["place"], d["distance"], d["surface"], d["field_size"]))
-            ys.append(pc["diff"])
-    w = J.ols(xs, ys)
-    return sum(a * b for a, b in zip(w, X(place, dist, surface, n))), len(ys)
+        if d.get("surface") in ("芝", "ダ") and pace_of(d.get("lap") or [], d["distance"]):
+            rows.append(d)
+    tr = [d for d in rows if d["date"] < before]
+    m = PaceModel().fit(tr)
+    v = sorted(pace_of(d["lap"], d["distance"])["diff"] for d in tr)
+    q = (v[len(v) // 3], v[2 * len(v) // 3])
+    me = {"place": place, "distance": dist, "surface": surface, "field_size": n, "baba": baba}
+    pred = m.predict(me)
+    prev = [pace_of(d["lap"], d["distance"])["diff"] - m.predict(d) for d in rows
+            if d["date"] == before and d["place"] == place and d["surface"] == surface
+            and race_id and d["race_id"] < race_id]
+    if prev:
+        pred += 0.3 * st_.mean(prev)
+    margin = min(abs(pred - q[0]), abs(pred - q[1]))
+    conf = "高" if margin >= 0.99 else ("中" if margin >= 0.39 else "低")
+    return pred, len(tr), conf, q
 
 
-def apply_learned_pace(fc, rows, diff: float, *, adv_scale: float = 0.6, lone_bonus: float = 0.15):
+def apply_learned_pace(fc, rows, diff: float, *, q=(-0.5, 0.5), adv_scale: float = 0.6, lone_bonus: float = 0.15):
     """学習したペースで fc のペース表示と展開利を置き換える。
 
     コース形状は条件モデルに入っているので、展開利は「ペースの傾き」だけで決める
@@ -172,7 +181,7 @@ def apply_learned_pace(fc, rows, diff: float, *, adv_scale: float = 0.6, lone_bo
     """
     fc.diff_pred = diff
     fc.pace_index = max(-1.0, min(1.0, -diff / 2))
-    fc.pace = "ハイ" if diff <= -0.5 else ("スロー" if diff >= 0.5 else "ミドル")
+    fc.pace = "ハイ" if diff < q[0] else ("スロー" if diff > q[1] else "ミドル")
     tilt = -fc.pace_index
     for u, sp in fc.styles.items():
         adv = adv_scale * (0.5 - sp.early_or()) * tilt
@@ -224,9 +233,9 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
     }[pcls]
     es = sorted([r["e"] for r in rows if r["e"]], reverse=True)
     if getattr(fc, "diff_pred", None) is not None:
-        flow_sub = ("条件(距離・直線・頭数・芝ダ)で決まる前後半差 %+.2f秒(%s)・%d鞍から学習"
+        flow_sub = ("想定の前後半差 %+.2f秒(%s)・<b>ペース確度 %s</b>・コース平均+馬場+当日の流れ、%d鞍から学習"
                     % (fc.diff_pred, "後半が速い＝前半ゆったり" if fc.diff_pred > 0 else "前半が速い",
-                       getattr(fc, "n_learn", 0)))
+                       getattr(fc, "conf", "-"), getattr(fc, "n_learn", 0)))
     elif len(es) >= 3:
         flow_sub = ("先頭圏3頭の前半速度 %.2fm/s(この鞍の中央値 %.2fm/s)・コース %s"
                     % (st.mean(es[:3]), st.median(es),
@@ -234,6 +243,13 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
     else:
         flow_sub = ""
     memo = make_memo(fc, rows, rk)
+    known = sum(1 for r in rows if r["pos"] is not None) / max(1, len(rows))
+    if known < 0.7:
+        memo = ('<p class="hold"><b>隊列は判定保留</b>(通過順の記録がある馬が %d%%)。'
+                '学習では、記録が揃わない鞍の隊列予想は当てずっぽうと変わらなかった。</p>' % round(known * 100)) + memo
+    else:
+        memo = ('<p class="sure">隊列確度: 通過順の記録がある馬 %d%%(検証では順位相関 +0.49・ハナ的中28%%)</p>'
+                % round(known * 100)) + memo
     missing = [r for r in rows if r["pos"] is None]
     miss = ""
     if missing:
@@ -301,6 +317,7 @@ CSS_EXTRA = """
 .kenkai{margin:6px 16px 14px;border-left:3px solid var(--acc2);background:#121216;border-radius:6px;padding:10px 14px;
  font-size:12.6px;color:#c9c9d2;line-height:1.9}
 .kenkai b{color:#f2f2f4}.kt{color:var(--acc2);font-size:11px;font-weight:800}
+.hold{color:#f08d88}.sure{color:#9fb6cf;font-size:11.5px}
 .miss{margin:0 16px 12px;font-size:11.5px;color:var(--dim)}
 .note{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:15px;
  font-size:12.5px;color:#c9c9d2;line-height:1.8}
@@ -366,9 +383,10 @@ def main() -> None:
 
     fc, rows, rk = build(past, waku, place=place, dist=dist, surface=surface, baba=baba)
     if a.pace_data:
-        diff, nl = learned_pace(a.pace_data, a.date, place=place, dist=dist, surface=surface, n=len(rows))
-        apply_learned_pace(fc, rows, diff)
-        fc.n_learn = nl
+        diff, nl, conf, q = learned_pace(a.pace_data, a.date, place=place, dist=dist, surface=surface,
+                                         n=len(rows), baba=baba, race_id=a.race_id)
+        apply_learned_pace(fc, rows, diff, q=q)
+        fc.n_learn, fc.conf = nl, conf
     body = render_race(rno, name, dist, surface, baba, len(rows), fc, rows, rk)
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(page(a.date, place, rno, body, learned=bool(a.pace_data)), encoding="utf-8")
