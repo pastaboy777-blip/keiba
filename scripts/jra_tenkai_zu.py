@@ -192,20 +192,73 @@ def apply_learned_pace(fc, rows, diff: float, *, q=(-0.5, 0.5), adv_scale: float
         r["adv"] = fc.advantage.get(r["ub"], 0.0)
 
 
+LATERAL_MODEL = ROOT / "models" / "lateral_model.json"   # scripts/jra_tairetsu2d.py の学習結果(係数のみ)
+
+
+def lateral_layout(rows, fc, n, *, band=0.06, min_gap=104):
+    """2次元の隊列: 横=前後の想定、縦=内外の想定(上が内)。
+
+    内外は scripts/jra_tairetsu2d.py で学習した「4角で併走組の外側になる度合い」
+    (検証: 相関 +0.43、効いているのはほぼ馬番)。前後の想定が band 以内の馬を同じ組にして、
+    組の中を内→外に並べる。組どうしは min_gap px 以上あける(順序は保つ)。
+    返り値: [(row, x, 内からの順0始まり)], 組の数
+    """
+    import json
+    coef = json.load(open(LATERAL_MODEL))
+    w = dict(zip(coef["features"], coef["coef"]))
+    hs = sorted([r for r in rows if r["pos"] is not None], key=lambda r: -r["pos"])
+    out = {}
+    for r in hs:
+        f = {"1": 1.0, "gate": (r["ub"] - 1) / max(1, n - 1), "out_rate": 0.43, "n_lat": 0.0,
+             "nige": fc.styles[r["ub"]].nige_rate, "front": r["pos"], "field": n / 18}
+        out[r["ub"]] = sum(w[k] * f[k] for k in w)
+    groups, cur, head = [], [], None
+    for r in hs:
+        if head is None or head - r["pos"] <= band:
+            cur.append(r)
+            head = r["pos"] if head is None else head
+        else:
+            groups.append(cur)
+            cur, head = [r], r["pos"]
+    if cur:
+        groups.append(cur)
+    xs, prev = [], None
+    for g in groups:
+        x = PAD + g[0]["pos"] * (WID - 2 * PAD)
+        if prev is not None:
+            x = min(x, prev - min_gap)
+        xs.append(x)
+        prev = x
+    if xs and xs[-1] < PAD:  # はみ出したら全体を縮める(順序と間隔の比は保つ)
+        hi = xs[0]
+        xs = [PAD + (x - xs[-1]) * (hi - PAD) / max(1, hi - xs[-1]) for x in xs]
+    cells = []
+    for g, x in zip(groups, xs):
+        for li, r in enumerate(sorted(g, key=lambda r: out[r["ub"]])):
+            r["lane"] = li + 1
+            cells.append((r, x, li))
+    return cells, len(groups)
+
+
 def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
     hs = sorted([r for r in rows if r["pos"] is not None], key=lambda r: -r["pos"])
-    cells, lanes = [], []
-    for r in hs:
-        x = PAD + r["pos"] * (WID - 2 * PAD)
-        for i, last in enumerate(lanes):
-            if x < last - GAP:
-                lanes[i] = x
-                cells.append((r, x, i))
-                break
-        else:
-            lanes.append(x)
-            cells.append((r, x, len(lanes) - 1))
-    NL = max(1, len(lanes))
+    two_d = LATERAL_MODEL.exists()
+    if two_d:
+        cells, _ = lateral_layout(rows, fc, n)
+        NL = max(1, max((lane for _, _, lane in cells), default=0) + 1)
+    else:
+        cells, lanes = [], []
+        for r in hs:
+            x = PAD + r["pos"] * (WID - 2 * PAD)
+            for i, last in enumerate(lanes):
+                if x < last - GAP:
+                    lanes[i] = x
+                    cells.append((r, x, i))
+                    break
+            else:
+                lanes.append(x)
+                cells.append((r, x, len(lanes) - 1))
+        NL = max(1, len(lanes))
     hh = []
     for r, x, lane in cells:
         col, cc, t = "#d8c7ae", "#b9b9c4", ""
@@ -222,7 +275,7 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
             '<span class="nm">%s</span></div>%s%s</div>'
             % (int(x), 14 + lane * LANE, HORSE.format(c=col), CHEV.format(c=cc), wc[0], wc[1],
                "#00000055" if r["waku"] == 1 else "rgba(255,255,255,.45)",
-               r["ub"], H.escape(r["name"]), t, so))
+               r["ub"], H.escape(r["name"][:4] if two_d else r["name"]), t, so))
 
     pcls, ptag = {"スロー": ("slow", "S"), "ミドル": ("mid", "M"), "ハイ": ("high", "H")}[fc.pace]
     mark = max(0.02, min(0.98, 0.5 + fc.pace_index * 0.667))
@@ -261,11 +314,12 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
         '<span class="pace p-%s"><b>%s</b> %s想定</span></div>'
         '<div class="pbar p-%s"><div class="bar"><span>ゆっくり</span><span>ふつう</span><span>速い</span>'
         '<i style="left:%.1f%%"></i></div><div class="flow"><b>%s</b>　<small>%s</small></div></div>'
-        '<div class="board"><div class="track" style="height:%dpx"><div class="goal"></div>%s</div></div>'
+        '<div class="board">%s<div class="track" style="height:%dpx"><div class="goal"></div>%s</div></div>'
         '<div class="xlab"><span>後方</span><span>中団</span><span>前　→　ゴール</span></div>'
         '<div class="kenkai"><div class="kt">見解</div>%s</div>%s</div>'
         % (rno, H.escape(name), surface, dist, n, H.escape(baba or ""),
            pcls, ptag, fc.pace, pcls, mark * 100, flow, flow_sub,
+           ('<div class="ylab"><span>内（ラチ側）</span><span>外</span></div>' if two_d else ""),
            NL * LANE + 24, "\n".join(hh), memo, miss))
 
 
@@ -339,14 +393,18 @@ def page(date: str, place: str, rno: str, body: str, learned: bool = False) -> s
         '(1白 2黒 3赤 4青 5黄 6緑 7橙 8桃)。</div></div>'
         '<div class="note"><span class="sm">終い○位</span> は芝1800m以上の近走の上がり3F(中央値)が'
         'この鞍で何番目に速いか(場・流れの補正なし)。<span class="q">青＝1角から4角で押し上げる馬</span>。'
-        '縦の並びは重なりを避けただけで、内・外ではありません。</div>'
+        '%s</div>'
         '%s<div class="tail">印は買い目の保証ではありません。レース当日以降の走は使っていません。</div>'
         '</body></html>'
         % (date, rno, css, CSS_EXTRA, y, m, d, wd, place, rno,
            ("過去走の<b>4コーナー通過順</b>で隊列を組み、流れは<b>過去の中央の鞍から学習した"
             "「距離・直線・頭数・芝ダで決まる前後半差」</b>で読んだものです。" if learned else
             "過去走の<b>4コーナー通過順</b>で隊列を組み、<b>逃げ候補の数・先行勢の厚み・距離</b>と"
-            "<b>直線の長さ</b>から流れを読んだものです。"), body))
+            "<b>直線の長さ</b>から流れを読んだものです。"),
+           ("<b>縦は4コーナーの内外の想定(上がラチ側)</b>。前後の想定が近い馬を横並びの組にし、組の中を"
+            "馬番などから学習した「4角で外を回る度合い」で内→外に並べた(検証 相関+0.43)。"
+            if LATERAL_MODEL.exists() else "縦の並びは重なりを避けただけで、内・外ではありません。"),
+           body))
 
 
 def main() -> None:
