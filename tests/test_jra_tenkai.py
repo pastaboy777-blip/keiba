@@ -162,3 +162,18 @@ class TestJraScraping(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLapPace(unittest.TestCase):
+    def test_pace_of_2500(self):
+        from nankeiba.scraping.db_race import pace_of
+        lap = [7.2, 11.2, 11.2, 12.5, 12.0, 12.3, 12.5, 12.5, 12.4, 12.2, 11.5, 11.6, 11.8]
+        p = pace_of(lap, 2500)
+        self.assertAlmostEqual(p["last3"], 34.9, places=2)
+        self.assertAlmostEqual(p["front3"], 7.2 + 11.2 + 11.2 + 12.5 / 2, places=2)
+        self.assertGreater(p["diff"], 0)  # 後傾(中だるみ)
+
+    def test_pace_of_1200_front_loaded(self):
+        from nankeiba.scraping.db_race import pace_of
+        p = pace_of([12.0, 10.5, 11.0, 11.5, 12.0, 12.5], 1200)
+        self.assertLess(p["diff"], 0)  # 前傾(ハイ)
