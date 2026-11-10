@@ -468,7 +468,7 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
 
 def stage_board(rows, fc, n, key, prev, label, rk) -> str:
     """1時点ぶんの隊列盤面(横=前後、縦=内外)。前の時点から3頭分以上順位が動いた馬に印。"""
-    cells, _ = lateral_layout(rows, fc, n, key=key)
+    cells, _ = lateral_layout(rows, fc, n, key=key, band=0.07)
     NL = max(1, max((lane for _, _, lane in cells), default=0) + 1)
     rank = lambda k: {r["ub"]: i for i, r in enumerate(sorted([r for r in rows if r.get(k) is not None],  # noqa: E731
                                                              key=lambda r: -r[k]))}
@@ -491,10 +491,45 @@ def stage_board(rows, fc, n, key, prev, label, rk) -> str:
                   % (int(x), 14 + lane * LANE, HORSE.format(c=col), CHEV.format(c=cc), wc[0], wc[1],
                      "#00000055" if r["waku"] == 1 else "rgba(255,255,255,.45)", r["ub"],
                      H.escape(r["name"][:4]), t, so))
+    zone = ""
+    if key == "pos":
+        zone, fc.zone_horses = draw_zone(cells, fc)
     return ('<div class="stg">%s</div><div class="board"><div class="ylab"><span>内（ラチ側）</span><span>外</span></div>'
-            '<div class="track" style="height:%dpx"><div class="goal"></div>%s</div></div>'
+            '<div class="track" style="height:%dpx"><div class="goal"></div>%s%s</div></div>'
             '<div class="xlab"><span>後方</span><span>中団</span><span>前　→　ゴール</span></div>'
-            % (label, NL * LANE + 24, "\n".join(hh)))
+            % (label, NL * LANE + 24, zone, "\n".join(hh)))
+
+
+# 想定ペースごとの狙う帯(3年分の検証: 4角前1/3にいた穴=7番人気以下の3着内率)
+#   スロー: 内(併走の最内)15.3% > 2頭目以降11.9% > 外の列9.4%   → 前1/3 × 内(組の1〜2頭目)
+#   ミドル: 外の列19.3% > 2頭目以降14.9% > 内11.8%             → 前1/3 × 外(組の2頭目以降)
+#   ハイ:   外の列23.9% > 2頭目以降19.5% > 内14.3%             → 前1/3 × 外(組の2頭目以降)
+ZONE_RULE = {"スロー": ("内", "前1/3 × 内(横並びの1〜2頭目)", "穴の3着内率 内15% 対 外の列9%"),
+             "ミドル": ("外", "前1/3 × 外(横並びの2頭目より外)", "穴の3着内率 外の列19% 対 内12%"),
+             "ハイ": ("外", "前1/3 × 外(横並びの2頭目より外)", "穴の3着内率 外の列24% 対 内14%")}
+
+
+def draw_zone(cells, fc):
+    """4角の盤面に、想定ペースの狙う帯を金色の点線で囲む。返り値: (html, 帯に入った馬番)"""
+    rule = ZONE_RULE.get(fc.pace)
+    if not rule:
+        return "", []
+    side, lab, why = rule
+    xs = sorted({x for _, x, _ in cells}, reverse=True)
+    n = len(cells)
+    front = sorted(cells, key=lambda c: -c[1])[: max(1, round(n / 3))]
+    fx = min(c[1] for c in front)
+    sel = [c for c in cells if c[1] >= fx and ((c[2] <= 1) if side == "内" else (c[2] >= 1))]
+    if not sel:
+        return "", []
+    left = max(4, min(c[1] for c in sel) - 70)
+    right = min(WID + 36, max(c[1] for c in sel) + 70)
+    top = 14 + min(c[2] for c in sel) * LANE - 8
+    bottom = 14 + max(c[2] for c in sel) * LANE + 80
+    html = ('<div class="zone" style="left:%dpx;width:%dpx;top:%dpx;height:%dpx">'
+            '<div class="zlab">%s想定の狙い</div></div>'
+            % (left, right - left, top, bottom - top, fc.pace))
+    return html, [c[0]["ub"] for c in sorted(sel, key=lambda c: -c[1])]
 
 
 KANGAE = {
@@ -544,6 +579,10 @@ def make_memo(fc, rows, rk, name: str = "") -> str:
                     key=lambda r: r4.index(r) - rk1[r["ub"]])[:3]
         if up:
             lines.append("道中で位置を上げてくるのは %s。" % "・".join(nm(r["ub"]) for r in up))
+        zh = getattr(fc, "zone_horses", [])
+        if zh and fc.pace in ZONE_RULE:
+            lines.append("<b>%s想定で狙う帯(図の金色の囲み)は %s</b> ── %s。%s"
+                         % (fc.pace, ZONE_RULE[fc.pace][1], "・".join(nm(u) for u in zh), ZONE_RULE[fc.pace][2] + "(3年分の検証)。"))
         top = sorted(rk, key=rk.get)[:3]
         if top:
             lines.append("<b>末脚</b>(近走の上がり)上位は %s。%s"
@@ -592,6 +631,7 @@ CSS_EXTRA = """
 .bar span:nth-child(1){background:#26344a}.bar span:nth-child(2){background:#3b3022}.bar span:nth-child(3){background:#4a1f1f}
 .bar i{position:absolute;top:-2px;width:4px;height:24px;background:#fff;border-radius:2px;transform:translateX(-50%)}
 .est{display:flex;gap:26px;margin-top:8px;font-size:12px;color:var(--dim)}.est b{color:#f2f2f4;font-size:16px;margin-left:6px}
+.zone .zlab{left:auto;right:10px;top:auto;bottom:-12px}
 .stg{display:inline-block;margin:14px 16px 0;background:#2e4a2a;color:#e6f2df;font-weight:800;font-size:13px;padding:4px 16px;border-radius:14px}
 .flow{margin-top:7px;font-size:12.5px}.flow small{color:var(--dim);font-size:11px}
 .kenkai{margin:6px 16px 14px;border-left:3px solid var(--acc2);background:#121216;border-radius:6px;padding:10px 14px;
