@@ -504,9 +504,10 @@ def stage_board(rows, fc, n, key, prev, label, rk) -> str:
 #   スロー: 内(併走の最内)15.3% > 2頭目以降11.9% > 外の列9.4%   → 前1/3 × 内(組の1〜2頭目)
 #   ミドル: 外の列19.3% > 2頭目以降14.9% > 内11.8%             → 前1/3 × 外(組の2頭目以降)
 #   ハイ:   外の列23.9% > 2頭目以降19.5% > 内14.3%             → 前1/3 × 外(組の2頭目以降)
-ZONE_RULE = {"スロー": ("内", "前1/3 × 内(横並びの1〜2頭目)", "穴の3着内率 内15% 対 外の列9%"),
-             "ミドル": ("外", "前1/3 × 外(横並びの2頭目より外)", "穴の3着内率 外の列19% 対 内12%"),
-             "ハイ": ("外", "前1/3 × 外(横並びの2頭目より外)", "穴の3着内率 外の列24% 対 内14%")}
+ZONE_FRONT = 0.4   # 帯の前後の幅(前から何割)。--zone-front で変えられる。0.5 なら 帯の3着内率34.4%・1〜3着が全部入る31%
+ZONE_RULE = {"スロー": ("内", "前%d割 × 内(横並びの1〜2頭目)", "穴の3着内率 内15% 対 外の列9%"),
+             "ミドル": ("外", "前%d割 × 外(横並びの2頭目より外)", "穴の3着内率 外の列19% 対 内12%"),
+             "ハイ": ("外", "前%d割 × 外(横並びの2頭目より外)", "穴の3着内率 外の列24% 対 内14%")}
 
 
 def draw_zone(cells, fc):
@@ -517,7 +518,8 @@ def draw_zone(cells, fc):
     side, lab, why = rule
     xs = sorted({x for _, x, _ in cells}, reverse=True)
     n = len(cells)
-    front = sorted(cells, key=lambda c: -c[1])[: max(1, round(n / 3))]
+    # 前4割まで(3年分のスロー想定3,273鞍: 前1/3→前4割で 帯の3着内率 36.8→36.0%、1〜3着が全部帯に入る鞍 13.9→21.7%)
+    front = sorted(cells, key=lambda c: -c[1])[: max(1, round(n * ZONE_FRONT))]
     fx = min(c[1] for c in front)
     sel = [c for c in cells if c[1] >= fx and ((c[2] <= 1) if side == "内" else (c[2] >= 1))]
     if not sel:
@@ -582,7 +584,8 @@ def make_memo(fc, rows, rk, name: str = "") -> str:
         zh = getattr(fc, "zone_horses", [])
         if zh and fc.pace in ZONE_RULE:
             lines.append("<b>%s想定で狙う帯(図の金色の囲み)は %s</b> ── %s。%s"
-                         % (fc.pace, ZONE_RULE[fc.pace][1], "・".join(nm(u) for u in zh), ZONE_RULE[fc.pace][2] + "(3年分の検証)。"))
+                         % (fc.pace, ZONE_RULE[fc.pace][1] % round(ZONE_FRONT * 10), "・".join(nm(u) for u in zh),
+                            ZONE_RULE[fc.pace][2] + "(3年分の検証)。"))
         top = sorted(rk, key=rk.get)[:3]
         if top:
             lines.append("<b>末脚</b>(近走の上がり)上位は %s。%s"
@@ -682,8 +685,11 @@ def main() -> None:
     ap.add_argument("--place")
     ap.add_argument("--race-no")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--zone-front", type=float, default=0.4, help="狙う帯の前後の幅(前から何割、既定0.4)")
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
     a = ap.parse_args()
+    global ZONE_FRONT
+    ZONE_FRONT = a.zone_front
 
     if a.shutuba and a.past:
         sh = Path(a.shutuba).read_text(encoding="utf-8", errors="replace")
