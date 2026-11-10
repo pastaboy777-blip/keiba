@@ -33,7 +33,11 @@ WAKU = {1: ('#ffffff', '#111'), 2: ('#1b1b1b', '#fff'), 3: ('#e03a30', '#fff'),
         7: ('#f08a24', '#111'), 8: ('#f29ab8', '#111')}
 WK = {1: .798, 2: .711, 3: .605, 4: .509, 5: .450, 6: .346, 7: .308, 8: .219}
 JK_BASE, JK_MIN = .447, 60
-POS_MAX_SLOW = 0.40
+POS_MAX = 0.40          # スローもハイも、4角の相対はここまで
+# 狙う帯 … スローは「内か中」、ハイは「中か外」。内外の向きだけが入れ替わる。
+#   11/9 川崎6R（実測ハイ）は併走3組すべて外が内に勝ち、1着④(中)・2着⑦(外)・3着⑥(中)。
+#   内の帯の①②③は 9着・11着・7着。
+BAND_OK = {"s": (0, 1), "h": (1, 2), "m": (0, 1)}
 WID, LANE, PAD, GAP = 900, 78, 58, 112
 JK = json.load(open(os.path.join(HERE, "jk_soto.json"))) \
     if os.path.exists(os.path.join(HERE, "jk_soto.json")) else {}
@@ -77,6 +81,21 @@ def band_of(r):
     return 0 if r["uchi"] >= .55 else (2 if r["uchi"] <= .40 else 1)
 
 
+def pace_soutei(card_v, ven, baba=None):
+    """★ 走る前の想定（2026-11-11 に追加）。
+
+    結果のラップが無い鞍があるのと、そもそも**事前に出せるものを出す**ため。
+    tenkai.race が返す推定前3F を、その場・距離・馬場の水準と比べる。
+    推定は先頭に立つ3頭の前半速度から出しているので、1頭に引かれることがある
+    （11/10 の8R・10R・12Rで実際に起きた）。あくまで想定。"""
+    rows, p_ = T.race(card_v, ven, baba)
+    if not p_ or not p_.get("base") or not p_.get("f3"):
+        return None, None, None
+    f3, b = p_["f3"], p_["base"]
+    cls = "s" if f3 > b["f3"] + 0.3 else ("h" if f3 < b["f3"] - 0.3 else "m")
+    return f3, b["f3"], cls
+
+
 def pace_of(v, ven):
     """結果のラップから実際の流れを出す。ラップが無ければ None。"""
     L = v.get("lap") or []
@@ -93,8 +112,10 @@ def pace_of(v, ven):
     return f3, b["f3"], cls
 
 
-LAB = {"s": ("S", "スロー（実測で遅い）"), "m": ("M", "水準どおり"),
-       "h": ("H", "ハイ（実測で速い）"), None: ("?", "ラップなし")}
+LAB = {"s": ("S", "スロー想定"), "m": ("M", "ミドル想定"),
+       "h": ("H", "ハイ想定"), None: ("?", "測れず")}
+LAB_J = {"s": ("S", "スロー（実測）"), "m": ("M", "水準どおり（実測）"),
+         "h": ("H", "ハイ（実測）"), None: ("?", "ラップなし")}
 
 
 def place(rows):
@@ -147,6 +168,21 @@ h1{font-size:30px;font-weight:800;margin:5px 0 6px}
 .p-m{color:#e0bd72;border-color:rgba(216,168,74,.45);background:rgba(216,168,74,.14)}
 .p-h{color:#f08d88;border-color:rgba(232,54,47,.5);background:rgba(232,54,47,.15)}
 .p-x{color:#8c8c96;border-color:#3a3a44}
+.pbar{margin:11px 16px 4px;padding:10px 14px;border:1px solid;border-radius:9px}
+.pbar.p-s{background:rgba(57,135,229,.07);border-color:rgba(57,135,229,.5)}
+.pbar.p-m{background:rgba(216,168,74,.06);border-color:rgba(216,168,74,.45)}
+.pbar.p-h{background:rgba(232,54,47,.07);border-color:rgba(232,54,47,.5)}
+.pbar.p-x{background:#17171c;border-color:#3a3a44}
+.gauge{position:relative;display:flex;height:22px;border-radius:5px;overflow:hidden;border:1px solid #33333c}
+.gz{flex:1;font-size:10px;line-height:20px;text-align:center;color:#9a9aa4;font-weight:700}
+.z1{background:rgba(57,135,229,.2)}.z2{background:rgba(216,168,74,.16)}.z3{background:rgba(232,54,47,.2)}
+.gmark{position:absolute;top:-4px;bottom:-4px;width:4px;background:#fff;border-radius:2px;
+ transform:translateX(-2px);box-shadow:0 0 0 2px rgba(0,0,0,.6)}
+.peff{font-size:13px;color:#e4e4ea;margin-top:7px;font-weight:600}.peff b{color:#fff}
+.view{margin:0 16px 12px;background:#121216;border:1px solid #2a2a31;
+ border-left:3px solid #3987e5;border-radius:8px;padding:11px 14px}
+.view h4{font-size:11px;color:#3987e5;letter-spacing:.1em;margin-bottom:6px;font-weight:700}
+.view p{font-size:12.5px;line-height:1.9;color:#c9c9d2}.view b{color:#f2f2f4}
 .pnum{font-size:11.5px;color:#8c8c96;margin:8px 16px 0}
 .track{position:relative;margin:8px 16px 10px;border-radius:7px;
  background:repeating-linear-gradient(90deg,#3b3027 0 56px,#342a22 56px 58px);
@@ -193,8 +229,17 @@ def main():
     ven = a[a.index("--ven") + 1] if "--ven" in a else "川崎"
     date = a[a.index("--date") + 1] if "--date" in a else ""
     rng = a[a.index("--R") + 1] if "--R" in a else "1-12"
+    baba = a[a.index("--baba") + 1] if "--baba" in a else None
     lo, _, hi = rng.partition("-")
     lo, hi = int(lo), int(hi or lo)
+    global soutei_g
+    soutei_g = "--soutei" in a
+    global NOTE
+    NOTE = {}
+    for tok in a:
+        if tok.startswith("note:"):
+            r_, _, t_ = tok[5:].partition("=")
+            NOTE[r_] = t_
     C = json.load(open(card)); R = json.load(open(res))
     body = []
     for k in sorted(C, key=lambda x: C[x]["R"]):
@@ -210,13 +255,18 @@ def main():
             r["srank"] = i
         for r in rows:
             r.setdefault("srank", None)
-        f3, base, pc = pace_of(dict(rv, dist=v["dist"]), ven)
+        soutei = soutei_g
+        if soutei:
+            f3, base, pc = pace_soutei(dict(v, baba=baba), ven, baba)
+        else:
+            f3, base, pc = pace_of(dict(rv, dist=v["dist"]), ven)
         cells, NL, SPAN = place(rows)
         ana = set()
-        if pc == "s":
-            ana = {r["ub"] for r in rows if band_of(r) <= 1
-                   and (r["pos"] is None or r["pos"] <= POS_MAX_SLOW)}
-        tag, nm = LAB[pc]
+        if pc in BAND_OK:
+            okb = BAND_OK[pc]
+            ana = {r["ub"] for r in rows if band_of(r) in okb
+                   and (r["pos"] is None or r["pos"] <= POS_MAX)}
+        tag, nm = (LAB if soutei else LAB_J)[pc]
         hh = []
         for r, x, ln in cells:
             col = "#f2d231" if (r["chaku"] or 99) <= 3 else "#d8c7ae"
@@ -246,20 +296,32 @@ def main():
             '<div class="race"><div class="rh"><span class="rn">%dR</span>'
             '<span class="rd">ダ<b>%dm</b> ／ %d頭 ／ %s</span>'
             '<span class="pace p-%s"><b>%s</b> %s</span></div>'
-            '<div class="pnum">%s</div>'
+            '<div class="pbar p-%s"><div class="gauge"><div class="gz z1">ゆっくり</div>'
+            '<div class="gz z2">ふつう</div><div class="gz z3">速い</div>'
+            '<div class="gmark" style="left:%d%%"></div></div>'
+            '<div class="peff">→ %s<span class="pnum" style="margin:0 0 0 12px">%s</span></div></div>'
             '<div class="track" style="height:%dpx"><div class="goal"></div>%s%s%s</div>'
-            '<div class="xlab"><span>後方</span><span>中団</span><span>前　→　ゴール</span></div></div>'
+            '<div class="xlab"><span>後方</span><span>中団</span><span>前　→　ゴール</span></div>%s</div>'
             % (v["R"], v["dist"], len(v["horses"]), html.escape(v.get("cls") or ""),
-               (pc or "x"), tag, nm,
-               ("前3F %.1f（%s%dmの水準 %.1f）" % (f3, ven, v["dist"], base)) if (f3 and base)
-               else "ラップが取れていないので流れは測れません",
+               (pc or "x"), tag, nm, (pc or "x"),
+               {"s": 22, "m": 50, "h": 78}.get(pc, 50),
+               {"s": "前に行った馬が<b>そのまま残る</b>",
+                "m": "<b>中団から前へ出てくる馬</b>まで",
+                "h": "前が<b>垂れる</b>。終いのある馬が届く"}.get(pc, "流れが出せません"),
+               ("%s前3F %.1f（%s%dm%sの水準 %.1f）"
+                % ("推定" if soutei else "実測", f3, ven, v["dist"],
+                   ("・" + baba) if baba else "", base)) if (f3 and base)
+               else ("先頭に立つ馬の前半速度が測れないので想定が出せません" if soutei
+                     else "ラップが取れていないので流れは測れません"),
                NL * LANE + 16,
                "".join('<div class="bz %s" style="top:%dpx;height:%dpx">'
                        '<span class="bzl">%s</span></div>'
                        % (("zi", "zm", "zo")[b], s_ * LANE + 3, c * LANE - 4,
                           ("内 ラチ沿い", "中", "外")[b])
                        for b, s_, c in SPAN),
-               ring(cells, ana), "\n".join(hh)))
+               ring(cells, ana), "\n".join(hh),
+               ('<div class="view"><h4>見解</h4><p>%s</p></div>' % NOTE[str(v["R"])])
+               if str(v["R"]) in NOTE else ""))
     open(out, "w").write(
         '<!doctype html><html lang="ja"><head><meta charset="utf-8">'
         '<title>隊列表</title><style>%s</style></head><body>'
@@ -269,11 +331,15 @@ def main():
         '1枠79.8%% / 2枠71.1%% / 3枠60.5%% / 4枠50.9%% / 5枠45.0%% / 6枠34.6%% / 7枠30.8%% / 8枠21.9%% '
         '（4コーナーで併走したとき内にいた割合・南関12,244頭）。'
         '騎手は併走60回以上の人だけ、基準線44.7%%との差を足しています（11,767回・107人）。<br>'
-        '<b>赤い囲みはスローのときに狙う範囲</b> —— 内か中の帯で、4コーナーの相対0.40まで。'
+        '<b>赤い囲みが狙う範囲</b> —— <b>スローとミドルは内か中の帯、ハイは中か外の帯</b>で、'
+        'どちらも4コーナーの相対0.40まで。'
         '遅い流れの3着内率は 前(0-.2)64.3%% ／ 中前(.2-.4)36.8%% ／ 中(.4-.6)18.9%%。<br>'
-        '黄色い馬が3着内。ペースは<b>結果のラップから実測</b>したものです。</div></div>'
+        '黄色い馬が3着内。%s</div></div>'
         '%s<div class="tail">印は買い目の保証ではありません。</div></body></html>'
-        % (CSS, date, ven, "\n".join(body)))
+        % (CSS, date, ven,
+           ('ペースは<b>走る前の想定</b>です（先頭に立つ3頭の前半速度から推定）。'
+            if soutei_g else 'ペースは<b>結果のラップから実測</b>したものです。'),
+           "\n".join(body)))
     print("%d鞍 → %s" % (len(body), out))
 
 
