@@ -1,0 +1,318 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>結果の隊列</title><style>
+:root{--bg:#0c0c0e;--card:#16161a;--acc:#e8362f;--acc2:#3987e5;--gold:#d8a84a;--grn:#5fe07a;
+ --tx:#f2f2f4;--dim:#8c8c96;--line:#2a2a31;--d1:#3b3027;--d2:#342a22}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);width:1060px;padding:32px 38px 34px;
+ font-family:"Noto Sans CJK JP","Hiragino Sans","Yu Gothic",sans-serif}
+.head{border-bottom:2px solid var(--acc);padding-bottom:13px;margin-bottom:16px}
+.kicker{color:var(--acc);font-size:13px;letter-spacing:.14em;font-weight:700}
+h1{font-size:32px;font-weight:800;margin:5px 0 6px}
+.sub{color:var(--dim);font-size:13px;line-height:1.75}.sub b{color:#f2f2f4}
+.race{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:15px;overflow:hidden}
+.rh{padding:11px 18px;background:#121216;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.rn{font-size:21px;font-weight:800}.rd{font-size:12.5px;color:var(--dim)}
+.pace{margin-left:auto;font-size:26px;font-weight:800;border-radius:8px;padding:5px 22px;
+ border:2px solid;letter-spacing:.08em;line-height:1.25}
+.pace b{font-size:30px;margin-right:12px}
+.p-slow{color:#8fbcf2;background:rgba(57,135,229,.16);border-color:rgba(57,135,229,.5)}
+.p-mid{color:#e0bd72;background:rgba(216,168,74,.14);border-color:rgba(216,168,74,.45)}
+.p-high{color:#f08d88;background:rgba(232,54,47,.15);border-color:rgba(232,54,47,.5)}
+.board{display:flex;gap:8px;margin:11px 16px 4px}
+.ylab{width:78px;display:flex;flex-direction:column;justify-content:space-between;padding:10px 0;text-align:right}
+.ylab span{font-size:11px;color:var(--dim);font-weight:800}
+.track{flex:1;position:relative;border-radius:7px;
+ background:repeating-linear-gradient(90deg,var(--d1) 0 56px,var(--d2) 56px 58px);
+ border-top:4px solid #d9d9de}
+.goal{position:absolute;right:24px;top:0;bottom:0;width:2px;background:rgba(232,54,47,.8)}
+.zone{position:absolute;left:8px;right:8px;border:3px dashed rgba(216,168,74,.95);
+ border-radius:26px;background:rgba(216,168,74,.09)}
+.zlab{position:absolute;top:-13px;left:22px;background:var(--gold);color:#15110d;font-size:11.5px;
+ font-weight:800;padding:2px 12px;border-radius:12px;white-space:nowrap}
+.horse{position:absolute;transform:translate(-50%,0);text-align:center;width:128px;z-index:2}
+.horse.ana{z-index:4}
+.horse.ana .fig{filter:drop-shadow(0 0 10px rgba(255,80,70,.95))}
+.horse.ana .nm{color:#fff}
+.fig{display:flex;align-items:flex-end;justify-content:center;gap:1px;height:40px}
+.fig svg{width:56px;height:38px}
+.lab{margin-top:-1px;white-space:nowrap}
+.n{display:inline-block;min-width:22px;height:22px;line-height:22px;border-radius:50%;
+ border:2px solid;font-size:12.5px;font-weight:800;vertical-align:middle;margin-right:3px}
+.horse.ana .n{box-shadow:0 0 0 3px rgba(232,54,47,.95)}
+.nm{font-size:10.5px;color:#f6f1e8;font-weight:700;vertical-align:middle;text-shadow:0 1px 4px rgba(0,0,0,.95)}
+.upo{display:block;font-size:9.6px;color:#f0b48c;font-weight:800}
+.upi{display:block;font-size:9.6px;color:#5fe07a;font-weight:800}
+.upq{display:block;font-size:9.6px;color:#9fb6cf;font-weight:700}
+.dn{display:block;font-size:9.6px;color:#e58b86;font-weight:700}
+.so{display:inline-block;font-size:9.5px;color:#0c0c0e;background:var(--gold);border-radius:3px;padding:0 4px;font-weight:800;margin-top:2px}
+.sin{display:inline-block;font-size:9.5px;color:#d7cfc2;border:1px solid #6a6056;border-radius:3px;padding:0 4px;font-weight:700;margin-top:2px}
+.hit{display:block;font-size:10.5px;color:#fff;background:var(--acc);border-radius:3px;
+ padding:1px 6px;font-weight:800;margin:3px auto 0;width:max-content}
+.xlab{display:flex;margin:4px 16px 10px 102px}
+.xlab span{flex:1;text-align:center;font-size:11px;color:var(--dim);font-weight:700}
+.memo{margin:0 16px 14px;font-size:12.8px;color:#c9c9d2;line-height:1.9}
+.memo b{color:#f2f2f4}
+.pay{color:var(--gold);font-weight:800}
+.tail{margin-top:10px;font-size:11px;color:#5f5f69;line-height:1.7}
+
+.sm{display:inline-block;font-size:9.5px;color:#0c0c0e;background:#5fe07a;border-radius:3px;padding:0 5px;font-weight:800;margin-top:2px}
+.rd b{color:#f2f2f4}
+.pbar{margin:12px 16px 6px;padding:10px 14px;border-radius:8px;border:1px solid}
+.pbar.p-slow{border-color:rgba(57,135,229,.45)}.pbar.p-mid{border-color:rgba(216,168,74,.45)}.pbar.p-high{border-color:rgba(232,54,47,.5)}
+.bar{position:relative;display:flex;height:20px;border-radius:4px;overflow:hidden}
+.bar span{flex:1;text-align:center;font-size:10.5px;line-height:20px;color:#c9c9d2}
+.bar span:nth-child(1){background:#26344a}.bar span:nth-child(2){background:#3b3022}.bar span:nth-child(3){background:#4a1f1f}
+.bar i{position:absolute;top:-2px;width:4px;height:24px;background:#fff;border-radius:2px;transform:translateX(-50%)}
+.est{display:flex;gap:26px;margin-top:8px;font-size:12px;color:var(--dim)}.est b{color:#f2f2f4;font-size:16px;margin-left:6px}
+.zone .zlab{left:auto;right:10px;top:auto;bottom:-12px}
+.ring{position:absolute;border:5px solid rgba(232,40,40,.95);border-radius:50%;z-index:1;
+ box-shadow:0 0 12px rgba(232,40,40,.55)}
+.horse.wide{width:170px}
+.track.turf{background:repeating-linear-gradient(90deg,#3f7d3a 0 56px,#3a7536 56px 58px)}
+.track.turf .nm{text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 2px rgba(0,0,0,.9)}
+.track.turf .n{box-shadow:0 0 0 2px rgba(0,0,0,.55)}
+.track{overflow:hidden}
+.jk{display:block;font-size:9px;color:#b9b9c4;font-weight:600;margin-top:-1px}
+.stg{display:inline-block;margin:14px 16px 0;background:#2e4a2a;color:#e6f2df;font-weight:800;font-size:13px;padding:4px 16px;border-radius:14px}
+.flow{margin-top:7px;font-size:12.5px}.flow small{color:var(--dim);font-size:11px}
+.kenkai{margin:6px 16px 14px;border-left:3px solid var(--acc2);background:#121216;border-radius:6px;padding:10px 14px;
+ font-size:12.6px;color:#c9c9d2;line-height:1.9}
+.kenkai b{color:#f2f2f4}.kt{color:var(--acc2);font-size:11px;font-weight:800}
+.hold{color:#f08d88}.sure{color:#9fb6cf;font-size:11.5px}
+.miss{margin:0 16px 12px;font-size:11.5px;color:var(--dim)}
+.note{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:15px;
+ font-size:12.5px;color:#c9c9d2;line-height:1.8}
+.note b{color:#f2f2f4}.note .q{color:#6fc0ff;font-weight:800}
+</style></head><body><div class="race"><div class="rh"><span class="rn">結果</span><span class="rd">2026-11-08 　<b>芝2500m</b> ／ 18頭 ／ 良</span><span class="pace p-slow"><b>実際</b> 前35.9 後34.9</span></div><div class="stg">4コーナー(実際)</div><div class="board"><div class="ylab"><span>内（組の中）</span><span>外</span></div><div class="track turf" style="height:376px"><div class="goal"></div><div class="horse" style="left:836px;top:14px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#f29ab8;color:#111;border-color:rgba(255,255,255,.45)">18</span><span class="nm">ミステリ</span></div></div>
+<div class="horse" style="left:836px;top:102px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#ffcf5a">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#ffcf5a" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#2f9e57;color:#fff;border-color:rgba(255,255,255,.45)">12</span><span class="nm">メイショ</span></div><span class="hit">3着 12人気</span></div>
+<div class="horse" style="left:750px;top:14px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#ffffff;color:#111;border-color:#00000055">1</span><span class="nm">ジーティ</span></div><span class="sin">横不明</span></div>
+<div class="horse" style="left:664px;top:14px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#ffcf5a">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#ffcf5a" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#e03a30;color:#fff;border-color:rgba(255,255,255,.45)">6</span><span class="nm">ファミリ</span></div><span class="hit">1着 16人気</span><span class="sin">横不明</span></div>
+<div class="horse" style="left:578px;top:14px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#1b1b1b;color:#fff;border-color:rgba(255,255,255,.45)">3</span><span class="nm">マイネル</span></div><span class="sin">横不明</span></div>
+<div class="horse" style="left:492px;top:14px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#f2d231;color:#111;border-color:rgba(255,255,255,.45)">9</span><span class="nm">レッドバ</span></div></div>
+<div class="horse" style="left:492px;top:102px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#ffcf5a">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#ffcf5a" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#f08a24;color:#111;border-color:rgba(255,255,255,.45)">15</span><span class="nm">ホーエリ</span></div><span class="hit">2着 13人気</span></div>
+<div class="horse" style="left:407px;top:14px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#1b1b1b;color:#fff;border-color:rgba(255,255,255,.45)">4</span><span class="nm">ミラージ</span></div></div>
+<div class="horse" style="left:407px;top:102px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#f29ab8;color:#111;border-color:rgba(255,255,255,.45)">16</span><span class="nm">キングズ</span></div></div>
+<div class="horse" style="left:321px;top:14px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#e03a30;color:#fff;border-color:rgba(255,255,255,.45)">5</span><span class="nm">ドゥラド</span></div><span class="sin">横不明</span></div>
+<div class="horse" style="left:235px;top:14px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#2f9e57;color:#fff;border-color:rgba(255,255,255,.45)">11</span><span class="nm">ウエスト</span></div></div>
+<div class="horse" style="left:235px;top:102px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#2d6fd0;color:#fff;border-color:rgba(255,255,255,.45)">7</span><span class="nm">ファイア</span></div></div>
+<div class="horse" style="left:149px;top:14px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#f29ab8;color:#111;border-color:rgba(255,255,255,.45)">17</span><span class="nm">キングス</span></div></div>
+<div class="horse" style="left:149px;top:102px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#f08a24;color:#111;border-color:rgba(255,255,255,.45)">13</span><span class="nm">マイネル</span></div></div>
+<div class="horse" style="left:149px;top:190px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#f2d231;color:#111;border-color:rgba(255,255,255,.45)">10</span><span class="nm">ボーンデ</span></div></div>
+<div class="horse" style="left:149px;top:278px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#ffffff;color:#111;border-color:#00000055">2</span><span class="nm">ビザンチ</span></div></div>
+<div class="horse" style="left:64px;top:14px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#f08a24;color:#111;border-color:rgba(255,255,255,.45)">14</span><span class="nm">ミクニイ</span></div></div>
+<div class="horse" style="left:64px;top:102px"><div class="fig"><svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidden="true">
+ <g fill="#d8c7ae">
+  <path d="M24 24 C15 15 6 14 1 19 C10 21 16 27 20 34 Z"/>
+  <path d="M22 34 C22 25 34 20 50 20 C62 20 70 23 72 28 L70 40 C64 44 50 45 38 43 C28 41 22 39 22 34 Z"/>
+  <path d="M64 28 L78 7 L88 13 L74 33 Z"/>
+  <path d="M76 5 L92 8 L94 17 L82 18 L72 12 Z"/>
+  <path d="M92 10 L106 15 L104 21 L90 19 Z"/>
+  <path d="M78 0 L83 8 L73 6 Z"/>
+  <path d="M66 39 L84 48 L88 60 L79 57 L60 45 Z"/>
+  <path d="M58 41 L60 57 L68 70 L61 74 L51 59 L47 44 Z"/>
+  <path d="M32 40 L16 50 L4 56 L8 63 L24 55 L39 45 Z"/>
+  <path d="M26 41 L22 56 L13 69 L20 73 L31 59 L35 45 Z"/>
+ </g></svg><svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true"><g fill="none" stroke="#d8c7ae" stroke-width="2.6" stroke-linecap="round"><path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg></div><div class="lab"><span class="n" style="background:#2d6fd0;color:#fff;border-color:rgba(255,255,255,.45)">8</span><span class="nm">ジョイボ</span></div></div></div></div><div class="xlab"><span>後方</span><span>中団</span><span>前　→　ゴール</span></div><div class="kenkai"><div class="kt">通過順</div><p>4角 (*18,12)-1-6,3(9,15)(4,16)5(11,7)(17,13,10,2)(14,8)</p><p>ラップ 7.2-11.2-11.2-12.5-12.0-12.3-12.5-12.5-12.4-12.2-11.5-11.6-11.8</p></div></div></body></html>
