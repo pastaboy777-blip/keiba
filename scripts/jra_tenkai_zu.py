@@ -130,7 +130,19 @@ def from_data(data_path: str, race_id: str):
     waku = {x["umaban"]: x.get("waku") for x in me["result"] if x.get("waku")}
     info = f"{me.get('surface')}{me['distance']}m {me.get('baba') or ''}"
     klass = {"race_class": me.get("race_class"), "race_type": me.get("race_type"), "grade": me.get("grade")}
-    return past, waku, me.get("name") or "", info, klass, me["date"], me["place"]
+    jockeys = {x["umaban"]: x.get("jockey") for x in me["result"]}
+    return past, waku, me.get("name") or "", info, klass, me["date"], me["place"], jockeys
+
+
+def parse_jockeys(html: str) -> dict[int, str]:
+    """出馬表 → 馬番 → 騎手名"""
+    out = {}
+    for tr in re.findall(r'<tr class="HorseList.*?</tr>', html, re.S):
+        u = re.search(r'<td class="Umaban\d*[^"]*"[^>]*>\s*(\d+)', tr)
+        j = re.search(r'/jockey/[^>]*>\s*([^<]+?)\s*<', tr)
+        if u and j:
+            out[int(u.group(1))] = j.group(1)
+    return out
 
 
 def parse_shutuba(html: str) -> tuple[dict[int, int], str, str]:
@@ -148,7 +160,7 @@ def parse_shutuba(html: str) -> tuple[dict[int, int], str, str]:
     return waku, name, info
 
 
-def build(past: dict, waku: dict, *, place: str, dist: int, surface: str, baba: str | None):
+def build(past: dict, waku: dict, *, place: str, dist: int, surface: str, baba: str | None, jockeys=None):
     field = {u: [RunRecord(date=r["date"], place=r["place"], distance=r["dist"],
                            field_size=r["n"], finish_pos=r["fin"], surface=r["surface"],
                            baba=r["baba"], corner_pos=r["corner"]) for r in v["runs"]]
@@ -166,7 +178,7 @@ def build(past: dict, waku: dict, *, place: str, dist: int, surface: str, baba: 
               if r["time"] and r["agari"] and r["surface"] == surface
               and abs(r["dist"] - dist) <= 400]
         rows.append({
-            "ub": u, "name": v["name"], "waku": waku.get(u),
+            "ub": u, "name": v["name"], "waku": waku.get(u), "jockey": (jockeys or {}).get(u),
             "pos": 1 - st.median(c4) if c4 else None,         # 1=前
             "gain": (st.median(c1) - st.median(c4)) if c4 else None,
             "l": st.median(ag) if ag else None,
@@ -180,6 +192,24 @@ def build(past: dict, waku: dict, *, place: str, dist: int, surface: str, baba: 
 
 
 POSITION_MODEL = ROOT / "models" / "position_model.json"
+JOCKEY_STATS = ROOT / "models" / "jockey_stats.json"
+_JK = None
+
+
+def jockey_stat(name):
+    """騎手の集計(scripts/jra_jockey.py)を引く。略名・頭文字つきの名前にも当てる。無ければ None。"""
+    global _JK
+    import json
+    import unicodedata
+    if _JK is None:
+        _JK = json.load(open(JOCKEY_STATS))["jockeys"] if JOCKEY_STATS.exists() else {}
+    if not name:
+        return None
+    n = re.sub(r"[\s▲△☆◇★▽]", "", unicodedata.normalize("NFKC", name))
+    if n in _JK:
+        return dict(_JK[n], name=n)
+    c = [k for k in _JK if k.startswith(n) or k.split(".")[-1] == n or n.startswith(k)]
+    return dict(_JK[c[0]], name=c[0]) if len(c) == 1 else None
 
 
 def apply_position_model(rows, field, fc, *, dist, surface):
@@ -212,7 +242,7 @@ def apply_position_model(rows, field, fc, *, dist, surface):
              "dist_diff": (dist - last.distance) / 1000,
              "surf_change": 1.0 if last.surface and last.surface != surface else 0.0,
              "gain": st.median(norm(x, 0) - norm(x, -1) for x in runs),
-             "jk_bias": 0.0, "jk_change": 0.0,
+             "jk_bias": (jockey_stat(r.get("jockey")) or {}).get("front_bias", 0.0), "jk_change": 0.0,
              "gate": (r["ub"] - 1) / max(1, len(rows) - 1),
              "gate_x_short": ((r["ub"] - 1) / max(1, len(rows) - 1)) * (1.0 if dist <= 1400 else 0.0),
              "pace": 0.0, "pace_x_early": 0.0}
@@ -260,7 +290,7 @@ def apply_hana_model(rows, field, fc, *, dist, surface):
              "last_c1": (runs[0].corner_pos[0] - 1) / (runs[0].field_size - 1),
              "last_lead": 1.0 if runs[0].corner_pos[0] == 1 else 0.0,
              "sim_nige": (sum(x.corner_pos[0] == 1 for x in sim) / len(sim)) if sim else sp.nige_rate,
-             "jk_bias": 0.0, "gate": gate, "gate_x_short": gate * (1.0 if dist <= 1400 else 0.0),
+             "jk_bias": (jockey_stat(r.get("jockey")) or {}).get("front_bias", 0.0), "gate": gate, "gate_x_short": gate * (1.0 if dist <= 1400 else 0.0),
              "dist_diff": (dist - past[0].distance) / 1000, "n_runs": min(len(runs), 5) / 5, "field": n / 18}
         r["hana"] = sum(w * f[k] for k, w in zip(M["features"], M["coef"]))
 
@@ -369,6 +399,10 @@ def lateral_layout(rows, fc, n, *, band=0.10, min_gap=104, key="pos"):
         f = {"1": 1.0, "gate": (r["ub"] - 1) / max(1, n - 1), "out_rate": 0.43, "n_lat": 0.0,
              "nige": fc.styles[r["ub"]].nige_rate, "front": r[key], "field": n / 18}
         out[r["ub"]] = sum(w[k] * f[k] for k in w)
+        # 騎手の外出し癖(jra_jockey.py の outer_rate、全体平均43%)。検証で 馬番だけ +0.418 → +0.429
+        js = jockey_stat(r.get("jockey"))
+        if js:
+            out[r["ub"]] += 0.74 * (js["outer_rate"] - 0.431)
     groups, cur, head = [], [], None
     for r in hs:
         if head is None or head - r[key] <= band:
@@ -517,7 +551,8 @@ def stage_board(rows, fc, n, key, prev, label, rk) -> str:
                   '<span class="nm">%s</span></div>%s%s</div>'
                   % (int(x), 14 + lane * LANE, HORSE.format(c=col), CHEV.format(c=cc), wc[0], wc[1],
                      "#00000055" if r["waku"] == 1 else "rgba(255,255,255,.45)", r["ub"],
-                     H.escape(r["name"][:4]), t, so))
+                     H.escape(r["name"][:4]) + ('<span class="jk">%s</span>' % H.escape((r.get("jockey") or "")[:4])
+                                                if r.get("jockey") else ""), t, so))
     zone = ""
     if key == "pos":
         zone, fc.zone_horses = draw_zone(cells, fc)
@@ -613,6 +648,21 @@ def make_memo(fc, rows, rk, name: str = "") -> str:
             lines.append("<b>%s想定で狙う帯(図の金色の囲み)は %s</b> ── %s。%s"
                          % (fc.pace, ZONE_RULE[fc.pace][1] % round(ZONE_FRONT * 10), "・".join(nm(u) for u in zh),
                             ZONE_RULE[fc.pace][2] + "(3年分の検証)。"))
+        js = [(r, jockey_stat(r.get("jockey"))) for r in rows]
+        js = [(r, j) for r, j in js if j and j["n"] >= 100]
+        if js:
+            fw = sorted([x for x in js if x[1]["front_bias"] <= -0.02], key=lambda x: x[1]["front_bias"])[:3]
+            bk = sorted([x for x in js if x[1]["front_bias"] >= 0.03], key=lambda x: -x[1]["front_bias"])[:3]
+            fmt = lambda x: "%s(%s %+.0f%%)" % (nm(x[0]["ub"]), x[1]["name"], x[1]["front_bias"] * 100)  # noqa: E731
+            sj = []
+            if fw:
+                sj.append("<b>前に行かせる騎手</b>は " + "・".join(fmt(x) for x in fw))
+            if bk:
+                sj.append("<b>控える騎手</b>は " + "・".join(fmt(x) for x in bk))
+            best = sorted(js, key=lambda x: -x[1]["top3"])[:3]
+            sj.append("騎手の3着内率上位は " + "・".join("%s(%s %.0f%%)" % (nm(r["ub"]), j["name"], j["top3"] * 100)
+                                                  for r, j in best))
+            lines.append("。".join(sj) + "(3年分。%は乗った馬のいつもの位置からのずれ、−が前)。")
         top = sorted(rk, key=rk.get)[:3]
         if top:
             lines.append("<b>末脚</b>(近走の上がり)上位は %s。%s"
@@ -662,6 +712,7 @@ CSS_EXTRA = """
 .bar i{position:absolute;top:-2px;width:4px;height:24px;background:#fff;border-radius:2px;transform:translateX(-50%)}
 .est{display:flex;gap:26px;margin-top:8px;font-size:12px;color:var(--dim)}.est b{color:#f2f2f4;font-size:16px;margin-left:6px}
 .zone .zlab{left:auto;right:10px;top:auto;bottom:-12px}
+.jk{display:block;font-size:9px;color:#b9b9c4;font-weight:600;margin-top:-1px}
 .stg{display:inline-block;margin:14px 16px 0;background:#2e4a2a;color:#e6f2df;font-weight:800;font-size:13px;padding:4px 16px;border-radius:14px}
 .flow{margin-top:7px;font-size:12.5px}.flow small{color:var(--dim);font-size:11px}
 .kenkai{margin:6px 16px 14px;border-left:3px solid var(--acc2);background:#121216;border-radius:6px;padding:10px 14px;
@@ -712,16 +763,19 @@ def main() -> None:
     ap.add_argument("--place")
     ap.add_argument("--race-no")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--jockey-stats", help="騎手の集計(jra_jockey.py の出力)。過去の鞍を描くときはその日より前で作ったものを渡す")
     ap.add_argument("--from-data", action="store_true", help="出馬表をネットから取らず、--pace-data の集めたデータから組み立てる")
     ap.add_argument("--zone-front", type=float, default=0.4, help="狙う帯の前後の幅(前から何割、既定0.4)")
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
     a = ap.parse_args()
-    global ZONE_FRONT
+    global ZONE_FRONT, JOCKEY_STATS
     ZONE_FRONT = a.zone_front
+    if a.jockey_stats:
+        JOCKEY_STATS = Path(a.jockey_stats)
 
     klass = None
     if a.race_id and a.pace_data and not a.shutuba and getattr(a, "from_data", False):
-        past, waku, name, info, klass, _, place_d = from_data(a.pace_data, a.race_id)
+        past, waku, name, info, klass, _, place_d, jockeys = from_data(a.pace_data, a.race_id)
         sh = ""
         a.place = a.place or place_d
     elif a.shutuba and a.past:
@@ -737,6 +791,7 @@ def main() -> None:
 
     if klass is None:
         waku, name, info = parse_shutuba(sh)
+        jockeys = parse_jockeys(sh)
         past = parse_past(ps, a.date)
     place = a.place or (place_of(a.race_id) if a.race_id else "") or ""
     rno = a.race_no or (str(int(a.race_id[-2:])) if a.race_id else "")
@@ -745,7 +800,7 @@ def main() -> None:
     bm = re.search(r"(良|稍|重|不)", info)
     baba = bm.group(1) if bm else None
 
-    fc, rows, rk = build(past, waku, place=place, dist=dist, surface=surface, baba=baba)
+    fc, rows, rk = build(past, waku, place=place, dist=dist, surface=surface, baba=baba, jockeys=jockeys)
     if a.pace_data:
         diff, nl, conf, q, est = learned_pace(a.pace_data, a.date, place=place, dist=dist, surface=surface,
                                          n=len(rows), baba=baba, race_id=a.race_id,

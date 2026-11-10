@@ -1,0 +1,2472 @@
+{
+"before": "9999-12-31",
+"base_outer": 0.431,
+"jockeys": {
+"古川奈穂": {
+"n": 782,
+"win": 0.045,
+"top3": 0.134,
+"front_bias": 0.0467,
+"outer_rate": 0.362,
+"top3_turf": 0.146,
+"top3_dirt": 0.124
+},
+"城戸義政": {
+"n": 341,
+"win": 0.012,
+"top3": 0.062,
+"front_bias": -0.0211,
+"outer_rate": 0.352,
+"top3_turf": 0.06,
+"top3_dirt": 0.062
+},
+"丹内祐次": {
+"n": 2854,
+"win": 0.086,
+"top3": 0.283,
+"front_bias": 0.0026,
+"outer_rate": 0.416,
+"top3_turf": 0.284,
+"top3_dirt": 0.281
+},
+"石橋脩": {
+"n": 1306,
+"win": 0.047,
+"top3": 0.172,
+"front_bias": -0.0026,
+"outer_rate": 0.521,
+"top3_turf": 0.16,
+"top3_dirt": 0.183
+},
+"小崎綾也": {
+"n": 1054,
+"win": 0.043,
+"top3": 0.148,
+"front_bias": -0.0262,
+"outer_rate": 0.347,
+"top3_turf": 0.13,
+"top3_dirt": 0.165
+},
+"横山琉人": {
+"n": 1401,
+"win": 0.053,
+"top3": 0.153,
+"front_bias": 0.0569,
+"outer_rate": 0.404,
+"top3_turf": 0.144,
+"top3_dirt": 0.163
+},
+"永島まなみ": {
+"n": 1590,
+"win": 0.048,
+"top3": 0.136,
+"front_bias": 0.0767,
+"outer_rate": 0.543,
+"top3_turf": 0.122,
+"top3_dirt": 0.149
+},
+"小林勝太": {
+"n": 608,
+"win": 0.043,
+"top3": 0.138,
+"front_bias": -0.0093,
+"outer_rate": 0.383,
+"top3_turf": 0.097,
+"top3_dirt": 0.169
+},
+"中井裕二": {
+"n": 637,
+"win": 0.031,
+"top3": 0.126,
+"front_bias": 0.0268,
+"outer_rate": 0.336,
+"top3_turf": 0.08,
+"top3_dirt": 0.153
+},
+"佐々木大輔": {
+"n": 2451,
+"win": 0.089,
+"top3": 0.264,
+"front_bias": -0.0164,
+"outer_rate": 0.428,
+"top3_turf": 0.284,
+"top3_dirt": 0.241
+},
+"丸田恭介": {
+"n": 1123,
+"win": 0.028,
+"top3": 0.11,
+"front_bias": 0.0423,
+"outer_rate": 0.385,
+"top3_turf": 0.118,
+"top3_dirt": 0.104
+},
+"秋山稔樹": {
+"n": 997,
+"win": 0.032,
+"top3": 0.146,
+"front_bias": -0.0166,
+"outer_rate": 0.371,
+"top3_turf": 0.136,
+"top3_dirt": 0.155
+},
+"原優介": {
+"n": 2057,
+"win": 0.037,
+"top3": 0.134,
+"front_bias": 0.0055,
+"outer_rate": 0.48,
+"top3_turf": 0.102,
+"top3_dirt": 0.157
+},
+"勝浦正樹": {
+"n": 120,
+"win": 0.05,
+"top3": 0.15,
+"front_bias": -0.0061,
+"outer_rate": 0.543,
+"top3_turf": 0.19,
+"top3_dirt": 0.113
+},
+"藤田菜七子": {
+"n": 330,
+"win": 0.021,
+"top3": 0.112,
+"front_bias": 0.0117,
+"outer_rate": 0.452,
+"top3_turf": 0.077,
+"top3_dirt": 0.143
+},
+"角田大和": {
+"n": 1246,
+"win": 0.046,
+"top3": 0.176,
+"front_bias": -0.0252,
+"outer_rate": 0.457,
+"top3_turf": 0.162,
+"top3_dirt": 0.187
+},
+"杉原誠人": {
+"n": 1241,
+"win": 0.046,
+"top3": 0.141,
+"front_bias": 0.0471,
+"outer_rate": 0.35,
+"top3_turf": 0.17,
+"top3_dirt": 0.104
+},
+"小林美駒": {
+"n": 1187,
+"win": 0.087,
+"top3": 0.218,
+"front_bias": 0.0484,
+"outer_rate": 0.585,
+"top3_turf": 0.189,
+"top3_dirt": 0.244
+},
+"黛弘人": {
+"n": 922,
+"win": 0.023,
+"top3": 0.113,
+"front_bias": 0.054,
+"outer_rate": 0.353,
+"top3_turf": 0.128,
+"top3_dirt": 0.096
+},
+"武藤雅": {
+"n": 1022,
+"win": 0.042,
+"top3": 0.125,
+"front_bias": -0.0181,
+"outer_rate": 0.433,
+"top3_turf": 0.093,
+"top3_dirt": 0.154
+},
+"荻野極": {
+"n": 1620,
+"win": 0.102,
+"top3": 0.278,
+"front_bias": -0.0351,
+"outer_rate": 0.474,
+"top3_turf": 0.261,
+"top3_dirt": 0.299
+},
+"鷲頭虎太": {
+"n": 602,
+"win": 0.03,
+"top3": 0.138,
+"front_bias": 0.0389,
+"outer_rate": 0.42,
+"top3_turf": 0.135,
+"top3_dirt": 0.141
+},
+"水沼元輝": {
+"n": 492,
+"win": 0.016,
+"top3": 0.065,
+"front_bias": -0.0259,
+"outer_rate": 0.389,
+"top3_turf": 0.072,
+"top3_dirt": 0.058
+},
+"丸山元気": {
+"n": 1446,
+"win": 0.059,
+"top3": 0.227,
+"front_bias": -0.0058,
+"outer_rate": 0.456,
+"top3_turf": 0.221,
+"top3_dirt": 0.235
+},
+"菅原隆一": {
+"n": 179,
+"win": 0.022,
+"top3": 0.056,
+"front_bias": -0.0374,
+"outer_rate": 0.348,
+"top3_turf": 0.014,
+"top3_dirt": 0.083
+},
+"川端海翼": {
+"n": 708,
+"win": 0.024,
+"top3": 0.105,
+"front_bias": 0.012,
+"outer_rate": 0.379,
+"top3_turf": 0.081,
+"top3_dirt": 0.12
+},
+"富田暁": {
+"n": 1187,
+"win": 0.043,
+"top3": 0.177,
+"front_bias": -0.0331,
+"outer_rate": 0.417,
+"top3_turf": 0.173,
+"top3_dirt": 0.181
+},
+"水口優也": {
+"n": 258,
+"win": 0.047,
+"top3": 0.163,
+"front_bias": 0.0689,
+"outer_rate": 0.398,
+"top3_turf": 0.0,
+"top3_dirt": 0.2
+},
+"古川吉洋": {
+"n": 1326,
+"win": 0.045,
+"top3": 0.152,
+"front_bias": 0.0563,
+"outer_rate": 0.488,
+"top3_turf": 0.174,
+"top3_dirt": 0.131
+},
+"小林凌大": {
+"n": 425,
+"win": 0.021,
+"top3": 0.082,
+"front_bias": -0.0077,
+"outer_rate": 0.429,
+"top3_turf": 0.06,
+"top3_dirt": 0.091
+},
+"石田拓郎": {
+"n": 1035,
+"win": 0.03,
+"top3": 0.096,
+"front_bias": 0.0424,
+"outer_rate": 0.352,
+"top3_turf": 0.084,
+"top3_dirt": 0.105
+},
+"木幡育也": {
+"n": 362,
+"win": 0.014,
+"top3": 0.08,
+"front_bias": -0.033,
+"outer_rate": 0.402,
+"top3_turf": 0.054,
+"top3_dirt": 0.094
+},
+"松本大輝": {
+"n": 855,
+"win": 0.057,
+"top3": 0.149,
+"front_bias": 0.0121,
+"outer_rate": 0.354,
+"top3_turf": 0.144,
+"top3_dirt": 0.153
+},
+"小林脩斗": {
+"n": 598,
+"win": 0.012,
+"top3": 0.085,
+"front_bias": -0.0351,
+"outer_rate": 0.323,
+"top3_turf": 0.063,
+"top3_dirt": 0.102
+},
+"藤懸貴志": {
+"n": 1025,
+"win": 0.036,
+"top3": 0.141,
+"front_bias": 0.0619,
+"outer_rate": 0.454,
+"top3_turf": 0.14,
+"top3_dirt": 0.143
+},
+"西村太一": {
+"n": 75,
+"win": 0.013,
+"top3": 0.093,
+"front_bias": 0.0372,
+"outer_rate": 0.327,
+"top3_turf": 0.083,
+"top3_dirt": 0.111
+},
+"嶋田純次": {
+"n": 642,
+"win": 0.036,
+"top3": 0.137,
+"front_bias": -0.0198,
+"outer_rate": 0.37,
+"top3_turf": 0.139,
+"top3_dirt": 0.134
+},
+"松田大作": {
+"n": 20,
+"win": 0.0,
+"top3": 0.2,
+"front_bias": 0.0146,
+"outer_rate": 0.382,
+"top3_turf": 0.143,
+"top3_dirt": 0.231
+},
+"泉谷楓真": {
+"n": 390,
+"win": 0.031,
+"top3": 0.144,
+"front_bias": 0.039,
+"outer_rate": 0.417,
+"top3_turf": 0.162,
+"top3_dirt": 0.126
+},
+"J.モレイラ": {
+"n": 318,
+"win": 0.292,
+"top3": 0.604,
+"front_bias": -0.009,
+"outer_rate": 0.444,
+"top3_turf": 0.635,
+"top3_dirt": 0.556
+},
+"野中悠太郎": {
+"n": 970,
+"win": 0.02,
+"top3": 0.095,
+"front_bias": -0.006,
+"outer_rate": 0.404,
+"top3_turf": 0.077,
+"top3_dirt": 0.109
+},
+"横山武史": {
+"n": 2331,
+"win": 0.144,
+"top3": 0.374,
+"front_bias": 0.0011,
+"outer_rate": 0.431,
+"top3_turf": 0.377,
+"top3_dirt": 0.369
+},
+"木幡巧也": {
+"n": 1925,
+"win": 0.038,
+"top3": 0.14,
+"front_bias": -0.004,
+"outer_rate": 0.447,
+"top3_turf": 0.117,
+"top3_dirt": 0.156
+},
+"菅原明良": {
+"n": 1859,
+"win": 0.077,
+"top3": 0.264,
+"front_bias": 0.0056,
+"outer_rate": 0.397,
+"top3_turf": 0.26,
+"top3_dirt": 0.267
+},
+"大野拓弥": {
+"n": 1629,
+"win": 0.056,
+"top3": 0.201,
+"front_bias": 0.0213,
+"outer_rate": 0.396,
+"top3_turf": 0.201,
+"top3_dirt": 0.201
+},
+"内田博幸": {
+"n": 1259,
+"win": 0.03,
+"top3": 0.135,
+"front_bias": 0.022,
+"outer_rate": 0.451,
+"top3_turf": 0.11,
+"top3_dirt": 0.151
+},
+"津村明秀": {
+"n": 1911,
+"win": 0.084,
+"top3": 0.264,
+"front_bias": -0.0004,
+"outer_rate": 0.424,
+"top3_turf": 0.29,
+"top3_dirt": 0.229
+},
+"菊沢一樹": {
+"n": 2120,
+"win": 0.047,
+"top3": 0.171,
+"front_bias": -0.022,
+"outer_rate": 0.368,
+"top3_turf": 0.18,
+"top3_dirt": 0.162
+},
+"江田照男": {
+"n": 886,
+"win": 0.018,
+"top3": 0.1,
+"front_bias": -0.0107,
+"outer_rate": 0.427,
+"top3_turf": 0.127,
+"top3_dirt": 0.083
+},
+"永野猛蔵": {
+"n": 601,
+"win": 0.053,
+"top3": 0.186,
+"front_bias": 0.0365,
+"outer_rate": 0.366,
+"top3_turf": 0.172,
+"top3_dirt": 0.2
+},
+"佐藤翔馬": {
+"n": 782,
+"win": 0.019,
+"top3": 0.081,
+"front_bias": 0.0181,
+"outer_rate": 0.474,
+"top3_turf": 0.052,
+"top3_dirt": 0.097
+},
+"松岡正海": {
+"n": 1327,
+"win": 0.033,
+"top3": 0.147,
+"front_bias": -0.0091,
+"outer_rate": 0.402,
+"top3_turf": 0.183,
+"top3_dirt": 0.113
+},
+"田辺裕信": {
+"n": 1266,
+"win": 0.09,
+"top3": 0.278,
+"front_bias": 0.0394,
+"outer_rate": 0.499,
+"top3_turf": 0.291,
+"top3_dirt": 0.265
+},
+"横山和生": {
+"n": 1807,
+"win": 0.118,
+"top3": 0.308,
+"front_bias": 0.053,
+"outer_rate": 0.456,
+"top3_turf": 0.293,
+"top3_dirt": 0.323
+},
+"北村宏司": {
+"n": 835,
+"win": 0.038,
+"top3": 0.169,
+"front_bias": 0.0022,
+"outer_rate": 0.467,
+"top3_turf": 0.167,
+"top3_dirt": 0.171
+},
+"柴田大知": {
+"n": 1145,
+"win": 0.02,
+"top3": 0.079,
+"front_bias": -0.0027,
+"outer_rate": 0.341,
+"top3_turf": 0.086,
+"top3_dirt": 0.071
+},
+"柴田善臣": {
+"n": 368,
+"win": 0.049,
+"top3": 0.155,
+"front_bias": 0.0269,
+"outer_rate": 0.488,
+"top3_turf": 0.123,
+"top3_dirt": 0.18
+},
+"浜中俊": {
+"n": 1086,
+"win": 0.099,
+"top3": 0.287,
+"front_bias": 0.039,
+"outer_rate": 0.491,
+"top3_turf": 0.299,
+"top3_dirt": 0.269
+},
+"吉田豊": {
+"n": 1253,
+"win": 0.042,
+"top3": 0.166,
+"front_bias": 0.0386,
+"outer_rate": 0.429,
+"top3_turf": 0.144,
+"top3_dirt": 0.184
+},
+"原田和真": {
+"n": 539,
+"win": 0.02,
+"top3": 0.078,
+"front_bias": 0.0156,
+"outer_rate": 0.431,
+"top3_turf": 0.049,
+"top3_dirt": 0.103
+},
+"大庭和弥": {
+"n": 25,
+"win": 0.04,
+"top3": 0.12,
+"front_bias": -0.099,
+"outer_rate": 0.332,
+"top3_turf": 0.176,
+"top3_dirt": 0.0
+},
+"的場勇人": {
+"n": 165,
+"win": 0.012,
+"top3": 0.018,
+"front_bias": 0.0417,
+"outer_rate": 0.194,
+"top3_turf": 0.035,
+"top3_dirt": 0.0
+},
+"五十嵐雄祐": {
+"n": 196,
+"win": 0.077,
+"top3": 0.291,
+"front_bias": -0.0542,
+"outer_rate": 0.331,
+"top3_turf": 0.3,
+"top3_dirt": 0.0
+},
+"草野太郎": {
+"n": 205,
+"win": 0.078,
+"top3": 0.259,
+"front_bias": 0.0668,
+"outer_rate": 0.359,
+"top3_turf": 0.264,
+"top3_dirt": 0.0
+},
+"難波剛健": {
+"n": 141,
+"win": 0.078,
+"top3": 0.227,
+"front_bias": 0.0184,
+"outer_rate": 0.442,
+"top3_turf": 0.23,
+"top3_dirt": 0.0
+},
+"蓑島靖典": {
+"n": 18,
+"win": 0.0,
+"top3": 0.111,
+"front_bias": 0.0641,
+"outer_rate": 0.431,
+"top3_turf": 0.111,
+"top3_dirt": null
+},
+"石神深一": {
+"n": 245,
+"win": 0.102,
+"top3": 0.278,
+"front_bias": 0.0214,
+"outer_rate": 0.517,
+"top3_turf": 0.279,
+"top3_dirt": 0.0
+},
+"森一馬": {
+"n": 175,
+"win": 0.131,
+"top3": 0.417,
+"front_bias": -0.0244,
+"outer_rate": 0.431,
+"top3_turf": 0.42,
+"top3_dirt": 0.0
+},
+"平沢健治": {
+"n": 7,
+"win": 0.143,
+"top3": 0.429,
+"front_bias": 0.0133,
+"outer_rate": 0.431,
+"top3_turf": 0.429,
+"top3_dirt": null
+},
+"江田勇亮": {
+"n": 90,
+"win": 0.056,
+"top3": 0.167,
+"front_bias": -0.0348,
+"outer_rate": 0.483,
+"top3_turf": 0.167,
+"top3_dirt": null
+},
+"小牧加矢太": {
+"n": 224,
+"win": 0.147,
+"top3": 0.451,
+"front_bias": -0.023,
+"outer_rate": 0.431,
+"top3_turf": 0.451,
+"top3_dirt": null
+},
+"小野寺祐太": {
+"n": 201,
+"win": 0.065,
+"top3": 0.189,
+"front_bias": 0.0165,
+"outer_rate": 0.331,
+"top3_turf": 0.191,
+"top3_dirt": 0.0
+},
+"黒岩悠": {
+"n": 174,
+"win": 0.034,
+"top3": 0.126,
+"front_bias": 0.0967,
+"outer_rate": 0.408,
+"top3_turf": 0.13,
+"top3_dirt": 0.0
+},
+"大江原圭": {
+"n": 221,
+"win": 0.072,
+"top3": 0.267,
+"front_bias": -0.0517,
+"outer_rate": 0.431,
+"top3_turf": 0.267,
+"top3_dirt": null
+},
+"西谷誠": {
+"n": 51,
+"win": 0.098,
+"top3": 0.392,
+"front_bias": 0.039,
+"outer_rate": 0.431,
+"top3_turf": 0.392,
+"top3_dirt": null
+},
+"上野翔": {
+"n": 238,
+"win": 0.139,
+"top3": 0.328,
+"front_bias": -0.0494,
+"outer_rate": 0.394,
+"top3_turf": 0.331,
+"top3_dirt": 0.0
+},
+"木幡初也": {
+"n": 468,
+"win": 0.026,
+"top3": 0.115,
+"front_bias": -0.0173,
+"outer_rate": 0.387,
+"top3_turf": 0.129,
+"top3_dirt": 0.109
+},
+"田中勝春": {
+"n": 17,
+"win": 0.176,
+"top3": 0.235,
+"front_bias": -0.076,
+"outer_rate": 0.492,
+"top3_turf": 0.111,
+"top3_dirt": 0.375
+},
+"松山弘平": {
+"n": 2543,
+"win": 0.151,
+"top3": 0.374,
+"front_bias": -0.0049,
+"outer_rate": 0.472,
+"top3_turf": 0.349,
+"top3_dirt": 0.4
+},
+"北村友一": {
+"n": 1735,
+"win": 0.111,
+"top3": 0.292,
+"front_bias": 0.0241,
+"outer_rate": 0.398,
+"top3_turf": 0.309,
+"top3_dirt": 0.267
+},
+"西村淳也": {
+"n": 2123,
+"win": 0.108,
+"top3": 0.32,
+"front_bias": -0.0182,
+"outer_rate": 0.446,
+"top3_turf": 0.339,
+"top3_dirt": 0.301
+},
+"藤岡佑介": {
+"n": 955,
+"win": 0.12,
+"top3": 0.327,
+"front_bias": 0.0393,
+"outer_rate": 0.504,
+"top3_turf": 0.319,
+"top3_dirt": 0.338
+},
+"田中健": {
+"n": 180,
+"win": 0.039,
+"top3": 0.106,
+"front_bias": -0.0705,
+"outer_rate": 0.462,
+"top3_turf": 0.082,
+"top3_dirt": 0.118
+},
+"藤岡康太": {
+"n": 325,
+"win": 0.114,
+"top3": 0.283,
+"front_bias": -0.0465,
+"outer_rate": 0.375,
+"top3_turf": 0.295,
+"top3_dirt": 0.268
+},
+"鮫島克駿": {
+"n": 2348,
+"win": 0.093,
+"top3": 0.285,
+"front_bias": 0.0254,
+"outer_rate": 0.368,
+"top3_turf": 0.29,
+"top3_dirt": 0.279
+},
+"和田竜二": {
+"n": 1248,
+"win": 0.046,
+"top3": 0.191,
+"front_bias": -0.0202,
+"outer_rate": 0.433,
+"top3_turf": 0.203,
+"top3_dirt": 0.179
+},
+"団野大成": {
+"n": 2108,
+"win": 0.083,
+"top3": 0.262,
+"front_bias": -0.0253,
+"outer_rate": 0.406,
+"top3_turf": 0.249,
+"top3_dirt": 0.274
+},
+"角田大河": {
+"n": 500,
+"win": 0.048,
+"top3": 0.172,
+"front_bias": -0.0219,
+"outer_rate": 0.444,
+"top3_turf": 0.172,
+"top3_dirt": 0.172
+},
+"河原田菜々": {
+"n": 1092,
+"win": 0.035,
+"top3": 0.107,
+"front_bias": 0.0164,
+"outer_rate": 0.351,
+"top3_turf": 0.112,
+"top3_dirt": 0.104
+},
+"斎藤新": {
+"n": 1752,
+"win": 0.074,
+"top3": 0.209,
+"front_bias": -0.006,
+"outer_rate": 0.386,
+"top3_turf": 0.192,
+"top3_dirt": 0.231
+},
+"森裕太朗": {
+"n": 34,
+"win": 0.0,
+"top3": 0.059,
+"front_bias": -0.009,
+"outer_rate": 0.332,
+"top3_turf": 0.0,
+"top3_dirt": 0.087
+},
+"酒井学": {
+"n": 1401,
+"win": 0.048,
+"top3": 0.135,
+"front_bias": 0.0013,
+"outer_rate": 0.388,
+"top3_turf": 0.125,
+"top3_dirt": 0.142
+},
+"小沢大仁": {
+"n": 1765,
+"win": 0.046,
+"top3": 0.16,
+"front_bias": -0.0244,
+"outer_rate": 0.365,
+"top3_turf": 0.163,
+"top3_dirt": 0.157
+},
+"幸英明": {
+"n": 2205,
+"win": 0.059,
+"top3": 0.202,
+"front_bias": 0.017,
+"outer_rate": 0.509,
+"top3_turf": 0.188,
+"top3_dirt": 0.214
+},
+"荻野琢真": {
+"n": 509,
+"win": 0.029,
+"top3": 0.11,
+"front_bias": 0.0349,
+"outer_rate": 0.47,
+"top3_turf": 0.118,
+"top3_dirt": 0.104
+},
+"川島信二": {
+"n": 49,
+"win": 0.061,
+"top3": 0.102,
+"front_bias": -0.0347,
+"outer_rate": 0.495,
+"top3_turf": 0.059,
+"top3_dirt": 0.125
+},
+"田口貫太": {
+"n": 2318,
+"win": 0.055,
+"top3": 0.198,
+"front_bias": -0.0143,
+"outer_rate": 0.409,
+"top3_turf": 0.178,
+"top3_dirt": 0.215
+},
+"M.デムーロ": {
+"n": 1081,
+"win": 0.072,
+"top3": 0.24,
+"front_bias": 0.0896,
+"outer_rate": 0.637,
+"top3_turf": 0.26,
+"top3_dirt": 0.217
+},
+"国分恭介": {
+"n": 856,
+"win": 0.041,
+"top3": 0.174,
+"front_bias": 0.0385,
+"outer_rate": 0.365,
+"top3_turf": 0.183,
+"top3_dirt": 0.164
+},
+"今村聖奈": {
+"n": 917,
+"win": 0.051,
+"top3": 0.165,
+"front_bias": 0.0312,
+"outer_rate": 0.51,
+"top3_turf": 0.152,
+"top3_dirt": 0.176
+},
+"吉田隼人": {
+"n": 942,
+"win": 0.064,
+"top3": 0.212,
+"front_bias": 0.0245,
+"outer_rate": 0.388,
+"top3_turf": 0.207,
+"top3_dirt": 0.221
+},
+"松若風馬": {
+"n": 1673,
+"win": 0.058,
+"top3": 0.203,
+"front_bias": -0.0045,
+"outer_rate": 0.447,
+"top3_turf": 0.202,
+"top3_dirt": 0.204
+},
+"高倉稜": {
+"n": 514,
+"win": 0.027,
+"top3": 0.115,
+"front_bias": 0.0131,
+"outer_rate": 0.387,
+"top3_turf": 0.096,
+"top3_dirt": 0.127
+},
+"国分優作": {
+"n": 911,
+"win": 0.026,
+"top3": 0.1,
+"front_bias": 0.0134,
+"outer_rate": 0.426,
+"top3_turf": 0.109,
+"top3_dirt": 0.094
+},
+"坂井瑠星": {
+"n": 2090,
+"win": 0.163,
+"top3": 0.406,
+"front_bias": -0.0395,
+"outer_rate": 0.394,
+"top3_turf": 0.39,
+"top3_dirt": 0.424
+},
+"大久保友雅": {
+"n": 166,
+"win": 0.012,
+"top3": 0.042,
+"front_bias": -0.0192,
+"outer_rate": 0.396,
+"top3_turf": 0.039,
+"top3_dirt": 0.045
+},
+"石川裕紀人": {
+"n": 1399,
+"win": 0.063,
+"top3": 0.209,
+"front_bias": 0.0512,
+"outer_rate": 0.403,
+"top3_turf": 0.225,
+"top3_dirt": 0.189
+},
+"和田翼": {
+"n": 80,
+"win": 0.0,
+"top3": 0.025,
+"front_bias": -0.0383,
+"outer_rate": 0.251,
+"top3_turf": 0.0,
+"top3_dirt": 0.036
+},
+"小牧太": {
+"n": 46,
+"win": 0.022,
+"top3": 0.065,
+"front_bias": 0.0073,
+"outer_rate": 0.422,
+"top3_turf": 0.0,
+"top3_dirt": 0.094
+},
+"川又賢治": {
+"n": 496,
+"win": 0.036,
+"top3": 0.135,
+"front_bias": 0.0052,
+"outer_rate": 0.412,
+"top3_turf": 0.108,
+"top3_dirt": 0.154
+},
+"岩田康誠": {
+"n": 1417,
+"win": 0.077,
+"top3": 0.231,
+"front_bias": 0.0339,
+"outer_rate": 0.331,
+"top3_turf": 0.227,
+"top3_dirt": 0.234
+},
+"秋山真一郎": {
+"n": 79,
+"win": 0.038,
+"top3": 0.152,
+"front_bias": 0.0095,
+"outer_rate": 0.481,
+"top3_turf": 0.143,
+"top3_dirt": 0.167
+},
+"亀田温心": {
+"n": 867,
+"win": 0.052,
+"top3": 0.15,
+"front_bias": 0.0203,
+"outer_rate": 0.441,
+"top3_turf": 0.174,
+"top3_dirt": 0.123
+},
+"鈴木慶太": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0165,
+"outer_rate": 0.431,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"井上敏樹": {
+"n": 126,
+"win": 0.024,
+"top3": 0.119,
+"front_bias": 0.0579,
+"outer_rate": 0.448,
+"top3_turf": 0.135,
+"top3_dirt": 0.045
+},
+"土田真翔": {
+"n": 230,
+"win": 0.004,
+"top3": 0.057,
+"front_bias": 0.0692,
+"outer_rate": 0.289,
+"top3_turf": 0.084,
+"top3_dirt": 0.02
+},
+"長岡禎仁": {
+"n": 738,
+"win": 0.035,
+"top3": 0.136,
+"front_bias": -0.0202,
+"outer_rate": 0.312,
+"top3_turf": 0.11,
+"top3_dirt": 0.151
+},
+"柴山雄一": {
+"n": 23,
+"win": 0.0,
+"top3": 0.13,
+"front_bias": 0.0412,
+"outer_rate": 0.429,
+"top3_turf": 0.25,
+"top3_dirt": 0.067
+},
+"岩部純二": {
+"n": 277,
+"win": 0.004,
+"top3": 0.054,
+"front_bias": 0.0415,
+"outer_rate": 0.396,
+"top3_turf": 0.051,
+"top3_dirt": 0.056
+},
+"武士沢友治": {
+"n": 70,
+"win": 0.043,
+"top3": 0.071,
+"front_bias": -0.0299,
+"outer_rate": 0.441,
+"top3_turf": 0.053,
+"top3_dirt": 0.078
+},
+"川須栄彦": {
+"n": 611,
+"win": 0.018,
+"top3": 0.097,
+"front_bias": 0.0097,
+"outer_rate": 0.375,
+"top3_turf": 0.091,
+"top3_dirt": 0.101
+},
+"太宰啓介": {
+"n": 653,
+"win": 0.035,
+"top3": 0.153,
+"front_bias": 0.0489,
+"outer_rate": 0.446,
+"top3_turf": 0.156,
+"top3_dirt": 0.151
+},
+"横山典弘": {
+"n": 905,
+"win": 0.106,
+"top3": 0.278,
+"front_bias": 0.0533,
+"outer_rate": 0.334,
+"top3_turf": 0.26,
+"top3_dirt": 0.305
+},
+"H.ドイル": {
+"n": 211,
+"win": 0.085,
+"top3": 0.218,
+"front_bias": 0.0382,
+"outer_rate": 0.477,
+"top3_turf": 0.205,
+"top3_dirt": 0.232
+},
+"C.ルメール": {
+"n": 1741,
+"win": 0.285,
+"top3": 0.603,
+"front_bias": 0.0052,
+"outer_rate": 0.524,
+"top3_turf": 0.621,
+"top3_dirt": 0.573
+},
+"戸崎圭太": {
+"n": 2253,
+"win": 0.154,
+"top3": 0.419,
+"front_bias": -0.0069,
+"outer_rate": 0.506,
+"top3_turf": 0.428,
+"top3_dirt": 0.406
+},
+"三浦皇成": {
+"n": 1768,
+"win": 0.092,
+"top3": 0.301,
+"front_bias": 0.009,
+"outer_rate": 0.455,
+"top3_turf": 0.274,
+"top3_dirt": 0.331
+},
+"伊藤工真": {
+"n": 194,
+"win": 0.031,
+"top3": 0.098,
+"front_bias": -0.0387,
+"outer_rate": 0.362,
+"top3_turf": 0.02,
+"top3_dirt": 0.126
+},
+"岩田望来": {
+"n": 2241,
+"win": 0.145,
+"top3": 0.362,
+"front_bias": -0.0179,
+"outer_rate": 0.434,
+"top3_turf": 0.378,
+"top3_dirt": 0.346
+},
+"川田将雅": {
+"n": 1496,
+"win": 0.242,
+"top3": 0.564,
+"front_bias": -0.0139,
+"outer_rate": 0.51,
+"top3_turf": 0.576,
+"top3_dirt": 0.547
+},
+"加藤祥太": {
+"n": 257,
+"win": 0.027,
+"top3": 0.121,
+"front_bias": -0.0343,
+"outer_rate": 0.349,
+"top3_turf": 0.123,
+"top3_dirt": 0.119
+},
+"R.ムーア": {
+"n": 96,
+"win": 0.156,
+"top3": 0.385,
+"front_bias": 0.0478,
+"outer_rate": 0.432,
+"top3_turf": 0.321,
+"top3_dirt": 0.465
+},
+"岡田祥嗣": {
+"n": 61,
+"win": 0.0,
+"top3": 0.098,
+"front_bias": 0.012,
+"outer_rate": 0.263,
+"top3_turf": 0.2,
+"top3_dirt": 0.049
+},
+"T.マーカンド": {
+"n": 378,
+"win": 0.14,
+"top3": 0.373,
+"front_bias": -0.0147,
+"outer_rate": 0.473,
+"top3_turf": 0.394,
+"top3_dirt": 0.35
+},
+"池添謙一": {
+"n": 1177,
+"win": 0.084,
+"top3": 0.233,
+"front_bias": 0.0234,
+"outer_rate": 0.54,
+"top3_turf": 0.254,
+"top3_dirt": 0.202
+},
+"高田潤": {
+"n": 147,
+"win": 0.231,
+"top3": 0.429,
+"front_bias": -0.0135,
+"outer_rate": 0.43,
+"top3_turf": 0.452,
+"top3_dirt": 0.167
+},
+"金子光希": {
+"n": 65,
+"win": 0.092,
+"top3": 0.231,
+"front_bias": 0.04,
+"outer_rate": 0.431,
+"top3_turf": 0.231,
+"top3_dirt": null
+},
+"中村将之": {
+"n": 148,
+"win": 0.061,
+"top3": 0.257,
+"front_bias": 0.0038,
+"outer_rate": 0.431,
+"top3_turf": 0.257,
+"top3_dirt": null
+},
+"宮崎北斗": {
+"n": 87,
+"win": 0.034,
+"top3": 0.08,
+"front_bias": -0.029,
+"outer_rate": 0.395,
+"top3_turf": 0.0,
+"top3_dirt": 0.099
+},
+"鮫島良太": {
+"n": 285,
+"win": 0.035,
+"top3": 0.2,
+"front_bias": 0.0143,
+"outer_rate": 0.415,
+"top3_turf": 0.058,
+"top3_dirt": 0.261
+},
+"西塚洸二": {
+"n": 1416,
+"win": 0.069,
+"top3": 0.198,
+"front_bias": 0.001,
+"outer_rate": 0.394,
+"top3_turf": 0.2,
+"top3_dirt": 0.195
+},
+"田村太雅": {
+"n": 66,
+"win": 0.045,
+"top3": 0.106,
+"front_bias": 0.0714,
+"outer_rate": 0.485,
+"top3_turf": 0.115,
+"top3_dirt": 0.0
+},
+"山本咲希到": {
+"n": 3,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0103,
+"outer_rate": 0.526,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"W.ビュイック": {
+"n": 53,
+"win": 0.208,
+"top3": 0.434,
+"front_bias": 0.0352,
+"outer_rate": 0.474,
+"top3_turf": 0.441,
+"top3_dirt": 0.421
+},
+"吉村智洋": {
+"n": 61,
+"win": 0.0,
+"top3": 0.033,
+"front_bias": -0.0375,
+"outer_rate": 0.212,
+"top3_turf": 0.0,
+"top3_dirt": 0.061
+},
+"M.ヴェロン": {
+"n": 6,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0364,
+"outer_rate": 0.354,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"笹田知宏": {
+"n": 3,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0216,
+"outer_rate": 0.392,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"小坂忠士": {
+"n": 68,
+"win": 0.103,
+"top3": 0.426,
+"front_bias": 0.0358,
+"outer_rate": 0.483,
+"top3_turf": 0.439,
+"top3_dirt": 0.0
+},
+"B.ムルザバエフ": {
+"n": 237,
+"win": 0.127,
+"top3": 0.338,
+"front_bias": 0.0547,
+"outer_rate": 0.589,
+"top3_turf": 0.319,
+"top3_dirt": 0.355
+},
+"鈴木祐": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0545,
+"outer_rate": 0.442,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"L.モリス": {
+"n": 70,
+"win": 0.014,
+"top3": 0.157,
+"front_bias": -0.0415,
+"outer_rate": 0.327,
+"top3_turf": 0.19,
+"top3_dirt": 0.107
+},
+"岡遼太郎": {
+"n": 3,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0773,
+"outer_rate": 0.562,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"野畑凌": {
+"n": 9,
+"win": 0.111,
+"top3": 0.111,
+"front_bias": -0.0252,
+"outer_rate": 0.548,
+"top3_turf": 0.25,
+"top3_dirt": 0.0
+},
+"新原周馬": {
+"n": 2,
+"win": 0.0,
+"top3": 1.0,
+"front_bias": -0.0488,
+"outer_rate": 0.359,
+"top3_turf": 1.0,
+"top3_dirt": 1.0
+},
+"長尾翼玖": {
+"n": 2,
+"win": 0.0,
+"top3": 0.5,
+"front_bias": -0.0242,
+"outer_rate": 0.442,
+"top3_turf": 0.0,
+"top3_dirt": 1.0
+},
+"菅原涼太": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0095,
+"outer_rate": 0.359,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"大木天翔": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0121,
+"outer_rate": 0.442,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"大畑慧悟": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0111,
+"outer_rate": 0.359,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"浜尚美": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0571,
+"outer_rate": 0.359,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"武豊": {
+"n": 1612,
+"win": 0.14,
+"top3": 0.377,
+"front_bias": 0.0619,
+"outer_rate": 0.554,
+"top3_turf": 0.352,
+"top3_dirt": 0.413
+},
+"及川烈": {
+"n": 5,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0599,
+"outer_rate": 0.331,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"長谷部駿弥": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.431,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"菱田裕二": {
+"n": 1518,
+"win": 0.053,
+"top3": 0.188,
+"front_bias": 0.0477,
+"outer_rate": 0.498,
+"top3_turf": 0.154,
+"top3_dirt": 0.22
+},
+"R.キングスコート": {
+"n": 485,
+"win": 0.134,
+"top3": 0.332,
+"front_bias": -0.0213,
+"outer_rate": 0.444,
+"top3_turf": 0.356,
+"top3_dirt": 0.307
+},
+"R.ピーヒュレク": {
+"n": 86,
+"win": 0.047,
+"top3": 0.198,
+"front_bias": -0.0632,
+"outer_rate": 0.41,
+"top3_turf": 0.182,
+"top3_dirt": 0.214
+},
+"伴啓太": {
+"n": 205,
+"win": 0.083,
+"top3": 0.229,
+"front_bias": 0.013,
+"outer_rate": 0.359,
+"top3_turf": 0.234,
+"top3_dirt": 0.0
+},
+"本田正重": {
+"n": 31,
+"win": 0.032,
+"top3": 0.097,
+"front_bias": 0.0165,
+"outer_rate": 0.396,
+"top3_turf": 0.062,
+"top3_dirt": 0.133
+},
+"A.ルメートル": {
+"n": 241,
+"win": 0.083,
+"top3": 0.257,
+"front_bias": 0.0113,
+"outer_rate": 0.537,
+"top3_turf": 0.257,
+"top3_dirt": 0.257
+},
+"服部寿希": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.431,
+"top3_turf": null,
+"top3_dirt": 0.0
+},
+"岡部誠": {
+"n": 28,
+"win": 0.0,
+"top3": 0.071,
+"front_bias": 0.0455,
+"outer_rate": 0.567,
+"top3_turf": 0.111,
+"top3_dirt": 0.0
+},
+"落合玄太": {
+"n": 43,
+"win": 0.023,
+"top3": 0.093,
+"front_bias": 0.0456,
+"outer_rate": 0.475,
+"top3_turf": 0.125,
+"top3_dirt": 0.053
+},
+"加藤和博": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0417,
+"outer_rate": 0.483,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"矢野貴之": {
+"n": 35,
+"win": 0.057,
+"top3": 0.086,
+"front_bias": 0.0553,
+"outer_rate": 0.391,
+"top3_turf": 0.0,
+"top3_dirt": 0.15
+},
+"御神本訓史": {
+"n": 9,
+"win": 0.0,
+"top3": 0.111,
+"front_bias": 0.1073,
+"outer_rate": 0.457,
+"top3_turf": 0.0,
+"top3_dirt": 0.25
+},
+"長浜鴻緒": {
+"n": 1482,
+"win": 0.039,
+"top3": 0.144,
+"front_bias": -0.0112,
+"outer_rate": 0.441,
+"top3_turf": 0.126,
+"top3_dirt": 0.155
+},
+"大江原比呂": {
+"n": 196,
+"win": 0.02,
+"top3": 0.092,
+"front_bias": -0.0107,
+"outer_rate": 0.417,
+"top3_turf": 0.126,
+"top3_dirt": 0.064
+},
+"石神深道": {
+"n": 1100,
+"win": 0.032,
+"top3": 0.133,
+"front_bias": -0.0159,
+"outer_rate": 0.392,
+"top3_turf": 0.136,
+"top3_dirt": 0.129
+},
+"橋木太希": {
+"n": 321,
+"win": 0.016,
+"top3": 0.081,
+"front_bias": -0.0251,
+"outer_rate": 0.317,
+"top3_turf": 0.087,
+"top3_dirt": 0.077
+},
+"高杉吏麒": {
+"n": 1761,
+"win": 0.093,
+"top3": 0.253,
+"front_bias": -0.0133,
+"outer_rate": 0.459,
+"top3_turf": 0.225,
+"top3_dirt": 0.278
+},
+"吉村誠之助": {
+"n": 2220,
+"win": 0.066,
+"top3": 0.213,
+"front_bias": -0.0156,
+"outer_rate": 0.414,
+"top3_turf": 0.208,
+"top3_dirt": 0.217
+},
+"柴田裕一郎": {
+"n": 989,
+"win": 0.036,
+"top3": 0.111,
+"front_bias": 0.0193,
+"outer_rate": 0.437,
+"top3_turf": 0.083,
+"top3_dirt": 0.132
+},
+"坂口智康": {
+"n": 105,
+"win": 0.076,
+"top3": 0.229,
+"front_bias": 0.006,
+"outer_rate": 0.431,
+"top3_turf": 0.229,
+"top3_dirt": null
+},
+"K.リョン": {
+"n": 7,
+"win": 0.0,
+"top3": 0.286,
+"front_bias": -0.0071,
+"outer_rate": 0.359,
+"top3_turf": 0.25,
+"top3_dirt": 0.333
+},
+"大塚海渡": {
+"n": 3,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0337,
+"outer_rate": 0.442,
+"top3_turf": null,
+"top3_dirt": 0.0
+},
+"森泰斗": {
+"n": 12,
+"win": 0.0,
+"top3": 0.083,
+"front_bias": -0.0509,
+"outer_rate": 0.437,
+"top3_turf": 0.25,
+"top3_dirt": 0.0
+},
+"T.オシェア": {
+"n": 134,
+"win": 0.045,
+"top3": 0.149,
+"front_bias": 0.0388,
+"outer_rate": 0.593,
+"top3_turf": 0.129,
+"top3_dirt": 0.167
+},
+"J.マクドナルド": {
+"n": 4,
+"win": 0.25,
+"top3": 0.5,
+"front_bias": 0.0125,
+"outer_rate": 0.451,
+"top3_turf": 0.667,
+"top3_dirt": 0.0
+},
+"Z.パートン": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.483,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"岩橋勇二": {
+"n": 9,
+"win": 0.0,
+"top3": 0.111,
+"front_bias": 0.0014,
+"outer_rate": 0.332,
+"top3_turf": 0.167,
+"top3_dirt": 0.0
+},
+"D.レーン": {
+"n": 315,
+"win": 0.213,
+"top3": 0.492,
+"front_bias": -0.0238,
+"outer_rate": 0.516,
+"top3_turf": 0.503,
+"top3_dirt": 0.475
+},
+"出水拓人": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.431,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"飛田愛斗": {
+"n": 12,
+"win": 0.0,
+"top3": 0.25,
+"front_bias": -0.071,
+"outer_rate": 0.396,
+"top3_turf": 0.4,
+"top3_dirt": 0.143
+},
+"石川慎将": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.392,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"笹川翼": {
+"n": 31,
+"win": 0.097,
+"top3": 0.194,
+"front_bias": 0.0885,
+"outer_rate": 0.582,
+"top3_turf": 0.067,
+"top3_dirt": 0.312
+},
+"石川倭": {
+"n": 83,
+"win": 0.06,
+"top3": 0.096,
+"front_bias": 0.04,
+"outer_rate": 0.414,
+"top3_turf": 0.067,
+"top3_dirt": 0.132
+},
+"吉原寛人": {
+"n": 7,
+"win": 0.0,
+"top3": 0.143,
+"front_bias": 0.0091,
+"outer_rate": 0.331,
+"top3_turf": 0.25,
+"top3_dirt": 0.0
+},
+"桑村真明": {
+"n": 22,
+"win": 0.0,
+"top3": 0.045,
+"front_bias": 0.0554,
+"outer_rate": 0.535,
+"top3_turf": 0.0,
+"top3_dirt": 0.125
+},
+"小野楓馬": {
+"n": 15,
+"win": 0.0,
+"top3": 0.067,
+"front_bias": 0.01,
+"outer_rate": 0.365,
+"top3_turf": 0.091,
+"top3_dirt": 0.0
+},
+"C.ホー": {
+"n": 15,
+"win": 0.133,
+"top3": 0.333,
+"front_bias": -0.0142,
+"outer_rate": 0.415,
+"top3_turf": 0.2,
+"top3_dirt": 0.6
+},
+"K.ティータン": {
+"n": 34,
+"win": 0.059,
+"top3": 0.088,
+"front_bias": 0.0239,
+"outer_rate": 0.447,
+"top3_turf": 0.143,
+"top3_dirt": 0.0
+},
+"D.サンチアゴ": {
+"n": 8,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0272,
+"outer_rate": 0.519,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"服部茂史": {
+"n": 10,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0402,
+"outer_rate": 0.379,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"A.シュタルケ": {
+"n": 240,
+"win": 0.071,
+"top3": 0.217,
+"front_bias": -0.0256,
+"outer_rate": 0.359,
+"top3_turf": 0.231,
+"top3_dirt": 0.2
+},
+"C.デムーロ": {
+"n": 338,
+"win": 0.225,
+"top3": 0.503,
+"front_bias": -0.0309,
+"outer_rate": 0.578,
+"top3_turf": 0.532,
+"top3_dirt": 0.466
+},
+"渡辺竜也": {
+"n": 77,
+"win": 0.026,
+"top3": 0.13,
+"front_bias": 0.0329,
+"outer_rate": 0.449,
+"top3_turf": 0.056,
+"top3_dirt": 0.195
+},
+"C.スミヨン": {
+"n": 6,
+"win": 0.0,
+"top3": 0.333,
+"front_bias": 0.0184,
+"outer_rate": 0.451,
+"top3_turf": 0.2,
+"top3_dirt": 1.0
+},
+"M.ミシェル": {
+"n": 65,
+"win": 0.062,
+"top3": 0.169,
+"front_bias": 0.0334,
+"outer_rate": 0.611,
+"top3_turf": 0.194,
+"top3_dirt": 0.147
+},
+"L.デットーリ": {
+"n": 8,
+"win": 0.375,
+"top3": 0.625,
+"front_bias": -0.0005,
+"outer_rate": 0.489,
+"top3_turf": 0.667,
+"top3_dirt": 0.5
+},
+"和田譲治": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.431,
+"top3_turf": null,
+"top3_dirt": 0.0
+},
+"室陽一朗": {
+"n": 2,
+"win": 0.5,
+"top3": 0.5,
+"front_bias": -0.0265,
+"outer_rate": 0.442,
+"top3_turf": 1.0,
+"top3_dirt": 0.0
+},
+"望月洵輝": {
+"n": 6,
+"win": 0.167,
+"top3": 0.5,
+"front_bias": -0.0682,
+"outer_rate": 0.451,
+"top3_turf": 0.667,
+"top3_dirt": 0.333
+},
+"加藤翔馬": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0282,
+"outer_rate": 0.526,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"鷹見陸": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0019,
+"outer_rate": 0.392,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"土方颯太": {
+"n": 4,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0075,
+"outer_rate": 0.562,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"長江慶悟": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0183,
+"outer_rate": 0.442,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"谷内貫太": {
+"n": 4,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0123,
+"outer_rate": 0.485,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"山林堂信彦": {
+"n": 4,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0634,
+"outer_rate": 0.392,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"舟山瑠泉": {
+"n": 756,
+"win": 0.081,
+"top3": 0.238,
+"front_bias": -0.0262,
+"outer_rate": 0.458,
+"top3_turf": 0.228,
+"top3_dirt": 0.249
+},
+"上里直汰": {
+"n": 559,
+"win": 0.034,
+"top3": 0.098,
+"front_bias": -0.0156,
+"outer_rate": 0.404,
+"top3_turf": 0.069,
+"top3_dirt": 0.117
+},
+"遠藤汰月": {
+"n": 639,
+"win": 0.009,
+"top3": 0.059,
+"front_bias": -0.0217,
+"outer_rate": 0.445,
+"top3_turf": 0.06,
+"top3_dirt": 0.059
+},
+"谷原柚希": {
+"n": 121,
+"win": 0.0,
+"top3": 0.025,
+"front_bias": 0.0156,
+"outer_rate": 0.475,
+"top3_turf": 0.0,
+"top3_dirt": 0.041
+},
+"和田陽希": {
+"n": 658,
+"win": 0.03,
+"top3": 0.123,
+"front_bias": 0.0092,
+"outer_rate": 0.405,
+"top3_turf": 0.09,
+"top3_dirt": 0.151
+},
+"森田誠也": {
+"n": 578,
+"win": 0.026,
+"top3": 0.111,
+"front_bias": 0.0031,
+"outer_rate": 0.3,
+"top3_turf": 0.097,
+"top3_dirt": 0.121
+},
+"田山旺佑": {
+"n": 1053,
+"win": 0.063,
+"top3": 0.184,
+"front_bias": -0.0211,
+"outer_rate": 0.396,
+"top3_turf": 0.165,
+"top3_dirt": 0.202
+},
+"大柿一真": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.431,
+"top3_turf": null,
+"top3_dirt": 0.0
+},
+"広瀬航": {
+"n": 8,
+"win": 0.0,
+"top3": 0.125,
+"front_bias": -0.0476,
+"outer_rate": 0.408,
+"top3_turf": 0.0,
+"top3_dirt": 0.25
+},
+"M.ディー": {
+"n": 293,
+"win": 0.065,
+"top3": 0.222,
+"front_bias": -0.0251,
+"outer_rate": 0.539,
+"top3_turf": 0.234,
+"top3_dirt": 0.212
+},
+"山田義貴": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.483,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"金山昇馬": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.392,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"加藤聡一": {
+"n": 4,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0511,
+"outer_rate": 0.392,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"鴨宮祥行": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0371,
+"outer_rate": 0.392,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"A.バデル": {
+"n": 68,
+"win": 0.176,
+"top3": 0.338,
+"front_bias": -0.0811,
+"outer_rate": 0.531,
+"top3_turf": 0.375,
+"top3_dirt": 0.286
+},
+"山中悠希": {
+"n": 3,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0623,
+"outer_rate": 0.392,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"C.ウィリアムズ": {
+"n": 12,
+"win": 0.167,
+"top3": 0.333,
+"front_bias": 0.0226,
+"outer_rate": 0.519,
+"top3_turf": 0.25,
+"top3_dirt": 0.5
+},
+"F.ゴンサルベス": {
+"n": 9,
+"win": 0.111,
+"top3": 0.333,
+"front_bias": -0.0047,
+"outer_rate": 0.421,
+"top3_turf": 0.25,
+"top3_dirt": 0.4
+},
+"T.ハマーハンセン": {
+"n": 115,
+"win": 0.096,
+"top3": 0.226,
+"front_bias": 0.017,
+"outer_rate": 0.503,
+"top3_turf": 0.18,
+"top3_dirt": 0.278
+},
+"C.トーレス": {
+"n": 4,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0032,
+"outer_rate": 0.562,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"阿部龍": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.359,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"菅原辰徳": {
+"n": 4,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0104,
+"outer_rate": 0.442,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"山本聡哉": {
+"n": 3,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0591,
+"outer_rate": 0.485,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"A.プーシャン": {
+"n": 120,
+"win": 0.133,
+"top3": 0.333,
+"front_bias": -0.0611,
+"outer_rate": 0.455,
+"top3_turf": 0.297,
+"top3_dirt": 0.391
+},
+"M.ザーラ": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.483,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"M.バルザローナ": {
+"n": 11,
+"win": 0.273,
+"top3": 0.455,
+"front_bias": -0.0418,
+"outer_rate": 0.3,
+"top3_turf": 0.6,
+"top3_dirt": 0.333
+},
+"松戸政也": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.431,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"川原正一": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.431,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"F.ジェルー": {
+"n": 59,
+"win": 0.034,
+"top3": 0.271,
+"front_bias": -0.0119,
+"outer_rate": 0.424,
+"top3_turf": 0.25,
+"top3_dirt": 0.296
+},
+"丸野勝虎": {
+"n": 7,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0188,
+"outer_rate": 0.408,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"永井孝典": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.392,
+"top3_turf": null,
+"top3_dirt": 0.0
+},
+"福原杏": {
+"n": 3,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0203,
+"outer_rate": 0.392,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"佐野遥久": {
+"n": 2,
+"win": 0.0,
+"top3": 0.5,
+"front_bias": -0.0451,
+"outer_rate": 0.442,
+"top3_turf": 1.0,
+"top3_dirt": 0.0
+},
+"松本一心": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0188,
+"outer_rate": 0.483,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"山本大翔": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0117,
+"outer_rate": 0.392,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"神尾香澄": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.029,
+"outer_rate": 0.483,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"青海大樹": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0152,
+"outer_rate": 0.442,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"塩津璃菜": {
+"n": 2,
+"win": 0.5,
+"top3": 0.5,
+"front_bias": -0.0031,
+"outer_rate": 0.442,
+"top3_turf": 0.0,
+"top3_dirt": 1.0
+},
+"下原理": {
+"n": 3,
+"win": 0.0,
+"top3": 0.333,
+"front_bias": 0.0268,
+"outer_rate": 0.442,
+"top3_turf": 0.5,
+"top3_dirt": 0.0
+},
+"岡村健司": {
+"n": 2,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.392,
+"top3_turf": null,
+"top3_dirt": 0.0
+},
+"安藤洋一": {
+"n": 9,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0909,
+"outer_rate": 0.526,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"桜井光輔": {
+"n": 4,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.038,
+"outer_rate": 0.331,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"ゴンサル": {
+"n": 141,
+"win": 0.092,
+"top3": 0.291,
+"front_bias": -0.0163,
+"outer_rate": 0.362,
+"top3_turf": 0.282,
+"top3_dirt": 0.3
+},
+"井上瑛太": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.431,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"コレット": {
+"n": 97,
+"win": 0.134,
+"top3": 0.309,
+"front_bias": -0.0069,
+"outer_rate": 0.409,
+"top3_turf": 0.357,
+"top3_dirt": 0.244
+},
+"長谷川蓮": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.431,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"筒井勇介": {
+"n": 3,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": -0.0035,
+"outer_rate": 0.442,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"ヘルナン": {
+"n": 9,
+"win": 0.111,
+"top3": 0.222,
+"front_bias": -0.0346,
+"outer_rate": 0.451,
+"top3_turf": 0.0,
+"top3_dirt": 0.5
+},
+"ロイド": {
+"n": 13,
+"win": 0.0,
+"top3": 0.231,
+"front_bias": -0.0452,
+"outer_rate": 0.415,
+"top3_turf": 0.333,
+"top3_dirt": 0.0
+},
+"ナレドゥ": {
+"n": 9,
+"win": 0.111,
+"top3": 0.222,
+"front_bias": -0.0616,
+"outer_rate": 0.517,
+"top3_turf": 0.167,
+"top3_dirt": 0.333
+},
+"フーリー": {
+"n": 7,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0059,
+"outer_rate": 0.487,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"宮内勇樹": {
+"n": 2,
+"win": 0.0,
+"top3": 0.5,
+"front_bias": 0.0,
+"outer_rate": 0.442,
+"top3_turf": 0.5,
+"top3_dirt": null
+},
+"小谷哲平": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.431,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"田野豊三": {
+"n": 1,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0,
+"outer_rate": 0.392,
+"top3_turf": 0.0,
+"top3_dirt": null
+},
+"山本政聡": {
+"n": 3,
+"win": 0.0,
+"top3": 0.0,
+"front_bias": 0.0384,
+"outer_rate": 0.442,
+"top3_turf": 0.0,
+"top3_dirt": 0.0
+},
+"プーシャ": {
+"n": 28,
+"win": 0.179,
+"top3": 0.286,
+"front_bias": -0.0025,
+"outer_rate": 0.424,
+"top3_turf": 0.267,
+"top3_dirt": 0.308
+},
+"マーカン": {
+"n": 17,
+"win": 0.059,
+"top3": 0.412,
+"front_bias": 0.0327,
+"outer_rate": 0.274,
+"top3_turf": 0.5,
+"top3_dirt": 0.286
+}
+}
+}
