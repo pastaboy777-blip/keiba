@@ -33,11 +33,23 @@ def main():
         rows = []
         for h in v["horses"]:
             P = h.get("past") or []
-            c4 = [rel(p, "c4") for p in P]; c4 = [x for x in c4 if x is not None]
-            c1 = [rel(p, "c1") for p in P]; c1 = [x for x in c1 if x is not None]
             import statistics as st
+            c4 = [rel(p, "c4") for p in P]; c4 = [x for x in c4 if x is not None]
+            # ★ gain は「1走ごとの（1角相対 − 4角相対）」の中央値。
+            #   前は median(c1) − median(c4) で出していたが、これは**別の量**。
+            #   2026-11-10 の6Rで⑪スナオナキモチ +0.15 → +0.22、⑫フライングロッド
+            #   +0.21 → +0.08 と、押し上げ型の判定（0.20）をまたいで入れ替わった。
+            #   同じ日の7R③、8R⑥⑦、10R②、12R④⑦でも判定が変わっている。
+            #   中央値どうしの引き算は「その馬が実際に何馬身ぶん押し上げたか」を測っていない。
+            per = []
+            for p in P:
+                a, b = rel(p, "c1"), rel(p, "c4")
+                if a is not None and b is not None:
+                    per.append(a - b)
             pos = st.median(c4) if c4 else None
-            gain = (st.median(c1) - pos) if (c1 and pos is not None) else None
+            gain = st.median(per) if per else None
+            gain_old = ((st.median([rel(p, "c1") for p in P if rel(p, "c1") is not None]) - pos)
+                        if (pos is not None and any(rel(p, "c1") is not None for p in P)) else None)
             e, l, _c, n, ext = T.prof(h, dist)
             s = SO.get(h["name"])
             ven = {}
@@ -50,7 +62,7 @@ def main():
                 gap = (TODAY - dt.date(2000 + y, m, d)).days
                 dd = dist - p0["dist"]; chaku = p0["chaku"]; n0 = p0["n"]
             rows.append(dict(ub=h["ub"], waku=h.get("waku"), name=h["name"],
-                             pos=pos, gain=gain,
+                             pos=pos, gain=gain, gain_old=gain_old,
                              soto=(s["out"] / s["grp"]) if s and s["grp"] >= 3 else None,
                              sn=(s["grp"] if s else 0),
                              l=l, e=e, ext=ext, runs=len(P), ven=ven,

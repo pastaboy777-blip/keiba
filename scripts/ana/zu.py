@@ -57,15 +57,26 @@ WID, LANE, PAD, GAP = 840, 88, 64, 130
 
 
 def rel_pos(h):
+    """4角相対の中央値と、押し上げ幅。
+
+    ★ 押し上げ幅は「1走ごとの（1角相対 − 4角相対）」の中央値（2026-11-10 に直した）。
+      median(c1) − median(c4) は別の量で、押し上げ型の判定（0.20）をまたいで
+      入れ替わる馬が1日に7頭出た。実際に何馬身ぶん上がったかを測ること。
+
+    ★ 押し上げ型＝後方待機ではない。11/10 9Rで①エースクイーンを
+      「押し上げ型だから後方有利の馬場でないと向きが逆」として下げたが、
+      この馬は**4角3番手まで上げきって勝った**。gain は動く量であって、
+      どこから動くかは pos が持っている。**必ず pos と一緒に読むこと。**"""
     import statistics as st
-    c1, c4 = [], []
+    c4, per = [], []
     for p in (h.get('past') or []):
-        if p.get('c4') and p.get('n'):
-            c4.append((p['c4'] - 1) / max(1, p['n'] - 1))
-        if p.get('c1') and p.get('n'):
-            c1.append((p['c1'] - 1) / max(1, p['n'] - 1))
-    return (st.median(c4) if c4 else None,
-            (st.median(c1) - st.median(c4)) if c1 and c4 else None)
+        a = (p['c1'] - 1) / max(1, p['n'] - 1) if (p.get('c1') and p.get('n')) else None
+        b = (p['c4'] - 1) / max(1, p['n'] - 1) if (p.get('c4') and p.get('n')) else None
+        if b is not None:
+            c4.append(b)
+        if a is not None and b is not None:
+            per.append(a - b)
+    return (st.median(c4) if c4 else None, st.median(per) if per else None)
 
 
 def build(card, pace, soto=None, zone=False, note=None):
