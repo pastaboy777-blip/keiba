@@ -79,29 +79,10 @@ def rel_pos(h):
     return (st.median(c4) if c4 else None, st.median(per) if per else None)
 
 
-STEP, ROWH = 34, 66
-
-
-def place_line(hs):
-    """★ 隊列は「1頭1段・前から順に後ろへ」で置く（2026-11-11 に直した）。
-
-    前は x を pos から決め、重なったら段を増やしていた。すると pos が近い馬が
-    **同じ x に縦に積まれて「横一線」に見える**。
-    11/10 川崎6Rの前め5頭は pos 0.14/0.15/0.17/0.18/0.22（⑦⑧②④①）で、
-    実際は ⑦→⑧→②→④→① の縦列なのに、図では5頭が並んでいるように描いていた。
-    ユーザーの指摘 ──「①を⑦の後ろに置けないとだめ」。
-
-    いまは1頭につき1段を使い、**必ず前の馬より左**に置く。
-    間隔が空いている馬はそのぶん大きく下がるので、**差の大きさも残る**。"""
-    out, prev = [], None
-    for i, r in enumerate(sorted(hs, key=lambda r: r['pos'])):
-        x = PAD + (1 - r['pos']) * (WID - 2 * PAD)
-        if prev is not None:
-            x = min(x, prev - STEP)
-        x = max(x, PAD)
-        out.append((r, x, i)); prev = x
-    return out
-
+# ★ 2026-11-11 ── 一度「1頭1段・前から順に後ろへ」に変えたが**誤り**だった。
+#   図の形は重なり避けの段のままでよい。直すべきはそこではなく、
+#   **枠で取れない位置に馬を置かないこと**（ルール19・20）。
+#   8枠の馬を先頭列の内の場所に置かない。そこは内枠の馬が入る。
 
 def build(card, pace, soto=None, zone=False, note=None):
     D = json.load(open(card))
@@ -126,9 +107,16 @@ def build(card, pace, soto=None, zone=False, note=None):
         #   `if r['l']` も l==0.0 を落とすので is not None にする。
         rk = {r['ub']: i + 1 for i, r in
               enumerate(sorted([r for r in rows if r['l'] is not None], key=lambda r: r['l']))}
-        hs = [r for r in rows if r['pos'] is not None]
-        cells = place_line(hs)
-        NL = max(1, len(cells)); HT = NL * ROWH + 26
+        hs = sorted([r for r in rows if r['pos'] is not None], key=lambda r: r['pos'])
+        cells, lanes = [], []
+        for r in hs:
+            x = PAD + (1 - r['pos']) * (WID - 2 * PAD)
+            for i, last in enumerate(lanes):
+                if x < last - GAP:
+                    lanes[i] = x; cells.append((r, x, i)); break
+            else:
+                lanes.append(x); cells.append((r, x, len(lanes) - 1))
+        NL = max(1, len(lanes)); HT = NL * LANE + 24
         note = note or {}
         tag_, name_, nz, side, zlab, pcls = ZONE[pace[R]]
         nz = min(nz, NL)
@@ -153,7 +141,7 @@ def build(card, pace, soto=None, zone=False, note=None):
             hh.append('<div class="horse" style="left:%dpx;top:%dpx"><div class="fig">%s%s</div>'
                 '<div class="lab"><span class="n" style="background:%s;color:%s;border-color:%s">%d</span>'
                 '<span class="nm">%s</span></div>%s%s</div>'
-                % (int(x), 12 + lane * ROWH, HORSE.format(c=col), CHEV.format(c=cc),
+                % (int(x), 14 + lane * LANE, HORSE.format(c=col), CHEV.format(c=cc),
                    wc[0], wc[1], '#00000055' if r['waku'] == 1 else 'rgba(255,255,255,.45)',
                    r['ub'], html.escape(r['name']), t, so))
         out.append(
