@@ -93,7 +93,8 @@ def row_of(h, dist, od):
     e, l, _c, n, ext = T.prof(h, dist)
     o = od.get(h['ub']) or {}
     waku = h.get('waku') or o.get('waku') or 4
-    jn, jr = jk_rate(o.get('jk'))
+    # ★ 騎手は出馬表（syutuba.py が拾う jk）を優先。オッズ頁は発走の数時間前まで開かない
+    jn, jr = jk_rate(h.get('jk') or o.get('jk'))
     s = SOTO.get(h['name'])
     return dict(ub=h['ub'], name=h['name'], waku=waku, jk=jn, jr=jr,
                 uchi=WK.get(waku, .45) + ((jr - JK_BASE) if jr is not None else 0.0),
@@ -101,6 +102,7 @@ def row_of(h, dist, od):
                 pos4=(st.median(c4) if c4 else None), nopos=False,
                 gain=(st.median(per) if per else None), l=l, runs=len(P),
                 soto=((s['out'] / s['grp']) if s and s['grp'] >= 3 else None),
+                tr=(h.get('tr') or o.get('tr')),
                 chaku=o.get('chaku'), nin=o.get('nin'), odds=o.get('odds'))
 
 

@@ -107,6 +107,15 @@ def one(base, R):
                          "t": sec, "zen": round(sec - agf, 1) if sec else None,
                          "w": int(w), "waku": int(wk), "tsuka": q,
                          "c1": q[0] if q else None, "c4": q[-1] if q else None})
+        # ★ 騎手と調教師（2026-11-11 に追加）
+        #   ブロックは「54.0 | 野畑凌 | （川 崎） | 【0.0%】 | 【0.0%】 | 山崎誠」の並び。
+        #   オッズ頁（tanfuku）は発走の数時間前まで開かないので、前夜はここからしか取れない。
+        #   騎手は内外（jk_soto.json）に、調教師は2頭出しの判定に使う。
+        mjk = re.search(r"(?:\d+\.\d)\s+([^\s（）\[\]【】]{2,6})\s*[（(]", fb)
+        mtr = re.search(r"】\s*([^\s（）\[\]【】]{2,6})\s", fb[fb.find("】"):]) if "】" in fb else None
+        if mtr:
+            mtr = re.findall(r"】\s*([^\s（）\[\]【】]{2,6})\s", fb)
+            mtr = mtr[-1] if mtr else None
         # ★ 当日だけ入る欄。前日は空
         mo = re.search(r"(\d+\.\d)\s*倍", fb)
         mnk = re.search(r"(\d{1,2})\s*番人気", fb)
@@ -116,7 +125,9 @@ def one(base, R):
                    "odds": float(mo.group(1)) if mo else None,
                    "nin": int(mnk.group(1)) if mnk else None,
                    "w": int(mww.group(1)) if mww else None,
-                   "dw": mww.group(2).replace("±", "+") if mww else None})
+                   "dw": mww.group(2).replace("±", "+") if mww else None,
+                   "jk": mjk.group(1) if mjk else None,
+                   "tr": mtr if mtr else None})
     return {"R": R, "dist": int(md.group(2).replace(",", "")) if md else None,
             "start": ms.group(1) if ms else "", "cls": ms.group(2) if ms else "",
             "horses": hs}
