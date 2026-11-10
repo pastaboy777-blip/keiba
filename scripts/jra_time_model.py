@@ -46,7 +46,14 @@ class TimeModel:
         self.cell = {"|".join(map(str, k)): sum(v) / (len(v) + self.shrink) for k, v in cell.items()}
         res = [y - self._lin(d) - self._cell(d) for d, y in zip(races, ys)]
         self.wb = J.ols([baba_x(d) + [1.0] for d in races], res)
+        # クラス・年齢条件・重賞(記録がある鞍だけで学習。scripts/jra_class_kenkyu.py: タイム誤差 1.15→0.97秒)
+        from jra_class_kenkyu import cls_x
+        cr = [(d, y) for d, y in zip(races, ys) if d.get("race_class")]
+        self.wc = J.ols([cls_x(d) for d, _ in cr], [y - self._base(d) for d, y in cr]) if len(cr) > 50 else None
         return self
+
+    def _base(self, d):
+        return self._lin(d) + self._cell(d) + sum(a * b for a, b in zip(self.wb, baba_x(d) + [1.0]))
 
     def _lin(self, d):
         return sum(a * b for a, b in zip(self.w, lin_x(d) + [d["distance"] ** 2 / 1e6]))
@@ -55,10 +62,14 @@ class TimeModel:
         return self.cell.get("|".join(map(str, (d["place"], d["surface"], d["distance"]))), 0.0)
 
     def predict(self, d):
-        return self._lin(d) + self._cell(d) + sum(a * b for a, b in zip(self.wb, baba_x(d) + [1.0]))
+        v = self._base(d)
+        if getattr(self, "wc", None) and d.get("race_class"):
+            from jra_class_kenkyu import cls_x
+            v += sum(a * b for a, b in zip(self.wc, cls_x(d)))
+        return v
 
     def dump(self):
-        return {"w": self.w, "cell": self.cell, "wb": self.wb}
+        return {"w": self.w, "cell": self.cell, "wb": self.wb, "wc": self.wc}
 
 
 def main() -> None:

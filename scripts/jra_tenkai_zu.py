@@ -94,6 +94,18 @@ def parse_past(html: str, race_date: str) -> dict[int, dict]:
     return out
 
 
+def parse_class(html: str) -> dict:
+    """出馬表の RaceData02 とグレードのアイコンから クラス・年齢条件・グレード を取る。"""
+    import unicodedata
+    m = re.search(r'class="RaceData02">(.*?)</div>', html, re.S)
+    t = unicodedata.normalize("NFKC", _clean(m.group(1))) if m else ""
+    typ = re.search(r"(\d歳以上|\d歳)", t)
+    cls = re.search(r"(新馬|未勝利|\d勝クラス|オープン)", t)
+    g = re.search(r"Icon_GradeType([123])\b", html)
+    return {"race_type": typ.group(1) if typ else None, "race_class": cls.group(1) if cls else None,
+            "grade": ("G" + g.group(1)) if g else None}
+
+
 def parse_shutuba(html: str) -> tuple[dict[int, int], str, str]:
     """出馬表 → (馬番→枠, レース名, 条件文字列)"""
     waku = {}
@@ -195,7 +207,7 @@ def apply_position_model(rows, field, fc, *, dist, surface):
             r["pos3"] = (r["pos1"] + r["pos"]) / 2
 
 
-def learned_pace(data_path: str, before: str, *, place, dist, surface, n, baba=None, race_id=None):
+def learned_pace(data_path: str, before: str, *, place, dist, surface, n, baba=None, race_id=None, klass=None):
     """前後半差[秒]の想定と確度。before より前の鞍だけで作る(当日の前のレースは使う)。
 
     scripts/jra_pace_model.py の比較で最良だった「コース(場×芝ダ×距離)平均 + 馬場 + 当日のずれ」。
@@ -217,7 +229,7 @@ def learned_pace(data_path: str, before: str, *, place, dist, surface, n, baba=N
     m = PaceModel().fit(tr)
     v = sorted(pace_of(d["lap"], d["distance"])["diff"] for d in tr)
     q = (v[len(v) // 3], v[2 * len(v) // 3])
-    me = {"place": place, "distance": dist, "surface": surface, "field_size": n, "baba": baba}
+    me = {"place": place, "distance": dist, "surface": surface, "field_size": n, "baba": baba, **(klass or {})}
     pred = m.predict(me)
     prev = [pace_of(d["lap"], d["distance"])["diff"] - m.predict(d) for d in rows
             if d["date"] == before and d["place"] == place and d["surface"] == surface
@@ -243,7 +255,7 @@ def estimate_times(rows, me, before, race_id):
     out = {}
     for k in ("front3", "last3", "time"):
         m = TimeModel(k)
-        m.w, m.cell, m.wb = M[k]["w"], M[k]["cell"], M[k]["wb"]
+        m.w, m.cell, m.wb, m.wc = M[k]["w"], M[k]["cell"], M[k]["wb"], M[k].get("wc")
         v = m.predict(me)
         prev = [target(d, k) - m.predict(d) for d in rows
                 if d["date"] == before and d["place"] == me["place"] and d["surface"] == me["surface"]
@@ -612,7 +624,7 @@ def main() -> None:
     fc, rows, rk = build(past, waku, place=place, dist=dist, surface=surface, baba=baba)
     if a.pace_data:
         diff, nl, conf, q, est = learned_pace(a.pace_data, a.date, place=place, dist=dist, surface=surface,
-                                         n=len(rows), baba=baba, race_id=a.race_id)
+                                         n=len(rows), baba=baba, race_id=a.race_id, klass=parse_class(sh))
         apply_learned_pace(fc, rows, diff, q=q)
         fc.n_learn, fc.conf, fc.est = nl, conf, est
     body = render_race(rno, name, dist, surface, baba, len(rows), fc, rows, rk)
