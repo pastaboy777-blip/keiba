@@ -121,14 +121,24 @@ def waku_of(umaban: int, n: int) -> int:
     return 8
 
 
+_ROWS_CACHE: dict = {}
+_PACE_CACHE: dict = {}
+
+
+def load_rows(data_path: str) -> list:
+    import json
+    if data_path not in _ROWS_CACHE:
+        _ROWS_CACHE[data_path] = [json.loads(l) for l in open(data_path, encoding="utf-8") if l.strip()]
+    return _ROWS_CACHE[data_path]
+
+
 def from_data(data_path: str, race_id: str):
     """集めたデータ(jra_harvest / jra_official_harvest の JSONL)だけで、その鞍の出走馬と過去走を組み立てる。
 
     ネットに取りに行かない。過去走はその鞍の日付より前の走だけ(結果は使わない)。
     返り値: (past, waku, name, info, klass, date, place)  ※ past は parse_past と同じ形
     """
-    import json
-    rows = [json.loads(l) for l in open(data_path, encoding="utf-8") if l.strip()]
+    rows = load_rows(data_path)
     me = next(d for d in rows if d["race_id"] == race_id)
     hist = {}
     for d in sorted(rows, key=lambda d: (d["date"], d["race_id"])):
@@ -326,14 +336,14 @@ def learned_pace(data_path: str, before: str, *, place, dist, surface, n, baba=N
     sys.path.insert(0, str(ROOT / "scripts"))
     from jra_pace_model import PaceModel
     from nankeiba.scraping.db_race import pace_of
-    rows = []
-    for line in open(data_path, encoding="utf-8"):
-        d = json.loads(line)
-        if d.get("surface") in ("芝", "ダ") and pace_of(d.get("lap") or [], d["distance"]):
-            rows.append(d)
-    tr = [d for d in rows if d["date"] < before]
-    m = PaceModel().fit(tr)
-    v = sorted(pace_of(d["lap"], d["distance"])["diff"] for d in tr)
+    rows = [d for d in load_rows(data_path)
+            if d.get("surface") in ("芝", "ダ") and pace_of(d.get("lap") or [], d["distance"])]
+    key = (data_path, before)
+    if key not in _PACE_CACHE:   # 1日分を描くときに同じモデルを何度も作らない
+        tr = [d for d in rows if d["date"] < before]
+        _PACE_CACHE[key] = (PaceModel().fit(tr), sorted(pace_of(d["lap"], d["distance"])["diff"] for d in tr), len(tr))
+    m, v, ntr = _PACE_CACHE[key]
+    tr = range(ntr)
     q = (v[len(v) // 3], v[2 * len(v) // 3])
     me = {"place": place, "distance": dist, "surface": surface, "field_size": n, "baba": baba, **(klass or {})}
     pred = m.predict(me)
@@ -502,10 +512,19 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
         board_html = board_html.replace('class="track"', 'class="track turf"')
     pcls, ptag = {"スロー": ("slow", "S"), "ミドル": ("mid", "M"), "ハイ": ("high", "H")}[fc.pace]
     mark = max(0.02, min(0.98, 0.5 + fc.pace_index * 0.667))
+    q = getattr(fc, "q", None)
+    if q and getattr(fc, "diff_pred", None) is not None:   # バーの3区分を想定の区分の境目に合わせる
+        dpr = fc.diff_pred
+        if dpr > q[1]:
+            mark = 1 / 3 * max(0.06, 1 - (dpr - q[1]) / 2.0)
+        elif dpr >= q[0]:
+            mark = 1 / 3 + 1 / 3 * (q[1] - dpr) / max(1e-6, q[1] - q[0])
+        else:
+            mark = 2 / 3 + 1 / 3 * min(0.94, (q[0] - dpr) / 2.0)
     flow = {
-        "slow": "→ 前が楽。前で運べる馬が残る形",
-        "mid": "→ 中団から前へ出てくる馬が届く",
-        "high": "→ 前が垂れる。後ろから差せる形",
+        "slow": "前半はゆっくり → 前に行った馬がそのまま残りやすい",
+        "mid": "前半はふつう → 前の組が基本、中団から外へ出す馬も届く",
+        "high": "前半が速い → 前の組がいちばん来るが、差すなら外",
     }[pcls]
     es = sorted([r["e"] for r in rows if r["e"]], reverse=True)
     est = getattr(fc, "est", None)
@@ -540,13 +559,14 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
     return (
         '<div class="race"><div class="rh"><span class="rn">%sR</span>'
         '<span class="rd">%s　<b>%s%dm</b> ／ %d頭 ／ %s</span>'
-        '<span class="pace p-%s"><b>%s</b> %s想定</span></div>'
+        '<span class="pace p-%s"><b>%s</b> %s</span></div>'
         '<div class="pbar p-%s"><div class="bar"><span>ゆっくり</span><span>ふつう</span><span>速い</span>'
         '<i style="left:%.1f%%"></i></div><div class="flow"><b>%s</b>　<small>%s</small></div>%s</div>'
         '%s'
         '<div class="kenkai"><div class="kt">見解</div>%s</div>%s</div>'
         % (rno, H.escape(name), surface, dist, n, H.escape(baba or ""),
-           pcls, ptag, fc.pace, pcls, mark * 100, flow, flow_sub, est_html,
+           pcls, ptag, {"スロー": "スロー", "ミドル": "平均", "ハイ": "ハイ"}[fc.pace] + "想定",
+           pcls, mark * 100, flow, flow_sub, est_html,
            board_html, memo, miss))
 
 
@@ -558,7 +578,7 @@ def simple_board(rows, fc, n, rk) -> str:
     med = st.median(r.get("outer_score", 0) for r in hs) if hs else 0
     lanes, cells, gap = [], [], 168
     for r in hs:
-        x = PAD + r["pos"] * (WID - 2 * PAD)
+        x = PAD + r["pos"] * (WID - 2 * PAD - 90)   # 右端の馬の名前が切れないように余白
         start = 0 if r.get("outer_score", 0) <= med else 1
         i = start
         while True:
@@ -576,14 +596,24 @@ def simple_board(rows, fc, n, rk) -> str:
     hh = []
     for r, x, lane in cells:
         col, cc, t = "#d8c7ae", "#b9b9c4", ""
+        osc = r.get("outer_score", 0)
         if r.get("gain") is not None and r["gain"] >= 0.20:
-            col = cc = "#6fc0ff"
-            t = '<span class="upq">▲押し上げ</span>'
+            if osc >= hi_q:
+                col = cc = "#ff9f52"
+                t = '<span class="upo">▲外から押し上げ</span>'
+            elif osc <= lo_q:
+                col = cc = "#5fe07a"
+                t = '<span class="upi">▲内のまま押し上げ</span>'
+            else:
+                col = cc = "#6fc0ff"
+                t = '<span class="upq">▲押し上げ</span>'
+        elif r.get("gain") is not None and r["gain"] <= -0.20:
+            t = '<span class="dn">▼下がる</span>'
         so = '<span class="sm">終い%d位</span>' % rk[r["ub"]] if rk.get(r["ub"], 99) <= 3 else ""
-        if "outer_score" in r and r["outer_score"] <= lo_q:
+        if "outer_score" in r and osc <= lo_q and "upi" not in t:
             so += '<span class="sin">内に入りがち</span>'
-        elif "outer_score" in r and r["outer_score"] >= hi_q:
-            so += '<span class="sin">外を回しがち</span>'
+        elif "outer_score" in r and osc >= hi_q and "upo" not in t:
+            so += '<span class="so">外に出せる</span>'
         wc = WAKU.get(r["waku"], ("#15110d", "#f2f2f4"))
         hh.append('<div class="horse wide" style="left:%dpx;top:%dpx"><div class="fig">%s%s</div>'
                   '<div class="lab"><span class="n" style="background:%s;color:%s;border-color:%s">%d</span>'
@@ -650,6 +680,8 @@ def draw_zone(cells, fc, ellipse=False):
     if not rule:
         return "", []
     side, lab, why = rule
+    if not cells:          # 新馬戦など、過去走のある馬がいない
+        return "", []
     xs = sorted({x for _, x, _ in cells}, reverse=True)
     n = len(cells)
     # 前4割まで(3年分のスロー想定3,273鞍: 前1/3→前4割で 帯の3着内率 36.8→36.0%、1〜3着が全部帯に入る鞍 13.9→21.7%)
@@ -903,9 +935,10 @@ def main() -> None:
     ap.add_argument("--race-id")
     ap.add_argument("--shutuba")
     ap.add_argument("--past")
-    ap.add_argument("--date", required=True)
+    ap.add_argument("--date", default="")
     ap.add_argument("--place")
     ap.add_argument("--race-no")
+    ap.add_argument("--day", help="YYYY-MM-DD。--place の1日分を1ページに(集めたデータから)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--jockey-stats", help="騎手の集計(jra_jockey.py の出力)。過去の鞍を描くときはその日より前で作ったものを渡す")
     ap.add_argument("--from-data", action="store_true", help="出馬表をネットから取らず、--pace-data の集めたデータから組み立てる")
@@ -920,6 +953,31 @@ def main() -> None:
     if a.jockey_stats:
         JOCKEY_STATS = Path(a.jockey_stats)
 
+    if a.day:
+        if not (a.pace_data and a.place):
+            ap.error("--day には --pace-data と --place が要ります(集めたデータから組み立てる)")
+        a.from_data, a.date = True, a.day
+        ids = sorted(d["race_id"] for d in load_rows(a.pace_data) if d["date"] == a.day and d["place"] == a.place
+                     and d.get("surface") in ("芝", "ダ"))
+        bodies = []
+        for rid in ids:
+            a.race_id, a.race_no = rid, str(int(rid[-2:]))
+            body, place, rno, fc = one_race(a, ap)
+            bodies.append(body)
+            print(rno + "R", fc.summary())
+        rno = "%s〜%sR" % (str(int(ids[0][-2:])), str(int(ids[-1][-2:]))) if ids else ""
+        body = "\n".join(bodies)
+        place = a.place
+    else:
+        body, place, rno, fc = one_race(a, ap)
+        print(fc.summary())
+    Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(a.out).write_text(page(a.date, place, rno.rstrip("R"), body, learned=bool(a.pace_data)), encoding="utf-8")
+    print("→", a.out)
+
+
+def one_race(a, ap):
+    """1鞍ぶんを組み立てて (本文HTML, 場, R, fc) を返す。"""
     klass = None
     if a.race_id and a.pace_data and not a.shutuba and getattr(a, "from_data", False):
         past, waku, name, info, klass, _, place_d, jockeys = from_data(a.pace_data, a.race_id)
@@ -953,12 +1011,9 @@ def main() -> None:
                                          n=len(rows), baba=baba, race_id=a.race_id,
                                          klass=klass if klass is not None else parse_class(sh))
         apply_learned_pace(fc, rows, diff, q=q)
-        fc.n_learn, fc.conf, fc.est = nl, conf, est
-    body = render_race(rno, name, dist, surface, baba, len(rows), fc, rows, rk)
-    Path(a.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(a.out).write_text(page(a.date, place, rno, body, learned=bool(a.pace_data)), encoding="utf-8")
-    print(fc.summary())
-    print("→", a.out)
+        fc.n_learn, fc.conf, fc.est, fc.q = nl, conf, est, q
+    return render_race(rno, name, dist, surface, baba, len(rows), fc, rows, rk), place, rno, fc
+
 
 
 if __name__ == "__main__":
