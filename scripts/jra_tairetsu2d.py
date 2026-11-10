@@ -70,6 +70,7 @@ def main() -> None:
     ap.add_argument("--data", default="data/jra/races.jsonl")
     ap.add_argument("--band", type=float, default=0.12)
     ap.add_argument("--k", type=int, default=3, help="内から何頭目までを選ぶか")
+    ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1] / "models" / "lateral_model.json"))
     a = ap.parse_args()
 
     raw = [json.loads(l) for l in open(a.data, encoding="utf-8") if l.strip()]
@@ -169,7 +170,7 @@ def main() -> None:
             if n:
                 print(f"  {name:<10s} {n}鞍 平均{s[name + '頭'] / n:.1f}頭・{s[name + '点'] / n:.0f}点  "
                       f"的中 {s[name + '的中'] / n:.1%}  回収率 {s[name + '払'] / max(1, s[name + '点'] * 100):.1%}")
-    json.dump({"features": LAT, "coef": w, "cut": cut}, open(Path(__file__).resolve().parents[1] / "models" / "lateral_model.json", "w"), indent=1)
+    json.dump({"features": LAT, "coef": w, "cut": cut}, open(a.out, "w"), indent=1)
 
 
 if __name__ == "__main__":
