@@ -131,6 +131,9 @@ def from_data(data_path: str, race_id: str):
     info = f"{me.get('surface')}{me['distance']}m {me.get('baba') or ''}"
     klass = {"race_class": me.get("race_class"), "race_type": me.get("race_type"), "grade": me.get("grade")}
     jockeys = {x["umaban"]: x.get("jockey") for x in me["result"]}
+    global EXTRA
+    EXTRA = {x["umaban"]: {"kinryo": x.get("kinryo"), "weight": x.get("weight"), "dw": x.get("weight_diff")}
+             for x in me["result"]}
     return past, waku, me.get("name") or "", info, klass, me["date"], me["place"], jockeys
 
 
@@ -403,6 +406,7 @@ def lateral_layout(rows, fc, n, *, band=0.10, min_gap=104, key="pos"):
         js = jockey_stat(r.get("jockey"))
         if js:
             out[r["ub"]] += 0.74 * (js["outer_rate"] - 0.431)
+        r["outer_score"] = out[r["ub"]]
     groups, cur, head = [], [], None
     for r in hs:
         if head is None or head - r[key] <= band:
@@ -473,7 +477,9 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
                   '<div class="xlab"><span>後方</span><span>中団</span><span>前　→　ゴール</span></div>'
                   % (('<div class="ylab"><span>内（ラチ側）</span><span>外</span></div>' if two_d else ""),
                      NL * LANE + 24, "\n".join(hh)))
-    if stages:
+    if stages and STYLE == "simple":
+        board_html = simple_board(rows, fc, n, rk)
+    elif stages:
         board_html = "".join(stage_board(rows, fc, n, key, prev, lab, rk)
                              for key, prev, lab in (("pos1", None, "スタート後"), ("pos3", "pos1", "3コーナー"),
                                                     ("pos", "pos3", "4コーナー")))
@@ -501,7 +507,7 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
                        "差し有利" if fc.front_bias < -0.05 else ("前有利" if fc.front_bias > 0.05 else "平坦")))
     else:
         flow_sub = ""
-    memo = make_memo(fc, rows, rk, name)
+    memo = make_memo_simple(fc, rows, rk, name, dist, surface) if (stages and STYLE == "simple") else make_memo(fc, rows, rk, name)
     known = sum(1 for r in rows if r["pos"] is not None) / max(1, len(rows))
     if known < 0.7:
         memo = ('<p class="hold"><b>隊列は判定保留</b>(通過順の記録がある馬が %d%%)。'
@@ -525,6 +531,53 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
         % (rno, H.escape(name), surface, dist, n, H.escape(baba or ""),
            pcls, ptag, fc.pace, pcls, mark * 100, flow, flow_sub, est_html,
            board_html, memo, miss))
+
+
+def simple_board(rows, fc, n, rk) -> str:
+    """川崎の図(scripts/ana/zu.py)と同じ1枚の4角盤面。縦は内外の想定、狙う帯を赤い丸で囲む。"""
+    lateral_layout(rows, fc, n, key="pos", band=0.07)   # outer_score を付けるため
+    # 川崎の図と同じく、名前がぶつからない間隔(GAP)で段に振り分ける。内寄りの馬は上の段から、外寄りは2段目から探す
+    hs = sorted([r for r in rows if r.get("pos") is not None], key=lambda r: -r["pos"])
+    med = st.median(r.get("outer_score", 0) for r in hs) if hs else 0
+    lanes, cells, gap = [], [], 168
+    for r in hs:
+        x = PAD + r["pos"] * (WID - 2 * PAD)
+        start = 0 if r.get("outer_score", 0) <= med else 1
+        i = start
+        while True:
+            while len(lanes) <= i:
+                lanes.append(1e9)
+            if x < lanes[i] - gap:
+                lanes[i] = x
+                cells.append((r, x, i))
+                break
+            i += 1
+    NL = max(1, len(lanes))
+    sc = sorted(r["outer_score"] for r, _, _ in cells if "outer_score" in r)
+    lo_q = sc[len(sc) // 4] if sc else 0
+    hi_q = sc[3 * len(sc) // 4] if sc else 0
+    hh = []
+    for r, x, lane in cells:
+        col, cc, t = "#d8c7ae", "#b9b9c4", ""
+        if r.get("gain") is not None and r["gain"] >= 0.20:
+            col = cc = "#6fc0ff"
+            t = '<span class="upq">▲押し上げ</span>'
+        so = '<span class="sm">終い%d位</span>' % rk[r["ub"]] if rk.get(r["ub"], 99) <= 3 else ""
+        if "outer_score" in r and r["outer_score"] <= lo_q:
+            so += '<span class="sin">内に入りがち</span>'
+        elif "outer_score" in r and r["outer_score"] >= hi_q:
+            so += '<span class="sin">外を回しがち</span>'
+        wc = WAKU.get(r["waku"], ("#15110d", "#f2f2f4"))
+        hh.append('<div class="horse wide" style="left:%dpx;top:%dpx"><div class="fig">%s%s</div>'
+                  '<div class="lab"><span class="n" style="background:%s;color:%s;border-color:%s">%d</span>'
+                  '<span class="nm">%s</span></div>%s%s</div>'
+                  % (int(x), 14 + lane * LANE, HORSE.format(c=col), CHEV.format(c=cc), wc[0], wc[1],
+                     "#00000055" if r["waku"] == 1 else "rgba(255,255,255,.45)", r["ub"], H.escape(r["name"]), t, so))
+    zone, fc.zone_horses = draw_zone(cells, fc, ellipse=True)
+    return ('<div class="board"><div class="ylab"><span>内（ラチ側）</span><span>外</span></div>'
+            '<div class="track" style="height:%dpx"><div class="goal"></div>%s%s</div></div>'
+            '<div class="xlab"><span>後方</span><span>中団</span><span>前　→　ゴール</span></div>'
+            % (NL * LANE + 24, zone, "\n".join(hh)))
 
 
 def stage_board(rows, fc, n, key, prev, label, rk) -> str:
@@ -566,13 +619,15 @@ def stage_board(rows, fc, n, key, prev, label, rk) -> str:
 #   スロー: 内(併走の最内)15.3% > 2頭目以降11.9% > 外の列9.4%   → 前1/3 × 内(組の1〜2頭目)
 #   ミドル: 外の列19.3% > 2頭目以降14.9% > 内11.8%             → 前1/3 × 外(組の2頭目以降)
 #   ハイ:   外の列23.9% > 2頭目以降19.5% > 内14.3%             → 前1/3 × 外(組の2頭目以降)
+EXTRA: dict = {}      # 馬番 → 今回の斤量・馬体重(分かるときだけ)
+STYLE = "simple"     # simple = 川崎の図と同じ1枚の4角盤面＋赤丸／stages = 3段
 ZONE_FRONT = 0.4   # 帯の前後の幅(前から何割)。--zone-front で変えられる。0.5 なら 帯の3着内率34.4%・1〜3着が全部入る31%
 ZONE_RULE = {"スロー": ("内", "前%d割 × 内(横並びの1〜2頭目)", "穴の3着内率 内15% 対 外の列9%"),
              "ミドル": ("外", "前%d割 × 外(横並びの2頭目より外)", "穴の3着内率 外の列19% 対 内12%"),
              "ハイ": ("外", "前%d割 × 外(横並びの2頭目より外)", "穴の3着内率 外の列24% 対 内14%")}
 
 
-def draw_zone(cells, fc):
+def draw_zone(cells, fc, ellipse=False):
     """4角の盤面に、想定ペースの狙う帯を金色の点線で囲む。返り値: (html, 帯に入った馬番)"""
     rule = ZONE_RULE.get(fc.pace)
     if not rule:
@@ -590,9 +645,15 @@ def draw_zone(cells, fc):
     right = min(WID + 36, max(c[1] for c in sel) + 70)
     top = 14 + min(c[2] for c in sel) * LANE - 8
     bottom = 14 + max(c[2] for c in sel) * LANE + 80
-    html = ('<div class="zone" style="left:%dpx;width:%dpx;top:%dpx;height:%dpx">'
-            '<div class="zlab">%s想定の狙い</div></div>'
-            % (left, right - left, top, bottom - top, fc.pace))
+    if ellipse:
+        left, right = max(0, left - 30), min(WID - 10, right + 40)
+        top, bottom = max(0, top - 6), bottom + 6
+        html = ('<div class="ring" style="left:%dpx;width:%dpx;top:%dpx;height:%dpx"></div>'
+                % (left, right - left, top, bottom - top))
+    else:
+        html = ('<div class="zone" style="left:%dpx;width:%dpx;top:%dpx;height:%dpx">'
+                '<div class="zlab">%s想定の狙い</div></div>'
+                % (left, right - left, top, bottom - top, fc.pace))
     return html, [c[0]["ub"] for c in sorted(sel, key=lambda c: -c[1])]
 
 
@@ -609,6 +670,63 @@ KANGAE = {
             "ただし中央では、ハイ想定でも隊列予想の前1/3が最も来ています(28% 対 後1/3は12%)。"
             "差すなら<b>外を回した馬</b>です(4角前1/3の穴: 外の列24% 対 内14%)。"),
 }
+
+
+def make_memo_simple(fc, rows, rk, name, dist, surface) -> str:
+    """川崎の図の見解と同じ書き方: 先頭争い → 囲みの馬を1頭ずつ材料で → 距離延長の頭数 → 末脚。"""
+    by = {r["ub"]: r for r in rows}
+    nm = lambda u: "%s%s" % (chr(0x2460 + u - 1) if u <= 20 else str(u), by[u]["name"])  # noqa: E731
+    lines = []
+    est = getattr(fc, "est", None)
+    lines.append("<b>%sペース想定</b>(確度 %s%s)。%s"
+                 % (fc.pace, getattr(fc, "conf", "-"),
+                    ("、推定前半3F %.1f・後半3F %.1f" % (est["front3"], est["last3"])) if est else "",
+                    {"スロー": "前に行った馬がそのまま残りやすい流れ。",
+                     "ミドル": "前の組が基本で、中団から外へ持ち出す馬も届く。",
+                     "ハイ": "前半から流れるが、前の組がいちばん来る。差すなら外。"}[fc.pace]))
+    hn = sorted([r for r in rows if "hana" in r], key=lambda r: -r["hana"])
+    if len(hn) >= 3:
+        gap = hn[0]["hana"] - hn[1]["hana"]
+        lines.append("<b>先頭を主張するのは %s</b>。%s"
+                     % ("・".join(nm(r["ub"]) for r in hn[:3]),
+                        "%sが行き切れそう。" % nm(hn[0]["ub"]) if gap >= 0.08 else "これだけ並ぶと誰が引くかは読みにくい。"))
+    kin = [EXTRA[u]["kinryo"] for u in by if EXTRA.get(u, {}).get("kinryo")]
+    wts = [EXTRA[u]["weight"] for u in by if EXTRA.get(u, {}).get("weight")]
+    for u in getattr(fc, "zone_horses", []):
+        r = by[u]
+        bits = []
+        last = r.get("last")
+        if last:
+            dd = dist - last["dist"]
+            bits.append("前走%s%s%dm %d着%s" % (last["place"], last["surface"] or "", last["dist"], last["fin"],
+                                             ("(%+dm)" % dd) if dd else ""))
+        e = EXTRA.get(u, {})
+        if e.get("weight") and wts:
+            bits.append("%dkg(平均比%+d%s)" % (e["weight"], round(e["weight"] - st.mean(wts)),
+                                           ("・増減%+d" % e["dw"]) if e.get("dw") else ""))
+        if e.get("kinryo") and kin:
+            dk = e["kinryo"] - st.mean(kin)
+            if abs(dk) >= 1:
+                bits.append("斤量%.1fkg(平均比%+.1f)" % (e["kinryo"], dk))
+        js = jockey_stat(r.get("jockey"))
+        if js:
+            bits.append("%s(前付け%+.0f%%)" % (js["name"], js["front_bias"] * 100))
+        tag = []
+        if rk.get(u, 99) <= 3:
+            tag.append("<b>終い%d位</b>" % rk[u])
+        if r.get("gain") is not None and r["gain"] >= 0.2:
+            tag.append("押し上げ(%+.2f)" % r["gain"])
+        lines.append("<b>%s</b>%s ── %s。" % (nm(u), ("は" + "・".join(tag)) if tag else "", "、".join(bits)))
+    ext = [r for r in rows if r.get("last") and dist - r["last"]["dist"] >= 200]
+    if ext:
+        lines.append("<b>%d頭中%d頭が距離延長</b>(%s)。延長の馬は前に行きやすい(隊列の学習で係数 −0.1〜−0.2)。"
+                     % (len(rows), len(ext), "・".join("%s%+dm" % (chr(0x2460 + r["ub"] - 1), dist - r["last"]["dist"])
+                                                     for r in sorted(ext, key=lambda r: r["ub"]))))
+    top = sorted(rk, key=rk.get)[:3]
+    if top:
+        lines.append("末脚上位は %s。%s" % ("・".join(nm(u) for u in top),
+                                       "スローでは前の組に絡めるかが鍵。" if fc.pace == "スロー" else "外から届く余地あり。"))
+    return "".join("<p>%s</p>" % x for x in lines)
 
 
 def make_memo(fc, rows, rk, name: str = "") -> str:
@@ -712,6 +830,10 @@ CSS_EXTRA = """
 .bar i{position:absolute;top:-2px;width:4px;height:24px;background:#fff;border-radius:2px;transform:translateX(-50%)}
 .est{display:flex;gap:26px;margin-top:8px;font-size:12px;color:var(--dim)}.est b{color:#f2f2f4;font-size:16px;margin-left:6px}
 .zone .zlab{left:auto;right:10px;top:auto;bottom:-12px}
+.ring{position:absolute;border:5px solid rgba(232,40,40,.95);border-radius:50%;z-index:1;
+ box-shadow:0 0 12px rgba(232,40,40,.55)}
+.horse.wide{width:170px}
+.track{overflow:hidden}
 .jk{display:block;font-size:9px;color:#b9b9c4;font-weight:600;margin-top:-1px}
 .stg{display:inline-block;margin:14px 16px 0;background:#2e4a2a;color:#e6f2df;font-weight:800;font-size:13px;padding:4px 16px;border-radius:14px}
 .flow{margin-top:7px;font-size:12.5px}.flow small{color:var(--dim);font-size:11px}
@@ -748,7 +870,9 @@ def page(date: str, place: str, rno: str, body: str, learned: bool = False) -> s
             "「距離・直線・頭数・芝ダで決まる前後半差」</b>で読んだものです。" if learned else
             "過去走の<b>4コーナー通過順</b>で隊列を組み、<b>逃げ候補の数・先行勢の厚み・距離</b>と"
             "<b>直線の長さ</b>から流れを読んだものです。"),
-           ("<b>縦は4コーナーの内外の想定(上がラチ側)</b>。前後の想定が近い馬を横並びの組にし、組の中を"
+           (("<b>縦は重なりを避けて段に分けたもの</b>。馬番と騎手から学習した「4角で外を回る度合い」(検証 相関+0.43)で"
+             "内寄りと想定した馬を上の段から置いている。赤い丸がペース想定ごとの狙う帯。") if STYLE == "simple" else
+            "<b>縦は4コーナーの内外の想定(上がラチ側)</b>。前後の想定が近い馬を横並びの組にし、組の中を"
             "馬番などから学習した「4角で外を回る度合い」で内→外に並べた(検証 相関+0.43)。"
             if LATERAL_MODEL.exists() else "縦の並びは重なりを避けただけで、内・外ではありません。"),
            body))
@@ -765,10 +889,13 @@ def main() -> None:
     ap.add_argument("--out", required=True)
     ap.add_argument("--jockey-stats", help="騎手の集計(jra_jockey.py の出力)。過去の鞍を描くときはその日より前で作ったものを渡す")
     ap.add_argument("--from-data", action="store_true", help="出馬表をネットから取らず、--pace-data の集めたデータから組み立てる")
+    ap.add_argument("--style", choices=["simple", "stages"], default="simple",
+                    help="simple=4角1枚+赤丸(川崎の図と同じ形) / stages=スタート後・3角・4角の3段")
     ap.add_argument("--zone-front", type=float, default=0.4, help="狙う帯の前後の幅(前から何割、既定0.4)")
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
     a = ap.parse_args()
-    global ZONE_FRONT, JOCKEY_STATS
+    global ZONE_FRONT, JOCKEY_STATS, STYLE
+    STYLE = a.style
     ZONE_FRONT = a.zone_front
     if a.jockey_stats:
         JOCKEY_STATS = Path(a.jockey_stats)
