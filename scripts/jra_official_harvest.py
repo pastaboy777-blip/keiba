@@ -43,7 +43,13 @@ class Fetcher:
         if wait > 0:
             time.sleep(wait)
         self.last = time.time()
-        r = self.s.post(URL, data={"cname": cname}, timeout=30)
+        import requests
+        try:
+            r = self.s.post(URL, data={"cname": cname}, timeout=30)
+        except requests.exceptions.RequestException:   # 接続切れ(プロキシ等)。1回だけ60秒あけてやり直す
+            time.sleep(60)
+            self.last = time.time()
+            r = self.s.post(URL, data={"cname": cname}, timeout=30)
         if r.status_code == 503:          # 一時的な混雑。1回だけ60秒あけてやり直す
             time.sleep(60)
             self.last = time.time()
