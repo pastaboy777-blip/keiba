@@ -51,7 +51,7 @@ def main() -> None:
         x = WID - PAD - gi * (WID - 2 * PAD) / max(1, ng - 1)
         r = res.get(u, {})
         fin = r.get("finish_pos")
-        wc = Z.WAKU.get(r.get("waku"), ("#15110d", "#f2f2f4"))
+        wc = Z.WAKU.get(r.get("waku") or Z.waku_of(u, d["field_size"]), ("#15110d", "#f2f2f4"))
         col = "#ffcf5a" if fin and fin <= 3 else "#d8c7ae"
         tag = ('<span class="hit">%d着 %s人気</span>' % (fin, r.get("popularity") or "-")) if fin and fin <= 3 else ""
         side = "" if gs >= 2 else '<span class="sin">横不明</span>'
@@ -59,7 +59,7 @@ def main() -> None:
                   '<div class="lab"><span class="n" style="background:%s;color:%s;border-color:%s">%d</span>'
                   '<span class="nm">%s</span></div>%s%s</div>'
                   % (int(x), 14 + li * Z.LANE, HORSE.format(c=col), CHEV.format(c=col), wc[0], wc[1],
-                     "rgba(255,255,255,.45)", u, H.escape((r.get("horse_name") or "")[:4]), tag, side))
+                     "#00000055" if (r.get("waku") or Z.waku_of(u, d["field_size"])) == 1 else "rgba(255,255,255,.45)", u, H.escape((r.get("horse_name") or "")[:4]), tag, side))
     nl = max(c[2] for c in cells) + 1
     p = pace_of(d["lap"], d["distance"])
     body = ('<div class="race"><div class="rh"><span class="rn">結果</span><span class="rd">%s %s　<b>%s%dm</b> ／ %d頭 ／ %s</span>'
@@ -71,6 +71,8 @@ def main() -> None:
             % (d["date"], H.escape(d.get("name") or ""), d["surface"], d["distance"], d["field_size"], d.get("baba") or "",
                "slow" if p["diff"] > 0.2 else ("high" if p["diff"] < -1.5 else "mid"), p["front3"], p["last3"],
                nl * Z.LANE + 24, "\n".join(hh), H.escape(d["corners"].get("4") or ""), "-".join(map(str, d["lap"]))))
+    if d.get("surface") == "芝":
+        body = body.replace('class="track"', 'class="track turf"')
     css = (Z.ROOT / "scripts" / "ana" / "zu.css").read_text(encoding="utf-8")
     Path(a.out).write_text('<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>結果の隊列</title>'
                            '<style>%s%s</style></head><body>%s</body></html>' % (css, Z.CSS_EXTRA, body), encoding="utf-8")

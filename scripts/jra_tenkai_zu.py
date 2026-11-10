@@ -106,6 +106,21 @@ def parse_class(html: str) -> dict:
             "grade": ("G" + g.group(1)) if g else None}
 
 
+def waku_of(umaban: int, n: int) -> int:
+    """JRAの枠順: 8頭以下は馬番=枠。9頭以上は各枠 n//8 頭、余りは外の枠(8枠,7枠,…)に1頭ずつ足す。"""
+    if n <= 8:
+        return umaban
+    counts = [n // 8] * 8
+    for i in range(n % 8):
+        counts[7 - i] += 1
+    k = 0
+    for w, c in enumerate(counts, 1):
+        k += c
+        if umaban <= k:
+            return w
+    return 8
+
+
 def from_data(data_path: str, race_id: str):
     """集めたデータ(jra_harvest / jra_official_harvest の JSONL)だけで、その鞍の出走馬と過去走を組み立てる。
 
@@ -127,7 +142,7 @@ def from_data(data_path: str, race_id: str):
     past = {x["umaban"]: {"name": x["horse_name"], "runs": sorted(hist.get(x["horse_id"], []),
                                                                    key=lambda r: r["date"], reverse=True)[:5]}
             for x in me["result"]}
-    waku = {x["umaban"]: x.get("waku") for x in me["result"] if x.get("waku")}
+    waku = {x["umaban"]: x.get("waku") or waku_of(x["umaban"], me["field_size"]) for x in me["result"]}
     info = f"{me.get('surface')}{me['distance']}m {me.get('baba') or ''}"
     klass = {"race_class": me.get("race_class"), "race_type": me.get("race_type"), "grade": me.get("grade")}
     jockeys = {x["umaban"]: x.get("jockey") for x in me["result"]}
@@ -483,6 +498,8 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
         board_html = "".join(stage_board(rows, fc, n, key, prev, lab, rk)
                              for key, prev, lab in (("pos1", None, "スタート後"), ("pos3", "pos1", "3コーナー"),
                                                     ("pos", "pos3", "4コーナー")))
+    if surface == "芝":   # 芝は緑の盤面(ダートは茶のまま)
+        board_html = board_html.replace('class="track"', 'class="track turf"')
     pcls, ptag = {"スロー": ("slow", "S"), "ミドル": ("mid", "M"), "ハイ": ("high", "H")}[fc.pace]
     mark = max(0.02, min(0.98, 0.5 + fc.pace_index * 0.667))
     flow = {
@@ -833,6 +850,9 @@ CSS_EXTRA = """
 .ring{position:absolute;border:5px solid rgba(232,40,40,.95);border-radius:50%;z-index:1;
  box-shadow:0 0 12px rgba(232,40,40,.55)}
 .horse.wide{width:170px}
+.track.turf{background:repeating-linear-gradient(90deg,#3f7d3a 0 56px,#3a7536 56px 58px)}
+.track.turf .nm{text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 2px rgba(0,0,0,.9)}
+.track.turf .n{box-shadow:0 0 0 2px rgba(0,0,0,.55)}
 .track{overflow:hidden}
 .jk{display:block;font-size:9px;color:#b9b9c4;font-weight:600;margin-top:-1px}
 .stg{display:inline-block;margin:14px 16px 0;background:#2e4a2a;color:#e6f2df;font-weight:800;font-size:13px;padding:4px 16px;border-radius:14px}
