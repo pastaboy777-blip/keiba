@@ -6,7 +6,8 @@
 出力は netkeiba 版(jra_harvest.py)と同じ JSONL 形式・同じ race_id なので同じファイルに足せる。
 既にある race_id は飛ばす。新しい月から順に集める。
 
-守ること: 既定 3.0 秒間隔・1本ずつ。200 以外が返ったらその場で止める(粘らない)。
+守ること: 既定 3.0 秒間隔・1本ずつ。503 は60秒あけて1回だけやり直し、それ以外の 200 以外はその場で止める。
+済んだ開催日は official.days に記録して次回は飛ばす。
 robots.txt は Disallow なし(2026-11-10 確認)。個人利用の範囲で。
 """
 
@@ -43,6 +44,10 @@ class Fetcher:
             time.sleep(wait)
         self.last = time.time()
         r = self.s.post(URL, data={"cname": cname}, timeout=30)
+        if r.status_code == 503:          # 一時的な混雑。1回だけ60秒あけてやり直す
+            time.sleep(60)
+            self.last = time.time()
+            r = self.s.post(URL, data={"cname": cname}, timeout=30)
         if r.status_code != 200:
             raise Stop(f"HTTP {r.status_code}: {cname}")
         return r.content.decode("shift_jis", errors="replace")
@@ -74,6 +79,8 @@ def main() -> None:
                     done.add(d["race_id"])
             except Exception:  # noqa: BLE001
                 pass
+    days_path = out.with_name("official.days")
+    done_days = set(days_path.read_text().split()) if days_path.exists() else set()
     f = Fetcher(a.sleep)
     n_new = 0
     try:
@@ -86,6 +93,8 @@ def main() -> None:
                 prefix = "pw01skl00" if (y, m) >= (2026, 11) else "pw01skl10"
                 days = links(f.post(f"{prefix}{y:04d}{m:02d}/{ck[key]}"), "pw01srl")
                 for day in days:
+                    if day in done_days:
+                        continue
                     races = links(f.post(day), "pw01sde")
                     todo = [c for c in races if race_id_of(c) and race_id_of(c) not in done]
                     for c in todo:
@@ -96,6 +105,9 @@ def main() -> None:
                             fo.flush()
                             done.add(rid)
                             n_new += 1
+                    with days_path.open("a") as fd:
+                        fd.write(day + "\n")
+                    done_days.add(day)
                     if todo:
                         print(f"{y}-{m:02d} {day[9:]} {len(todo)}鞍  (累計 {len(done)})", flush=True)
     except Stop as e:

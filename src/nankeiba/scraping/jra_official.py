@@ -41,8 +41,9 @@ def _int(s):
 
 
 def links(html: str, prefix: str) -> list[str]:
-    """ページ内の doAction(…, 'prefix…/XX') の cname を重複なく返す。"""
-    return sorted(set(re.findall(r"'(%s[0-9]+/[0-9A-F]{2})'" % prefix, html)))
+    """ページ内の doAction(…, 'prefix…/XX') と ?CNAME=prefix…/XX の cname を重複なく返す。"""
+    pat = r"(%s[0-9]+/[0-9A-F]{2})" % prefix
+    return sorted(set(re.findall(r"'" + pat + "'", html)) | set(re.findall(r"CNAME=" + pat, html)))
 
 
 def month_checksums(html: str) -> dict[str, str]:
