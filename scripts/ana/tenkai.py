@@ -259,15 +259,28 @@ def main():
                 p["f3"], b["f3"], b["n"], p["est"], b["t"]))
             print("  → %s" % ("水準より速い流れ" if p["f3"] < b["f3"] - 0.3 else
                               "水準より遅い流れ" if p["f3"] > b["f3"] + 0.3 else "水準どおりの流れ"))
-        print("  推定隊列（前半速度の順）")
+        # ★ 終い（r["l"]）は 2026-11-10 から「水準との差＋場間補正」に変わった。
+        #   秒速ではないので 600/l で割ってはいけない（割ると後3F279秒などと出る）。
+        #   小さいほど速い。順位は昇順。推定上がり＝今日の場・距離の水準 + その差。
+        a3 = (p or {}).get("base", {}) or {}
+        a3 = a3.get("a3")
+        rk = {id(r): i + 1 for i, r in enumerate(
+            sorted([x for x in rows if x["l"] is not None], key=lambda x: x["l"]))}
+        print("  推定隊列（前半速度の順）／終い＝川崎換算の上がり水準との差・小さいほど速い")
         for i, r in enumerate(rows):
             if not r["e"]:
                 print("     ―  %2d %s 南関で測れる走なし%s" % (
                     r["h"]["ub"], w(r["h"]["name"], 14),
                     "（他場%d走あり／弱いという意味ではない）" % r["ext"] if r["ext"] else "")); continue
-            print("    %2d番手 %2d %s 前半%.3f 終い%.3f  前3F%.1f 後3F%.1f  南関%d走%s" % (
-                i + 1, r["h"]["ub"], w(r["h"]["name"], 14), r["e"], r["l"],
-                600 / r["e"], 600 / r["l"], r["n"],
+            if r["l"] is None:
+                shu = "終い ―            "
+            else:
+                shu = "終い%+.2f(%d位)%s" % (
+                    r["l"], rk[id(r)],
+                    " 上がり%.1f" % (a3 + r["l"]) if a3 else "")
+            print("    %2d番手 %2d %s 前半%.3f 前3F%.1f  %s  南関%d走%s" % (
+                i + 1, r["h"]["ub"], w(r["h"]["name"], 14), r["e"],
+                600 / r["e"], shu, r["n"],
                 " +他場%d" % r["ext"] if r["ext"] else ""))
 
 
