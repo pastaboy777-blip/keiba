@@ -111,6 +111,9 @@ def parse_race(html: str, race_id: str) -> dict | None:
         if li:
             payouts[key] = {_txt(n).replace(" ", ""): _int(_txt(y)) for n, y in re.findall(
                 r'<div class="num">(.*?)</div>\s*<div class="yen">(.*?)</div>', li.group(1), re.S) if _int(_txt(y))}
+    cls_m = re.search(r'<div class="cell class">(.*?)</div>', html, re.S)
+    typ_m = re.search(r'<div class="cell category">(.*?)</div>', html, re.S)
+    grade = re.search(r'alt="(G(?:&#8544;|&#8545;|&#8546;|Ⅰ|Ⅱ|Ⅲ)|J・G[^"]*|L)"', html)
     s = dist.group(2) if dist else None
     surface = {"芝": "芝", "ダート": "ダ", "障害": "障"}.get(s)
     return {
@@ -124,6 +127,9 @@ def parse_race(html: str, race_id: str) -> dict | None:
         "field_size": len(rows),
         "result": sorted(rows, key=lambda r: r["finish_pos"]),
         "lap": [float(x) for x in re.findall(r"\d+\.\d", _txt(lap.group(1)))] if lap else [],
+        "race_class": _txt(cls_m.group(1)) if cls_m else None,     # 新馬/未勝利/1勝クラス/…/オープン
+        "race_type": _txt(typ_m.group(1)) if typ_m else None,      # 2歳/3歳/3歳以上/4歳以上
+        "grade": unescape(grade.group(1)).replace("Ⅰ", "1").replace("Ⅱ", "2").replace("Ⅲ", "3") if grade else None,
         "corners": corners, "payouts": payouts,
         "trio_odds": {}, "trifecta_odds": {}, "source": "jra.go.jp",
     }
