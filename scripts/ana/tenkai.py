@@ -130,15 +130,34 @@ def build():
     print("時計の水準 … %dセル / 元データ %d鞍 → %s" % (len(out), n, TOKI))
 
 
+MIN_BABA = 8     # 馬場別セルをこれ未満の鞍数で使わない
+
+
 def sui(ven, dist, baba=None):
+    """★ 出馬表に baba は入っていない（結果にしか入らない）。
+    走る前に馬場別の水準を使うには `--baba 不良` のように外から渡すこと。
+    2026-11-10 にユーザーの指摘で判明 ── 不良開催なのに全馬場こみの
+    中央値（川崎1400m なら n=270）と比べていた。不良だけなら n=32・前3F39.4。
+
+    馬場別セルが MIN_BABA 未満の鞍しかないときは全馬場こみに戻し、
+    どちらを使ったか呼び出し側に返す（川崎2000m不良は4鞍しかない）。"""
     if not os.path.exists(TOKI):
         return None
     B = json.load(open(TOKI))
     if baba:
         c = B.get("%s|%d|%s" % (ven, dist, baba))
+        if c and c["n"] >= MIN_BABA:
+            return dict(c, src=baba)
         if c:
-            return c
-    return B.get("%s|%d" % (ven, dist))
+            a = B.get("%s|%d" % (ven, dist))
+            if a:
+                return dict(a, src="全馬場（%s は%d鞍しかない）" % (baba, c["n"]))
+        else:
+            a = B.get("%s|%d" % (ven, dist))
+            if a:
+                return dict(a, src="全馬場（%s のデータなし）" % baba)
+    c = B.get("%s|%d" % (ven, dist))
+    return dict(c, src="全馬場") if c else None
 
 
 def band(d):
@@ -161,6 +180,9 @@ def band(d):
 
 
 NANKAN = {"大井", "船橋", "浦和", "川崎"}
+
+# 出馬表の過去走は馬場を1文字で持っている。toki.json のキーに直す
+BABA1 = {"良": "良", "稍": "稍重", "重": "重", "不": "不良"}
 
 # ★ 場間補正 ── 後3Fの水準を引いてもなお残るズレ（川崎を0とする）。
 #   同じ馬が2場を走った記録から出した（2026-11-10）。
@@ -201,7 +223,13 @@ def prof(h, dist):
                 e.append((p["dist"] - 600) / (p["t"] - p["agari"]))
                 # ★ 終いは「その場・その距離の後3Fの水準との差」にする。秒そのものではない。
                 #   場が変われば上がりの水準が変わる（浦和800m 35.5 対 川崎900m 37.8＝2.3秒差）。
-                b = B.get("%s|%d" % (p["venue"], p["dist"]))
+                # ★ その走の馬場の水準を使う（2026-11-10）。出馬表の過去走は
+                #   良/稍/重/不 の1文字で入っているので toki.json の表記に直す。
+                #   馬場別セルが薄いときは全馬場こみに戻す。
+                bb = BABA1.get(p.get("baba"))
+                b = B.get("%s|%d|%s" % (p["venue"], p["dist"], bb)) if bb else None
+                if not b or b["n"] < MIN_BABA:
+                    b = B.get("%s|%d" % (p["venue"], p["dist"]))
                 if b:
                     # 水準との差 ＋ 場間補正。川崎に揃えた値。小さいほど速い
                     l.append(p["agari"] - b["a3"] + VADJ.get(p["venue"], 0.0))
@@ -213,7 +241,7 @@ def prof(h, dist):
             st.median(c4) if c4 else None, len(e), ext)
 
 
-def race(v, ven):
+def race(v, ven, baba=None):
     dist = v["dist"]
     rows = []
     for h in v["horses"]:
@@ -226,7 +254,7 @@ def race(v, ven):
     top3 = [r["e"] for r in rows[:3] if r["e"]]
     # 推定前3F … 先頭に立つ3頭の前半速度の平均で600mを割る
     f3 = 600 / st.mean(top3) if top3 else None
-    b = sui(ven, dist, v.get("baba"))
+    b = sui(ven, dist, baba or v.get("baba"))
     est = None
     if b:
         d = (f3 - b["f3"]) if f3 else 0
@@ -244,19 +272,20 @@ def main():
     f = [x for x in a if x.endswith(".json")][0]
     ven = VEN.get(os.path.basename(f)[:3], "船橋")
     R = int(a[a.index("--R") + 1]) if "--R" in a else None
+    baba = a[a.index("--baba") + 1] if "--baba" in a else None
     D = json.load(open(f))
     for k in sorted(D, key=int):
         v = D[k]
         if R and v["R"] != R:
             continue
-        rows, p = race(v, ven)
+        rows, p = race(v, ven, baba)
         print("\n%s" % ("=" * 78))
         print("%2dR ダ%dm %d頭 %s" % (v["R"], v["dist"], len(v["horses"]), (v.get("cls") or "")[:18]))
         print("=" * 78)
         if p and p["base"]:
             b = p["base"]
-            print("  推定 前3F %.1f（水準 %.1f／%d鞍）  推定 走破 %.1f（水準 %.1f）" % (
-                p["f3"], b["f3"], b["n"], p["est"], b["t"]))
+            print("  推定 前3F %.1f（水準 %.1f／%d鞍・%s）  推定 走破 %.1f（水準 %.1f）" % (
+                p["f3"], b["f3"], b["n"], b.get("src", "全馬場"), p["est"], b["t"]))
             print("  → %s" % ("水準より速い流れ" if p["f3"] < b["f3"] - 0.3 else
                               "水準より遅い流れ" if p["f3"] > b["f3"] + 0.3 else "水準どおりの流れ"))
         # ★ 終い（r["l"]）は 2026-11-10 から「水準との差＋場間補正」に変わった。

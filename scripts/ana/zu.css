@@ -53,3 +53,7 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
 .memo b{color:#f2f2f4}
 .pay{color:var(--gold);font-weight:800}
 .tail{margin-top:10px;font-size:11px;color:#5f5f69;line-height:1.7}
+
+/* 鞍ごとの注意書き（推定が1頭に引かれているときなど） */
+.note{margin:10px 16px 2px;padding:8px 12px;border-left:4px solid #e8b53a;
+      background:#2a2317;color:#f0dfb8;font-size:14px;line-height:1.55;border-radius:0 6px 6px 0}

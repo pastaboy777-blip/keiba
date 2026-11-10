@@ -51,7 +51,9 @@ WAKU = {1: ('#ffffff', '#111'), 2: ('#1b1b1b', '#fff'), 3: ('#e03a30', '#fff'),
 ZONE = {'S': ('S', 'スロー想定', 1, 'top', 'ラチ沿い一列', 'slow'),
         'M': ('M', 'ミドル想定', 2, 'top', '内から2頭目まで', 'mid'),
         'H': ('H', 'ハイ想定', 1, 'bottom', 'いちばん外の一列', 'high')}
-WID, LANE, PAD, GAP = 900, 88, 64, 134
+# ★ WID は body(1060) - padding76 - board margin32 - ylab78 - gap8 = 866 に収まること。
+#   900 のままだと右端の馬（相対0.00）の名札が .race の overflow:hidden で切れる。
+WID, LANE, PAD, GAP = 840, 88, 64, 130
 
 
 def rel_pos(h):
@@ -66,7 +68,7 @@ def rel_pos(h):
             (st.median(c1) - st.median(c4)) if c1 and c4 else None)
 
 
-def build(card, pace, soto=None):
+def build(card, pace, soto=None, zone=False, note=None):
     D = json.load(open(card))
     SO = json.load(open(soto)) if soto and os.path.exists(soto) else {}
     out = []
@@ -84,8 +86,11 @@ def build(card, pace, soto=None):
                          'pos': pos, 'gain': gain, 'l': l,
                          'sr': (s['out'] / s['grp']) if s and s['grp'] >= 3 else None,
                          'sn': s['grp'] if s else 0})
+        # ★ 終い（l）は 2026-11-10 から「水準との差・小さいほど速い」に変わった。
+        #   ここは -l で降順に並べたままで、**終い順位が逆に出ていた**。昇順が正しい。
+        #   `if r['l']` も l==0.0 を落とすので is not None にする。
         rk = {r['ub']: i + 1 for i, r in
-              enumerate(sorted([r for r in rows if r['l']], key=lambda r: -r['l']))}
+              enumerate(sorted([r for r in rows if r['l'] is not None], key=lambda r: r['l']))}
         hs = sorted([r for r in rows if r['pos'] is not None], key=lambda r: r['pos'])
         cells, lanes = [], []
         for r in hs:
@@ -96,6 +101,7 @@ def build(card, pace, soto=None):
             else:
                 lanes.append(x); cells.append((r, x, len(lanes) - 1))
         NL = max(1, len(lanes)); HT = NL * LANE + 24
+        note = note or {}
         tag_, name_, nz, side, zlab, pcls = ZONE[pace[R]]
         nz = min(nz, NL)
         ztop = 6 if side == 'top' else (NL - nz) * LANE + 6
@@ -126,16 +132,34 @@ def build(card, pace, soto=None):
           '<div class="race"><div class="rh"><span class="rn">%dR</span>'
           '<span class="rd">ダ%dm %d頭 %s</span>'
           '<span class="pace p-%s"><b>%s</b> %s</span></div>'
-          '<div class="board"><div class="ylab"><span>内（ラチ沿い）</span><span>外</span></div>'
-          '<div class="track" style="height:%dpx"><div class="goal"></div>'
-          '<div class="zone" style="top:%dpx;height:%dpx"><div class="zlab">%s</div></div>%s</div></div>'
-          '<div class="xlab"><span>後方</span><span>中団</span><span>前　→　ゴール</span></div></div>'
+          '%s'
+          '<div class="board"><div class="ylab"><span>%s</span><span>%s</span></div>'
+          '<div class="track" style="height:%dpx"><div class="goal"></div>%s%s</div></div>'
+          '<div class="xlab"><span>後方</span><span>中団</span>'
+          '<span>前　→　ゴール</span></div></div>'
           % (v['R'], v['dist'], len(v['horses']), html.escape(v.get('cls', '')),
-             pcls, tag_, name_, HT, ztop, nz * LANE - 8, zlab, '\n'.join(hh)))
+             pcls, tag_, name_,
+             ('<div class="note">%s</div>' % html.escape(note[R])) if note.get(R) else '',
+             '内（ラチ沿い）' if zone else '　',
+             '外' if zone else '重なり避け',
+             HT,
+             ('<div class="zone" style="top:%dpx;height:%dpx"><div class="zlab">%s</div></div>'
+              % (ztop, nz * LANE - 8, zlab)) if zone else '',
+             '\n'.join(hh)))
     return out
 
 
 CSS = open(os.path.join(HERE, 'zu.css')).read() if os.path.exists(os.path.join(HERE, 'zu.css')) else ''
+
+
+TITLE_K = '4コーナー前後の位置どり'
+SUB_ZONE = ('金色の囲いが、その想定で狙う帯です —— '
+            '<b>スローはラチ沿い一列</b>、<b>ミドルは内から2頭目まで</b>、'
+            '<b>ハイはいちばん外の一列</b>。横は4コーナーの前後で<b>右が前</b>、馬番は枠の色。')
+SUB_PLAIN = ('横は4コーナーの前後で<b>右が前</b>。過去走の4コーナー相対位置の中央値で置いています。'
+             '馬番は枠の色。<b>縦は重なりを避けて並べているだけで、内外ではありません。</b>'
+             '▲は1コーナーから4コーナーで前へ出られる馬、▼は下がる馬。'
+             '「終い◯位」は今日と同じ距離帯・その走の馬場の水準と比べた上がりの順です。')
 
 
 def main():
@@ -150,16 +174,23 @@ def main():
         r, p = tok.split(':')
         pace[r] = p.upper()
     soto = a[a.index('--soto') + 1] if '--soto' in a else os.path.join(HERE, 'soto.json')
-    body = build(a[0], pace, soto)
+    # ★ 内外の帯は --zone を付けたときだけ。事前の図には引かない（縦は内外ではない）
+    zone = '--zone' in a
+    note = {}
+    for tok in a:
+        if tok.startswith('note:'):
+            r, _, txt = tok[5:].partition('=')
+            note[r] = txt
+    body = build(a[0], pace, soto, zone, note)
     open(a[1], 'w').write(
         '<!doctype html><html lang="ja"><head><meta charset="utf-8">'
-        '<title>展開想定別 穴の狙い方</title><style>%s</style></head><body>'
-        '<div class="head"><div class="kicker">展開想定別</div><h1>穴の狙い方</h1>'
-        '<div class="sub">金色の囲いが、その想定で狙う帯です —— '
-        '<b>スローはラチ沿い一列</b>、<b>ミドルは内から2頭目まで</b>、'
-        '<b>ハイはいちばん外の一列</b>。横は4コーナーの前後で<b>右が前</b>、馬番は枠の色。</div></div>'
+        '<title>%s</title><style>%s</style></head><body>'
+        '<div class="head"><div class="kicker">%s</div><h1>%s</h1>'
+        '<div class="sub">%s</div></div>'
         '%s<div class="tail">印は買い目の保証ではありません。</div></body></html>'
-        % (CSS, '\n'.join(body)))
+        % (('展開想定別 穴の狙い方' if zone else '展開隊列図'), CSS,
+           ('展開想定別' if zone else TITLE_K), ('穴の狙い方' if zone else '展開隊列図'),
+           (SUB_ZONE if zone else SUB_PLAIN), '\n'.join(body)))
     print('%d鞍 → %s' % (len(body), a[1]))
 
 
