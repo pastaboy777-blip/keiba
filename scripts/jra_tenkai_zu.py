@@ -106,6 +106,33 @@ def parse_class(html: str) -> dict:
             "grade": ("G" + g.group(1)) if g else None}
 
 
+def from_data(data_path: str, race_id: str):
+    """集めたデータ(jra_harvest / jra_official_harvest の JSONL)だけで、その鞍の出走馬と過去走を組み立てる。
+
+    ネットに取りに行かない。過去走はその鞍の日付より前の走だけ(結果は使わない)。
+    返り値: (past, waku, name, info, klass, date, place)  ※ past は parse_past と同じ形
+    """
+    import json
+    rows = [json.loads(l) for l in open(data_path, encoding="utf-8") if l.strip()]
+    me = next(d for d in rows if d["race_id"] == race_id)
+    hist = {}
+    for d in sorted(rows, key=lambda d: (d["date"], d["race_id"])):
+        if d["date"] >= me["date"]:
+            break
+        for x in d["result"]:
+            hist.setdefault(x["horse_id"], []).append({
+                "date": d["date"], "place": d["place"], "surface": d.get("surface"), "dist": d["distance"],
+                "time": x.get("time"), "n": d["field_size"], "fin": x["finish_pos"],
+                "corner": x.get("corner_pos") or [], "agari": x.get("agari"), "baba": d.get("baba")})
+    past = {x["umaban"]: {"name": x["horse_name"], "runs": sorted(hist.get(x["horse_id"], []),
+                                                                   key=lambda r: r["date"], reverse=True)[:5]}
+            for x in me["result"]}
+    waku = {x["umaban"]: x.get("waku") for x in me["result"] if x.get("waku")}
+    info = f"{me.get('surface')}{me['distance']}m {me.get('baba') or ''}"
+    klass = {"race_class": me.get("race_class"), "race_type": me.get("race_type"), "grade": me.get("grade")}
+    return past, waku, me.get("name") or "", info, klass, me["date"], me["place"]
+
+
 def parse_shutuba(html: str) -> tuple[dict[int, int], str, str]:
     """出馬表 → (馬番→枠, レース名, 条件文字列)"""
     waku = {}
@@ -685,13 +712,19 @@ def main() -> None:
     ap.add_argument("--place")
     ap.add_argument("--race-no")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--from-data", action="store_true", help="出馬表をネットから取らず、--pace-data の集めたデータから組み立てる")
     ap.add_argument("--zone-front", type=float, default=0.4, help="狙う帯の前後の幅(前から何割、既定0.4)")
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
     a = ap.parse_args()
     global ZONE_FRONT
     ZONE_FRONT = a.zone_front
 
-    if a.shutuba and a.past:
+    klass = None
+    if a.race_id and a.pace_data and not a.shutuba and getattr(a, "from_data", False):
+        past, waku, name, info, klass, _, place_d = from_data(a.pace_data, a.race_id)
+        sh = ""
+        a.place = a.place or place_d
+    elif a.shutuba and a.past:
         sh = Path(a.shutuba).read_text(encoding="utf-8", errors="replace")
         ps = Path(a.past).read_text(encoding="utf-8", errors="replace")
     elif a.race_id:
@@ -702,8 +735,9 @@ def main() -> None:
     else:
         ap.error("--race-id か (--shutuba と --past) を指定してください")
 
-    waku, name, info = parse_shutuba(sh)
-    past = parse_past(ps, a.date)
+    if klass is None:
+        waku, name, info = parse_shutuba(sh)
+        past = parse_past(ps, a.date)
     place = a.place or (place_of(a.race_id) if a.race_id else "") or ""
     rno = a.race_no or (str(int(a.race_id[-2:])) if a.race_id else "")
     m = re.search(r"(芝|ダ)(\d{3,4})m", info)
@@ -714,7 +748,8 @@ def main() -> None:
     fc, rows, rk = build(past, waku, place=place, dist=dist, surface=surface, baba=baba)
     if a.pace_data:
         diff, nl, conf, q, est = learned_pace(a.pace_data, a.date, place=place, dist=dist, surface=surface,
-                                         n=len(rows), baba=baba, race_id=a.race_id, klass=parse_class(sh))
+                                         n=len(rows), baba=baba, race_id=a.race_id,
+                                         klass=klass if klass is not None else parse_class(sh))
         apply_learned_pace(fc, rows, diff, q=q)
         fc.n_learn, fc.conf, fc.est = nl, conf, est
     body = render_race(rno, name, dist, surface, baba, len(rows), fc, rows, rk)
