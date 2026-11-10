@@ -76,6 +76,114 @@ tr.in3 .ch{color:#5fe07a;font-weight:800}
 """
 
 
+ZU_CSS = """
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0c0c0e;color:#f2f2f4;width:1060px;padding:32px 38px 34px;
+ font-family:"Noto Sans CJK JP","Hiragino Sans","Yu Gothic",sans-serif}
+.head{border-bottom:2px solid #e8362f;padding-bottom:13px;margin-bottom:16px}
+.kicker{color:#e8362f;font-size:13px;letter-spacing:.14em;font-weight:700}
+h1{font-size:30px;font-weight:800;margin:5px 0 6px}
+.sub{color:#8c8c96;font-size:12.8px;line-height:1.8}.sub b{color:#f2f2f4}
+.band{display:flex;gap:8px;margin:0 0 10px}
+.bl{width:104px;padding-top:12px;text-align:right;font-size:12px;font-weight:800;line-height:1.5}
+.bl small{display:block;font-size:10px;font-weight:600;color:#8c8c96}
+.bi{color:#5fe07a}.bo{color:#ff9f52}.bs{color:#8c8c96}
+.tr{flex:1;position:relative;border-radius:7px;
+ background:repeating-linear-gradient(90deg,#3b3027 0 56px,#342a22 56px 58px)}
+.tr.inr{box-shadow:inset 0 3px 0 #5fe07a}
+.tr.otr{box-shadow:inset 0 -3px 0 #ff9f52}
+.goal{position:absolute;right:22px;top:0;bottom:0;width:2px;background:rgba(232,54,47,.8)}
+.h{position:absolute;transform:translate(-50%,0);text-align:center;width:140px}
+.fig{display:flex;align-items:flex-end;justify-content:center;gap:1px;height:40px}
+.fig svg{width:54px;height:36px}
+.lab{margin-top:-1px;white-space:nowrap}
+.n{display:inline-block;min-width:22px;height:22px;line-height:22px;border-radius:50%;
+ border:2px solid rgba(255,255,255,.45);font-size:12px;font-weight:800;vertical-align:middle;margin-right:3px}
+.nm{font-size:10.6px;font-weight:700;color:#f6f1e8;vertical-align:middle;
+ text-shadow:0 1px 4px rgba(0,0,0,.95)}
+.ch{display:block;font-size:11px;font-weight:800;margin-top:1px;white-space:nowrap}
+.w3{color:#5fe07a}.wx{color:#9a9aa4}
+.ag{display:block;font-size:9.6px;color:#d7cfc2;white-space:nowrap}
+.mv{display:block;font-size:9.6px;font-weight:800;white-space:nowrap}
+.mu{color:#6fc0ff}.md{color:#e58b86}
+.xlab{display:flex;justify-content:space-between;margin:4px 112px 0 112px;
+ font-size:11px;color:#8c8c96;font-weight:700}
+.note{margin-top:14px;background:#16161a;border:1px solid #2a2a31;
+ border-left:3px solid #3987e5;border-radius:8px;padding:12px 16px;
+ font-size:12.8px;line-height:1.9;color:#c9c9d2}
+.note b{color:#f2f2f4}
+.tail{margin-top:12px;font-size:11px;color:#5f5f69;line-height:1.7}
+"""
+WID, PAD, GAP, ROW = 820, 74, 142, 98
+
+
+def zu(v, M, od, out, note):
+    """結果から起こした展開図。縦は本物の内外（併走した馬だけ）。"""
+    from horse_svg import HORSE, CHEV
+    n = len(v["rows"])
+    fin = {r["ub"]: r for r in v["rows"]}
+    groups = {"内": [], "中": [], "単": [], "外": []}
+    for ub, (rank, tag) in M["4"].items():
+        groups.setdefault(tag, []).append((ub, rank, tag))
+    bands = [("内", "併走の<b>内</b>", "ラチ側にいた馬", "bi", "inr"),
+             ("中", "併走の<b>中</b>", "3頭以上で挟まれた馬", "bs", ""),
+             ("単", "<b>単独</b>", "内外の記録なし", "bs", ""),
+             ("外", "併走の<b>外</b>", "外にいた馬", "bo", "otr")]
+    body = []
+    for key, lab, sub, cls, trc in bands:
+        hs = sorted(groups[key], key=lambda x: x[1])
+        if not hs:
+            continue
+        lanes, cells = [], []
+        for ub, rank, tag in hs:
+            x = PAD + (n - rank) / max(1, n - 1) * (WID - 2 * PAD)
+            for i, last in enumerate(lanes):
+                if x < last - GAP:
+                    lanes[i] = x; cells.append((ub, rank, x, i)); break
+            else:
+                lanes.append(x); cells.append((ub, rank, x, len(lanes) - 1))
+        HT = max(1, len(lanes)) * ROW + 34
+        hh = []
+        for ub, rank, x, lane in cells:
+            r = fin.get(ub, {})
+            ch = r.get("chaku")
+            p1 = M["1"].get(ub)
+            mv = (p1[0] - rank) if p1 else 0
+            o = od.get(ub, {})
+            wc = WAKU.get(r.get("waku"), ("#15110d", "#f2f2f4"))
+            col = "#f2d231" if (ch or 99) <= 3 else "#d8c7ae"
+            hh.append('<div class="h" style="left:%dpx;top:%dpx"><div class="fig">%s%s</div>'
+                '<div class="lab"><span class="n" style="background:%s;color:%s">%d</span>'
+                '<span class="nm">%s</span></div>'
+                '<span class="ch %s">%s</span>'
+                '<span class="ag">4角%d番手 上り%s%s</span>%s</div>'
+                % (int(x), 12 + lane * ROW, HORSE.format(c=col), CHEV.format(c=col if (ch or 99) <= 3 else "#b9b9c4"),
+                   wc[0], wc[1], ub, html.escape(r.get("name", "")),
+                   "w3" if (ch or 99) <= 3 else "wx",
+                   ("%d着" % ch) if ch else "―", rank, r.get("agari") or "―",
+                   ("　%s人気" % o["nin"]) if o else "",
+                   ('<span class="mv %s">1角から%+d</span>' % ("mu" if mv > 0 else "md", mv)) if mv else ""))
+        body.append('<div class="band"><div class="bl %s">%s<small>%s</small></div>'
+                    '<div class="tr %s" style="height:%dpx"><div class="goal"></div>%s</div></div>'
+                    % (cls, lab, sub, trc, HT, "\n".join(hh)))
+    open(out, "w").write(
+        '<!doctype html><html lang="ja"><head><meta charset="utf-8">'
+        '<title>結果から起こした展開図</title><style>%s</style></head><body>'
+        '<div class="head"><div class="kicker">2026.11.10 TUE — 川崎 ／ 馬場 不良</div>'
+        '<h1>%dR %dm %d頭 ── 4コーナーの隊列</h1>'
+        '<div class="sub"><b>横は4コーナーの位置で、右が前。</b>'
+        '<b>縦は本物の内外です</b> —— 通過順の括弧が内→外の順に並ぶので、'
+        '<b>併走した馬</b>だけは内か外かが分かります。'
+        '真ん中の帯は<b>単独で、内外が記録されていない馬</b>。'
+        'ラチ沿いだったかどうかは、この馬たちについては分かりません。<br>'
+        '黄色い馬が3着内。「1角から+○」は1コーナーからいくつ前へ出たか。</div></div>'
+        '%s<div class="xlab"><span>後方</span><span>中団</span><span>前　→　ゴール</span></div>'
+        '%s<div class="tail">印は買い目の保証ではありません。</div></body></html>'
+        % (ZU_CSS, v["R"], v["dist"], n, "\n".join(body),
+           ('<div class="note">%s</div>' % note) if note else ""))
+    print(out)
+
+
 def main():
     a = sys.argv[1:]
     if len(a) < 3:
@@ -90,6 +198,8 @@ def main():
     M = {c: posmap(raw.get(c)) for c in ("1", "2", "3", "4")}
     rows = sorted(v["rows"], key=lambda r: r.get("chaku") or 99)
     note = a[a.index("--note") + 1] if "--note" in a else ""
+    if "--zu" in a:
+        zu(v, M, od, out, note); return
 
     def cell(ub, c):
         p = M[c].get(ub)
