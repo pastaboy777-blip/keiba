@@ -207,7 +207,7 @@ def main() -> None:
                 print(f"    {f:<12s} {wi:+.3f}")
             Path(a.outdir).mkdir(parents=True, exist_ok=True)
             json.dump({"features": POS_FEATS, "coef": w, "cut": cut},
-                      open(Path(a.outdir) / "position_model.json", "w"), ensure_ascii=False, indent=1)
+                      open(Path(a.outdir) / "position_model_v1.json", "w"), ensure_ascii=False, indent=1)
     print()
 
     print("== 1. 展開(ペース)の検証 ==")

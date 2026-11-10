@@ -205,6 +205,37 @@ def apply_position_model(rows, field, fc, *, dist, surface):
     for r in rows:
         if "pos1" in r:
             r["pos3"] = (r["pos1"] + r["pos"]) / 2
+    apply_hana_model(rows, field, fc, dist=dist, surface=surface)
+
+
+def apply_hana_model(rows, field, fc, *, dist, surface):
+    """ハナ(1角先頭)専用モデル(scripts/jra_hana_kenkyu.py)のスコアを r["hana"] に入れる。
+
+    検証(2,846鞍): 1番手的中 31.8%(隊列の1番手 29.3%)、上位3頭に入る 64.3%。
+    1番手と2番手の差が大きい鞍は 40%、小さい鞍は 23%。
+    """
+    import json
+    path = ROOT / "models" / "hana_model.json"
+    if not path.exists():
+        return
+    M = json.load(open(path))
+    n = len(rows)
+    for r in rows:
+        past = field.get(r["ub"], [])
+        runs = [x for x in past if x.corner_pos and x.field_size > 1]
+        if not runs:
+            continue
+        sp = fc.styles[r["ub"]]
+        sim = [x for x in runs if x.surface == surface and abs(x.distance - dist) <= 200]
+        gate = (r["ub"] - 1) / max(1, n - 1)
+        f = {"1": 1.0, "nige": sp.nige_rate, "early": sp.early_or(0.5),
+             "min_c1": min((x.corner_pos[0] - 1) / (x.field_size - 1) for x in runs),
+             "last_c1": (runs[0].corner_pos[0] - 1) / (runs[0].field_size - 1),
+             "last_lead": 1.0 if runs[0].corner_pos[0] == 1 else 0.0,
+             "sim_nige": (sum(x.corner_pos[0] == 1 for x in sim) / len(sim)) if sim else sp.nige_rate,
+             "jk_bias": 0.0, "gate": gate, "gate_x_short": gate * (1.0 if dist <= 1400 else 0.0),
+             "dist_diff": (dist - past[0].distance) / 1000, "n_runs": min(len(runs), 5) / 5, "field": n / 18}
+        r["hana"] = sum(w * f[k] for k, w in zip(M["features"], M["coef"]))
 
 
 def learned_pace(data_path: str, before: str, *, place, dist, surface, n, baba=None, race_id=None, klass=None):
@@ -234,12 +265,18 @@ def learned_pace(data_path: str, before: str, *, place, dist, surface, n, baba=N
     prev = [pace_of(d["lap"], d["distance"])["diff"] - m.predict(d) for d in rows
             if d["date"] == before and d["place"] == place and d["surface"] == surface
             and race_id and d["race_id"] < race_id]
-    if prev:
-        pred += 0.3 * st_.mean(prev)
+    if prev:   # 当日の前のレースの流れ(scripts/jra_toujitsu.py: ペースは2割足すのが最適、効果は小さい)
+        pred += _toujitsu_weight("dp", 0.2) * st_.mean(prev)
     margin = min(abs(pred - q[0]), abs(pred - q[1]))
     conf = "高" if margin >= 0.99 else ("中" if margin >= 0.39 else "低")
     est = estimate_times(rows, me, before, race_id)
     return pred, len(tr), conf, q, est
+
+
+def _toujitsu_weight(key, default):
+    import json
+    p = ROOT / "models" / "toujitsu_weight.json"
+    return json.load(open(p)).get(key, default) if p.exists() else default
 
 
 def estimate_times(rows, me, before, race_id):
@@ -260,8 +297,8 @@ def estimate_times(rows, me, before, race_id):
         prev = [target(d, k) - m.predict(d) for d in rows
                 if d["date"] == before and d["place"] == me["place"] and d["surface"] == me["surface"]
                 and race_id and d["race_id"] < race_id and d["result"][0].get("time")]
-        if prev:
-            v += M.get("day_weight", 0.5) * st_.mean(prev)
+        if prev:   # 当日の馬場の速さ(jra_toujitsu.py: 時計は6割足すと後半の誤差 1.30→1.13秒)
+            v += _toujitsu_weight("dt", M.get("day_weight", 0.5)) * st_.mean(prev)
         out[k] = v
     return out
 
@@ -486,7 +523,14 @@ def make_memo(fc, rows, rk, name: str = "") -> str:
         lines.append("<b>%sは%sペースが予想されます</b>(確度 %s%s)。%s"
                      % (H.escape(title), fc.pace, getattr(fc, "conf", "-"), ("、" + t) if t else "", KANGAE[fc.pace]))
         r1 = sorted([r for r in rows if "pos1" in r], key=lambda r: -r["pos1"])
-        if r1:
+        hn = sorted([r for r in rows if "hana" in r], key=lambda r: -r["hana"])
+        if len(hn) >= 3:
+            gap = hn[0]["hana"] - hn[1]["hana"]
+            lines.append("スタートダッシュで<b>先頭を奪う可能性が高いのは %s</b>(ハナ確度 %s)。"
+                         "ハナはこの3頭のどれか ── %s(検証: 上位3頭に入る 64%%)。"
+                         % (nm(hn[0]["ub"]), "高" if gap >= 0.08 else ("中" if gap >= 0.03 else "低"),
+                            "・".join(nm(r["ub"]) for r in hn[:3])))
+        elif r1:
             lead = r1[0]
             lines.append("スタートダッシュで<b>先頭を奪う可能性が高いのは %s</b>。続くのは %s。"
                          % (nm(lead["ub"]), "・".join(nm(r["ub"]) for r in r1[1:3])))
