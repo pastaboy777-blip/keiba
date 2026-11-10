@@ -76,6 +76,13 @@ def rel(p, k):
 
 def row_of(h, dist, od):
     P = h.get('past') or []
+    # ★ 隊列は1コーナーで組む（2026-11-11・CLAUDE.md ルール23）。
+    #   4角の中央値で組むと「前に行って下がる馬」が中団に描かれる。
+    #   11/10 11Rの⑩ヒーローコールは1角0.00（5走中3走ハナ）の逃げ馬なのに
+    #   4角中央値0.40で中団に置き、「▼下がる」と札まで付けて逃げ切られた。
+    #   南関803鞍でも1角のほうが上（先頭の的中43.5%対40.2%）。
+    c1 = [rel(p, 'c1') for p in P]
+    c1 = [x for x in c1 if x is not None]
     c4 = [rel(p, 'c4') for p in P]
     c4 = [x for x in c4 if x is not None]
     per = []
@@ -90,7 +97,8 @@ def row_of(h, dist, od):
     s = SOTO.get(h['name'])
     return dict(ub=h['ub'], name=h['name'], waku=waku, jk=jn, jr=jr,
                 uchi=WK.get(waku, .45) + ((jr - JK_BASE) if jr is not None else 0.0),
-                pos=(st.median(c4) if c4 else None), nopos=False,
+                pos=(st.median(c1) if c1 else (st.median(c4) if c4 else None)),
+                pos4=(st.median(c4) if c4 else None), nopos=False,
                 gain=(st.median(per) if per else None), l=l, runs=len(P),
                 soto=((s['out'] / s['grp']) if s and s['grp'] >= 3 else None),
                 chaku=o.get('chaku'), nin=o.get('nin'), odds=o.get('odds'))
@@ -221,8 +229,9 @@ def main():
             up = (r['gain'] or 0) >= .20
             col = '#f2d231' if lead else ('#6fc0ff' if up else '#d8c7ae')
             cc = col if lead else ('#6fc0ff' if up else '#b9b9c4')
+            # gain は 1角−4角。プラスが押し上げ、マイナスが4角までに下がる
             t = ('<span class="upq">▲押し上げ</span>' if up else
-                 ('<span class="dn">▼下がる</span>' if (r['gain'] or 0) <= -.20 else ''))
+                 ('<span class="dn">▼4角までに下がる</span>' if (r['gain'] or 0) <= -.20 else ''))
             so = ''
             if r['chaku']:
                 so += '<span class="sm">%d着</span>' % r['chaku']
@@ -265,7 +274,8 @@ def main():
             '5枠45.0% / 6枠34.6% / 7枠30.8% / 8枠21.9%（4コーナーで併走したとき内にいた割合・'
             '南関12,244頭）。騎手は併走60回以上の人だけ、基準線44.7%との差を足しています。<br>'
             '<b>縦の並びは重なりを避けただけです。</b>'
-            '位置の予想は平均で0.22ずれます（21,180件で測定）。</div></div>'
+            '位置の予想は平均で0.21ずれます（南関803鞍で測定）。'
+'<b>▼は1角から4コーナーまでに下がる馬</b>で、前にいないという意味ではありません。</div></div>'
             '@@BODY@@<div class="tail">印は買い目の保証ではありません。</div></body></html>')
     page = (page.replace('@@CSS@@', CSS).replace('@@DATE@@', date).replace('@@VEN@@', ven)
             .replace('@@BABA@@', ('／馬場 ' + baba) if baba else '')
