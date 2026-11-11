@@ -691,7 +691,7 @@ _UMA_CACHE: dict = {}
 
 def uma_img(waku, ub, px=50):
     """もらったイラスト(scripts/ana/uma/、uma_img.py)で、枠の色の勝負服・ゼッケンに馬番を描いた馬の絵(data URI)。
-    右が前の図なので右向き(left=False)。無ければ None。"""
+    頭が右(ゴール側)を向く(ユーザー指定 2026-11-11「馬の向き逆ね」。元絵の都合で left=True がこの向き)。無ければ None。"""
     key = (waku, ub, px)
     if key in _UMA_CACHE:
         return _UMA_CACHE[key]
@@ -700,7 +700,7 @@ def uma_img(waku, ub, px=50):
         import io
         sys.path.insert(0, str(ROOT / "scripts" / "ana"))
         import uma_img as U
-        im = U.horse(waku or 1, ub, px=px, left=False)
+        im = U.horse(waku or 1, ub, px=px, left=True)
         buf = io.BytesIO()
         im.save(buf, format="PNG")
         _UMA_CACHE[key] = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
