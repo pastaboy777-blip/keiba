@@ -1,6 +1,6 @@
 """note.com のクリエイター記事を全部集める(一覧 → 本文)。止めても続きから。
 
-    python3 scripts/note_harvest.py munehironet
+    python3 scripts/note_harvest.py munehironet [--skip-list] [--free-only]
 
 一覧 … /api/v2/creators/<id>/contents?kind=note&page=N
 本文 … /api/v3/notes/<key>  (有料記事は無料部分だけが返る)
@@ -52,9 +52,9 @@ def main():
         for l in open(lp):
             d = json.loads(l)
             items[d["key"]] = d
-    page = 1
+    page = 1 if "--skip-list" not in sys.argv else None
     with lp.open("a") as fo:
-        while True:
+        while page:
             d = get(f"https://note.com/api/v2/creators/{cid}/contents?kind=note&page={page}")["data"]
             new = 0
             for c in d["contents"]:
@@ -70,7 +70,9 @@ def main():
                 print(f"一覧 {page}ページ {len(items)}本", flush=True)
     print(f"一覧 {len(items)}本", flush=True)
     done = {json.loads(l)["key"] for l in open(bp)} if bp.exists() else set()
-    todo = [k for k in sorted(items, key=lambda k: items[k]["date"], reverse=True) if k not in done]
+    todo = [k for k in sorted(items, key=lambda k: (bool(items[k]["price"]), items[k]["date"][::-1] and -len(done)) ) if k not in done]
+    todo = sorted(todo, key=lambda k: items[k]["date"], reverse=True)
+    todo = [k for k in todo if not items[k]["price"]] + ([] if "--free-only" in sys.argv else [k for k in todo if items[k]["price"]])
     with bp.open("a") as fo:
         for i, k in enumerate(todo, 1):
             n = get(f"https://note.com/api/v3/notes/{k}")["data"]

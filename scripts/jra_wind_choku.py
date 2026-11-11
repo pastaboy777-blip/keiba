@@ -26,7 +26,8 @@ from jra_time_model import TimeModel  # noqa: E402
 from jra_wind_kenkyu import wind_at  # noqa: E402
 from nankeiba.scraping.db_race import pace_of  # noqa: E402
 
-AXIS = {"京都": 65, "東京": 290, "福島": 25}
+AXIS = {k: v for k, v in json.load(open(Path(__file__).resolve().parents[1] / "models/course_straight.json")).items()
+        if not k.startswith("_")}   # note の風傾向の全記述から(scripts/note_kaze.py)
 
 
 def head_cross(place, date, rno):
@@ -62,7 +63,7 @@ def main():
 
     # 3年: 向かい風の強さで後半3Fのずれがどう変わるか(場×芝ダ)
     print("== 3年(先週より前): 向かい風成分と、前半3F・後半3Fのずれ(条件モデル比) ==")
-    for place in ("京都", "東京", "福島"):
+    for place in AXIS:
         for sf in ("芝", "ダ"):
             rows = []
             for d in tr:

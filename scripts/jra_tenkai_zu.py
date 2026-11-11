@@ -677,13 +677,44 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
         '<span class="rd">%s　<b>%s%dm</b> ／ %d頭 ／ %s</span>'
         '<span class="pace p-%s"><b>%s</b> %s</span></div>'
         '<div class="pbar p-%s"><div class="bar"><span>ゆっくり</span><span>ふつう</span><span>速い</span>'
-        '<i style="left:%.1f%%"></i></div><div class="flow"><b>%s</b>　<small>%s</small></div>%s</div>'
+        '<i style="left:%.1f%%"></i></div><div class="flow"><b>%s</b>　<small>%s</small></div>%s%s</div>'
         '%s'
         '<div class="kenkai"><div class="kt">見解</div>%s</div>%s</div>'
         % (rno, H.escape(name), surface, dist, n, H.escape(baba or ""),
            pcls, ptag, {"スロー": "スロー", "ミドル": "平均", "ハイ": "ハイ"}[fc.pace] + "想定",
-           pcls, mark * 100, flow, flow_sub, est_html,
+           pcls, mark * 100, flow, flow_sub, est_html, wind_html(fc),
            board_html, memo, miss))
+
+
+def wind_html(fc):
+    w = getattr(fc, "wind", None)
+    if not w or w[0] is None:
+        return ""
+    h, c, _ = w
+    if abs(h) < 1.5 and c < 3:
+        t = "直線の風は弱い"
+    elif abs(h) >= 1.5:
+        t = ("直線 <b>向かい風 %.1fm</b> → 上がりがかかる(ハイ寄り)" % h) if h > 0 else ("直線 <b>追い風 %.1fm</b> → 上がりが速くなる(スロー寄り)" % -h)
+    else:
+        t = "直線 横風 %.1fm" % c
+    return '<div class="wind">%s</div>' % t
+
+
+def wind_head(place, date, rno):
+    """その鞍の直線の風(向かい風m/s、横風m/s、前後差の補正秒)。直線の向きは note の風傾向の全記述から
+    (models/course_straight.json)、風は Open-Meteo(過去=archive、当日=forecast を data/jra/wind/ に)。"""
+    import json
+    try:
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from jra_wind_choku import head_cross
+        hc = head_cross(place, date, rno) if rno else None
+        if not hc:
+            return None
+        coef = json.load(open(ROOT / "models" / "wind_head.json"))["coef_diff_per_head"]
+        k = coef.get(getattr(sys.modules[__name__], "_CUR_SURF", "芝"), -0.055)
+        return hc[0], hc[1], k * max(-6.0, min(6.0, hc[0]))
+    except Exception:  # noqa: BLE001
+        return None
 
 
 _UMA_CACHE: dict = {}
@@ -1081,6 +1112,7 @@ CSS_EXTRA = """
 .bar span{flex:1;text-align:center;font-size:10.5px;line-height:20px;color:#c9c9d2}
 .bar span:nth-child(1){background:#26344a}.bar span:nth-child(2){background:#3b3022}.bar span:nth-child(3){background:#4a1f1f}
 .bar i{position:absolute;top:-2px;width:4px;height:24px;background:#fff;border-radius:2px;transform:translateX(-50%)}
+.wind{margin-top:6px;font-size:12px;color:var(--dim)}.wind b{color:#9fd3ff}
 .est{display:flex;gap:26px;margin-top:8px;font-size:12px;color:var(--dim)}.est b{color:#f2f2f4;font-size:16px;margin-left:6px}
 .zone .zlab{left:auto;right:10px;top:auto;bottom:-12px}
 .ring{position:absolute;border:5px solid rgba(232,40,40,.95);border-radius:50%;z-index:1;
@@ -1211,10 +1243,14 @@ def one_race(a, ap):
     baba = bm.group(1) if bm else None
 
     fc, rows, rk = build(past, waku, place=place, dist=dist, surface=surface, baba=baba, jockeys=jockeys)
+    globals()["_CUR_SURF"] = surface
     if a.pace_data:
         diff, nl, conf, q, est = learned_pace(a.pace_data, a.date, place=place, dist=dist, surface=surface,
                                          n=len(rows), baba=baba, race_id=a.race_id,
                                          klass=klass if klass is not None else parse_class(sh))
+        fc.wind = wind_head(place, a.date, int(rno) if str(rno).isdigit() else 0)
+        if fc.wind and fc.wind[0] is not None:   # 直線の向かい風1mにつき前後差 −0.05〜0.06秒(models/wind_head.json)
+            diff += fc.wind[2]
         dl = pace_lgbm_diff(a.pace_data, a.date, fc, diff - (_toujitsu_weight("dp", 0.2) * 0))
         if dl is not None:
             diff = dl
