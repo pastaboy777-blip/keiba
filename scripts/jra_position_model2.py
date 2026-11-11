@@ -35,6 +35,7 @@ STEPS = [
     ("+同じ芝ダの過去走の位置", ["early_ss", "has_ss", "early_ss_x_chg"]),
     ("+同じ芝ダ・近い距離の位置(長距離も)", ["early_sim", "has_sim2", "long_x_sim"]),
     ("+流れ別の位置(想定ペースと同じ流れ)", ["early_samepace", "has_samepace", "pace_sens_x_pace"]),
+    ("+出遅れ率(推定)", ["late_rate", "late_x_early"]),
 ]
 
 
@@ -79,6 +80,14 @@ def main() -> None:
             sim2 = [x for x in ss if abs(x.distance - r.distance) <= 300]
             sp_sim = tk.style_profile(sim2)
             chg = 1.0 if last and last.surface and last.surface != r.surface else 0.0
+            # 出遅れ率(推定): その走の1角位置が、ほかの走の1角位置の中央値より 0.35 以上うしろ
+            c1s = [norm(x, 0) for x in runs]
+            late = 0
+            for i_, c in enumerate(c1s):
+                others = c1s[:i_] + c1s[i_ + 1:]
+                if others and c - st.median(others) >= 0.35:
+                    late += 1
+            late_rate = (late / len(c1s)) if len(c1s) >= 3 else 0.0
             today = pcls(pm.predict(d))
             hpr = hp.get(e.horse_id, [])
             same = [c1 for k_, c1, _ in hpr if k_ == today]
@@ -86,6 +95,7 @@ def main() -> None:
             slow = [c1 for k_, c1, _ in hpr if k_ == "S"]
             sens = (st.mean(fast) - st.mean(slow)) if fast and slow else 0.0   # + = 速い流れだと後ろになる馬
             f = {
+                "late_rate": late_rate, "late_x_early": late_rate * (0.5 - early),
                 "early_samepace": st.mean(same) if same else early, "has_samepace": 1.0 if same else 0.0,
                 "pace_sens_x_pace": sens * (1.0 if today == "H" else (-1.0 if today == "S" else 0.0)),
                 "early_ss": sp_ss.early_or(early), "has_ss": 1.0 if sp_ss.early is not None else 0.0,
