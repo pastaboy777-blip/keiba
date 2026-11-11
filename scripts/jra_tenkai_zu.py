@@ -156,7 +156,15 @@ def from_data(data_path: str, race_id: str):
     info = f"{me.get('surface')}{me['distance']}m {me.get('baba') or ''}"
     klass = {"race_class": me.get("race_class"), "race_type": me.get("race_type"), "grade": me.get("grade")}
     jockeys = {x["umaban"]: x.get("jockey") for x in me["result"]}
-    global EXTRA
+    global EXTRA, DAY_SHAPE
+    prev = [d for d in rows if d["date"] == me["date"] and d["place"] == me["place"]
+            and d.get("surface") == me.get("surface") and d["race_id"] < race_id]
+    frs = []
+    for d in prev:
+        top = [x for x in d["result"][:3] if x.get("corner_pos")]
+        if len(top) == 3 and d["field_size"] > 1:
+            frs.append(st.mean((x["corner_pos"][-1] - 1) / (d["field_size"] - 1) for x in top))
+    DAY_SHAPE = (st.mean(frs), len(frs)) if len(frs) >= 2 else None
     EXTRA = {x["umaban"]: {"kinryo": x.get("kinryo"), "weight": x.get("weight"), "dw": x.get("weight_diff")}
              for x in me["result"]}
     return past, waku, me.get("name") or "", info, klass, me["date"], me["place"], jockeys
@@ -694,7 +702,8 @@ def stage_board(rows, fc, n, key, prev, label, rk) -> str:
 #   スロー: 内(併走の最内)15.3% > 2頭目以降11.9% > 外の列9.4%   → 前1/3 × 内(組の1〜2頭目)
 #   ミドル: 外の列19.3% > 2頭目以降14.9% > 内11.8%             → 前1/3 × 外(組の2頭目以降)
 #   ハイ:   外の列23.9% > 2頭目以降19.5% > 内14.3%             → 前1/3 × 外(組の2頭目以降)
-EXTRA: dict = {}      # 馬番 → 今回の斤量・馬体重(分かるときだけ)
+EXTRA: dict = {}
+DAY_SHAPE = None     # 当日それより前のレースの「1〜3着の4角位置の平均」(0=前〜1=後ろ), 鞍数      # 馬番 → 今回の斤量・馬体重(分かるときだけ)
 STYLE = "simple"     # simple = 川崎の図と同じ1枚の4角盤面＋赤丸／stages = 3段
 ZONE_FRONT = 0.4   # 帯の前後の幅(前から何割)。--zone-front で変えられる。0.5 なら 帯の3着内率34.4%・1〜3着が全部入る31%
 ZONE_RULE = {"スロー": ("内", "前%d割 × 内寄り", "検証: 3着内31%・鞍平均の1.32倍、穴 内11.1% 対 外9.5%"),
@@ -783,6 +792,15 @@ def make_memo_simple(fc, rows, rk, name, dist, surface) -> str:
                         "%sが行き切れそう。" % nm(hn[0]["ub"]) if gap >= 0.08 else "これだけ並ぶと誰が引くかは読みにくい。"))
     kin = [EXTRA[u]["kinryo"] for u in by if EXTRA.get(u, {}).get("kinryo")]
     wts = [EXTRA[u]["weight"] for u in by if EXTRA.get(u, {}).get("weight")]
+    if DAY_SHAPE:
+        # scripts/jra_day_bias.py: 当日の前のレースの平均を三等分した境目は 0.20 / 0.27
+        v, k = DAY_SHAPE
+        if v > 0.274:
+            lines.append("<b>今日は差しの日</b>(前の%d鞍の1〜3着は4角で平均%.0f%%の位置)。差しの日は"
+                         "<b>前×内が割引</b>(鞍平均の1.30倍→1.14倍)、前×外は落ちない。" % (k, v * 100))
+        elif v <= 0.201:
+            lines.append("<b>今日は前残りの日</b>(前の%d鞍の1〜3着は4角で平均%.0f%%の位置)。前の組は内外とも鞍平均の1.30倍。"
+                         % (k, v * 100))
     if getattr(fc, "zone_horses", []) and fc.pace in ZONE_RULE:
         lines.append("<b>赤丸は %s</b>(%s)。"
                      % (ZONE_RULE[fc.pace][1] % round(getattr(fc, "zone_front", ZONE_FRONT) * 10), ZONE_RULE[fc.pace][2]))

@@ -34,6 +34,7 @@ STEPS = [
     ("+ペース想定", ["pace", "pace_x_early"]),
     ("+同じ芝ダの過去走の位置", ["early_ss", "has_ss", "early_ss_x_chg"]),
     ("+同じ芝ダ・近い距離の位置(長距離も)", ["early_sim", "has_sim2", "long_x_sim"]),
+    ("+流れ別の位置(想定ペースと同じ流れ)", ["early_samepace", "has_samepace", "pace_sens_x_pace"]),
 ]
 
 
@@ -55,6 +56,10 @@ def main() -> None:
 
     h: dict = {}
     jk_res = collections.defaultdict(list)   # 騎手 → (実際1角 − 馬のいつもの位置)
+    vv = sorted(pace_of(d["lap"], d["distance"])["diff"] for d in lap_ok if d["date"] < cut)
+    pq = (vv[len(vv) // 3], vv[2 * len(vv) // 3])
+    pcls = lambda x: "H" if x < pq[0] else ("S" if x > pq[1] else "M")  # noqa: E731
+    hp = collections.defaultdict(list)       # 馬 → [(その走の実際のペース区分, 1角位置, 4角位置)]
     R = []
     for d in raw:
         r = ds.race_from_dict(d)
@@ -74,7 +79,15 @@ def main() -> None:
             sim2 = [x for x in ss if abs(x.distance - r.distance) <= 300]
             sp_sim = tk.style_profile(sim2)
             chg = 1.0 if last and last.surface and last.surface != r.surface else 0.0
+            today = pcls(pm.predict(d))
+            hpr = hp.get(e.horse_id, [])
+            same = [c1 for k_, c1, _ in hpr if k_ == today]
+            fast = [c1 for k_, c1, _ in hpr if k_ == "H"]
+            slow = [c1 for k_, c1, _ in hpr if k_ == "S"]
+            sens = (st.mean(fast) - st.mean(slow)) if fast and slow else 0.0   # + = 速い流れだと後ろになる馬
             f = {
+                "early_samepace": st.mean(same) if same else early, "has_samepace": 1.0 if same else 0.0,
+                "pace_sens_x_pace": sens * (1.0 if today == "H" else (-1.0 if today == "S" else 0.0)),
                 "early_ss": sp_ss.early_or(early), "has_ss": 1.0 if sp_ss.early is not None else 0.0,
                 "early_ss_x_chg": sp_ss.early_or(early) * chg,
                 "early_sim": sp_sim.early_or(early), "has_sim2": 1.0 if sp_sim.early is not None else 0.0,
@@ -98,6 +111,13 @@ def main() -> None:
                              "lead1": e.corner_pos[0] == 1, "lead4": e.corner_pos[-1] == 1, "cur": early})
         if len(rows) >= 8:
             R.append({"date": d["date"], "rows": rows, "known": st.mean(x["x"]["known"] for x in rows)})
+        # 流れ別の位置を更新(結果を見た後)
+        pc_ = pace_of(d.get("lap") or [], d["distance"])
+        if pc_:
+            for e in r.entries:
+                if e.corner_pos and n > 1:
+                    hp[e.horse_id].append((pcls(pc_["diff"]), (e.corner_pos[0] - 1) / (n - 1),
+                                           (e.corner_pos[-1] - 1) / (n - 1)))
         # 騎手の癖を更新(結果を見た後)
         for e in r.entries:
             past = h.get(e.horse_id, [])
