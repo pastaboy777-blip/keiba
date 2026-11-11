@@ -37,6 +37,7 @@ def main() -> None:
     ap.add_argument("--data", default="data/jra/races.jsonl")
     ap.add_argument("--course", action="store_true", help="コースの S/M/H 割合とばらつきを材料に足す(学習期間だけで作る)")
     ap.add_argument("--no-save", action="store_true")
+    ap.add_argument("--more", action="store_true", help="顔ぶれの材料を足す(前走で経験したペース・ハナ争い・先行馬の枠・騎手)")
     ap.add_argument("--rel", action="store_true",
                     help="区分を『コース平均と比べた前後差』で切る(jra_pace_teigi.py: 決着の形がこちらで分かれる)")
     a = ap.parse_args()
@@ -66,6 +67,8 @@ def main() -> None:
 
     h: dict = {}
     front_hist: dict = {}
+    last_res: dict = {}          # 馬 → 前走の(コース比)ペースのずれ
+    jk_front = collections.defaultdict(lambda: [0, 0])   # 騎手 → [騎乗, 1角3番手以内]
     day_res = collections.defaultdict(list)
     X, Y, D, B = [], [], [], []
     for d in raw:
@@ -90,6 +93,18 @@ def main() -> None:
         from jra_wind_choku import head_cross
         hc = head_cross(d["place"], d["date"], int(d["race_id"][-2:]))
         x += [hc[0] if hc else 0.0, hc[1] if hc else 0.0]
+        if a.more:
+            lr_all = [last_res[e.horse_id] for e in r.entries if e.horse_id in last_res]
+            ks = sorted(known, key=lambda s_: s_.early)
+            top3 = [u for u in fc.order[:3]]
+            gates = [u / max(1, n) for u in top3]
+            jk = {e.num(): e.jockey for e in r.entries}
+            jr = [(jk_front[jk.get(u)][1] + 1) / (jk_front[jk.get(u)][0] + 5) for u in top3]
+            x += [st.mean(lr_all) if lr_all else 0.0, len(lr_all) / max(1, n),
+                  sum(1 for s_ in known if s_.nige_rate >= 0.3), sum(1 for s_ in known if s_.early <= 0.15),
+                  (ks[1].early - ks[0].early) if len(ks) >= 2 else 0.5,
+                  st.mean(gates) if gates else 0.5, min(gates) if gates else 0.5,
+                  st.mean(jr) if jr else 0.3, max(jr) if jr else 0.3]
         y = pace_of(d["lap"], d["distance"])["diff"] - (base if a.rel else 0)
         X.append(x)
         Y.append(y)
@@ -100,6 +115,10 @@ def main() -> None:
         for e in r.entries:
             if e.corner_pos and e.corner_pos[0] <= 2:
                 front_hist.setdefault(e.horse_id, []).append(res)
+            last_res[e.horse_id] = res
+            if e.jockey:
+                jk_front[e.jockey][0] += 1
+                jk_front[e.jockey][1] += 1 if (e.corner_pos and e.corner_pos[0] <= 3) else 0
         record_result(r, h)
     X = np.array(X)
     Y = np.array(Y)
@@ -136,7 +155,9 @@ def main() -> None:
                       "前3頭の過去ペース", "その数", "当日のずれ", "当日鞍数", "風東西", "風南北", "風強さ", "R"]
                      + ["新馬", "未勝利", "1勝", "2勝", "3勝", "OP", "2歳", "3歳", "3歳上", "4歳上", "重賞"]
                      + (["コースS率", "コースM率", "コースH率", "コースばらつき", "コース鞍数"] if a.course else [])
-                     + ["直線向かい風", "直線横風"],
+                     + ["直線向かい風", "直線横風"]
+                     + (["前走ペース平均", "前走あり率", "逃げ馬数", "先頭型数", "先頭型の差", "先行馬の枠平均", "先行馬の最内枠",
+                         "先行騎手の積極性", "その最大"] if a.more else []),
                      clf.feature_importance("gain")), key=lambda t: -t[1])
     print("  効いた材料(上位):", " ".join(f"{n_}" for n_, _ in imp[:8]))
     # 予想した区分ごとに、3着内の馬が4角どこにいたか(展開予想として役に立つか)
@@ -152,7 +173,7 @@ def main() -> None:
     if a.no_save:
         return
     json.dump({"q": q, "cut": cut, "clf": clf.model_to_string(), "reg": reg.model_to_string(), "course": a.course,
-               "rel": a.rel},
+               "rel": a.rel, "more": a.more},
               open(Path(__file__).resolve().parents[1] / "models" / ("pace_lgbm_rel.json" if a.rel else "pace_lgbm.json"), "w"))
 
 
