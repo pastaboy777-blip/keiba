@@ -291,7 +291,9 @@ def main():
             col = '#f2d231' if lead else ('#6fc0ff' if up else '#d8c7ae')
             cc = col if lead else ('#6fc0ff' if up else '#b9b9c4')
             # gain は 1角−4角。プラスが押し上げ、マイナスが4角までに下がる
-            t = ('<span class="upq">▲押し上げ</span>' if up else
+            # ★ --plain では ▲押し上げ／▼下がる も出さない（2026-11-11、ユーザーの指示
+            #   ──「馬の下の町田とか押上とか消して」）。残すのは馬番・馬名・過去走なしだけ。
+            t = '' if plain else ('<span class="upq">▲押し上げ</span>' if up else
                  ('<span class="dn">▼4角までに下がる</span>' if (r['gain'] or 0) <= -.20 else ''))
             so = ''
             if r['chaku']:
@@ -301,12 +303,12 @@ def main():
             #   図の形・馬の並び・〇・▲▼は変えない（ルール31）。
             if r['srank'] and r['srank'] <= 3 and not plain:
                 so += '<span class="sm">終い%d位</span>' % r['srank']
-            if r['jr'] is not None and r['jr'] >= .53:
-                so += ('<span class="jin">%s</span>' % html.escape(r['jk']) if plain else
-                       '<span class="jin">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100))
+            if plain:
+                pass                      # 騎手の札も出さない
+            elif r['jr'] is not None and r['jr'] >= .53:
+                so += '<span class="jin">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100)
             elif r['jr'] is not None and r['jr'] <= .40:
-                so += ('<span class="jout">%s</span>' % html.escape(r['jk']) if plain else
-                       '<span class="jout">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100))
+                so += '<span class="jout">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100)
             if r['mbtag'] and not plain:
                 so += '<span class="%s">過去 %s</span>' % (
                     'jin' if r['mbtag'][0] == '内' else 'jout', r['mbtag'])
