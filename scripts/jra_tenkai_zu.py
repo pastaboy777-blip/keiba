@@ -669,9 +669,9 @@ def stage_board(rows, fc, n, key, prev, label, rk) -> str:
 EXTRA: dict = {}      # 馬番 → 今回の斤量・馬体重(分かるときだけ)
 STYLE = "simple"     # simple = 川崎の図と同じ1枚の4角盤面＋赤丸／stages = 3段
 ZONE_FRONT = 0.4   # 帯の前後の幅(前から何割)。--zone-front で変えられる。0.5 なら 帯の3着内率34.4%・1〜3着が全部入る31%
-ZONE_RULE = {"スロー": ("内", "前%d割 × 内(横並びの1〜2頭目)", "穴の3着内率 内15% 対 外の列9%"),
-             "ミドル": ("外", "前%d割 × 外(横並びの2頭目より外)", "穴の3着内率 外の列19% 対 内12%"),
-             "ハイ": ("外", "前%d割 × 外(横並びの2頭目より外)", "穴の3着内率 外の列24% 対 内14%")}
+ZONE_RULE = {"スロー": ("内", "前%d割 × 内寄り", "検証: 3着内31%・鞍平均の1.32倍、穴 内11.1% 対 外9.5%"),
+             "ミドル": ("両", "前%d割(内外とも)", "検証: 3着内30%・鞍平均の1.40倍、内外の差はほぼ無し"),
+             "ハイ": ("外", "前%d割 × 外寄り", "検証: 3着内31%・鞍平均の1.51倍、穴 外11.6% 対 内9.2%")}
 
 
 def draw_zone(cells, fc, ellipse=False):
@@ -680,14 +680,28 @@ def draw_zone(cells, fc, ellipse=False):
     if not rule:
         return "", []
     side, lab, why = rule
+    # 学習した帯(scripts/jra_zone_kenkyu.py → models/zone_rule.json)があればそれを使う
+    import json
+    zr_path = ROOT / "models" / "zone_rule.json"
+    zr = json.load(open(zr_path)) if zr_path.exists() else {}
+    key = {"スロー": "S", "ミドル": "M", "ハイ": "H"}[fc.pace]
+    front_frac = ZONE_FRONT
+    if key in zr and ZONE_FRONT == 0.4:      # --zone-front を指定していなければ学習した帯
+        front_frac, side = zr[key][0], {"内": "内", "外": "外", "両方": "両"}[zr[key][1]]
+    fc.zone_front = front_frac
     if not cells:          # 新馬戦など、過去走のある馬がいない
         return "", []
     xs = sorted({x for _, x, _ in cells}, reverse=True)
     n = len(cells)
     # 前4割まで(3年分のスロー想定3,273鞍: 前1/3→前4割で 帯の3着内率 36.8→36.0%、1〜3着が全部帯に入る鞍 13.9→21.7%)
-    front = sorted(cells, key=lambda c: -c[1])[: max(1, round(n * ZONE_FRONT))]
+    front = sorted(cells, key=lambda c: -c[1])[: max(1, round(n * front_frac))]
     fx = min(c[1] for c in front)
-    sel = [c for c in cells if c[1] >= fx and ((c[2] <= 1) if side == "内" else (c[2] >= 1))]
+    if all("outer_score" in c[0] for c in front):   # 内外は外度(馬番+騎手)の中央値で分ける(学習と同じ)
+        med = st.median(c[0]["outer_score"] for c in front)
+        sel = [c for c in front if side == "両" or (side == "内" and c[0]["outer_score"] <= med)
+               or (side == "外" and c[0]["outer_score"] > med)]
+    else:
+        sel = [c for c in cells if c[1] >= fx and ((c[2] <= 1) if side == "内" else (c[2] >= 1))]
     if not sel:
         return "", []
     left = max(4, min(c[1] for c in sel) - 70)
@@ -741,6 +755,9 @@ def make_memo_simple(fc, rows, rk, name, dist, surface) -> str:
                         "%sが行き切れそう。" % nm(hn[0]["ub"]) if gap >= 0.08 else "これだけ並ぶと誰が引くかは読みにくい。"))
     kin = [EXTRA[u]["kinryo"] for u in by if EXTRA.get(u, {}).get("kinryo")]
     wts = [EXTRA[u]["weight"] for u in by if EXTRA.get(u, {}).get("weight")]
+    if getattr(fc, "zone_horses", []) and fc.pace in ZONE_RULE:
+        lines.append("<b>赤丸は %s</b>(%s)。"
+                     % (ZONE_RULE[fc.pace][1] % round(getattr(fc, "zone_front", ZONE_FRONT) * 10), ZONE_RULE[fc.pace][2]))
     for u in getattr(fc, "zone_horses", []):
         r = by[u]
         bits = []
@@ -813,7 +830,7 @@ def make_memo(fc, rows, rk, name: str = "") -> str:
         zh = getattr(fc, "zone_horses", [])
         if zh and fc.pace in ZONE_RULE:
             lines.append("<b>%s想定で狙う帯(図の金色の囲み)は %s</b> ── %s。%s"
-                         % (fc.pace, ZONE_RULE[fc.pace][1] % round(ZONE_FRONT * 10), "・".join(nm(u) for u in zh),
+                         % (fc.pace, ZONE_RULE[fc.pace][1] % round(getattr(fc, "zone_front", ZONE_FRONT) * 10), "・".join(nm(u) for u in zh),
                             ZONE_RULE[fc.pace][2] + "(3年分の検証)。"))
         js = [(r, jockey_stat(r.get("jockey"))) for r in rows]
         js = [(r, j) for r, j in js if j and j["n"] >= 100]
