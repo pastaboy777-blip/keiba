@@ -1,4 +1,4 @@
-"""展開図 ── 過去走の4コーナー通過順で隊列を組み、枠と騎手で位置を直す。
+"""展開図 ── 過去走の1コーナー通過順で隊列を組み、枠と騎手で位置を直す。
 
   python3 tenkai_zu.py <card.json> <out.html> --ven 川崎 --baba 不良 \
       --date "2026.11.10 TUE" --R 6-12 [--res res.json] [--odds odds.json] \
@@ -32,11 +32,37 @@
   （1-2枠0.455 / 3-6枠0.500 / 7-8枠0.455）。
   **位置は「だいたい」。当てにしすぎない。**
 """
-import sys, os, json, re, html, statistics as st
+import sys, os, json, re, html, base64, io, statistics as st
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from horse_svg import HORSE, CHEV
+try:
+    import uma_img
+except Exception:
+    uma_img = None
+
+_UMA = {}
+
+
+def uma_tag(waku, ub, h=40):
+    """ユーザーからもらった馬の絵（枠色のゼッケンに馬番）。作れなければ None。
+
+    ★ 2026-11-11、ユーザーの指示 ──「それでこれを使ってくれない？？ 馬の絵」。
+      絵は `uma/`（`uma_img.py --build` で作る）。体の色では押し上げを出せなくなるので、
+      ▲押し上げ／▼下がるは**札と矢印**で読む。`--svg` で前のシルエットに戻せる。
+    """
+    k = (waku, ub, h)
+    if k in _UMA:
+        return _UMA[k]
+    try:
+        im = uma_img.horse(waku, ub, h * 2)
+        b = io.BytesIO(); im.save(b, 'PNG')
+        _UMA[k] = ('<img class="hv" src="data:image/png;base64,%s" height="%d" alt="">'
+                   % (base64.b64encode(b.getvalue()).decode(), h))
+    except Exception:
+        _UMA[k] = None
+    return _UMA[k]
 import tenkai as T
 
 W = {1: ('#ffffff', '#111'), 2: ('#1b1b1b', '#fff'), 3: ('#e03a30', '#fff'),
@@ -281,10 +307,12 @@ def main():
             if r['nopos']:
                 so += '<span class="nopast">過去走なし</span>'
             wc = W.get(r['waku'], ('#15110d', '#f2f2f4'))
+            fig = (None if ('--svg' in a or uma_img is None)
+                   else uma_tag(r['waku'], r['ub']))
             hh.append('<div class="horse" style="left:%dpx;top:%dpx"><div class="fig">%s%s</div>'
                       '<div class="lab"><span class="n" style="background:%s;color:%s">%d</span>'
                       '<span class="nm">%s</span></div>%s%s</div>'
-                      % (int(x), 14 + ln * LANE, HORSE.format(c=col), CHEV.format(c=cc),
+                      % (int(x), 14 + ln * LANE, fig or HORSE.format(c=col), CHEV.format(c=cc),
                          wc[0], wc[1], r['ub'], html.escape(r['name']), t, so))
         body.append(
             '<div class="race"><div class="rh"><span class="rn">%dR</span>'
@@ -305,7 +333,7 @@ def main():
             '<title>展開予想</title><style>@@CSS@@</style></head><body>'
             '<div class="head"><div class="kicker">@@DATE@@ — @@VEN@@@@BABA@@</div>'
             '<h1>展開予想</h1>'
-            '<div class="sub">過去走の<b>4コーナー通過順</b>で隊列を組み、'
+            '<div class="sub">過去走の<b>1コーナー通過順</b>で隊列を組み、'
             '<b>枠と騎手</b>で位置を直しています。<b>右が前</b>、馬番は枠の色。<br>'
             '内外は枠と騎手から —— 1枠79.8% / 2枠71.1% / 3枠60.5% / 4枠50.9% / '
             '5枠45.0% / 6枠34.6% / 7枠30.8% / 8枠21.9%（4コーナーで併走したとき内にいた割合・'
