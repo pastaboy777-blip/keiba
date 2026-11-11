@@ -37,13 +37,16 @@ def main() -> None:
     ap.add_argument("--data", default="data/jra/races.jsonl")
     ap.add_argument("--course", action="store_true", help="コースの S/M/H 割合とばらつきを材料に足す(学習期間だけで作る)")
     ap.add_argument("--no-save", action="store_true")
+    ap.add_argument("--rel", action="store_true",
+                    help="区分を『コース平均と比べた前後差』で切る(jra_pace_teigi.py: 決着の形がこちらで分かれる)")
     a = ap.parse_args()
     raw = [json.loads(l) for l in open(a.data, encoding="utf-8") if l.strip()]
     raw = [d for d in raw if d.get("surface") in ("芝", "ダ") and pace_of(d.get("lap") or [], d["distance"])]
     raw.sort(key=lambda d: (d["date"], d["race_id"]))
     cut = raw[len(raw) // 2]["date"]
     pm = PaceModel().fit([d for d in raw if d["date"] < cut])
-    v = sorted(pace_of(d["lap"], d["distance"])["diff"] for d in raw if d["date"] < cut)
+    v = sorted(pace_of(d["lap"], d["distance"])["diff"] - (pm.predict(d) if a.rel else 0)
+               for d in raw if d["date"] < cut)
     q = (v[len(v) // 3], v[2 * len(v) // 3])
     lab = lambda x: 2 if x < q[0] else (0 if x > q[1] else 1)  # noqa: E731   0=S 1=M 2=H
     cstat = collections.defaultdict(list)
@@ -84,12 +87,15 @@ def main() -> None:
              len(known) / max(1, n), st.mean(lr) if lr else 0.0, len(lr),
              st.mean(day_res[dk]) if day_res[dk] else 0.0, len(day_res[dk]), w[0], w[1], w[2],
              int(d["race_id"][-2:])] + cls_x(d) + (course_x(d) if a.course else [])
-        y = pace_of(d["lap"], d["distance"])["diff"]
+        from jra_wind_choku import head_cross
+        hc = head_cross(d["place"], d["date"], int(d["race_id"][-2:]))
+        x += [hc[0] if hc else 0.0, hc[1] if hc else 0.0]
+        y = pace_of(d["lap"], d["distance"])["diff"] - (base if a.rel else 0)
         X.append(x)
         Y.append(y)
         D.append(d)
         B.append(base)
-        res = y - base
+        res = y if a.rel else y - base
         day_res[dk].append(res)
         for e in r.entries:
             if e.corner_pos and e.corner_pos[0] <= 2:
@@ -111,7 +117,7 @@ def main() -> None:
         print(f"  {name:<28s} 的中 {acc:.1%}  大外れ {big:.1%}   芝 {turf:.1%} / ダ {dirt:.1%}")
 
     print(f"学習 {tr.sum()}鞍 / 検証 {te.sum()}鞍(境 {cut})  区分の境 {q[0]:+.2f} / {q[1]:+.2f}")
-    report("今(コース平均+馬場)", np.array([lab(b) for b in np.array(B)[te]]))
+    report("今(コース平均+馬場)", np.array([lab(0.0 if a.rel else b) for b in np.array(B)[te]]))
     params = {"learning_rate": 0.03, "num_leaves": 15, "min_data_in_leaf": 60, "feature_fraction": 0.8,
               "bagging_fraction": 0.8, "bagging_freq": 1, "verbose": -1}
     reg = lgb.train(dict(params, objective="regression"), lgb.Dataset(X[tr], Y[tr]), num_boost_round=500)
@@ -129,13 +135,25 @@ def main() -> None:
     imp = sorted(zip(["想定", "距離", "頭数", "芝", "馬場", "直線", "場", "月", "逃げ率合計", "先行割合", "既知率",
                       "前3頭の過去ペース", "その数", "当日のずれ", "当日鞍数", "風東西", "風南北", "風強さ", "R"]
                      + ["新馬", "未勝利", "1勝", "2勝", "3勝", "OP", "2歳", "3歳", "3歳上", "4歳上", "重賞"]
-                     + (["コースS率", "コースM率", "コースH率", "コースばらつき", "コース鞍数"] if a.course else []),
+                     + (["コースS率", "コースM率", "コースH率", "コースばらつき", "コース鞍数"] if a.course else [])
+                     + ["直線向かい風", "直線横風"],
                      clf.feature_importance("gain")), key=lambda t: -t[1])
     print("  効いた材料(上位):", " ".join(f"{n_}" for n_, _ in imp[:8]))
+    # 予想した区分ごとに、3着内の馬が4角どこにいたか(展開予想として役に立つか)
+    Dte = [d for d, t in zip(D, tr) if not t]
+    for nm_, pred in (("予想", pc), ("実際", yte_c)):
+        line = []
+        for c_, lb in ((0, "S"), (1, "M"), (2, "H")):
+            ps = [(r["corner_pos"][-1] - 1) / (d["field_size"] - 1) for d, p_ in zip(Dte, pred) if p_ == c_
+                  and d["field_size"] >= 8 for r in d["result"] if r["finish_pos"] <= 3 and r.get("corner_pos")]
+            if ps:
+                line.append(f"{lb}: 4角前1/3から {sum(p <= 1/3 for p in ps)/len(ps):.1%} (馬{len(ps)})")
+        print(f"  {nm_}の区分ごと 3着内 →", "  ".join(line))
     if a.no_save:
         return
-    json.dump({"q": q, "cut": cut, "clf": clf.model_to_string(), "reg": reg.model_to_string(), "course": a.course},
-              open(Path(__file__).resolve().parents[1] / "models" / "pace_lgbm.json", "w"))
+    json.dump({"q": q, "cut": cut, "clf": clf.model_to_string(), "reg": reg.model_to_string(), "course": a.course,
+               "rel": a.rel},
+              open(Path(__file__).resolve().parents[1] / "models" / ("pace_lgbm_rel.json" if a.rel else "pace_lgbm.json"), "w"))
 
 
 if __name__ == "__main__":

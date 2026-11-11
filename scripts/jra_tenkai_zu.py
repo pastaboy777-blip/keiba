@@ -471,6 +471,18 @@ def pace_lgbm_diff(data_path, before, fc, base):
          sum(sp.nige_rate for sp in known), sum(1 for sp in known if sp.early <= 0.25) / max(1, n),
          len(known) / max(1, n), st.mean(lr) if lr else 0.0, len(lr),
          st.mean(day) if day else 0.0, len(day), w[0], w[1], w[2], int(d["race_id"][-2:])] + cls_x(d)
+    rp = ROOT / "models" / "pace_lgbm_rel.json"
+    if rp.exists():   # このコースにしては速いか遅いか(決着の形と結びつくのはこちら。jra_pace_teigi.py)
+        try:
+            from jra_wind_choku import head_cross
+            hc = head_cross(d["place"], d["date"], int(d["race_id"][-2:]))
+            R_ = json.load(open(rp))
+            xr = list(x)
+            xr[13] = st.mean(day) if day else 0.0   # 当日のずれは同じ定義(コース平均との差)
+            pr = lgb.Booster(model_str=R_["clf"]).predict(np.array([xr + [hc[0] if hc else 0.0, hc[1] if hc else 0.0]]))[0]
+            fc.rel = (["遅め", "平均", "速め"][int(pr.argmax())], float(pr.max()), [float(v) for v in pr])
+        except Exception:  # noqa: BLE001
+            fc.rel = None
     return float(reg.predict(np.array([x]))[0])
 
 
@@ -716,9 +728,18 @@ def kikou_tag(ub):
 
 
 def wind_html(fc):
+    out = ""
+    rel = getattr(fc, "rel", None)
+    if rel:
+        lab, p, pr = rel
+        conf = "高" if p >= 0.52 else ("中" if p >= 0.44 else "低")
+        hint = {"遅め": "前が残りやすい", "平均": "形は互角", "速め": "差しが届きやすい"}[lab]
+        out = ('<div class="wind">このコースにしては <b>%s</b>(確度%s 遅め%d%%・平均%d%%・速め%d%%) → %s'
+               '　<small>※決着の形と結びつくのはこちら</small></div>'
+               % (lab, conf, pr[0] * 100, pr[1] * 100, pr[2] * 100, hint))
     w = getattr(fc, "wind", None)
     if not w or w[0] is None:
-        return ""
+        return out
     h, c, _ = w
     if abs(h) < 1.5 and c < 3:
         t = "直線の風は弱い"
@@ -726,7 +747,7 @@ def wind_html(fc):
         t = ("直線 <b>向かい風 %.1fm</b> → 上がりがかかる(ハイ寄り)" % h) if h > 0 else ("直線 <b>追い風 %.1fm</b> → 上がりが速くなる(スロー寄り)" % -h)
     else:
         t = "直線 横風 %.1fm" % c
-    return '<div class="wind">%s</div>' % t
+    return out + '<div class="wind">%s</div>' % t
 
 
 def wind_head(place, date, rno):
