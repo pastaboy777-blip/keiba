@@ -610,7 +610,7 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
             '<div class="horse" style="left:%dpx;top:%dpx"><div class="fig">%s%s</div>'
             '<div class="lab"><span class="n" style="background:%s;color:%s;border-color:%s">%d</span>'
             '<span class="nm">%s</span></div>%s%s</div>'
-            % (int(x), 14 + lane * LANE, HORSE.format(c=col), CHEV.format(c=cc), wc[0], wc[1],
+            % (int(x), 14 + lane * LANE, uma_fig(r["waku"], r["ub"], col), CHEV.format(c=cc), wc[0], wc[1],
                "#00000055" if r["waku"] == 1 else "rgba(255,255,255,.45)",
                r["ub"], H.escape(r["name"][:4] if two_d else r["name"]), t, so))
 
@@ -686,6 +686,35 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
            board_html, memo, miss))
 
 
+_UMA_CACHE: dict = {}
+
+
+def uma_img(waku, ub, px=50):
+    """もらったイラスト(scripts/ana/uma/、uma_img.py)で、枠の色の勝負服・ゼッケンに馬番を描いた馬の絵(data URI)。
+    右が前の図なので右向き(left=False)。無ければ None。"""
+    key = (waku, ub, px)
+    if key in _UMA_CACHE:
+        return _UMA_CACHE[key]
+    try:
+        import base64
+        import io
+        sys.path.insert(0, str(ROOT / "scripts" / "ana"))
+        import uma_img as U
+        im = U.horse(waku or 1, ub, px=px, left=False)
+        buf = io.BytesIO()
+        im.save(buf, format="PNG")
+        _UMA_CACHE[key] = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    except Exception:  # noqa: BLE001
+        _UMA_CACHE[key] = None
+    return _UMA_CACHE[key]
+
+
+def uma_fig(waku, ub, col):
+    """展開図の馬は、もらったイラスト(枠色の帽子・勝負服、ゼッケンに馬番)が既定。無ければシルエット。"""
+    img = uma_img(waku, ub)
+    return ('<img class="uma" src="%s" alt="">' % img) if img else HORSE.format(c=col)
+
+
 def simple_board(rows, fc, n, rk) -> str:
     """川崎の図(scripts/ana/zu.py)と同じ1枚の4角盤面。縦は内外の想定、狙う帯を赤い丸で囲む。"""
     lateral_layout(rows, fc, n, key="pos", band=0.07)   # outer_score を付けるため
@@ -731,10 +760,12 @@ def simple_board(rows, fc, n, rk) -> str:
         elif "outer_score" in r and osc >= hi_q and "upo" not in t:
             so += '<span class="so">外に出せる</span>'
         wc = WAKU.get(r["waku"], ("#15110d", "#f2f2f4"))
+        img = uma_img(r["waku"], r["ub"])
+        fig = ('<img class="uma" src="%s" alt="">' % img) if img else HORSE.format(c=col)
         hh.append('<div class="horse wide" style="left:%dpx;top:%dpx"><div class="fig">%s%s</div>'
                   '<div class="lab"><span class="n" style="background:%s;color:%s;border-color:%s">%d</span>'
                   '<span class="nm">%s</span></div>%s%s</div>'
-                  % (int(x), 14 + lane * LANE, HORSE.format(c=col), CHEV.format(c=cc), wc[0], wc[1],
+                  % (int(x), 14 + lane * LANE, fig, CHEV.format(c=cc), wc[0], wc[1],
                      "#00000055" if r["waku"] == 1 else "rgba(255,255,255,.45)", r["ub"], H.escape(r["name"]), t, so))
     zone, fc.zone_horses = draw_zone(cells, fc, ellipse=True)
     return ('<div class="board"><div class="ylab"><span>内（ラチ側）</span><span>外</span></div>'
@@ -765,7 +796,7 @@ def stage_board(rows, fc, n, key, prev, label, rk) -> str:
         hh.append('<div class="horse" style="left:%dpx;top:%dpx"><div class="fig">%s%s</div>'
                   '<div class="lab"><span class="n" style="background:%s;color:%s;border-color:%s">%d</span>'
                   '<span class="nm">%s</span></div>%s%s</div>'
-                  % (int(x), 14 + lane * LANE, HORSE.format(c=col), CHEV.format(c=cc), wc[0], wc[1],
+                  % (int(x), 14 + lane * LANE, uma_fig(r["waku"], r["ub"], col), CHEV.format(c=cc), wc[0], wc[1],
                      "#00000055" if r["waku"] == 1 else "rgba(255,255,255,.45)", r["ub"],
                      H.escape(r["name"][:4]) + ('<span class="jk">%s</span>' % H.escape((r.get("jockey") or "")[:4])
                                                 if r.get("jockey") else ""), t, so))
@@ -1055,6 +1086,7 @@ CSS_EXTRA = """
 .ring{position:absolute;border:5px solid rgba(232,40,40,.95);border-radius:50%;z-index:1;
  box-shadow:0 0 12px rgba(232,40,40,.55)}
 .horse.wide{width:170px}
+.fig img.uma{height:46px;width:auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.45))}
 .track.turf{background:repeating-linear-gradient(90deg,#3f7d3a 0 56px,#3a7536 56px 58px)}
 .track.turf .nm{text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 2px rgba(0,0,0,.9)}
 .track.turf .n{box-shadow:0 0 0 2px rgba(0,0,0,.55)}

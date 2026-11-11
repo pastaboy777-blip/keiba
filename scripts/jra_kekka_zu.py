@@ -81,7 +81,7 @@ def main() -> None:
         hh.append('<div class="horse" style="left:%dpx;top:%dpx"><div class="fig">%s%s</div>'
                   '<div class="lab"><span class="n" style="background:%s;color:%s;border-color:%s">%d</span>'
                   '<span class="nm">%s</span></div>%s%s</div>'
-                  % (int(x), 14 + li * Z.LANE, HORSE.format(c=col), CHEV.format(c=col), wc[0], wc[1],
+                  % (int(x), 14 + li * Z.LANE, Z.uma_fig(r.get("waku") or Z.waku_of(u, d["field_size"]), u, col), CHEV.format(c=col), wc[0], wc[1],
                      "#00000055" if (r.get("waku") or Z.waku_of(u, d["field_size"])) == 1 else "rgba(255,255,255,.45)", u, H.escape((r.get("horse_name") or "")[:4]), tag, side))
     p = pace_of(d["lap"], d["distance"])
     body = ('<div class="race"><div class="rh"><span class="rn">結果</span><span class="rd">%s %s　<b>%s%dm</b> ／ %d頭 ／ %s</span>'
