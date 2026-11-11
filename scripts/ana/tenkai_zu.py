@@ -143,11 +143,10 @@ def _arrange(rows, swap=()):
         if u1 in by and u2 in by:
             by[u1]['pos'], by[u2]['pos'] = by[u2]['pos'], by[u1]['pos']
     rows.sort(key=lambda r: r['pos'])
-    for i in range(len(rows) - 1):
-        a, b = rows[i], rows[i + 1]
-        if (b['pos'] - a['pos']) <= SWAP_DP and (b['uchi'] - a['uchi']) >= SWAP_DU:
-            a['pos'], b['pos'] = b['pos'], a['pos']
-            rows[i], rows[i + 1] = b, a
+    # ★ 内度による自動入れ替えは**止めた**（2026-11-11・CLAUDE.md ルール28）。
+    #   11/11 9Rで②マイネルボス(2枠.78)を⑪カセノラオー(7枠.33)の前に出したが、
+    #   実際は⑪が1角1番手・②が5番手。同じ鞍の③は1角2番手→4角1番手で1着。
+    #   内外は内外、前後は前後。前後を動かすのは `--swap` の手指定だけにする。
     return rows
 
 
