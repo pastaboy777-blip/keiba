@@ -686,6 +686,35 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
            board_html, memo, miss))
 
 
+def kikou_tag(ub):
+    """今日の気候(発走時の気温 寒<10/涼<20/暖<25/暑)が得意な馬に札。note むねひろ の「気候／◯」を
+    こちらのデータで作ったもの(scripts/jra_kikou_kenkyu.py: 力が同じ層で 得意 > 苦手 に3着内率 +3〜7pt)。
+    その気候で2走以上・他の気候で2走以上、3着内率が他より 0.25 以上高いときだけ。"""
+    if ME_RACE is None or ub not in ME_PAST:
+        return ""
+    try:
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from jra_kikou_kenkyu import kikou, temp_at
+    except Exception:  # noqa: BLE001
+        return ""
+    k = kikou(temp_at(ME_RACE["place"], ME_RACE["date"], int(ME_RACE["race_id"][-2:])))
+    if not k:
+        return ""
+    same, other = [0, 0], [0, 0]
+    for x in ME_PAST[ub]:
+        if not x.get("race_id"):
+            continue
+        kx = kikou(temp_at(x["place"], x["date"], int(x["race_id"][-2:])))
+        if not kx:
+            continue
+        t = same if kx == k else other
+        t[0] += 1
+        t[1] += 1 if (x.get("fin") or 99) <= 3 else 0
+    if same[0] >= 2 and other[0] >= 2 and same[1] / same[0] - other[1] / other[0] >= 0.25:
+        return '<span class="kik">気候◎ %s %d/%d</span>' % (k, same[1], same[0])
+    return ""
+
+
 def wind_html(fc):
     w = getattr(fc, "wind", None)
     if not w or w[0] is None:
@@ -790,6 +819,7 @@ def simple_board(rows, fc, n, rk) -> str:
             so += '<span class="sin">内に入りがち</span>'
         elif "outer_score" in r and osc >= hi_q and "upo" not in t:
             so += '<span class="so">外に出せる</span>'
+        so += kikou_tag(r["ub"])
         wc = WAKU.get(r["waku"], ("#15110d", "#f2f2f4"))
         img = uma_img(r["waku"], r["ub"])
         fig = ('<img class="uma" src="%s" alt="">' % img) if img else HORSE.format(c=col)
@@ -1112,6 +1142,7 @@ CSS_EXTRA = """
 .bar span{flex:1;text-align:center;font-size:10.5px;line-height:20px;color:#c9c9d2}
 .bar span:nth-child(1){background:#26344a}.bar span:nth-child(2){background:#3b3022}.bar span:nth-child(3){background:#4a1f1f}
 .bar i{position:absolute;top:-2px;width:4px;height:24px;background:#fff;border-radius:2px;transform:translateX(-50%)}
+.kik{display:inline-block;font-size:9.5px;color:#0c0c0e;background:#8fd0ff;border-radius:3px;padding:0 5px;font-weight:800;margin:2px 0 0 3px}
 .wind{margin-top:6px;font-size:12px;color:var(--dim)}.wind b{color:#9fd3ff}
 .est{display:flex;gap:26px;margin-top:8px;font-size:12px;color:var(--dim)}.est b{color:#f2f2f4;font-size:16px;margin-left:6px}
 .zone .zlab{left:auto;right:10px;top:auto;bottom:-12px}
