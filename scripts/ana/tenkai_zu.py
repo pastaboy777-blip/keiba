@@ -210,6 +210,13 @@ def main():
     pace = {k: v.lower() for k, v in kv(a, '--pace').items()}
     ana_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--ana').items()}
     swap_sp = {k: v.split(',') for k, v in kv(a, '--swap').items()}
+    # ★ 内外の手直し（2026-11-11 に追加・CLAUDE.md ルール26）
+    #   --soto 10:3 でその馬を外に、--uchi 10:3 で内に寄せる。
+    #   ユーザーは鞍ごとに馬番で指名してくる（shirushi.py の FORCE / DROP と同じ考え）。
+    #   11/11 10Rの③オングライドパスは併走2回（内1・外1）で札も出ず、
+    #   3枠＋加藤雄で内度.72 ＝ 中団のいちばん内に描かれた。ユーザーの指摘 ──「③　外じゃないの？？」。
+    soto_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--soto').items()}
+    uchi_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--uchi').items()}
     note = {}
     for tok in a:
         if tok.startswith('note:'):
@@ -229,6 +236,11 @@ def main():
                 od.setdefault(x['ub'], {}).update(
                     {k2: x[k2] for k2 in ('jk', 'waku', 'chaku') if x.get(k2) is not None})
         rows = [row_of(h, v['dist'], od) for h in v['horses']]
+        for r in rows:                      # 手直しは札より強い。指名された馬だけ動かす
+            if r['ub'] in soto_sp.get(R, ()):
+                r['uchi'], r['mbtag'] = min(r['uchi'], .32), '外（指定）'
+            elif r['ub'] in uchi_sp.get(R, ()):
+                r['uchi'], r['mbtag'] = max(r['uchi'], .68), '内（指定）'
         for i, r in enumerate(sorted([x for x in rows if x['l'] is not None],
                                      key=lambda x: x['l']), 1):
             r['srank'] = i
