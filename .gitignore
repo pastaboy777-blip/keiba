@@ -42,3 +42,5 @@ scripts/ana/soto_[0-9][0-9][0-9][0-9].json
 
 # 中央の結果・ラップ収集（jra_harvest.py の出力。他社サイトからの収集物なのでコミットしない）
 data/jra/
+data/note/
+data/note_*.log
