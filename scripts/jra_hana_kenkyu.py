@@ -60,6 +60,19 @@ def main() -> None:
                  "n_runs": min(len(runs), 5) / 5, "field": n / 18}
             if e.corner_pos:
                 rows.append({"x": f, "lead": 1.0 if e.corner_pos[0] == 1 else 0.0, "known": sp.early is not None})
+        # 相手との比較(レースの中での順位・差)
+        if rows:
+            for key in ("nige", "sim_nige", "min_c1", "early"):
+                vals = sorted((y["x"][key] for y in rows), reverse=key in ("nige", "sim_nige"))
+                for y in rows:
+                    v = y["x"][key]
+                    y["x"][key + "_rk"] = vals.index(v) / max(1, len(vals) - 1)
+                    others = [o["x"][key] for o in rows if o is not y]
+                    best = (max(others) if key in ("nige", "sim_nige") else min(others)) if others else v
+                    y["x"][key + "_gap"] = (v - best) if key in ("nige", "sim_nige") else (best - v)
+            n_lead = sum(1 for y in rows if y["x"]["nige"] >= 0.3)
+            for y in rows:
+                y["x"]["n_leaders"] = n_lead / 5
         if len(rows) >= 8 and sum(y["lead"] for y in rows) == 1:
             R.append({"date": d["date"], "rows": rows, "known": st.mean(y["known"] for y in rows)})
         for e in r.entries:
@@ -74,6 +87,24 @@ def main() -> None:
     te = [q for q in R if q["date"] >= cut]
     w = J.ols([[y["x"][k] for k in F] for q in tr for y in q["rows"]], [y["lead"] for q in tr for y in q["rows"]], l2=1e-3)
     score = lambda y: sum(wi * y["x"][k] for wi, k in zip(w, F))  # noqa: E731
+    F2 = F + [k + s_ for k in ("nige", "sim_nige", "min_c1", "early") for s_ in ("_rk", "_gap")] + ["n_leaders"]
+    w2 = J.ols([[y["x"][k] for k in F2] for q in tr for y in q["rows"]], [y["lead"] for q in tr for y in q["rows"]], l2=1e-3)
+    score2 = lambda y: sum(wi * y["x"][k] for wi, k in zip(w2, F2))  # noqa: E731
+    gb = None
+    try:
+        import lightgbm as lgb
+        import numpy as np
+        Xtr = np.array([[y["x"][k] for k in F2] for q in tr for y in q["rows"]])
+        ytr = np.array([y["lead"] for q in tr for y in q["rows"]])
+        gb = lgb.train({"objective": "binary", "learning_rate": 0.03, "num_leaves": 15, "min_data_in_leaf": 100,
+                        "feature_fraction": 0.8, "bagging_fraction": 0.8, "bagging_freq": 1, "verbose": -1},
+                       lgb.Dataset(Xtr, ytr), num_boost_round=400)
+        for q in te:
+            pv = gb.predict(np.array([[y["x"][k] for k in F2] for y in q["rows"]]))
+            for y, v_ in zip(q["rows"], pv):
+                y["gb"] = float(v_)
+    except ImportError:
+        pass
 
     def topk(q, key, k, rev):
         o = sorted(q["rows"], key=key, reverse=rev)[:k]
@@ -82,7 +113,8 @@ def main() -> None:
     print(f"学習 {len(tr)}鞍 / 検証 {len(te)}鞍(境 {cut})  当てずっぽう ≒ {st.mean(1 / len(q['rows']) for q in te):.1%}")
     for name, key, rev in [("今(序盤位置の1番手)", lambda y: y["x"]["early"], False),
                            ("逃げ率の1番手", lambda y: (y["x"]["nige"], -y["x"]["early"]), True),
-                           ("ハナ専用モデル", score, True)]:
+                           ("ハナ専用モデル", score, True),
+                           ("+相手との比較(線形)", score2, True)] + ([("+相手との比較(LightGBM)", lambda y: y["gb"], True)] if gb else []):
         print(f"  {name:<18s} 1番手が的中 {st.mean(topk(q, key, 1, rev) for q in te):.1%}"
               f" / 上位2頭に入る {st.mean(topk(q, key, 2, rev) for q in te):.1%}"
               f" / 上位3頭に入る {st.mean(topk(q, key, 3, rev) for q in te):.1%}")
@@ -95,6 +127,9 @@ def main() -> None:
     k = len(gaps) // 3
     print(f"  確度(1番手と2番手の差)上位1/3の鞍: 的中 {st.mean(g[1] for g in gaps[:k]):.1%} / 下位1/3: {st.mean(g[1] for g in gaps[-k:]):.1%}")
     print("  係数: " + "  ".join(f"{k_} {wi:+.3f}" for k_, wi in zip(F, w)))
+    if gb:
+        json.dump({"features": F, "coef": w, "cut": cut, "features2": F2, "lgbm": gb.model_to_string()},
+                  open(Path(__file__).resolve().parents[1] / "models" / "hana_model_lgbm.json", "w"), ensure_ascii=False)
     json.dump({"features": F, "coef": w, "cut": cut},
               open(Path(__file__).resolve().parents[1] / "models" / "hana_model.json", "w"), ensure_ascii=False, indent=1)
 

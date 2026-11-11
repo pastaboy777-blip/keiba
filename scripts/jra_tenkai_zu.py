@@ -146,7 +146,7 @@ def from_data(data_path: str, race_id: str):
             break
         for x in d["result"]:
             hist.setdefault(x["horse_id"], []).append({
-                "date": d["date"], "place": d["place"], "surface": d.get("surface"), "dist": d["distance"],
+                "race_id": d["race_id"], "date": d["date"], "place": d["place"], "surface": d.get("surface"), "dist": d["distance"],
                 "time": x.get("time"), "n": d["field_size"], "fin": x["finish_pos"],
                 "corner": x.get("corner_pos") or [], "agari": x.get("agari"), "baba": d.get("baba")})
     past = {x["umaban"]: {"name": x["horse_name"], "runs": sorted(hist.get(x["horse_id"], []),
@@ -156,7 +156,8 @@ def from_data(data_path: str, race_id: str):
     info = f"{me.get('surface')}{me['distance']}m {me.get('baba') or ''}"
     klass = {"race_class": me.get("race_class"), "race_type": me.get("race_type"), "grade": me.get("grade")}
     jockeys = {x["umaban"]: x.get("jockey") for x in me["result"]}
-    global EXTRA, DAY_SHAPE
+    global EXTRA, DAY_SHAPE, ME_RACE, ME_PAST
+    ME_RACE, ME_PAST = me, {x["umaban"]: hist.get(x["horse_id"], []) for x in me["result"]}
     prev = [d for d in rows if d["date"] == me["date"] and d["place"] == me["place"]
             and d.get("surface") == me.get("surface") and d["race_id"] < race_id]
     frs = []
@@ -357,6 +358,34 @@ def apply_hana_model(rows, field, fc, *, dist, surface):
              "jk_bias": (jockey_stat(r.get("jockey")) or {}).get("front_bias", 0.0), "gate": gate, "gate_x_short": gate * (1.0 if dist <= 1400 else 0.0),
              "dist_diff": (dist - past[0].distance) / 1000, "n_runs": min(len(runs), 5) / 5, "field": n / 18}
         r["hana"] = sum(w * f[k] for k, w in zip(M["features"], M["coef"]))
+        r["_hf"] = f
+    # 相手との比較 + LightGBM(scripts/jra_hana_kenkyu.py、検証 1番手 31.8→34.2%)
+    pg = ROOT / "models" / "hana_model_lgbm.json"
+    hr = [r for r in rows if "_hf" in r]
+    if not (pg.exists() and len(hr) >= 2):
+        return
+    try:
+        import lightgbm as lgb
+        import numpy as np
+    except ImportError:
+        return
+    G = json.load(open(pg))
+    for key in ("nige", "sim_nige", "min_c1", "early"):
+        hi = key in ("nige", "sim_nige")
+        vals = sorted((r["_hf"][key] for r in hr), reverse=hi)
+        for r in hr:
+            v = r["_hf"][key]
+            r["_hf"][key + "_rk"] = vals.index(v) / max(1, len(vals) - 1)
+            others = [o["_hf"][key] for o in hr if o is not r]
+            best = (max(others) if hi else min(others)) if others else v
+            r["_hf"][key + "_gap"] = (v - best) if hi else (best - v)
+    nl = sum(1 for r in hr if r["_hf"]["nige"] >= 0.3)
+    for r in hr:
+        r["_hf"]["n_leaders"] = nl / 5
+    gb = lgb.Booster(model_str=G["lgbm"])
+    pv = gb.predict(np.array([[r["_hf"].get(k, 0.0) for k in G["features2"]] for r in hr]))
+    for r, v in zip(hr, pv):
+        r["hana"] = float(v)
 
 
 def learned_pace(data_path: str, before: str, *, place, dist, surface, n, baba=None, race_id=None, klass=None):
@@ -392,6 +421,57 @@ def learned_pace(data_path: str, before: str, *, place, dist, surface, n, baba=N
     conf = "高" if margin >= 0.99 else ("中" if margin >= 0.39 else "低")
     est = estimate_times(rows, me, before, race_id)
     return pred, len(tr), conf, q, est
+
+
+def pace_lgbm_diff(data_path, before, fc, base):
+    """ペースの LightGBM(scripts/jra_pace_lgbm.py、検証 3区分 64.6→65.7%・ダ 58.4→60.3%)で前後半差を出す。
+    材料が揃う --from-data のときだけ。使えなければ None。"""
+    import json
+    path = ROOT / "models" / "pace_lgbm.json"
+    if ME_RACE is None or not path.exists():
+        return None
+    try:
+        import lightgbm as lgb
+        import numpy as np
+    except ImportError:
+        return None
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from jra_wind_kenkyu import wind_at
+    from jra_class_kenkyu import cls_x
+    from nankeiba.core import course as cs
+    from nankeiba.scraping.db_race import pace_of
+    M = json.load(open(path))
+    reg = lgb.Booster(model_str=M["reg"])
+    d = ME_RACE
+    pm = _PACE_CACHE[(data_path, before)][0]
+    rows = {r["race_id"]: r for r in load_rows(data_path)}
+
+    def resid(rid):
+        r = rows.get(rid)
+        pc = pace_of(r.get("lap") or [], r["distance"]) if r else None
+        return (pc["diff"] - pm.predict(r)) if pc else None
+
+    n = d["field_size"]
+    known = [sp for sp in fc.styles.values() if sp.early is not None]
+    lr = []
+    for u in fc.order[:3]:
+        rs = [resid(x["race_id"]) for x in ME_PAST.get(u, []) if x.get("corner") and x["corner"][0] <= 2 and x.get("race_id")]
+        rs = [x for x in rs if x is not None]
+        if rs:
+            lr.append(st.mean(rs[-3:]))
+    day = [resid(r["race_id"]) for r in rows.values() if r["date"] == d["date"] and r["place"] == d["place"]
+           and r.get("surface") == d["surface"] and r["race_id"] < d["race_id"]]
+    day = [x for x in day if x is not None]
+    w = wind_at(d["place"], d["date"], int(d["race_id"][-2:])) or (0.0, 0.0, 0.0)
+    PL = ["札幌", "函館", "福島", "新潟", "東京", "中山", "中京", "京都", "阪神", "小倉"]
+    base = pm.predict(d)   # 学習と同じく、当日のずれを足す前のコース平均の想定
+    x = [base, d["distance"] / 1000, n / 18, 1.0 if d["surface"] == "芝" else 0.0,
+         {"良": 0, "稍": 1, "重": 2, "不": 3}.get(d.get("baba") or "良", 0), cs.front_bias(d["place"], d["surface"]),
+         PL.index(d["place"]) if d["place"] in PL else -1, int(d["date"][5:7]),
+         sum(sp.nige_rate for sp in known), sum(1 for sp in known if sp.early <= 0.25) / max(1, n),
+         len(known) / max(1, n), st.mean(lr) if lr else 0.0, len(lr),
+         st.mean(day) if day else 0.0, len(day), w[0], w[1], w[2], int(d["race_id"][-2:])] + cls_x(d)
+    return float(reg.predict(np.array([x]))[0])
 
 
 def _toujitsu_weight(key, default):
@@ -703,6 +783,8 @@ def stage_board(rows, fc, n, key, prev, label, rk) -> str:
 #   ミドル: 外の列19.3% > 2頭目以降14.9% > 内11.8%             → 前1/3 × 外(組の2頭目以降)
 #   ハイ:   外の列23.9% > 2頭目以降19.5% > 内14.3%             → 前1/3 × 外(組の2頭目以降)
 EXTRA: dict = {}
+ME_RACE = None       # --from-data のときの今回の鞍(ペースの LightGBM に使う)
+ME_PAST: dict = {}
 DAY_SHAPE = None     # 当日それより前のレースの「1〜3着の4角位置の平均」(0=前〜1=後ろ), 鞍数      # 馬番 → 今回の斤量・馬体重(分かるときだけ)
 STYLE = "simple"     # simple = 川崎の図と同じ1枚の4角盤面＋赤丸／stages = 3段
 ZONE_FRONT = 0.4   # 帯の前後の幅(前から何割)。--zone-front で変えられる。0.5 なら 帯の3着内率34.4%・1〜3着が全部入る31%
@@ -772,12 +854,40 @@ KANGAE = {
 }
 
 
+def course_pace(place, surface, dist):
+    """コース(場×芝ダ×距離)の3年間の スロー/平均/ハイ の割合(models/course_pace.json)。"""
+    import json
+    p = ROOT / "models" / "course_pace.json"
+    if not (p.exists() and place and surface and dist):
+        return None
+    C = json.load(open(p))["courses"]
+    me = C.get(f"{place}|{surface}|{dist}")
+    if me and me["n"] >= 20:
+        return me
+    # 鞍数が少ないコースは、同じ場・芝ダで距離±200mのコースとまとめる(例: 東京芝2500m ← 2400m)
+    near = [v for k, v in C.items() if k.startswith(f"{place}|{surface}|") and abs(int(k.split("|")[2]) - dist) <= 200]
+    n = sum(v["n"] for v in near)
+    if n < 20:
+        return me
+    out = {k: sum(v[k] * v["n"] for v in near) / n for k in ("S", "M", "H")}
+    out.update(n=n, near=True)
+    return out
+
+
 def make_memo_simple(fc, rows, rk, name, dist, surface) -> str:
     """川崎の図の見解と同じ書き方: 先頭争い → 囲みの馬を1頭ずつ材料で → 距離延長の頭数 → 末脚。"""
     by = {r["ub"]: r for r in rows}
     nm = lambda u: "%s%s" % (chr(0x2460 + u - 1) if u <= 20 else str(u), by[u]["name"])  # noqa: E731
     lines = []
     est = getattr(fc, "est", None)
+    cp = course_pace(getattr(fc, "_place", None), getattr(fc, "_surface", None), getattr(fc, "_dist", None))
+    if cp:
+        top = max(("S", "M", "H"), key=lambda k: cp[k])
+        hard = cp[top] < 0.5
+        lines.append("<b>このコース%sの3年間のペース</b>: スロー%.0f%%・平均%.0f%%・ハイ%.0f%%(%d鞍)。%s"
+                     % ("(近い距離とまとめて)" if cp.get("near") else "", cp["S"] * 100, cp["M"] * 100, cp["H"] * 100, cp["n"],
+                        "<b>どれにも偏らない読みにくいコース</b>。想定の確度に注意。" if hard else
+                        ("ほぼ%sで決まるコース。" % {"S": "スロー", "M": "平均", "H": "ハイ"}[top] if cp[top] >= 0.8 else "")))
     lines.append("<b>%sペース想定</b>(確度 %s%s)。%s"
                  % (fc.pace, getattr(fc, "conf", "-"),
                     ("、推定前半3F %.1f・後半3F %.1f" % (est["front3"], est["last3"])) if est else "",
@@ -1073,8 +1183,15 @@ def one_race(a, ap):
         diff, nl, conf, q, est = learned_pace(a.pace_data, a.date, place=place, dist=dist, surface=surface,
                                          n=len(rows), baba=baba, race_id=a.race_id,
                                          klass=klass if klass is not None else parse_class(sh))
+        dl = pace_lgbm_diff(a.pace_data, a.date, fc, diff - (_toujitsu_weight("dp", 0.2) * 0))
+        if dl is not None:
+            diff = dl
+            margin = min(abs(diff - q[0]), abs(diff - q[1]))
+            conf = "高" if margin >= 0.78 else ("中" if margin >= 0.35 else "低")
+            fc.pace_model = "LightGBM"
         apply_learned_pace(fc, rows, diff, q=q)
         fc.n_learn, fc.conf, fc.est, fc.q = nl, conf, est, q
+    fc._place, fc._surface, fc._dist = place, surface, dist
     return render_race(rno, name, dist, surface, baba, len(rows), fc, rows, rk), place, rno, fc
 
 
