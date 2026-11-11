@@ -120,7 +120,7 @@ def row_of(h, dist, od):
                 chaku=o.get('chaku'), nin=o.get('nin'), odds=o.get('odds'))
 
 
-def arrange(rows, swap=()):
+def arrange(rows, swap=(), noswap=False):
     """pos を決めて、枠と騎手で位置を直す。過去走なしは鞍の中央。
 
     ★ 自動の入れ替えは「pos が近い隣どうし」しか直せない。
@@ -128,10 +128,10 @@ def arrange(rows, swap=()):
       ⑫が先頭列の2番目、①が5段下に描かれた。**段の割り当てのほうが問題**で、
       これは隣どうしの入れ替えでは直らない。だから `--swap 6:12-1` で
       馬番を指定して入れ替えられるようにしてある。ユーザーが鞍ごとに指名する。"""
-    return _arrange(rows, swap)
+    return _arrange(rows, swap, noswap)
 
 
-def _arrange(rows, swap=()):
+def _arrange(rows, swap=(), noswap=False):
     """pos を決めて、枠と騎手で近い2頭を入れ替える。過去走なしは鞍の中央に置く。"""
     ps = [r['pos'] for r in rows if r['pos'] is not None]
     mid = st.median(ps) if ps else .5
@@ -143,10 +143,17 @@ def _arrange(rows, swap=()):
         if u1 in by and u2 in by:
             by[u1]['pos'], by[u2]['pos'] = by[u2]['pos'], by[u1]['pos']
     rows.sort(key=lambda r: r['pos'])
-    # ★ 内度による自動入れ替えは**止めた**（2026-11-11・CLAUDE.md ルール28）。
-    #   11/11 9Rで②マイネルボス(2枠.78)を⑪カセノラオー(7枠.33)の前に出したが、
-    #   実際は⑪が1角1番手・②が5番手。同じ鞍の③は1角2番手→4角1番手で1着。
-    #   内外は内外、前後は前後。前後を動かすのは `--swap` の手指定だけにする。
+    # ★★ この入れ替えを**勝手に外すな**（2026-11-11）。
+    #   9Rで裏目に出たのを理由に一度削除して、10Rの図が最初に出したものと変わり、
+    #   ユーザーの指摘 ──「10R最初と違うよ！」「なんで変えるの？？」。
+    #   **図はユーザーが見た形が基準。** 挙動を変えるのは指示があったときだけ。
+    #   止めたいときは `--noswap`（既定は入れ替えあり）。
+    if not noswap:
+        for i in range(len(rows) - 1):
+            a, b = rows[i], rows[i + 1]
+            if (b['pos'] - a['pos']) <= SWAP_DP and (b['uchi'] - a['uchi']) >= SWAP_DU:
+                a['pos'], b['pos'] = b['pos'], a['pos']
+                rows[i], rows[i + 1] = b, a
     return rows
 
 
@@ -246,7 +253,7 @@ def main():
         for r in rows:
             r.setdefault('srank', None)
         sw = [tuple(int(y) for y in p_.split('-')) for p_ in swap_sp.get(R, [])]
-        cells, NL = place(arrange(rows, sw))
+        cells, NL = place(arrange(rows, sw, '--noswap' in a))
         pc = pace.get(R, 'm')
         tag, nm, eff = LAB.get(pc, LAB['m'])
         b = T.sui(ven, v['dist'], baba)
