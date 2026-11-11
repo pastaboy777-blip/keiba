@@ -239,6 +239,7 @@ def main():
     lo, hi = int(lo), int(hi or lo)
     od_all = json.load(open(g('--odds'))) if g('--odds') else {}
     res = json.load(open(g('--res'))) if g('--res') else {}
+    plain = '--plain' in a          # 人に見せる版（数値を落とす）
     pace = {k: v.lower() for k, v in kv(a, '--pace').items()}
     ana_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--ana').items()}
     swap_sp = {k: v.split(',') for k, v in kv(a, '--swap').items()}
@@ -295,13 +296,18 @@ def main():
             so = ''
             if r['chaku']:
                 so += '<span class="sm">%d着</span>' % r['chaku']
-            if r['srank'] and r['srank'] <= 3:
+            # ★ --plain は数値を落とした「人に見せる版」（2026-11-11、ユーザーの指示
+            #   ──「全部消して　騎手は残して良いよ」）。騎手は名前だけ残す。
+            #   図の形・馬の並び・〇・▲▼は変えない（ルール31）。
+            if r['srank'] and r['srank'] <= 3 and not plain:
                 so += '<span class="sm">終い%d位</span>' % r['srank']
             if r['jr'] is not None and r['jr'] >= .53:
-                so += '<span class="jin">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100)
+                so += ('<span class="jin">%s</span>' % html.escape(r['jk']) if plain else
+                       '<span class="jin">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100))
             elif r['jr'] is not None and r['jr'] <= .40:
-                so += '<span class="jout">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100)
-            if r['mbtag']:
+                so += ('<span class="jout">%s</span>' % html.escape(r['jk']) if plain else
+                       '<span class="jout">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100))
+            if r['mbtag'] and not plain:
                 so += '<span class="%s">過去 %s</span>' % (
                     'jin' if r['mbtag'][0] == '内' else 'jout', r['mbtag'])
             if r['nopos']:
@@ -329,20 +335,21 @@ def main():
                ('この鞍の前3Fの水準 %.1f秒' % b['f3']) if b else '',
                NL * LANE + 24, ring(cells, ana_sp.get(R, set())), '\n'.join(hh),
                ('<div class="view"><h4>見解</h4><p>%s</p></div>' % note[R]) if R in note else ''))
-    page = ('<!doctype html><html lang="ja"><head><meta charset="utf-8">'
-            '<title>展開予想</title><style>@@CSS@@</style></head><body>'
-            '<div class="head"><div class="kicker">@@DATE@@ — @@VEN@@@@BABA@@</div>'
-            '<h1>展開予想</h1>'
-            '<div class="sub">過去走の<b>1コーナー通過順</b>で隊列を組み、'
+    sub = ('' if plain else
+           '<div class="sub">過去走の<b>1コーナー通過順</b>で隊列を組み、'
             '<b>枠と騎手</b>で位置を直しています。<b>右が前</b>、馬番は枠の色。<br>'
             '内外は枠と騎手から —— 1枠79.8% / 2枠71.1% / 3枠60.5% / 4枠50.9% / '
             '5枠45.0% / 6枠34.6% / 7枠30.8% / 8枠21.9%（4コーナーで併走したとき内にいた割合・'
             '南関12,244頭）。騎手は併走60回以上の人だけ、基準線44.7%との差を足しています。<br>'
             '<b>縦の並びは重なりを避けただけです。</b>'
             '位置の予想は平均で0.21ずれます（南関803鞍で測定）。'
-'<b>▼は1角から4コーナーまでに下がる馬</b>で、前にいないという意味ではありません。</div></div>'
+'<b>▼は1角から4コーナーまでに下がる馬</b>で、前にいないという意味ではありません。</div>')
+    page = ('<!doctype html><html lang="ja"><head><meta charset="utf-8">'
+            '<title>展開予想</title><style>@@CSS@@</style></head><body>'
+            '<div class="head"><div class="kicker">@@DATE@@ — @@VEN@@@@BABA@@</div>'
+            '<h1>展開予想</h1>@@SUB@@</div>'
             '@@BODY@@<div class="tail">印は買い目の保証ではありません。</div></body></html>')
-    page = (page.replace('@@CSS@@', CSS).replace('@@DATE@@', date).replace('@@VEN@@', ven)
+    page = (page.replace('@@SUB@@', sub).replace('@@CSS@@', CSS).replace('@@DATE@@', date).replace('@@VEN@@', ven)
             .replace('@@BABA@@', ('／馬場 ' + baba) if baba else '')
             .replace('@@BODY@@', '\n'.join(body)))
     open(out, 'w').write(page)
