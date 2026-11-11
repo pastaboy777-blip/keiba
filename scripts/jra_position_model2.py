@@ -36,6 +36,8 @@ STEPS = [
     ("+同じ芝ダ・近い距離の位置(長距離も)", ["early_sim", "has_sim2", "long_x_sim"]),
     ("+流れ別の位置(想定ペースと同じ流れ)", ["early_samepace", "has_samepace", "pace_sens_x_pace"]),
     ("+出遅れ率(推定)", ["late_rate", "late_x_early"]),
+    ("+相手との比較(レース内の順位・差)", [k + s_ for k in ("early", "nige", "early_sim", "med_c4")
+                                       for s_ in ("_rk", "_gap_prev", "_gap_next")]),
 ]
 
 
@@ -119,6 +121,14 @@ def main() -> None:
             if e.corner_pos and n > 1:
                 rows.append({"x": f, "c1": (e.corner_pos[0] - 1) / (n - 1), "c4": (e.corner_pos[-1] - 1) / (n - 1),
                              "lead1": e.corner_pos[0] == 1, "lead4": e.corner_pos[-1] == 1, "cur": early})
+        for key in ("early", "nige", "early_sim", "med_c4"):
+            vals = sorted(x["x"][key] for x in rows)
+            for x in rows:
+                v_ = x["x"][key]
+                i_ = vals.index(v_)
+                x["x"][key + "_rk"] = i_ / max(1, len(vals) - 1)
+                x["x"][key + "_gap_prev"] = (v_ - vals[i_ - 1]) if i_ > 0 else 0.0
+                x["x"][key + "_gap_next"] = (vals[i_ + 1] - v_) if i_ + 1 < len(vals) else 0.0
         if len(rows) >= 8:
             R.append({"date": d["date"], "rows": rows, "known": st.mean(x["x"]["known"] for x in rows)})
         # 流れ別の位置を更新(結果を見た後)
@@ -187,6 +197,20 @@ def main() -> None:
                     cache[id(x)] = float(v_)
             c, fr, ld = evaluate(lambda x: cache[id(x)], target, lead)
             print(f"  {'非線形(LightGBM)':<24s} {c:+.3f} / {fr:.1%} / {ld:.1%}")
+            # 並び順を当てる学び方(lambdarank): 前にいるほど関連度が高い
+            grp = [len(q["rows"]) for q in tr]
+            rel = np.array([min(20, max(0, int(round((1 - x[target]) * 20)))) for q in tr for x in q["rows"]])
+            rk = lgb.train({"objective": "lambdarank", "learning_rate": 0.05, "num_leaves": 31, "min_data_in_leaf": 80,
+                            "feature_fraction": 0.8, "bagging_fraction": 0.8, "bagging_freq": 1, "verbose": -1,
+                            "label_gain": list(range(21)), "lambdarank_truncation_level": 20},
+                           lgb.Dataset(Xtr, rel, group=grp), num_boost_round=300)
+            cache2 = {}
+            for q in te:
+                pv = rk.predict(np.array([[x["x"][k] for k in feats] for x in q["rows"]]))
+                for x, v_ in zip(q["rows"], pv):
+                    cache2[id(x)] = -float(v_)
+            c, fr, ld = evaluate(lambda x: cache2[id(x)], target, lead)
+            print(f"  {'順位学習(lambdarank)':<24s} {c:+.3f} / {fr:.1%} / {ld:.1%}")
             best[lab + "_lgbm"] = gb.model_to_string()
             best[lab + "_lgbm_features"] = feats
         except ImportError:

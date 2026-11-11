@@ -35,6 +35,8 @@ def main() -> None:
     import numpy as np
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", default="data/jra/races.jsonl")
+    ap.add_argument("--course", action="store_true", help="コースの S/M/H 割合とばらつきを材料に足す(学習期間だけで作る)")
+    ap.add_argument("--no-save", action="store_true")
     a = ap.parse_args()
     raw = [json.loads(l) for l in open(a.data, encoding="utf-8") if l.strip()]
     raw = [d for d in raw if d.get("surface") in ("芝", "ダ") and pace_of(d.get("lap") or [], d["distance"])]
@@ -44,6 +46,21 @@ def main() -> None:
     v = sorted(pace_of(d["lap"], d["distance"])["diff"] for d in raw if d["date"] < cut)
     q = (v[len(v) // 3], v[2 * len(v) // 3])
     lab = lambda x: 2 if x < q[0] else (0 if x > q[1] else 1)  # noqa: E731   0=S 1=M 2=H
+    cstat = collections.defaultdict(list)
+    for d in raw:
+        if d["date"] < cut:
+            cstat[(d["place"], d["surface"], d["distance"])].append(pace_of(d["lap"], d["distance"])["diff"])
+
+    def course_x(d):
+        g = cstat.get((d["place"], d["surface"], d["distance"])) or []
+        if len(g) < 10:   # 少ないコースは距離±200mとまとめる
+            g = [x for k, v in cstat.items() if k[0] == d["place"] and k[1] == d["surface"]
+                 and abs(k[2] - d["distance"]) <= 200 for x in v]
+        if len(g) < 10:
+            return [-1.0, -1.0, -1.0, -1.0, 0.0]
+        c = [lab(x) for x in g]
+        return [c.count(0) / len(c), c.count(1) / len(c), c.count(2) / len(c), st.pstdev(g), len(g) / 100]
+
     h: dict = {}
     front_hist: dict = {}
     day_res = collections.defaultdict(list)
@@ -66,7 +83,7 @@ def main() -> None:
              sum(s.nige_rate for s in known), sum(1 for s in known if s.early <= 0.25) / max(1, n),
              len(known) / max(1, n), st.mean(lr) if lr else 0.0, len(lr),
              st.mean(day_res[dk]) if day_res[dk] else 0.0, len(day_res[dk]), w[0], w[1], w[2],
-             int(d["race_id"][-2:])] + cls_x(d)
+             int(d["race_id"][-2:])] + cls_x(d) + (course_x(d) if a.course else [])
         y = pace_of(d["lap"], d["distance"])["diff"]
         X.append(x)
         Y.append(y)
@@ -111,10 +128,13 @@ def main() -> None:
         print(f"    {name:<14s} 的中 {(pc[idx] == yte_c[idx]).mean():.1%}  (確率 {top[idx].min():.2f}以上)")
     imp = sorted(zip(["想定", "距離", "頭数", "芝", "馬場", "直線", "場", "月", "逃げ率合計", "先行割合", "既知率",
                       "前3頭の過去ペース", "その数", "当日のずれ", "当日鞍数", "風東西", "風南北", "風強さ", "R"]
-                     + ["新馬", "未勝利", "1勝", "2勝", "3勝", "OP", "2歳", "3歳", "3歳上", "4歳上", "重賞"],
+                     + ["新馬", "未勝利", "1勝", "2勝", "3勝", "OP", "2歳", "3歳", "3歳上", "4歳上", "重賞"]
+                     + (["コースS率", "コースM率", "コースH率", "コースばらつき", "コース鞍数"] if a.course else []),
                      clf.feature_importance("gain")), key=lambda t: -t[1])
     print("  効いた材料(上位):", " ".join(f"{n_}" for n_, _ in imp[:8]))
-    json.dump({"q": q, "cut": cut, "clf": clf.model_to_string(), "reg": reg.model_to_string()},
+    if a.no_save:
+        return
+    json.dump({"q": q, "cut": cut, "clf": clf.model_to_string(), "reg": reg.model_to_string(), "course": a.course},
               open(Path(__file__).resolve().parents[1] / "models" / "pace_lgbm.json", "w"))
 
 
