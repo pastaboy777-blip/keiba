@@ -46,6 +46,7 @@ WK = {1: .798, 2: .711, 3: .605, 4: .509, 5: .450, 6: .346, 7: .308, 8: .219}
 JK_BASE, JK_MIN = .447, 60
 WID, LANE, PAD, GAP = 900, 92, 64, 136
 SWAP_DP, SWAP_DU = 0.12, 0.15     # pos がこれだけ近く、内度がこれだけ違えば入れ替える
+MB_MIN, MB_TH, MB_CAP = 3, 0.70, 0.12   # 馬の実績（併走回数・偏り・内度に足す上限）
 LAB = {'s': ('S', 'スロー想定', '前に行った馬が<b>そのまま残る</b>'),
        'm': ('M', 'ミドル想定', '<b>中団から前へ出てくる馬</b>まで'),
        'h': ('H', 'ハイ想定', '前が<b>垂れる</b>。終いのある馬が届く')}
@@ -96,8 +97,21 @@ def row_of(h, dist, od):
     # ★ 騎手は出馬表（syutuba.py が拾う jk）を優先。オッズ頁は発走の数時間前まで開かない
     jn, jr = jk_rate(h.get('jk') or o.get('jk'))
     s = SOTO.get(h['name'])
-    return dict(ub=h['ub'], name=h['name'], waku=waku, jk=jn, jr=jr,
-                uchi=WK.get(waku, .45) + ((jr - JK_BASE) if jr is not None else 0.0),
+    # ★ 馬自身の実績（2026-11-11 に追加・CLAUDE.md ルール25）
+    #   ユーザーの指摘 ──「③　外じゃないの？？」。9R③チェリストは併走4回**全部外**なのに
+    #   3枠(60.5%)＋岡村健(45.9%)だけで内度.62 を付け、内に置いていた。
+    #   札（過去の事実）はルール16で出してよい。内度への反映は**偏りきった馬だけ**、
+    #   ±MB_CAP に抑える。順は 枠 → 騎手 → 馬（ルール21）なので、
+    #   1枠や8枠はこれでは帯をまたがない（9R①サラサは外3/3でも.80→.68で内のまま）。
+    mb, mbtag = 0.0, None
+    if s and s['grp'] >= MB_MIN:
+        ro, ri = s['out'] / s['grp'], s['in'] / s['grp']
+        if ro >= MB_TH:
+            mb, mbtag = -MB_CAP, '外%d/%d' % (s['out'], s['grp'])
+        elif ri >= MB_TH:
+            mb, mbtag = +MB_CAP, '内%d/%d' % (s['in'], s['grp'])
+    return dict(ub=h['ub'], name=h['name'], waku=waku, jk=jn, jr=jr, mbtag=mbtag,
+                uchi=WK.get(waku, .45) + ((jr - JK_BASE) if jr is not None else 0.0) + mb,
                 pos=(st.median(c1) if c1 else (st.median(c4) if c4 else None)),
                 pos4=(st.median(c4) if c4 else None), nopos=False,
                 gain=(st.median(per) if per else None), l=l, runs=len(P),
@@ -243,6 +257,9 @@ def main():
                 so += '<span class="jin">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100)
             elif r['jr'] is not None and r['jr'] <= .40:
                 so += '<span class="jout">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100)
+            if r['mbtag']:
+                so += '<span class="%s">過去 %s</span>' % (
+                    'jin' if r['mbtag'][0] == '内' else 'jout', r['mbtag'])
             if r['nopos']:
                 so += '<span class="nopast">過去走なし</span>'
             wc = W.get(r['waku'], ('#15110d', '#f2f2f4'))
