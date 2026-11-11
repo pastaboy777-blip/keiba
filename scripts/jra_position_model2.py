@@ -32,6 +32,8 @@ STEPS = [
     ("+騎手の癖", ["jk_bias", "jk_change"]),
     ("+枠×距離", ["gate", "gate_x_short"]),
     ("+ペース想定", ["pace", "pace_x_early"]),
+    ("+同じ芝ダの過去走の位置", ["early_ss", "has_ss", "early_ss_x_chg"]),
+    ("+同じ芝ダ・近い距離の位置(長距離も)", ["early_sim", "has_sim2", "long_x_sim"]),
 ]
 
 
@@ -67,7 +69,16 @@ def main() -> None:
             jb = jk_res.get(e.jockey) or []
             last = past[0] if past else None
             early = sp.early_or(0.5)
+            ss = [x for x in past if x.surface == r.surface]
+            sp_ss = tk.style_profile(ss)
+            sim2 = [x for x in ss if abs(x.distance - r.distance) <= 300]
+            sp_sim = tk.style_profile(sim2)
+            chg = 1.0 if last and last.surface and last.surface != r.surface else 0.0
             f = {
+                "early_ss": sp_ss.early_or(early), "has_ss": 1.0 if sp_ss.early is not None else 0.0,
+                "early_ss_x_chg": sp_ss.early_or(early) * chg,
+                "early_sim": sp_sim.early_or(early), "has_sim2": 1.0 if sp_sim.early is not None else 0.0,
+                "long_x_sim": sp_sim.early_or(early) * (1.0 if r.distance >= 2000 else 0.0),
                 "1": 1.0, "early": early, "known": 1.0 if sp.early is not None else 0.0, "nige": sp.nige_rate,
                 "med_c4": st.median(norm(x, -1) for x in runs) if runs else 0.5,
                 "sim_c1": st.median(norm(x, 0) for x in sim) if sim else early,
@@ -129,6 +140,27 @@ def main() -> None:
             print(f"  {name:<24s} {c:+.3f} / {fr:.1%} / {ld:.1%}")
             best[lab] = {"features": feats, "coef": w}
         print("  係数(最後のモデル、+ほど後ろ): " + "  ".join(f"{k} {wi:+.2f}" for k, wi in zip(feats, w)))
+        try:   # 非線形(LightGBM): 条件の組み合わせを拾えるか
+            import lightgbm as lgb
+            import numpy as np
+            feats = [k for k in feats if k not in ("pace", "pace_x_early")]   # 図ではペース想定より先に隊列を出すので外す
+            Xtr = np.array([[x["x"][k] for k in feats] for q in tr for x in q["rows"]])
+            ytr = np.array([x[target] for q in tr for x in q["rows"]])
+            gb = lgb.train({"objective": "regression", "learning_rate": 0.03, "num_leaves": 31,
+                            "min_data_in_leaf": 80, "bagging_fraction": 0.8, "bagging_freq": 1,
+                            "feature_fraction": 0.8, "verbose": -1}, lgb.Dataset(Xtr, ytr), num_boost_round=400)
+            # 1鞍ずつまとめて予測(速さのため)
+            cache = {}
+            for q in te:
+                pv = gb.predict(np.array([[x["x"][k] for k in feats] for x in q["rows"]]))
+                for x, v_ in zip(q["rows"], pv):
+                    cache[id(x)] = float(v_)
+            c, fr, ld = evaluate(lambda x: cache[id(x)], target, lead)
+            print(f"  {'非線形(LightGBM)':<24s} {c:+.3f} / {fr:.1%} / {ld:.1%}")
+            best[lab + "_lgbm"] = gb.model_to_string()
+            best[lab + "_lgbm_features"] = feats
+        except ImportError:
+            pass
     best["cut"] = cut
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     json.dump(best, open(a.out, "w"), ensure_ascii=False, indent=1)

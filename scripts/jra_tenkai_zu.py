@@ -240,6 +240,21 @@ def jockey_stat(name):
     return dict(_JK[c[0]], name=c[0]) if len(c) == 1 else None
 
 
+_GB: dict = {}
+
+
+def _lgbm(M, lab):
+    if lab + "_lgbm" not in M:
+        return None
+    if lab not in _GB:
+        try:
+            import lightgbm as lgb
+            _GB[lab] = lgb.Booster(model_str=M[lab + "_lgbm"])
+        except ImportError:
+            _GB[lab] = None
+    return _GB[lab]
+
+
 def apply_position_model(rows, field, fc, *, dist, surface):
     """学習した4角位置モデル(scripts/jra_position_model2.py)で前後の想定を置き換える。
 
@@ -274,9 +289,22 @@ def apply_position_model(rows, field, fc, *, dist, surface):
              "gate": (r["ub"] - 1) / max(1, len(rows) - 1),
              "gate_x_short": ((r["ub"] - 1) / max(1, len(rows) - 1)) * (1.0 if dist <= 1400 else 0.0),
              "pace": 0.0, "pace_x_early": 0.0}
+        ss = [x for x in past if x.surface == surface]
+        sp_ss = tk.style_profile(ss)
+        sp_sim = tk.style_profile([x for x in ss if abs(x.distance - dist) <= 300])
+        chg = 1.0 if last.surface and last.surface != surface else 0.0
+        f.update({"early_ss": sp_ss.early_or(early), "has_ss": 1.0 if sp_ss.early is not None else 0.0,
+                  "early_ss_x_chg": sp_ss.early_or(early) * chg,
+                  "early_sim": sp_sim.early_or(early), "has_sim2": 1.0 if sp_sim.early is not None else 0.0,
+                  "long_x_sim": sp_sim.early_or(early) * (1.0 if dist >= 2000 else 0.0), "n_runs": min(len(runs), 5) / 5})
         for lab, key in (("1角", "_p1"), ("4角", "_p4")):
-            m = M.get(lab) or M["4角"]
-            r[key] = sum(w * f[k] for k, w in zip(m["features"], m["coef"]))
+            gb = _lgbm(M, lab)
+            if gb is not None:   # LightGBM があれば非線形(検証 1角+0.536・4角+0.494、線形より+0.006)
+                import numpy as np
+                r[key] = float(gb.predict(np.array([[f.get(k, 0.0) for k in M[lab + "_lgbm_features"]]]))[0])
+            else:
+                m = M.get(lab) or M["4角"]
+                r[key] = sum(w * f.get(k, 0.0) for k, w in zip(m["features"], m["coef"]))
     # 学習モデルの値は平均へ縮むので、そのままでは横に広がらない
     # 値の差(固まり具合)は残して 1(先頭)〜0(最後方) に引き伸ばす
     for key, out in (("_p1", "pos1"), ("_p4", "pos")):
