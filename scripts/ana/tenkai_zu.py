@@ -205,7 +205,17 @@ def place(rows):
     return out, max(1, len(lanes))
 
 
-def ring(cells, ana):
+def ring(cells, ana, each=False):
+    """狙いを囲う。既定は**ひとつの〇**で一帯を囲う（ルール20）。
+
+    ★ each=True は**1頭ずつ**囲う（2026-11-11、ユーザーの指示 ──「馬券になった馬に〇」）。
+      答え合わせのように「この馬とこの馬が来た」を示すときに使う。
+      予想の図では既定（ひとつの〇）のまま。"""
+    if each:
+        return ''.join(
+            '<div class="ring" style="left:%dpx;top:%dpx;width:%dpx;height:%dpx"></div>'
+            % (int(x - 52), int(ln * LANE + 2), 104, LANE - 4)
+            for r, x, ln in cells if r['ub'] in ana)
     pts = [(x, ln) for r, x, ln in cells if r['ub'] in ana]
     if not pts:
         return ''
@@ -335,7 +345,7 @@ def main():
             % (v['R'], v.get('start') or '', v['dist'], len(v['horses']),
                html.escape(v.get('cls') or ''), pc, tag, nm, pc, GP.get(pc, 50), eff,
                ('この鞍の前3Fの水準 %.1f秒' % b['f3']) if b else '',
-               NL * LANE + 24, ring(cells, ana_sp.get(R, set())), '\n'.join(hh),
+               NL * LANE + 24, ring(cells, ana_sp.get(R, set()), '--each' in a), '\n'.join(hh),
                ('<div class="view"><h4>見解</h4><p>%s</p></div>' % note[R]) if R in note else ''))
     # ★ 2026-11-11、ユーザーの指示 ──「1コーナーでの隊列想定は一番上に書いて」。
     #   --plain でも必ず残す。図が「どの地点の絵か」は数値ではなく、読み違いを防ぐ行。
