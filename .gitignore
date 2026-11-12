@@ -42,3 +42,6 @@ scripts/ana/soto_[0-9][0-9][0-9][0-9].json
 
 # 位置予想の学習用の中間ファイル（harvest から作り直せる・9MB）
 scripts/ana/pos_train.json
+
+# 払戻の取り出し（pay.js）の既定の出力。scratchpad に出すので要らない
+scripts/ana/pay.json
