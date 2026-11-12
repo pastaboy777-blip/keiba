@@ -84,6 +84,15 @@ def _load(fn):
     return json.load(open(p)) if os.path.exists(p) else {}
 
 
+# ★ 当日に出した図をそのまま引き直すための切り替え（2026-11-11、ユーザーの指示
+#   ──「最初のまま出して！！」「勝手に動かさないで」）。
+#   11/9・11/10 の図は「4コーナーの中央値で隊列を組み」「馬自身の実績は内度に入れない」
+#   形で出していた。そのあとルール23（1角で組む）とルール25（馬の実績±0.12）を入れたので、
+#   同じカードを今のツールで引くと**並びも内度も変わる**。
+#   --old（＝--c4 と --nomb の両方）で当時の形に戻す。既定は今の形のまま。
+OLD_C4 = False      # True なら隊列を4角の中央値で組む
+OLD_NOMB = False    # True なら馬自身の併走実績を内度に入れない
+
 JK = _load('jk_soto.json')
 SOTO = _load('soto.json')
 CSS = open(os.path.join(HERE, 'tenkai_zu.css')).read()
@@ -130,7 +139,7 @@ def row_of(h, dist, od):
     #   ±MB_CAP に抑える。順は 枠 → 騎手 → 馬（ルール21）なので、
     #   1枠や8枠はこれでは帯をまたがない（9R①サラサは外3/3でも.80→.68で内のまま）。
     mb, mbtag = 0.0, None
-    if s and s['grp'] >= MB_MIN:
+    if s and s['grp'] >= MB_MIN and not OLD_NOMB:
         ro, ri = s['out'] / s['grp'], s['in'] / s['grp']
         if ro >= MB_TH:
             mb, mbtag = -MB_CAP, '外%d/%d' % (s['out'], s['grp'])
@@ -138,7 +147,8 @@ def row_of(h, dist, od):
             mb, mbtag = +MB_CAP, '内%d/%d' % (s['in'], s['grp'])
     return dict(ub=h['ub'], name=h['name'], waku=waku, jk=jn, jr=jr, mbtag=mbtag,
                 uchi=WK.get(waku, .45) + ((jr - JK_BASE) if jr is not None else 0.0) + mb,
-                pos=(st.median(c1) if c1 else (st.median(c4) if c4 else None)),
+                pos=((st.median(c4) if c4 else (st.median(c1) if c1 else None)) if OLD_C4
+                     else (st.median(c1) if c1 else (st.median(c4) if c4 else None))),
                 pos4=(st.median(c4) if c4 else None), nopos=False,
                 gain=(st.median(per) if per else None), l=l, runs=len(P),
                 soto=((s['out'] / s['grp']) if s and s['grp'] >= 3 else None),
@@ -250,6 +260,9 @@ def main():
     od_all = json.load(open(g('--odds'))) if g('--odds') else {}
     res = json.load(open(g('--res'))) if g('--res') else {}
     plain = '--plain' in a          # 人に見せる版（数値を落とす）
+    global OLD_C4, OLD_NOMB
+    OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
+    OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
     pace = {k: v.lower() for k, v in kv(a, '--pace').items()}
     ana_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--ana').items()}
     swap_sp = {k: v.split(',') for k, v in kv(a, '--swap').items()}
