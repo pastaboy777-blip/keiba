@@ -51,12 +51,16 @@ def horse_get(f: H.Fetcher, cname: str) -> str:
 def parse_pedigree(html: str) -> dict:
     txt = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
 
-    def grab(label, stop):
-        m = re.search(r"%s\s+(.+?)\s+(?:%s)" % (label, stop), txt)
+    def grab(pat):
+        m = re.search(pat, txt)
         return m.group(1).strip() if m else None
-    name = re.search(r"<title>\s*([^<|｜]+)", html)
-    return {"sire": grab(r"プロフィール\s+父", "性別"), "dam": grab(r"馬主名\s+\S+\s+母", "産駒|馬齢"),
-            "damsire": grab("母の父", "生年月日"), "name": name.group(1).strip() if name else None}
+    return {"name": grab(r"競走馬情報 競走馬情報 (\S+)"),
+            "sire": grab(r"プロフィール 父 (.+?) 性別"),
+            "dam": grab(r"(?<!の)\s母 (.+?) (?:産駒|馬齢)"),
+            "damsire": grab(r"母の父 (.+?) 生年月日"),
+            "damdam": grab(r"母の母 (.+?) 毛色"),
+            "birth": grab(r"生年月日 (\d{4}年\d{1,2}月\d{1,2}日)"),
+            "origin": grab(r"産地 (\S+)")}
 
 
 def main() -> None:
@@ -65,6 +69,7 @@ def main() -> None:
     ap.add_argument("--from", dest="frm", default="2023-11")
     ap.add_argument("--to", default="2026-11")
     ap.add_argument("--sleep", type=float, default=3.0)
+    ap.add_argument("--stage2-first", action="store_true", help="段階1を飛ばし、今あるリンクで段階2(新馬戦の馬から先)")
     a = ap.parse_args()
     target = set()
     for l in open(a.data, encoding="utf-8"):
@@ -81,9 +86,9 @@ def main() -> None:
     f = H.Fetcher(a.sleep)
     try:
         # ---- 段階1 ----
-        ck = month_checksums(f.post(H.SEARCH))
+        ck = {} if a.stage2_first else month_checksums(f.post(H.SEARCH))
         with links_path.open("a", encoding="utf-8") as fo, days_path.open("a") as fd:
-            for y, m in H.months(a.frm, a.to):
+            for y, m in ([] if a.stage2_first else H.months(a.frm, a.to)):
                 key = f"{y % 100:02d}{m:02d}"
                 if key not in ck:
                     continue
@@ -105,11 +110,18 @@ def main() -> None:
                     fd.flush()
                 print(f"{y}-{m:02d} 済み (累計 {len(done_r)}鞍)", flush=True)
         # ---- 段階2 ----
-        horses = {}
+        horses, debut = {}, set()
+        cls = {}
+        for l in open(a.data, encoding="utf-8"):
+            d = json.loads(l)
+            cls[d["race_id"]] = (d.get("race_class") or "") + (d.get("name") or "")
         for l in open(links_path, encoding="utf-8"):
-            horses.update(json.loads(l)["horses"])
+            d = json.loads(l)
+            horses.update(d["horses"])
+            if "新馬" in cls.get(d["race_id"], "") or "デビュー" in cls.get(d["race_id"], ""):
+                debut.update(d["horses"])
         done_h = {json.loads(l)["horse_id"] for l in open(ped_path)} if ped_path.exists() else set()
-        todo = [h for h in horses if h not in done_h]
+        todo = sorted((h for h in horses if h not in done_h), key=lambda h: (h not in debut, -int(h)))   # 新馬戦の馬・若い馬から
         print(f"段階2: 馬 {len(horses)}頭(済み {len(done_h)}、残り {len(todo)})", flush=True)
         with ped_path.open("a", encoding="utf-8") as fo:
             for i, hid in enumerate(todo, 1):
