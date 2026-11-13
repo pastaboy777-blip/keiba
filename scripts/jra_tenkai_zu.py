@@ -524,6 +524,10 @@ def estimate_times(rows, me, before, race_id):
                 and race_id and d["race_id"] < race_id and d["result"][0].get("time")]
         same = [d for d in _meeting_rows(rows, me["place"], me["surface"], before)
                 if d.get("distance") == me.get("distance") and d["result"][0].get("time")]
+        if len(same) >= 3 and "laps" not in out:   # ラップ想定 = 同じ開催・同じ距離の各ハロンの中央値
+            nl = min(len(d.get("lap") or []) for d in same)
+            if nl:
+                out["laps"] = [st_.median(d["lap"][i] for d in same) for i in range(nl)]
         if len(same) >= 3:   # 同じ開催・同じ距離が3鞍以上 → その実際の時計(中央値)をそのまま。クラスは見ない
             out[k] = st_.median(target(d, k) for d in same)   # (福島芝1200 2026-11: 2歳未勝利〜OPで1:09.8〜1:10.7)
             continue
@@ -719,7 +723,8 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
             '%s<div class="kenkai"><div class="kt">見解</div><p>%s</p></div></div>'
             % (" nopace" if globals().get("_CUR_RNO") in HIDE_PACE else "", rno, start, surface, dist, n, H.escape(name), pcls, ptag,
                {"スロー": "スロー", "ミドル": "ミドル", "ハイ": "ハイ"}[fc.pace] + "想定",
-               ('<span class="tbase"><b>%d:%04.1f</b> の時計をベースにしています</span>' % divmod(est["time"], 60)
+               (('<span class="tbase"><b>%d:%04.1f</b> の時計をベースにしています%s</span>'
+                 % (*divmod(est["time"], 60), _lap_text(est)))
                 if (est and globals().get("_CUR_RNO") in HIDE_PACE) else ""),
                pcls, mark * 100, flow.split("→ ")[-1], lvl, board_html, kawa_memo(fc, rows, rk, dist, surface)))
     missing = [r for r in rows if r["pos"] is None]
@@ -739,6 +744,20 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
            pcls, ptag, {"スロー": "スロー", "ミドル": "平均", "ハイ": "ハイ"}[fc.pace] + "想定",
            pcls, mark * 100, flow, flow_sub, est_html, wind_html(fc),
            board_html, memo, miss))
+
+
+def _lap_text(est):
+    """ラップ想定(各ハロンの中央値を、推定の走破時計に合うよう後半2ハロンで調整)。"""
+    laps = est.get("laps")
+    if not laps:
+        return ""
+    laps = [round(x, 1) for x in laps]
+    d = round(est["time"] - sum(laps), 1)
+    if abs(d) <= 1.0 and len(laps) >= 2:
+        h = round(d / 2, 1)
+        laps[-2] = round(laps[-2] + h, 1)
+        laps[-1] = round(laps[-1] + d - h, 1)
+    return '<span class="lap">ラップ想定 %s</span>' % "-".join("%.1f" % x for x in laps)
 
 
 def kikou_tag(ub):
@@ -1306,8 +1325,10 @@ CSS_EXTRA = """
 .kn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
  font-size:10px;font-weight:900;box-shadow:0 0 0 1.5px rgba(0,0,0,.5)}
 .race.kawa.nopace .rh .pace,.race.kawa.nopace .kenkai,.race.kawa.nopace .bar i{display:none}
-.tbase{margin-left:auto;padding:8px 18px;border:2px solid #d8a84a;border-radius:8px;color:#f2e2b8;font-size:16px;font-weight:700}
-.tbase b{font-size:24px;color:#ffd77a;margin-right:4px}
+.tbase{margin-left:auto;padding:6px 14px;border:2px solid #d8a84a;border-radius:8px;color:#f2e2b8;font-size:13px;font-weight:700;white-space:nowrap}
+.race.kawa .rd{white-space:nowrap}
+.tbase b{font-size:22px;color:#ffd77a;margin-right:4px}
+.tbase .lap{margin-left:14px;padding-left:14px;border-left:1px solid #d8a84a;font-size:14px;color:#f2f2f4;letter-spacing:.3px}
 .kring{position:absolute;border:5px solid rgba(232,40,40,.95);border-radius:50%;
  box-shadow:0 0 12px rgba(232,40,40,.55);pointer-events:none;z-index:0}
 .kh{z-index:2}
