@@ -837,6 +837,9 @@ def uma_fig(waku, ub, col):
     return ('<img class="uma" src="%s" alt="">' % img) if img else HORSE.format(c=col)
 
 
+CIRCLE: dict = {}   # 手で丸を付ける馬 {R番号(int): {馬番}}。--circle "12:6,12,15;3:8"
+
+
 def kawa_board(rows, fc, n, rk, key="pos1") -> str:
     """川崎の図(ユーザー指定 2026-11-13「こういう風に」「〇つけないで」)と同じ形。
     1コーナーでの隊列、右が前。小さな馬の絵(枠色・ゼッケンに馬番)の下に 丸数字＋馬名。赤い丸は付けない。
@@ -875,9 +878,17 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
                   '<div class="kl"><span class="kn" style="background:%s;color:%s">%d</span>%s</div>%s</div>'
                   % (x / W * 100, 10 + lane * LN, fig, cc, wc[0], wc[1], r["ub"], H.escape(r["name"]), tag))
     _, fc.zone_horses = draw_zone([(r, x, l) for r, x, l in cells], fc, ellipse=True)   # 見解用に計算だけ(描かない)
+    ring = ""
+    want = CIRCLE.get(globals().get("_CUR_RNO"), set())
+    sel = [(x, lane) for r, x, lane in cells if r["ub"] in want]
+    if sel:   # 指定した馬をまとめて大きな丸1つで囲む
+        x0, x1 = min(x for x, _ in sel) - 40, max(x for x, _ in sel) + 190
+        y0, y1 = 10 + min(l for _, l in sel) * LN - 22, 10 + max(l for _, l in sel) * LN + 70
+        ring = ('<div class="kring" style="left:%.2f%%;width:%.2f%%;top:%dpx;height:%dpx"></div>'
+                % (max(0, x0) / W * 100, (x1 - max(0, x0)) / W * 100, y0, y1 - y0))
     turf = " turf" if globals().get("_CUR_SURF") == "芝" else ""
     return ('<div class="kboard"><div class="ktrack%s" style="height:%dpx"><div class="goal"></div>%s</div></div>'
-            % (turf, max(1, len(lanes)) * LN + 24, "\n".join(hh)))
+            % (turf, max(1, len(lanes)) * LN + 24, ring + "\n".join(hh)))
 
 
 def kawa_memo(fc, rows, rk, dist, surface) -> str:
@@ -1286,6 +1297,9 @@ CSS_EXTRA = """
  text-shadow:0 1px 2px rgba(0,0,0,.9)}
 .kn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
  font-size:10px;font-weight:900;box-shadow:0 0 0 1.5px rgba(0,0,0,.5)}
+.kring{position:absolute;border:5px solid rgba(232,40,40,.95);border-radius:50%;
+ box-shadow:0 0 12px rgba(232,40,40,.55);pointer-events:none;z-index:0}
+.kh{z-index:2}
 .knd{display:inline-block;font-size:8.5px;color:#fff;background:#d9577a;border-radius:3px;padding:0 4px;margin:1px 0 0 18px}
 .kh .kik{font-size:8.5px;padding:0 3px;margin:1px 0 0 18px}
 .race.kawa .rd .st{color:#e8a33a;margin-right:8px;font-weight:700}
@@ -1361,10 +1375,14 @@ def main() -> None:
     ap.add_argument("--style", choices=["kawa", "simple", "stages"], default="kawa",
                     help="simple=4角1枚+赤丸(川崎の図と同じ形) / stages=スタート後・3角・4角の3段")
     ap.add_argument("--zone-front", type=float, default=0.4, help="狙う帯の前後の幅(前から何割、既定0.4)")
+    ap.add_argument("--circle", default="", help='手で赤丸を付ける馬。"12:6,12,15;3:8"(R:馬番)')
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
     a = ap.parse_args()
     global ZONE_FRONT, JOCKEY_STATS, STYLE
     STYLE = a.style
+    for part in filter(None, a.circle.split(";")):
+        rr, uu = part.split(":")
+        CIRCLE[int(rr)] = {int(x) for x in uu.split(",") if x}
     ZONE_FRONT = a.zone_front
     if a.jockey_stats:
         JOCKEY_STATS = Path(a.jockey_stats)
@@ -1423,6 +1441,7 @@ def one_race(a, ap):
 
     fc, rows, rk = build(past, waku, place=place, dist=dist, surface=surface, baba=baba, jockeys=jockeys)
     globals()["_CUR_SURF"] = surface
+    globals()["_CUR_RNO"] = int(rno) if str(rno).isdigit() else None
     fc._start = (ME_RACE or {}).get("start") if getattr(a, "from_data", False) else None
     if a.pace_data:
         diff, nl, conf, q, est = learned_pace(a.pace_data, a.date, place=place, dist=dist, surface=surface,
