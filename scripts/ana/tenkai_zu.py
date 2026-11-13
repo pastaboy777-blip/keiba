@@ -360,8 +360,14 @@ def main():
             # ★ 鞍ごとに馬の向きを変える（2026-11-13、ユーザーの指示 ──
             #   「1200 1400はそのまま」「1600は向き変えて」）。
             #   --migi 9,11 で、その鞍だけ右向きにする。既定は左向き。
+            # ★ 馬の絵の向き＝進行方向（2026-11-13、ユーザーの説明）。
+            #   「1200m1400mは右に向かって進むから川崎と同じ」
+            #   「1600mはスタート位置が向こう正面から」「左に向かって進む1コーナーまで」
+            #   前が右の鞍は**右向き**、--flip で前を左にした鞍は**左向き**。
+            #   --migi に挙げた鞍だけは、この決まりを上書きして右向きにする。
             fig = (None if ('--svg' in a or uma_img is None)
-                   else uma_tag(r['waku'], r['ub'], 40, R not in migi))
+                   else uma_tag(r['waku'], r['ub'], 40,
+                                (R in flip) and (R not in migi)))
             hh.append('<div class="horse" style="left:%dpx;top:%dpx"><div class="fig">%s%s</div>'
                       '<div class="lab"><span class="n" style="background:%s;color:%s">%d</span>'
                       '<span class="nm">%s</span></div>%s%s</div>'
