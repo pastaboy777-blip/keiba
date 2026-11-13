@@ -365,8 +365,11 @@ def main():
             #   ユーザーの指摘 ──「なぜ馬が左向いてるの？？1200mと1400m」「川崎と同じでしょ」。
             #   1200m・1400mは**川崎と同じ＝左向きのまま**。変わるのは位置だけで、
             #   1600mは --flip で**前を左**にする。--migi に挙げた鞍だけ右向きにできる。
+            #   --flip の鞍は図ごと鏡にする＝位置を左右反転し、**馬の絵も右向き**にする。
+            #   1200m・1400mは川崎と同じ（前が右・左向き）のまま。
             fig = (None if ('--svg' in a or uma_img is None)
-                   else uma_tag(r['waku'], r['ub'], 40, R not in migi))
+                   else uma_tag(r['waku'], r['ub'], 40,
+                                (R not in flip) and (R not in migi)))
             hh.append('<div class="horse" style="left:%dpx;top:%dpx"><div class="fig">%s%s</div>'
                       '<div class="lab"><span class="n" style="background:%s;color:%s">%d</span>'
                       '<span class="nm">%s</span></div>%s%s</div>'
