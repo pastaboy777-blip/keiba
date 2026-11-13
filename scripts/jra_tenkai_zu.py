@@ -858,13 +858,13 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
                 cells.append((r, x, i))
                 break
             i += 1
-    LN = 54
+    LN = 68
     hh = []
     for r, x, lane in cells:
         up = r.get("gain") is not None and r["gain"] >= 0.20
         cc = "#4fa8ff" if up else "#b9b9c4"
         wc = WAKU.get(r["waku"], ("#15110d", "#f2f2f4"))
-        img = uma_img(r["waku"], r["ub"], px=40)
+        img = uma_img(r["waku"], r["ub"], px=64)
         fig = ('<img class="uk" src="%s" alt="">' % img) if img else HORSE.format(c="#d8c7ae")
         tag = kikou_tag(r["ub"])
         hh.append('<div class="kh" style="left:%.2f%%;top:%dpx"><div class="kf">%s<span class="kc" style="color:%s">&raquo;</span></div>'
@@ -1275,9 +1275,9 @@ CSS_EXTRA = """
 .horse.wide{width:170px}
 .kboard{margin:8px 16px}.ktrack{position:relative;background:#3a2f26;border-radius:4px;border-top:3px solid #ddd}
 .ktrack.turf{background:repeating-linear-gradient(90deg,#3f7d3a 0 56px,#3a7536 56px 58px)}
-.kh{position:absolute;width:150px}.kf{display:flex;align-items:center;height:28px}
-.kf img.uk{height:26px;width:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
-.kc{font-size:15px;font-weight:900;margin-left:1px;letter-spacing:-3px}
+.kh{position:absolute;width:150px}.kf{display:flex;align-items:center;height:42px}
+.kf img.uk{height:40px;width:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+.kc{font-size:19px;font-weight:900;margin-left:1px;letter-spacing:-3px}
 .kl{display:flex;align-items:center;gap:3px;font-size:10.5px;color:#f2f2f4;font-weight:700;white-space:nowrap;
  text-shadow:0 1px 2px rgba(0,0,0,.9)}
 .kn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
