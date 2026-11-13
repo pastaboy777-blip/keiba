@@ -713,12 +713,14 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
         return (
             '<div class="race kawa%s"><div class="rh"><span class="rn">%sR</span>'
             '<span class="rd"><span class="st">%s</span>%s%dm ／ %d頭 ／ %s</span>'
-            '<span class="pace p-%s"><b>%s</b> %s</span></div>'
+            '<span class="pace p-%s"><b>%s</b> %s</span>%s</div>'
             '<div class="pbar p-%s"><div class="bar"><span>ゆっくり</span><span>ふつう</span><span>速い</span>'
             '<i style="left:%.1f%%"></i></div><div class="flow">→ <b>%s</b>　<small>%s</small></div></div>'
             '%s<div class="kenkai"><div class="kt">見解</div><p>%s</p></div></div>'
             % (" nopace" if globals().get("_CUR_RNO") in HIDE_PACE else "", rno, start, surface, dist, n, H.escape(name), pcls, ptag,
                {"スロー": "スロー", "ミドル": "ミドル", "ハイ": "ハイ"}[fc.pace] + "想定",
+               ('<span class="tbase"><b>%d:%04.1f</b> の時計をベースにしています</span>' % divmod(est["time"], 60)
+                if (est and globals().get("_CUR_RNO") in HIDE_PACE) else ""),
                pcls, mark * 100, flow.split("→ ")[-1], lvl, board_html, kawa_memo(fc, rows, rk, dist, surface)))
     missing = [r for r in rows if r["pos"] is None]
     miss = ""
@@ -1303,7 +1305,9 @@ CSS_EXTRA = """
  text-shadow:0 1px 2px rgba(0,0,0,.9)}
 .kn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
  font-size:10px;font-weight:900;box-shadow:0 0 0 1.5px rgba(0,0,0,.5)}
-.race.kawa.nopace .rh .pace{display:none}
+.race.kawa.nopace .rh .pace,.race.kawa.nopace .kenkai,.race.kawa.nopace .bar i{display:none}
+.tbase{margin-left:auto;padding:8px 18px;border:2px solid #d8a84a;border-radius:8px;color:#f2e2b8;font-size:16px;font-weight:700}
+.tbase b{font-size:24px;color:#ffd77a;margin-right:4px}
 .kring{position:absolute;border:5px solid rgba(232,40,40,.95);border-radius:50%;
  box-shadow:0 0 12px rgba(232,40,40,.55);pointer-events:none;z-index:0}
 .kh{z-index:2}
