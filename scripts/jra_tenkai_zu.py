@@ -881,11 +881,16 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
     ring = ""
     want = CIRCLE.get(globals().get("_CUR_RNO"), set())
     sel = [(x, lane) for r, x, lane in cells if r["ub"] in want]
-    if sel:   # 指定した馬をまとめて大きな丸1つで囲む
-        x0, x1 = min(x for x, _ in sel) - 40, max(x for x, _ in sel) + 190
-        y0, y1 = 10 + min(l for _, l in sel) * LN - 22, 10 + max(l for _, l in sel) * LN + 70
-        ring = ('<div class="kring" style="left:%.2f%%;width:%.2f%%;top:%dpx;height:%dpx"></div>'
-                % (max(0, x0) / W * 100, (x1 - max(0, x0)) / W * 100, y0, y1 - y0))
+    if sel:   # 指定した馬をまとめて丸1つで囲む。左端と右端の馬を結ぶ向きに傾けた楕円(間の他の馬にかぶりにくい)
+        import math
+        pts = sorted(((x + 62) / W * 940, 10 + l * LN + 30) for x, l in sel)
+        (ax, ay), (bx, by) = pts[0], pts[-1]
+        ang = math.degrees(math.atan2(by - ay, bx - ax))
+        length = math.hypot(bx - ax, by - ay) + 170
+        hgt = 84 + max(abs(y - (ay + (by - ay) * (x - ax) / max(1, bx - ax))) for x, y in pts) * 2
+        cx, cy = (ax + bx) / 2, (ay + by) / 2
+        ring = ('<div class="kring" style="left:calc(%.2f%% - %dpx);top:%dpx;width:%dpx;height:%dpx;'
+                'transform:rotate(%.1fdeg)"></div>' % (cx / 940 * 100, length / 2, cy - hgt / 2, length, hgt, ang))
     turf = " turf" if globals().get("_CUR_SURF") == "芝" else ""
     return ('<div class="kboard"><div class="ktrack%s" style="height:%dpx"><div class="goal"></div>%s</div></div>'
             % (turf, max(1, len(lanes)) * LN + 24, ring + "\n".join(hh)))
