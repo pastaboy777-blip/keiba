@@ -462,6 +462,9 @@ def pace_lgbm_diff(data_path, before, fc, base):
     day = [resid(r["race_id"]) for r in rows.values() if r["date"] == d["date"] and r["place"] == d["place"]
            and r.get("surface") == d["surface"] and r["race_id"] < d["race_id"]]
     day = [x for x in day if x is not None]
+    if not day:   # 前日に描くときは同じ開催の前の開催日のずれ
+        day = [x for x in (resid(r["race_id"]) for r in _meeting_rows(list(rows.values()), d["place"], d["surface"], d["date"])) if x is not None]
+        fc.meeting_shift = st.mean(day) if day else None
     w = wind_at(d["place"], d["date"], int(d["race_id"][-2:])) or (0.0, 0.0, 0.0)
     PL = ["札幌", "函館", "福島", "新潟", "東京", "中山", "中京", "京都", "阪神", "小倉"]
     base = pm.predict(d)   # 学習と同じく、当日のずれを足す前のコース平均の想定
@@ -492,6 +495,15 @@ def _toujitsu_weight(key, default):
     return json.load(open(p)).get(key, default) if p.exists() else default
 
 
+def _meeting_rows(rows, place, surface, date):
+    """同じ開催の、前の開催日の同じ場・同じ芝ダの鞍(8日以内)。"""
+    import datetime as dt_
+    d0 = dt_.date.fromisoformat(date)
+    return [d for d in rows if d.get("place") == place and d.get("surface") == surface
+            and d.get("lap") and d["date"] < date
+            and (d0 - dt_.date.fromisoformat(d["date"])).days <= 8]
+
+
 def estimate_times(rows, me, before, race_id):
     """推定 前半3F・後半3F・タイム(scripts/jra_time_model.py の係数)。検証の平均誤差 0.65/0.65/1.22秒。"""
     import json
@@ -510,6 +522,14 @@ def estimate_times(rows, me, before, race_id):
         prev = [target(d, k) - m.predict(d) for d in rows
                 if d["date"] == before and d["place"] == me["place"] and d["surface"] == me["surface"]
                 and race_id and d["race_id"] < race_id and d["result"][0].get("time")]
+        same = [d for d in _meeting_rows(rows, me["place"], me["surface"], before)
+                if d.get("distance") == me.get("distance") and d["result"][0].get("time")]
+        if len(same) >= 3:   # 同じ開催・同じ距離が3鞍以上 → その実際の時計(中央値)をそのまま。クラスは見ない
+            out[k] = st_.median(target(d, k) for d in same)   # (福島芝1200 2026-11: 2歳未勝利〜OPで1:09.8〜1:10.7)
+            continue
+        if not prev:   # 当日の前の鞍が無い(前日に描く)ときは、同じ開催の前の開催日のずれ(ユーザー指摘 2026-11-13)
+            prev = [target(d, k) - m.predict(d) for d in _meeting_rows(rows, me["place"], me["surface"], before)
+                    if d["result"][0].get("time")]
         if prev:   # 当日の馬場の速さ(jra_toujitsu.py: 時計は6割足すと後半の誤差 1.30→1.13秒)
             v += _toujitsu_weight("dt", M.get("day_weight", 0.5)) * st_.mean(prev)
         out[k] = v
@@ -683,7 +703,12 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
                 % round(known * 100)) + memo
     if STYLE == "kawa":   # 川崎の図の形: 見解は1段落、ペース欄はバーと一言だけ
         est = getattr(fc, "est", None)
-        lvl = ("この鞍の前3F水準 %.1f秒" % est["front3"]) if est else ""
+        lvl = ""
+        if est:
+            mm, ss = divmod(est["time"], 60)
+            lvl = "推定 %d:%04.1f(前3F %.1f・上がり %.1f)" % (mm, ss, est["front3"], est["last3"])
+            if getattr(fc, "meeting_shift", None) is not None:
+                lvl += "　※今開催の馬場のずれ込み"
         start = (getattr(fc, "_start", "") or "")
         return (
             '<div class="race kawa"><div class="rh"><span class="rn">%sR</span>'
