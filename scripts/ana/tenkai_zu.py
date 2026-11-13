@@ -278,6 +278,9 @@ def main():
     #   ユーザーは鞍ごとに馬番で指名してくる（shirushi.py の FORCE / DROP と同じ考え）。
     #   11/11 10Rの③オングライドパスは併走2回（内1・外1）で札も出ず、
     #   3枠＋加藤雄で内度.72 ＝ 中団のいちばん内に描かれた。ユーザーの指摘 ──「③　外じゃないの？？」。
+    # ★ 2つめの囲い（2026-11-13、ユーザーの指示 ──「それで⑧⑪を赤丸で囲って一緒に」）。
+    #   --ana2 は --ana とは別の色・形で重ねて描ける。既定は赤い楕円。
+    ana2_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--ana2').items()}
     soto_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--soto').items()}
     uchi_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--uchi').items()}
     note = {}
@@ -365,9 +368,12 @@ def main():
             % (v['R'], v.get('start') or '', v['dist'], len(v['horses']),
                html.escape(v.get('cls') or ''), pc, tag, nm, pc, GP.get(pc, 50), eff,
                ('この鞍の前3Fの水準 %.1f秒' % b['f3']) if b else '',
-               NL * LANE + 24, ring(cells, ana_sp.get(R, set()), '--each' in a,
-                    (a[a.index('--ring-color') + 1] if '--ring-color' in a else None),
-                    '--ring-box' in a), '\n'.join(hh),
+               NL * LANE + 24, (ring(cells, ana_sp.get(R, set()), '--each' in a,
+                     (a[a.index('--ring-color') + 1] if '--ring-color' in a else None),
+                     '--ring-box' in a)
+                + ring(cells, ana2_sp.get(R, set()), '--each2' in a or '--each' in a,
+                       (a[a.index('--ring-color2') + 1] if '--ring-color2' in a else None),
+                       '--ring-box2' in a)), '\n'.join(hh),
                ('<div class="view"><h4>見解</h4><p>%s</p></div>' % note[R]) if R in note else ''))
     # ★ 2026-11-11、ユーザーの指示 ──「1コーナーでの隊列想定は一番上に書いて」。
     #   --plain でも必ず残す。図が「どの地点の絵か」は数値ではなく、読み違いを防ぐ行。
