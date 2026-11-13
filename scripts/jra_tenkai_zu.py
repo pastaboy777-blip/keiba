@@ -630,7 +630,9 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
                   '<div class="xlab"><span>後方</span><span>中団</span><span>前　→　ゴール</span></div>'
                   % (('<div class="ylab"><span>内（ラチ側）</span><span>外</span></div>' if two_d else ""),
                      NL * LANE + 24, "\n".join(hh)))
-    if stages and STYLE == "simple":
+    if STYLE == "kawa":
+        board_html = kawa_board(rows, fc, n, rk)
+    elif stages and STYLE == "simple":
         board_html = simple_board(rows, fc, n, rk)
     elif stages:
         board_html = "".join(stage_board(rows, fc, n, key, prev, lab, rk)
@@ -679,6 +681,20 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
     else:
         memo = ('<p class="sure">隊列確度: 通過順の記録がある馬 %d%%(検証では順位相関 +0.49・ハナ的中28%%)</p>'
                 % round(known * 100)) + memo
+    if STYLE == "kawa":   # 川崎の図の形: 見解は1段落、ペース欄はバーと一言だけ
+        est = getattr(fc, "est", None)
+        lvl = ("この鞍の前3F水準 %.1f秒" % est["front3"]) if est else ""
+        start = (getattr(fc, "_start", "") or "")
+        return (
+            '<div class="race kawa"><div class="rh"><span class="rn">%sR</span>'
+            '<span class="rd"><span class="st">%s</span>%s%dm ／ %d頭 ／ %s</span>'
+            '<span class="pace p-%s"><b>%s</b> %s</span></div>'
+            '<div class="pbar p-%s"><div class="bar"><span>ゆっくり</span><span>ふつう</span><span>速い</span>'
+            '<i style="left:%.1f%%"></i></div><div class="flow">→ <b>%s</b>　<small>%s</small></div></div>'
+            '%s<div class="kenkai"><div class="kt">見解</div><p>%s</p></div></div>'
+            % (rno, start, surface, dist, n, H.escape(name), pcls, ptag,
+               {"スロー": "スロー", "ミドル": "ミドル", "ハイ": "ハイ"}[fc.pace] + "想定",
+               pcls, mark * 100, flow.split("→ ")[-1], lvl, board_html, kawa_memo(fc, rows, rk, dist, surface)))
     missing = [r for r in rows if r["pos"] is None]
     miss = ""
     if missing:
@@ -794,6 +810,68 @@ def uma_fig(waku, ub, col):
     """展開図の馬は、もらったイラスト(枠色の帽子・勝負服、ゼッケンに馬番)が既定。無ければシルエット。"""
     img = uma_img(waku, ub)
     return ('<img class="uma" src="%s" alt="">' % img) if img else HORSE.format(c=col)
+
+
+def kawa_board(rows, fc, n, rk, key="pos1") -> str:
+    """川崎の図(ユーザー指定 2026-11-13「こういう風に」「〇つけないで」)と同じ形。
+    1コーナーでの隊列、右が前。小さな馬の絵(枠色・ゼッケンに馬番)の下に 丸数字＋馬名。赤い丸は付けない。
+    1角から4角で押し上げる馬は矢印を青くする。"""
+    k = key if any(r.get(key) is not None for r in rows) else "pos"
+    lateral_layout(rows, fc, n, key=k, band=0.07)
+    hs = sorted([r for r in rows if r.get(k) is not None], key=lambda r: -r[k])
+    med = st.median(r.get("outer_score", 0) for r in hs) if hs else 0
+    W, P, G = 940, 8, 138    # 盤面の幅の目安(px)。置くときは % に直すので画面幅が違っても切れない
+    lanes, cells = [], []
+    for r in hs:
+        x = P + r[k] * (W - 2 * P - 130)
+        i = 0 if r.get("outer_score", 0) <= med else 1
+        while True:
+            while len(lanes) <= i:
+                lanes.append(1e9)
+            if x < lanes[i] - G:
+                lanes[i] = x
+                cells.append((r, x, i))
+                break
+            i += 1
+    LN = 54
+    hh = []
+    for r, x, lane in cells:
+        up = r.get("gain") is not None and r["gain"] >= 0.20
+        cc = "#4fa8ff" if up else "#b9b9c4"
+        wc = WAKU.get(r["waku"], ("#15110d", "#f2f2f4"))
+        img = uma_img(r["waku"], r["ub"], px=40)
+        fig = ('<img class="uk" src="%s" alt="">' % img) if img else HORSE.format(c="#d8c7ae")
+        tag = kikou_tag(r["ub"])
+        hh.append('<div class="kh" style="left:%.2f%%;top:%dpx"><div class="kf">%s<span class="kc" style="color:%s">&raquo;</span></div>'
+                  '<div class="kl"><span class="kn" style="background:%s;color:%s">%d</span>%s</div>%s</div>'
+                  % (x / W * 100, 10 + lane * LN, fig, cc, wc[0], wc[1], r["ub"], H.escape(r["name"]), tag))
+    _, fc.zone_horses = draw_zone([(r, x, l) for r, x, l in cells], fc, ellipse=True)   # 見解用に計算だけ(描かない)
+    turf = " turf" if globals().get("_CUR_SURF") == "芝" else ""
+    return ('<div class="kboard"><div class="ktrack%s" style="height:%dpx"><div class="goal"></div>%s</div></div>'
+            % (turf, max(1, len(lanes)) * LN + 24, "\n".join(hh)))
+
+
+def kawa_memo(fc, rows, rk, dist, surface) -> str:
+    """川崎の図の見解: 1段落。1角で前に行く馬・その後ろ・押し上げる馬・終い一番手。"""
+    k = "pos1" if any(r.get("pos1") is not None for r in rows) else "pos"
+    hs = sorted([r for r in rows if r.get(k) is not None], key=lambda r: -r[k])
+    circ = lambda u: "&#%d;" % (9311 + u) if 1 <= u <= 20 else str(u)  # noqa: E731
+    out = []
+    if hs:
+        out.append("%s%dm、1コーナーで前に行くのは%s" % (surface, dist, "".join(circ(r["ub"]) for r in hs[:3])))
+        if len(hs) > 5:
+            out.append("その後ろに%s" % "".join(circ(r["ub"]) for r in hs[3:6]))
+    ups = [r for r in rows if r.get("gain") is not None and r["gain"] >= 0.20]
+    for r in sorted(ups, key=lambda r: -r["gain"])[:2]:
+        out.append("%s%sは1コーナー%.2fから4コーナー%.2fまで押し上げる型"
+                   % (circ(r["ub"]), H.escape(r["name"]), 1 - (r.get(k) or 0), 1 - (r.get("pos") or 0)))
+    top = sorted((u for u, v in rk.items() if v <= 2), key=lambda u: rk[u])
+    if top:
+        out.append("終い一番手は%s" % "".join(circ(u) for u in top))
+    nodata = [r for r in rows if r.get(k) is None]
+    if nodata:
+        out.append("%sは過去走が無く材料が薄い" % "".join(circ(r["ub"]) for r in nodata))
+    return "。".join(out) + "。"
 
 
 def simple_board(rows, fc, n, rk) -> str:
@@ -1170,6 +1248,18 @@ CSS_EXTRA = """
 .ring{position:absolute;border:5px solid rgba(232,40,40,.95);border-radius:50%;z-index:1;
  box-shadow:0 0 12px rgba(232,40,40,.55)}
 .horse.wide{width:170px}
+.kboard{margin:8px 16px}.ktrack{position:relative;background:#3a2f26;border-radius:4px;border-top:3px solid #ddd}
+.ktrack.turf{background:repeating-linear-gradient(90deg,#3f7d3a 0 56px,#3a7536 56px 58px)}
+.kh{position:absolute;width:150px}.kf{display:flex;align-items:center;height:28px}
+.kf img.uk{height:26px;width:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+.kc{font-size:15px;font-weight:900;margin-left:1px;letter-spacing:-3px}
+.kl{display:flex;align-items:center;gap:3px;font-size:10.5px;color:#f2f2f4;font-weight:700;white-space:nowrap;
+ text-shadow:0 1px 2px rgba(0,0,0,.9)}
+.kn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
+ font-size:10px;font-weight:900;box-shadow:0 0 0 1.5px rgba(0,0,0,.5)}
+.kh .kik{font-size:8.5px;padding:0 3px;margin:1px 0 0 18px}
+.race.kawa .rd .st{color:#e8a33a;margin-right:8px;font-weight:700}
+.race.kawa .kenkai p{font-size:12px;line-height:1.7;margin:4px 0}
 .fig img.uma{height:46px;width:auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.45))}
 .track.turf{background:repeating-linear-gradient(90deg,#3f7d3a 0 56px,#3a7536 56px 58px)}
 .track.turf .nm{text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 2px rgba(0,0,0,.9)}
@@ -1195,6 +1285,13 @@ def page(date: str, place: str, rno: str, body: str, learned: bool = False) -> s
     y, m, d = date.split("-")
     import datetime as dt
     wd = WEEK[dt.date(int(y), int(m), int(d)).weekday()]
+    if STYLE == "kawa":   # 川崎の図と同じ見出し
+        return ('<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>展開予想 %s %s</title>'
+                '<style>%s%s</style></head><body>'
+                '<div class="head"><div class="kicker">%s.%s.%s %s — %s</div><h1>展開予想</h1>'
+                '<div class="sub"><b>1コーナーでの隊列想定</b> ／ 右が前</div></div>%s'
+                '<div class="tail">印は買い目の保証ではありません。</div></body></html>'
+                % (date, place, css, CSS_EXTRA, y, m, d, wd, place, body))
     return (
         '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>展開予想 %s %sR</title>'
         '<style>%s%s</style></head><body>'
@@ -1231,7 +1328,7 @@ def main() -> None:
     ap.add_argument("--out", required=True)
     ap.add_argument("--jockey-stats", help="騎手の集計(jra_jockey.py の出力)。過去の鞍を描くときはその日より前で作ったものを渡す")
     ap.add_argument("--from-data", action="store_true", help="出馬表をネットから取らず、--pace-data の集めたデータから組み立てる")
-    ap.add_argument("--style", choices=["simple", "stages"], default="simple",
+    ap.add_argument("--style", choices=["kawa", "simple", "stages"], default="kawa",
                     help="simple=4角1枚+赤丸(川崎の図と同じ形) / stages=スタート後・3角・4角の3段")
     ap.add_argument("--zone-front", type=float, default=0.4, help="狙う帯の前後の幅(前から何割、既定0.4)")
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
@@ -1296,6 +1393,7 @@ def one_race(a, ap):
 
     fc, rows, rk = build(past, waku, place=place, dist=dist, surface=surface, baba=baba, jockeys=jockeys)
     globals()["_CUR_SURF"] = surface
+    fc._start = (ME_RACE or {}).get("start") if getattr(a, "from_data", False) else None
     if a.pace_data:
         diff, nl, conf, q, est = learned_pace(a.pace_data, a.date, place=place, dist=dist, surface=surface,
                                          n=len(rows), baba=baba, race_id=a.race_id,
