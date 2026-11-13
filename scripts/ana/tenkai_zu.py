@@ -45,18 +45,18 @@ except Exception:
 _UMA = {}
 
 
-def uma_tag(waku, ub, h=40):
+def uma_tag(waku, ub, h=40, left=True):
     """ユーザーからもらった馬の絵（枠色のゼッケンに馬番）。作れなければ None。
 
     ★ 2026-11-11、ユーザーの指示 ──「それでこれを使ってくれない？？ 馬の絵」。
       絵は `uma/`（`uma_img.py --build` で作る）。体の色では押し上げを出せなくなるので、
       ▲押し上げ／▼下がるは**札と矢印**で読む。`--svg` で前のシルエットに戻せる。
     """
-    k = (waku, ub, h)
+    k = (waku, ub, h, left)
     if k in _UMA:
         return _UMA[k]
     try:
-        im = uma_img.horse(waku, ub, h * 2)
+        im = uma_img.horse(waku, ub, h * 2, left)
         b = io.BytesIO(); im.save(b, 'PNG')
         _UMA[k] = ('<img class="hv" src="data:image/png;base64,%s" height="%d" alt="">'
                    % (base64.b64encode(b.getvalue()).decode(), h))
@@ -267,6 +267,7 @@ def main():
     od_all = json.load(open(g('--odds'))) if g('--odds') else {}
     res = json.load(open(g('--res'))) if g('--res') else {}
     plain = '--plain' in a          # 人に見せる版（数値を落とす）
+    migi = {x.strip() for x in (a[a.index('--migi') + 1].split(',') if '--migi' in a else [])}
     global OLD_C4, OLD_NOMB
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
@@ -348,8 +349,11 @@ def main():
             if r['nopos']:
                 so += '<span class="nopast">過去走なし</span>'
             wc = W.get(r['waku'], ('#15110d', '#f2f2f4'))
+            # ★ 鞍ごとに馬の向きを変える（2026-11-13、ユーザーの指示 ──
+            #   「1200 1400はそのまま」「1600は向き変えて」）。
+            #   --migi 9,11 で、その鞍だけ右向きにする。既定は左向き。
             fig = (None if ('--svg' in a or uma_img is None)
-                   else uma_tag(r['waku'], r['ub']))
+                   else uma_tag(r['waku'], r['ub'], 40, R not in migi))
             hh.append('<div class="horse" style="left:%dpx;top:%dpx"><div class="fig">%s%s</div>'
                       '<div class="lab"><span class="n" style="background:%s;color:%s">%d</span>'
                       '<span class="nm">%s</span></div>%s%s</div>'
