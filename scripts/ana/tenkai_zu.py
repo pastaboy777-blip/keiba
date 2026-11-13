@@ -274,6 +274,11 @@ def main():
     #   --migi は絵だけ右向きにする古い口。残してあるが、ふつうは --flip を使う。
     migi = {x.strip() for x in (a[a.index('--migi') + 1].split(',') if '--migi' in a else [])}
     flip = {x.strip() for x in (a[a.index('--flip') + 1].split(',') if '--flip' in a else [])}
+    # ★ 距離で自動的に鏡にする（2026-11-13、ユーザーの指示）。
+    #   大井1600m … 向正面から左へ、1コーナーまで → 図ごと鏡
+    #   大井1200m・1400m・1650m … 川崎と全部同じ（鏡にしない）
+    #   1800m・2000m・2400m はまだ聞いていないので、そのまま（鏡にしない）
+    MIRROR = {('大井', 1600)}
     global OLD_C4, OLD_NOMB
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
@@ -321,6 +326,8 @@ def main():
             r.setdefault('srank', None)
         sw = [tuple(int(y) for y in p_.split('-')) for p_ in swap_sp.get(R, [])]
         cells, NL = place(arrange(rows, sw, '--noswap' in a))
+        if (ven, v['dist']) in MIRROR:
+            flip.add(R)
         if R in flip:                      # 前を左に回す（位置を左右反転）
             cells = [(r, WID - x, ln) for r, x, ln in cells]
         pc = pace.get(R, 'm')
