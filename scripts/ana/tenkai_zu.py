@@ -267,7 +267,13 @@ def main():
     od_all = json.load(open(g('--odds'))) if g('--odds') else {}
     res = json.load(open(g('--res'))) if g('--res') else {}
     plain = '--plain' in a          # 人に見せる版（数値を落とす）
+    # ★ 鞍ごとに左右を反転する（2026-11-13、ユーザーの指示 ──
+    #   「1200 1400はそのまま」「1600は向き変えて」「向きあってる？？」）。
+    #   大井1600m・1650mは2コーナー付近から出るので、1コーナーは反対側にある。
+    #   --flip 9,11 で、その鞍だけ**前を左**にする（馬の絵は左向きのままで進行方向と揃う）。
+    #   --migi は絵だけ右向きにする古い口。残してあるが、ふつうは --flip を使う。
     migi = {x.strip() for x in (a[a.index('--migi') + 1].split(',') if '--migi' in a else [])}
+    flip = {x.strip() for x in (a[a.index('--flip') + 1].split(',') if '--flip' in a else [])}
     global OLD_C4, OLD_NOMB
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
@@ -315,6 +321,8 @@ def main():
             r.setdefault('srank', None)
         sw = [tuple(int(y) for y in p_.split('-')) for p_ in swap_sp.get(R, [])]
         cells, NL = place(arrange(rows, sw, '--noswap' in a))
+        if R in flip:                      # 前を左に回す（位置を左右反転）
+            cells = [(r, WID - x, ln) for r, x, ln in cells]
         pc = pace.get(R, 'm')
         tag, nm, eff = LAB.get(pc, LAB['m'])
         b = T.sui(ven, v['dist'], baba)
@@ -359,7 +367,7 @@ def main():
                       '<span class="nm">%s</span></div>%s%s</div>'
                       % (int(x), 14 + ln * LANE, fig or HORSE.format(c=col), CHEV.format(c=cc),
                          wc[0], wc[1], r['ub'], html.escape(r['name']), t, so))
-        body.append(
+        tmpl = (
             '<div class="race"><div class="rh"><span class="rn">%dR</span>'
             '<span class="rt">%s</span>'
             '<span class="rd">ダ<b>%dm</b> ／ %d頭 ／ %s</span>'
@@ -368,7 +376,11 @@ def main():
             '<div class="gz z2">ふつう</div><div class="gz z3">速い</div>'
             '<div class="gmark" style="left:%d%%"></div></div>'
             '<div class="peff">→ %s<span class="pnum">%s</span></div></div>'
-            '<div class="track" style="height:%dpx"><div class="goal"></div>%s%s</div>%s</div>'
+            '<div class="track" style="height:%dpx"><div class="goal'
+            + (' l' if R in flip else '')
+            + '"></div>%s%s</div>%s</div>')
+        body.append(
+            tmpl
             % (v['R'], v.get('start') or '', v['dist'], len(v['horses']),
                html.escape(v.get('cls') or ''), pc, tag, nm, pc, GP.get(pc, 50), eff,
                ('この鞍の前3Fの水準 %.1f秒' % b['f3']) if b else '',

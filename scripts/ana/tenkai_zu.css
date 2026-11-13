@@ -31,6 +31,7 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
  background:repeating-linear-gradient(90deg,var(--d1) 0 56px,var(--d2) 56px 58px);
  border-top:3px solid #d9d9de;border-bottom:1px dashed #4a3c30}
 .goal{position:absolute;right:26px;top:0;bottom:0;width:2px;background:rgba(232,54,47,.8)}
+.goal.l{right:auto;left:26px}
 .horse{position:absolute;transform:translate(-50%,0);text-align:center;width:130px}
 .fig{display:flex;align-items:flex-end;justify-content:center;gap:1px;height:42px}
 .lab{margin-top:-1px;white-space:nowrap}
