@@ -845,10 +845,12 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
     lateral_layout(rows, fc, n, key=k, band=0.07)
     hs = sorted([r for r in rows if r.get(k) is not None], key=lambda r: -r[k])
     med = st.median(r.get("outer_score", 0) for r in hs) if hs else 0
-    W, P, G = 940, 8, 138    # 盤面の幅の目安(px)。置くときは % に直すので画面幅が違っても切れない
+    nod = [r for r in rows if r.get(k) is None]          # 過去走が無い馬も描く(後方に置いて札)
+    hs += nod
+    W, P, G = 940, 22, 138    # 盤面の幅の目安(px)。置くときは % に直すので画面幅が違っても切れない
     lanes, cells = [], []
     for r in hs:
-        x = P + r[k] * (W - 2 * P - 130)
+        x = P + (r[k] if r.get(k) is not None else 0.0) * (W - 2 * P - 130)
         i = 0 if r.get("outer_score", 0) <= med else 1
         while True:
             while len(lanes) <= i:
@@ -867,6 +869,8 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
         img = uma_img(r["waku"], r["ub"], px=64)
         fig = ('<img class="uk" src="%s" alt="">' % img) if img else HORSE.format(c="#d8c7ae")
         tag = kikou_tag(r["ub"])
+        if r.get(k) is None:
+            tag = '<span class="knd">過去走なし</span>' + tag
         hh.append('<div class="kh" style="left:%.2f%%;top:%dpx"><div class="kf">%s<span class="kc" style="color:%s">&raquo;</span></div>'
                   '<div class="kl"><span class="kn" style="background:%s;color:%s">%d</span>%s</div>%s</div>'
                   % (x / W * 100, 10 + lane * LN, fig, cc, wc[0], wc[1], r["ub"], H.escape(r["name"]), tag))
@@ -1282,6 +1286,7 @@ CSS_EXTRA = """
  text-shadow:0 1px 2px rgba(0,0,0,.9)}
 .kn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
  font-size:10px;font-weight:900;box-shadow:0 0 0 1.5px rgba(0,0,0,.5)}
+.knd{display:inline-block;font-size:8.5px;color:#fff;background:#d9577a;border-radius:3px;padding:0 4px;margin:1px 0 0 18px}
 .kh .kik{font-size:8.5px;padding:0 3px;margin:1px 0 0 18px}
 .race.kawa .rd .st{color:#e8a33a;margin-right:8px;font-weight:700}
 .race.kawa .kenkai p{font-size:12px;line-height:1.7;margin:4px 0}
