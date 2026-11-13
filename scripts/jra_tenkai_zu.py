@@ -711,13 +711,13 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
                 lvl += "　※今開催の馬場のずれ込み"
         start = (getattr(fc, "_start", "") or "")
         return (
-            '<div class="race kawa"><div class="rh"><span class="rn">%sR</span>'
+            '<div class="race kawa%s"><div class="rh"><span class="rn">%sR</span>'
             '<span class="rd"><span class="st">%s</span>%s%dm ／ %d頭 ／ %s</span>'
             '<span class="pace p-%s"><b>%s</b> %s</span></div>'
             '<div class="pbar p-%s"><div class="bar"><span>ゆっくり</span><span>ふつう</span><span>速い</span>'
             '<i style="left:%.1f%%"></i></div><div class="flow">→ <b>%s</b>　<small>%s</small></div></div>'
             '%s<div class="kenkai"><div class="kt">見解</div><p>%s</p></div></div>'
-            % (rno, start, surface, dist, n, H.escape(name), pcls, ptag,
+            % (" nopace" if globals().get("_CUR_RNO") in HIDE_PACE else "", rno, start, surface, dist, n, H.escape(name), pcls, ptag,
                {"スロー": "スロー", "ミドル": "ミドル", "ハイ": "ハイ"}[fc.pace] + "想定",
                pcls, mark * 100, flow.split("→ ")[-1], lvl, board_html, kawa_memo(fc, rows, rk, dist, surface)))
     missing = [r for r in rows if r["pos"] is None]
@@ -837,6 +837,7 @@ def uma_fig(waku, ub, col):
     return ('<img class="uma" src="%s" alt="">' % img) if img else HORSE.format(c=col)
 
 
+HIDE_PACE: set = set()   # ペース想定の札を出さない R(--hide-pace "12")
 CIRCLE: dict = {}   # 手で丸を付ける馬 {R番号(int): {馬番}}。--circle "12:6,12,15;3:8"
 
 
@@ -886,8 +887,8 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
         pts = sorted(((x + 62) / W * 940, 10 + l * LN + 30) for x, l in sel)
         (ax, ay), (bx, by) = pts[0], pts[-1]
         ang = math.degrees(math.atan2(by - ay, bx - ax))
-        length = math.hypot(bx - ax, by - ay) + 170
-        hgt = 84 + max(abs(y - (ay + (by - ay) * (x - ax) / max(1, bx - ax))) for x, y in pts) * 2
+        length = math.hypot(bx - ax, by - ay) + 150
+        hgt = 62 + max(abs(y - (ay + (by - ay) * (x - ax) / max(1, bx - ax))) for x, y in pts) * 2
         cx, cy = (ax + bx) / 2, (ay + by) / 2
         ring = ('<div class="kring" style="left:calc(%.2f%% - %dpx);top:%dpx;width:%dpx;height:%dpx;'
                 'transform:rotate(%.1fdeg)"></div>' % (cx / 940 * 100, length / 2, cy - hgt / 2, length, hgt, ang))
@@ -1302,6 +1303,7 @@ CSS_EXTRA = """
  text-shadow:0 1px 2px rgba(0,0,0,.9)}
 .kn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
  font-size:10px;font-weight:900;box-shadow:0 0 0 1.5px rgba(0,0,0,.5)}
+.race.kawa.nopace .rh .pace{display:none}
 .kring{position:absolute;border:5px solid rgba(232,40,40,.95);border-radius:50%;
  box-shadow:0 0 12px rgba(232,40,40,.55);pointer-events:none;z-index:0}
 .kh{z-index:2}
@@ -1380,11 +1382,13 @@ def main() -> None:
     ap.add_argument("--style", choices=["kawa", "simple", "stages"], default="kawa",
                     help="simple=4角1枚+赤丸(川崎の図と同じ形) / stages=スタート後・3角・4角の3段")
     ap.add_argument("--zone-front", type=float, default=0.4, help="狙う帯の前後の幅(前から何割、既定0.4)")
+    ap.add_argument("--hide-pace", default="", help='ペース想定の札(右上のS/M/H)を消す R。"12" や "3,12"')
     ap.add_argument("--circle", default="", help='手で赤丸を付ける馬。"12:6,12,15;3:8"(R:馬番)')
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
     a = ap.parse_args()
     global ZONE_FRONT, JOCKEY_STATS, STYLE
     STYLE = a.style
+    HIDE_PACE.update(int(x) for x in a.hide_pace.split(",") if x.strip().isdigit())
     for part in filter(None, a.circle.split(";")):
         rr, uu = part.split(":")
         CIRCLE[int(rr)] = {int(x) for x in uu.split(",") if x}
