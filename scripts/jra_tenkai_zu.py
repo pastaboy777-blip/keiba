@@ -1673,7 +1673,7 @@ def page(date: str, place: str, rno: str, body: str, learned: bool = False) -> s
         return ('<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>展開予想 %s %s</title>'
                 '<style>%s%s</style></head><body>'
                 '<div class="head"><div class="kicker">%s.%s.%s %s — %s</div><h1>展開予想</h1>'
-                '<div class="sub"><b>最初のコーナーでの隊列想定</b> ／ 右が前</div></div>%s'
+                '<div class="sub"><b>最初のコーナーでの隊列想定</b></div></div>%s'
                 '<div class="tail">印は買い目の保証ではありません。</div></body></html>'
                 % (date, place, css, CSS_EXTRA, y, m, d, wd, place, body))
     return (
