@@ -725,7 +725,7 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
             '<span class="pace p-%s"><b>%s</b> %s</span>%s</div>'
             '<div class="pbar p-%s"><div class="bar"><span>ゆっくり</span><span>ふつう</span><span>速い</span>'
             '<i style="left:%.1f%%"></i></div><div class="flow">→ <b>%s</b>　<small>%s</small></div>%s</div>'
-            '%s<div class="kenkai"><div class="kt">見解</div><p>%s</p></div></div>'
+            '%s%s<div class="kenkai"><div class="kt">見解</div><p>%s</p></div></div>'
             % (" nopace" if globals().get("_CUR_RNO") in HIDE_PACE else "", rno, start, surface, dist, n, H.escape(name), pcls, ptag,
                {"スロー": "スロー", "ミドル": "ミドル", "ハイ": "ハイ"}[fc.pace] + "想定",
                (('<span class="tbase"><b>%d:%04.1f</b> の時計をベースにしています%s</span>'
@@ -734,7 +734,7 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
                pcls, mark * 100, flow.split("→ ")[-1], lvl,
                (_today_line(fc) or (('<div class="lanebias">今開催は4角で%sが来ている(前の開催日の3着内 %d頭のうち外 %d%%、ふだん49%%) → %s◎の札</div>'
                  % (fc.lane[0], fc.lane[2], fc.lane[1] * 100, fc.lane[0])) if getattr(fc, "lane", (None,))[0] else "")),
-               board_html, kawa_memo(fc, rows, rk, dist, surface)))
+               board_html, getattr(fc, "trend", "") or "", kawa_memo(fc, rows, rk, dist, surface)))
     missing = [r for r in rows if r["pos"] is None]
     miss = ""
     if missing:
@@ -987,6 +987,104 @@ def front_is_left(place, surface, dist):
 CIRCLE: dict = {}
 CIRCLE_EACH = False   # --circle-each: 赤丸も1頭ずつ(ユーザー指定 2026-11-14「全部○で囲って」)
 CIRCLE2: dict = {}  # 相手の丸(白)。--circle2 "7:15,10"。本命は --circle(赤)   # 手で丸を付ける馬 {R番号(int): {馬番}}。--circle "12:6,12,15;3:8"
+
+
+SHOW_TREND = True   # --no-trend で消す。盤面の下・見解の上の「過去の傾向」欄
+_GENERIC_NAME = re.compile(r"(障害)?\d歳(以上)?(未勝利|新馬|\d勝クラス|オープン)|メイクデビュー.*|新馬.*|")
+_BABA3 = {"良": "良", "稍": "稍重", "重": "重以上", "不": "重以上"}
+
+
+def _race_key_name(name):
+    """レース名の主要部分。「第◯回」・(G1) などを除く。一般戦名(1勝クラス・未勝利・新馬…)は None。"""
+    s = re.sub(r"第\s*[0-9０-９]+\s*回", "", name or "")
+    s = re.sub(r"[（(][^)）]*[)）]", "", s).strip()
+    if _GENERIC_NAME.fullmatch(s) or len(s) < 3:
+        return None
+    return s
+
+
+def _corner_side(d, ub):
+    """4角の通過順で、その馬が組(括弧)の 外/内/中、1頭なら 単独。括弧の中は内から並ぶ。"""
+    for t in re.findall(r"\([^)]*\)|\d+", ((d.get("corners") or {}).get("4") or "").replace("*", "")):
+        g = [int(x) for x in re.findall(r"\d+", t)]
+        if ub in g:
+            if len(g) < 2:
+                return "単独"
+            return "外" if g[-1] == ub else "内" if g[0] == ub else "中"
+    return ""
+
+
+def trend_html(data_path, date, place, surface, dist, name):
+    """「過去の傾向」欄(ユーザー指定 2026-11-15)。その鞍の日付より前の行だけを使う。
+    1) 同じレース名の過去の回(最大3回): 年・馬場・1〜3着の 4角位置/頭数・組の外内・人気(人気は表示だけ)
+    2) 同じ場・芝ダ・距離を馬場(良/稍重/重以上)で分け、3着内の馬の 4角前/中/後1/3 の割合・組の外の割合・鞍数"""
+    if not data_path or not date:
+        return ""
+    seen, past = set(), []
+    for d in load_rows(data_path):
+        if d["date"] >= date or d["race_id"] in seen or not d.get("result"):
+            continue
+        if not any(x.get("finish_pos") for x in d["result"]):
+            continue
+        seen.add(d["race_id"])
+        past.append(d)
+    lines = []
+    key = _race_key_name(name)
+    if key:
+        same = []
+        for d in past:
+            k2 = _race_key_name(d.get("name"))
+            if k2 and (key in k2 or k2 in key):
+                same.append(d)
+        same.sort(key=lambda d: d["date"], reverse=True)
+        parts = []
+        for d in same[:3]:
+            n = d.get("field_size") or len(d["result"])
+            top = sorted((x for x in d["result"] if (x.get("finish_pos") or 99) <= 3), key=lambda x: x["finish_pos"])
+            hs = []
+            for x in top:
+                cp = x.get("corner_pos") or []
+                pos = "4角%d/%d%s" % (cp[-1], n, _corner_side(d, x["umaban"])) if cp else "4角-"
+                hs.append("%d着 %s%s" % (x["finish_pos"], pos, "(%d人)" % x["popularity"] if x.get("popularity") else ""))
+            other = "" if (d.get("place"), d.get("surface"), d.get("distance")) == (place, surface, dist) else \
+                "%s%s%d " % (d.get("place"), d.get("surface"), d.get("distance"))
+            parts.append("<span class=\"ty\"><b>%s</b> %s%s %s</span>" % (d["date"][:4], other, {"稍": "稍重", "不": "不良"}.get(d.get("baba"), d.get("baba") or ""),
+                                                "・".join(hs)))
+        if parts:
+            lines.append('<span class="tl">過去の回</span>' + "　／　".join(parts))
+    cond = [d for d in past if d.get("place") == place and d.get("surface") == surface and d.get("distance") == dist]
+    if cond:
+        segs = []
+        for b in ("良", "稍重", "重以上"):
+            rs = [d for d in cond if _BABA3.get(d.get("baba")) == b]
+            if not rs:
+                segs.append("%s(なし)" % b)
+                continue
+            fmc = [0, 0, 0]
+            side = {"外": 0, "内": 0, "中": 0}
+            for d in rs:
+                n = d.get("field_size") or 0
+                for x in d["result"]:
+                    if (x.get("finish_pos") or 99) <= 3 and x.get("corner_pos") and n >= 2:
+                        r = (x["corner_pos"][-1] - 1) / (n - 1)
+                        fmc[0 if r <= 1 / 3 else 1 if r <= 2 / 3 else 2] += 1
+                        sd = _corner_side(d, x["umaban"])
+                        if sd in side:
+                            side[sd] += 1
+            tot, ls = sum(fmc), sum(side.values())
+            few = "・少ない" if len(rs) < 10 else ""
+            if not tot:
+                segs.append("%s(%d鞍%s)" % (b, len(rs), few))
+                continue
+            segs.append("<span class=\"ty\">%s(%d鞍%s) 前%d・中%d・後%d%%%s"
+                        % (b, len(rs), few, *(round(c * 100 / tot) for c in fmc),
+                           ("・外%d%%" % round(side["外"] * 100 / ls)) if ls else "") + "</span>")
+        if segs:
+            lines.append('<span class="tl">この条件%s%s%dm</span>' % (place, surface, dist)
+                         + "3着内の4角　" + "　／　".join(segs))
+    if not lines:
+        return ""
+    return '<div class="ktrend"><div class="kt">過去の傾向</div>%s</div>' % "".join("<p>%s</p>" % l for l in lines)
 
 
 def kawa_board(rows, fc, n, rk, key="pos1") -> str:
@@ -1513,6 +1611,9 @@ CSS_EXTRA = """
 .kh .kik{font-size:8.5px;padding:0 3px;margin:0 0 0 3px}
 .race.kawa .rd .st{color:#e8a33a;margin-right:8px;font-weight:700}
 .race.kawa .kenkai p{font-size:12px;line-height:1.7;margin:4px 0}
+.ktrend{margin:4px 16px 0;padding:6px 12px;background:#17171c;border-radius:6px;border-left:3px solid #8a8a96;font-size:11.5px;color:#c9c9d2;line-height:1.65}
+.ktrend p{margin:2px 0}.ktrend .ty{white-space:nowrap}.ktrend b{color:#f2f2f4}
+.ktrend .kt{color:#b9b9c4}.ktrend .tl{display:inline-block;color:#ffd77a;font-weight:800;margin-right:8px}
 .fig img.uma{height:46px;width:auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.45))}
 .track.turf{background:repeating-linear-gradient(90deg,#3f7d3a 0 56px,#3a7536 56px 58px)}
 .track.turf .nm{text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 2px rgba(0,0,0,.9)}
@@ -1592,12 +1693,15 @@ def main() -> None:
     ap.add_argument("--circle-each", action="store_true", help="赤丸を1頭ずつ付ける(まとめて1つにしない)")
     ap.add_argument("--circle2", default="", help='相手を白い丸で囲む馬。"7:15,10,8"')
     ap.add_argument("--circle", default="", help='手で赤丸を付ける馬。"12:6,12,15;3:8"(R:馬番)')
+    ap.add_argument("--no-trend", action="store_true", help="盤面の下の「過去の傾向」欄を出さない(既定は出す)")
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
     a = ap.parse_args()
     global ZONE_FRONT, JOCKEY_STATS, STYLE
     STYLE = a.style
     global BASE_DAY, BASE_BABA, SHOW_KIKOU, CIRCLE_EACH
     CIRCLE_EACH = a.circle_each
+    global SHOW_TREND
+    SHOW_TREND = not a.no_trend
     SHOW_KIKOU = a.kikou
     BASE_DAY = set(a.base_day.split(",")) if a.base_day else None
     BASE_BABA = set(a.base_baba.split(",")) if a.base_baba else None
@@ -1696,6 +1800,8 @@ def one_race(a, ap):
             est.pop("laps", None)
         fc.n_learn, fc.conf, fc.est, fc.q = nl, conf, est, q
     fc._place, fc._surface, fc._dist = place, surface, dist
+    fc.trend = (trend_html(a.pace_data, a.date or (ME_RACE or {}).get("date"), place, surface, dist, name)
+                if (SHOW_TREND and STYLE == "kawa" and a.pace_data) else "")
     return render_race(rno, name, dist, surface, baba, len(rows), fc, rows, rk), place, rno, fc
 
 
