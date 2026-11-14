@@ -17,7 +17,7 @@
   --no-png          画像を作らない
 
 動き
-  1) data/jra/all_YYYYMMDD.jsonl = races.jsonl + 出馬表(出馬表の行の馬場を --baba/--baba-dirt で埋める)
+  1) data/jra/all_YYYYMMDD.jsonl = 出馬表(先頭。行の馬場を --baba/--baba-dirt で埋める) + races.jsonl
   2) 場ごとに時計の基準: 指定の馬場と同じ馬場だった、8日以内の同じ場の開催日
      芝 → --base-day / --base-baba、ダート → --base-day-dirt / --base-baba-dirt(芝ダ別々)
      (足りない距離は jra_tenkai_zu.py が通常の推定に戻す)
@@ -27,6 +27,8 @@
      data/zu_png/YYYYMMDD/split_<場><R>.png
      (途中の連結データは場×馬場で1つずつ作って使い回し、終わったら消す)
   6) 作ったファイルの一覧と、各場の時計の基準を表示
+  7) 使った設定(場ごとの芝ダの馬場・jra_tenkai_zu.py へ渡した引数)を data/jra/morning_YYYYMMDD.json に残す
+     → 昼に scripts/jra_today.py が読んで、同じ馬場・時計の基準・丸で作り直す
 
 jra_tenkai_zu.py は呼ぶだけで、中身には手を入れない。
 """
@@ -77,11 +79,10 @@ def base_days(races: list[dict], place: str, surface: str, baba: str, date: str)
 
 
 def write_all(path: Path, races_text: str, shutuba: list[dict], turf: dict, dirt: dict, default=None):
-    """races.jsonl + 出馬表。出馬表の行の baba を埋める。default=(場, 馬場) でその場を上書き。"""
+    """出馬表 + races.jsonl(出馬表の行を先に置く)。出馬表の行の baba を埋める。default=(場, 馬場) でその場を上書き。
+    jra_tenkai_zu.py の from_data は同じ race_id の最初の行をその鞍として使うので、結果を取り込み済みの鞍でも
+    予想は出馬表の行で組まれる(結果の行は後ろにあり、当日の前の鞍の傾向・ペースのずれには使われる)。"""
     with path.open("w", encoding="utf-8") as fo:
-        fo.write(races_text)
-        if races_text and not races_text.endswith("\n"):
-            fo.write("\n")
         for d in shutuba:
             d = dict(d)
             p = d["place"]
@@ -90,6 +91,9 @@ def write_all(path: Path, races_text: str, shutuba: list[dict], turf: dict, dirt
             else:
                 d["baba"] = dirt.get(p, turf.get(p, "良")) if d.get("surface") == "ダ" else turf.get(p, "良")
             fo.write(json.dumps(d, ensure_ascii=False) + "\n")
+        fo.write(races_text)
+        if races_text and not races_text.endswith("\n"):
+            fo.write("\n")
 
 
 def base_args(races, place, babas_by_surface: dict[str, str], date) -> tuple[list[str], str]:
@@ -180,6 +184,7 @@ def main():
     pngdir.mkdir(parents=True, exist_ok=True)
 
     report = []
+    setting = {}
     for p in places:
         t = turf.get(p, "良")
         d = dirt.get(p, t)
@@ -196,6 +201,7 @@ def main():
             extra += ["--base-time", c["base_time"]]
         if c.get("no_trend"):
             extra.append("--no-trend")
+        setting[p] = {"turf": t, "dirt": d, "base_args": bb, "mark_args": extra, "zu_args": bb + extra}
         out = ROOT / "scripts" / "daily" / f"zu_jra_{ymd}_{p}.html"
         print(f"[{p}] 展開図 …", flush=True)
         print(run([sys.executable, str(ZU), "--day", a.date, "--place", p, "--pace-data", str(allp),
@@ -250,6 +256,14 @@ def main():
     if work.exists():
         for f in work.glob("*.jsonl"):   # 前の版が残した連結データ
             f.unlink()
+
+    # 7) 朝の設定を残す(--place で一部だけ作ったときは、前に残した他の場の設定を引き継ぐ)
+    mp = JRA / f"morning_{ymd}.json"
+    old = json.loads(mp.read_text(encoding="utf-8")) if mp.exists() else {}
+    keep = old.get("places", {}) if old.get("date") == a.date else {}
+    keep.update(setting)
+    mp.write_text(json.dumps({"date": a.date, "places": keep}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    made.append(mp)
 
     print("\n== 作ったファイル ==")
     for f in made:
