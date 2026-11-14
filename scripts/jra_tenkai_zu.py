@@ -948,7 +948,11 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
     ring = ""
     want = CIRCLE.get(globals().get("_CUR_RNO"), set())
     sel = [(x, lane) for r, x, lane in cells if r["ub"] in want]
-    if sel:   # 指定した馬をまとめて丸1つで囲む。左端と右端の馬を結ぶ向きに傾けた楕円(間の他の馬にかぶりにくい)
+    spread = sel and (max(x for x, _ in sel) - min(x for x, _ in sel)) > W * 0.45
+    if sel and spread:   # 離れている馬は1頭ずつ囲む(間の馬を巻き込まない)
+        ring = "".join('<div class="kring" style="left:calc(%.2f%% - 14px);top:%dpx;width:158px;height:%dpx"></div>'
+                       % (x / W * 100, 10 + l * LN - 8, LN - 2) for x, l in sel)
+    elif sel:   # 指定した馬をまとめて丸1つで囲む。左端と右端の馬を結ぶ向きに傾けた楕円(間の他の馬にかぶりにくい)
         import math
         pts = sorted(((x + 62) / W * 940, 10 + l * LN + 30) for x, l in sel)
         (ax, ay), (bx, by) = pts[0], pts[-1]
