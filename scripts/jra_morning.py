@@ -25,6 +25,7 @@
   4) 1鞍ずつのPNG → data/zu_png/YYYYMMDD/<場>_<R>R.png
   5) config の split の鞍: 稍重版・重版を1鞍ずつ作り(赤丸を1頭ずつ)、左右2分割の
      data/zu_png/YYYYMMDD/split_<場><R>.png
+     (途中の連結データは場×馬場で1つずつ作って使い回し、終わったら消す)
   6) 作ったファイルの一覧と、各場の時計の基準を表示
 
 jra_tenkai_zu.py は呼ぶだけで、中身には手を入れない。
@@ -205,7 +206,10 @@ def main():
             made += sorted(pngdir.glob(f"{p}_*R.png"), key=lambda x: int(x.stem.split("_")[-1][:-1]))
 
     # 5) 稍重/重の2分割
+    # 連結データは「場×馬場」で中身が決まる(その場の出馬表の行の馬場だけを書き換える)。
+    # 鞍ごとに作らず、場ごと・馬場ごとに1つだけ作って同じ場の鞍で使い回し、使い終わったらすぐ消す。
     work = pngdir / "split_work"
+    jobs: dict[str, list[tuple[dict, dict]]] = {}
     for s in cfg.get("split", []):
         p, r = s["place"], int(s["race"])
         if a.place and p not in places:
@@ -214,26 +218,38 @@ def main():
         if not me:
             print(f"注意: {p}{r}R が出馬表にありません", file=sys.stderr)
             continue
+        jobs.setdefault(p, []).append((s, me))
+    for p, items in jobs.items():
         work.mkdir(exist_ok=True)
-        pics = {}
+        pics: dict[tuple[int, str], Path] = {}
         for key, b in (("yaya", "稍"), ("omo", "重")):
-            data = work / f"all_{ymd}_{p}{r}_{key}.jsonl"
+            data = work / f"all_{ymd}_{p}_{key}.jsonl"
             write_all(data, races_text, shutuba, turf, dirt, default=(p, b))
-            bb, desc = base_args(races, p, {me["surface"]: b}, a.date)
-            html = work / f"{p}{r}_{key}.html"
-            run([sys.executable, str(ZU), "--from-data", "--race-id", me["race_id"], "--date", a.date,
-                 "--race-no", str(r), "--place", p, "--pace-data", str(data), "--out", str(html),
-                 "--circle", f"{r}:{s[key]}", "--circle-each"] + bb)
-            if not a.no_png:
-                shoot(html, work, f"{p}{key}")
-                pics[key] = work / f"{p}{key}_{r}R.png"
-            report.append((f"{p}{r}R({BABA_LONG[b]}版)", BABA_LONG[b], desc))
+            try:
+                for s, me in items:
+                    r = int(s["race"])
+                    bb, desc = base_args(races, p, {me["surface"]: b}, a.date)
+                    html = work / f"{p}{r}_{key}.html"
+                    run([sys.executable, str(ZU), "--from-data", "--race-id", me["race_id"], "--date", a.date,
+                         "--race-no", str(r), "--place", p, "--pace-data", str(data), "--out", str(html),
+                         "--circle", f"{r}:{s[key]}", "--circle-each"] + bb)
+                    if not a.no_png:
+                        shoot(html, work, f"{p}{key}")
+                        pics[(r, key)] = work / f"{p}{key}_{r}R.png"
+                    report.append((f"{p}{r}R({BABA_LONG[b]}版)", BABA_LONG[b], desc))
+            finally:
+                data.unlink(missing_ok=True)
         if not a.no_png:
-            out = pngdir / f"split_{p}{r}.png"
-            split_png(pics["yaya"], pics["omo"], out,
-                      "稍重なら", s.get("yaya_note") or maru(s["yaya"]),
-                      "重なら", s.get("omo_note") or maru(s["omo"]))
-            made.append(out)
+            for s, _ in items:
+                r = int(s["race"])
+                out = pngdir / f"split_{p}{r}.png"
+                split_png(pics[(r, "yaya")], pics[(r, "omo")], out,
+                          "稍重なら", s.get("yaya_note") or maru(s["yaya"]),
+                          "重なら", s.get("omo_note") or maru(s["omo"]))
+                made.append(out)
+    if work.exists():
+        for f in work.glob("*.jsonl"):   # 前の版が残した連結データ
+            f.unlink()
 
     print("\n== 作ったファイル ==")
     for f in made:
