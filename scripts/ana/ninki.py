@@ -29,7 +29,7 @@
   ズレ … ◎（4角0.2以内）なのに人気5番手以下の馬。こちらが前めと読んで市場が買っていない
   逆   … 1〜3人気なのに4角0.4より後ろの馬。市場が買っていてこちらの読みでは後ろ
 """
-import sys, os, statistics as st, json
+import sys, os, json, unicodedata as ud
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -40,10 +40,19 @@ MAE = 0.20      # ◎ … 4角の相対がこれ以内（ルール33）
 USHIRO = 0.40   # 逆 … 1〜3人気でこれより後ろ
 NIN_LO = 5      # ズレ … 人気がこれ以下（5番手以下）
 
-FMT = '%3d %2d %s %s %s %s %s %s %s %s %s  %s %s'
-HEAD = ''.join(T.w(s, n) for s, n in (
-    ('馬番', 4), ('枠', 3), ('馬名', 17), ('騎手', 9), ('人気', 5), ('単勝', 7),
-    ('1角', 6), ('gain', 6), ('4角', 6), ('内度', 6), ('終い', 5), ('印', 2)))
+FMT = '%4d %2d %s %s %s %s %s %s %s %s %s  %s %s'
+
+
+def rw(s, n):
+    """右詰め（数字の欄の見出し用）。幅は全角2・半角1で数える"""
+    w = sum(2 if ud.east_asian_width(c) in 'FW' else 1 for c in s)
+    return ' ' * max(0, n - w) + s
+
+
+HEAD = ('馬番 枠 ' + T.w('馬名', 16) + ' ' + T.w('騎手', 8) + ' '
+        + ' '.join(rw(s, n) for s, n in (('人気', 4), ('単勝', 6), ('1角', 5),
+                                         ('gain', 5), ('4角', 5), ('内度', 5),
+                                         ('終い', 4))) + '  ' + '印')
 
 
 def num(x, f='%5.2f'):
@@ -78,7 +87,7 @@ def one(v, ven, baba):
             ('%4d' % r['nin']) if r['nin'] else '   -',
             ('%6.1f' % r['odds']) if r['odds'] else '     -',
             num(r['pos']), num(r['gain'], '%+5.2f'), num(r['pos4']),
-            num(r['uchi'], '%5.2f'), ('%3d' % r['srank']) if r['srank'] else '  -',
+            num(r['uchi'], '%5.2f'), ('%4d' % r['srank']) if r['srank'] else '   -',
             '◎' if (r['pos4'] is not None and r['pos4'] <= MAE) else '  ',
             '過去走なし' if r['runs'] == 0 else ''))
 
