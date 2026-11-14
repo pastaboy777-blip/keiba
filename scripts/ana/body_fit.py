@@ -37,6 +37,7 @@ SCR = ('/tmp/claude-0/-home-user-keiba/'
 BODY = os.path.join(SCR, 'nankan_body.jsonl')
 
 GAP = 30.0          # 層をこれだけ上回ったら偽薬を置く（単勝回収のpt）
+MID_G = None        # データ全体の中央（load_body が返す。旧版の割り方）
 
 # 母数不足の数え上げ（報告の「何割が判定できなかったか」用）
 TALLY = {'all': 0, 'short': 0}
@@ -74,6 +75,74 @@ BA4 = ('川崎', '大井', '船橋', '浦和')
 # ── 小道具 ────────────────────────────────────────────────────
 def q(v):
     return f'{v:.1f}' if v is not None else '―'
+
+
+def cut(S):
+    """該当馬それ自身の日付の中央で割る（層の中央ではない）。
+
+    ev()/show() が使う mid は**データ全体**の中央 '20260805'。これで割ると、
+    履歴が要る列（wt_diff / hp）は前半がほぼ空になる。前走がデータ内にある馬
+    だけが残るので、1着1頭の払戻がそのまま「前半◯◯%」になり検定にならない。
+    馬場も時期で偏る（渋り馬場は固まる）ので、①②⑦も全体の中央で割ると
+    馬場の構成差を見ることになる。
+    """
+    d = sorted({x['ymd'] for x in S})
+    m = d[len(d) // 2] if d else None
+    return [x for x in S if x['ymd'] < m], [x for x in S if x['ymd'] >= m], m
+
+
+WIN_MIN = 3          # 片方の期で1着がこれ未満なら検定として成立していない
+
+
+def half2(S, pool, label='該当'):
+    """該当の中央で割り、層も同じ境目で割って並べる。
+
+    各期の1着の頭数と払戻の内訳を必ず出す。片方で1着が3頭未満なら
+    「検定として成立していない」と明記する。
+    """
+    A, B, m = cut(S)
+    pA = [x for x in pool if x['ymd'] < m]
+    pB = [x for x in pool if x['ymd'] >= m]
+    print(f'       自分の中央で割る（境目 {m}。層も同じ境目で割る）')
+    ok = True
+    res = []
+    for nm, T, P in (('前半', A, pA), ('後半', B, pB)):
+        w = sorted((x.get('ptan') or 0) for x in T if x['f'] == 1)
+        t = (sum((x.get('ptan') or 0) for x in T) / len(T) * 1.0) if T else None
+        fk = (sum((x.get('pfuku') or 0) for x in T) / len(T)) if T else None
+        pt = (sum((x.get('ptan') or 0) for x in P) / len(P)) if P else None
+        pf = (sum((x.get('pfuku') or 0) for x in P) / len(P)) if P else None
+        up = (t is not None and pt is not None and t > pt)
+        res.append((t, pt, up, len(w)))
+        pay = '／'.join(f'{v:,.0f}' for v in reversed(w[-6:])) or 'なし'
+        more = f'ほか{len(w)-6}頭' if len(w) > 6 else ''
+        print(f'         {nm} {len(T):>5}頭　1着{len(w):>3}頭　'
+              f'単{q(t)}%（層{q(pt)}%）　複{q(fk)}%（層{q(pf)}%）　'
+              f'→ {"層超え" if up else "層以下"}')
+        print(f'              単払戻の内訳 {pay}{more}')
+        if len(w) < WIN_MIN:
+            ok = False
+    if not ok:
+        print(f'         → 片方の期で1着が{WIN_MIN}頭未満。'
+              f'この割り方は検定として成立していない')
+    else:
+        both = res[0][2] and res[1][2]
+        bothlo = (not res[0][2]) and (not res[1][2])
+        print(f'         → {"両方で層超え" if both else ("両方で層以下" if bothlo else "片側だけ")}')
+    return res, ok
+
+
+def topcut(S, k=3, lab=''):
+    """上位k頭の単払戻を抜いた回収。層が少数の大穴で出来ていないか見る。"""
+    t = sorted((x.get('ptan') or 0) for x in S)
+    n = len(S)
+    s = sum(t)
+    out = [f'単{s/n:.1f}%']
+    for i in range(1, k + 1):
+        out.append(f'上位{i}頭抜き{(s-sum(t[-i:]))/n:.1f}%')
+    top = '／'.join(f'{v:,.0f}' for v in reversed(t[-k:]))
+    print(f'  {lab}　{n}頭　1着{sum(1 for x in S if x["f"]==1)}頭　'
+          f'{"　".join(out)}　｜上位{k}頭の払戻 {top}円')
 
 
 def exp_base(S, pool):
@@ -152,9 +221,15 @@ def cell(S, label, mid, lay, pool, tag, no_pops=False):
         else:
             v = '採らない（片側だけ）'
         et, ef = exp_base(S, pool)
-        print(f'       層との差 単{d0:+.1f}pt　'
+        print(f'       【旧】全体の中央({MID_G})で割った版　層との差 単{d0:+.1f}pt　'
               f'前半{"層超え" if ha else "層以下"}／'
               f'後半{"層超え" if hb else "層以下"}　→ {v}')
+        # 【新】該当馬それ自身の中央で割り直す。層も同じ境目で割る
+        res, ok2 = half2(S, pool)
+        ha, hb = res[0][2], res[1][2]
+        la, lb = (not ha), (not hb)
+        if not ok2:
+            ha = hb = la = lb = False       # 検定になっていない。採らない
         if et is not None:
             print(f'       偽薬の期待値（鞍の構成をそろえた厳密値）'
                   f'単{et:.1f}%／複{ef:.1f}%　'
@@ -217,12 +292,21 @@ def head(t):
 # ── 本体 ──────────────────────────────────────────────────────
 def main(path=BODY):
     rows, mid = NB.load_body(path)
+    global MID_G
+    MID_G = mid
     print(f'{len(rows)}頭を読んだ　前半／後半の境目 {mid}')
 
     # 層の母数：払戻が取れて完走6頭以上（nankan_body の決めごとと同じ）
     pool = [x for x in rows if x['ptan'] is not None and x['n'] >= 6]
     und = [x for x in pool if x['pop'] is not None and x['pop'] >= 6]
     print(f'層 {len(pool)}頭　人気薄(6番人気以降) {len(und)}頭')
+
+    head('場ごとの層は少数の大穴で出来ていないか（上位3頭を抜いた値）')
+    print('  層そのものが数頭で出来ていると、その場で出た数字は同じ数頭を'
+          '見ているだけかもしれない。')
+    for ba in BA4:
+        topcut([x for x in und if x['ba'] == ba], 3, f'人気薄 × {ba}')
+    topcut(und, 3, '人気薄 4場')
 
     head('全体の層（比べる相手）')
     layer(pool, '南関4場', mid)
@@ -359,6 +443,9 @@ def diag(und, mid):
         ('⑧2〜3歳×+5kg以上',
          lambda x: (x['age'] in (2, 3) and x['wt_diff'] is not None
                     and x['wt_diff'] >= 5)),
+        ('⑧4歳以上×−4〜−1kg',
+         lambda x: (x['age'] is not None and x['age'] >= 4
+                    and x['wt_diff'] is not None and -4 <= x['wt_diff'] <= -1)),
     ]
     SET = [(lab, {id(x) for x in und if fn(x)}) for lab, fn in SUR]
 
@@ -368,6 +455,47 @@ def diag(und, mid):
     for la, A in U:
         row = ''.join(f'{len(A & B)/len(A)*100:>9.0f}%' for _, B in U)
         print(f'  {la[:20]:<20}{row}　（{len(A)}頭）')
+
+    print('\n(a2) 浦和の層を作っている上位3頭は、残ったものの中にいるか')
+    ur = [x for x in und if x['ba'] == '浦和']
+    top3 = sorted(ur, key=lambda x: -(x.get('ptan') or 0))[:3]
+    for x in top3:
+        print(f'  {x["ymd"]}　{x["nm"]}　{x["ba"]}{x["R"]}R　'
+              f'{x["dist"]}m {x["baba"]}　{x["pop"]}番人気　{x["wt"]}kg　'
+              f'wt_norm {x["wt_norm"]:.2f}　{x["age"]}歳{x["sx_k"]}　'
+              f'単{x.get("ptan"):,}円')
+    for lab, A in SET:
+        hit = [x for x in top3 if id(x) in A]
+        print(f'  {lab[:22]:<22}上位3頭のうち {len(hit)}頭が入っている'
+              + (f'（{"／".join(x["nm"] for x in hit)}）' if hit else ''))
+    print('\n  残ったものから上位3頭を抜く。**その形の層からも同じだけ抜いて**並べる')
+    print('  （593頭から3頭抜くのと1,571頭から3頭抜くのは効き方が違うので、'
+          '層も同じ本数を抜いて比べる）')
+    REF = {
+        '③1300〜1500m×軽い側1/3': ('層＝人気薄×1300〜1500m', lambda x: (
+            x['dist'] is not None and 1300 <= x['dist'] <= 1500)),
+        '③1300〜1500m×中1/3': ('層＝人気薄×1300〜1500m', lambda x: (
+            x['dist'] is not None and 1300 <= x['dist'] <= 1500)),
+        '④浦和×軽い側1/3': ('層＝人気薄×浦和', lambda x: x['ba'] == '浦和'),
+        '④浦和×重い側1/3': ('層＝人気薄×浦和', lambda x: x['ba'] == '浦和'),
+        '⑥6〜7歳': ('層＝人気薄', lambda x: True),
+        '⑦重・不良×牝': ('層＝人気薄×重・不良',
+                     lambda x: x['baba'] in ('重', '不良')),
+        '⑦重・不良×牡': ('層＝人気薄×重・不良',
+                     lambda x: x['baba'] in ('重', '不良')),
+        '⑧2〜3歳×−4〜−1kg': ('層＝人気薄×2〜3歳×前走の体重あり', lambda x: (
+            x['age'] in (2, 3) and x['wt_diff'] is not None)),
+        '⑧2〜3歳×+5kg以上': ('層＝人気薄×2〜3歳×前走の体重あり', lambda x: (
+            x['age'] in (2, 3) and x['wt_diff'] is not None)),
+        '⑧4歳以上×−4〜−1kg': ('層＝人気薄×4歳以上×前走の体重あり', lambda x: (
+            x['age'] is not None and x['age'] >= 4
+            and x['wt_diff'] is not None)),
+    }
+    for lab, fn in SUR:
+        S = [x for x in und if fn(x)]
+        topcut(S, 3, lab)
+        rl, rfn = REF[lab]
+        topcut([x for x in und if rfn(x)], 3, '    ' + rl)
 
     print('\n(b) 浦和を抜いたとき（層＝浦和を抜いた人気薄）')
     nu = [x for x in und if x['ba'] != '浦和']
