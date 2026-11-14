@@ -131,7 +131,7 @@ def h2(S, pool, label, pad=26):
         print(f'    {k}　該当 {t["n"]}頭　{wtxt(t["w"])}　'
               f'単{t["tan"]:.1f}%　複{t["fuku"]:.1f}%　｜'
               f'同期間の層 {p["n"]}頭 単{p["tan"]:.1f}%/複{p["fuku"]:.1f}%'
-              f'（{wtxt(p["w"])}）{flag}')
+              f'（1着{p["nw"]}頭）{flag}')
     (ta, pa), (tb, pb) = out['前半'], out['後半']
     ok = (ta['tan'] > pa['tan']) and (tb['tan'] > pb['tan'])
     valid = (ta['n'] >= NB.MIN_N and tb['n'] >= NB.MIN_N
@@ -458,6 +458,78 @@ def main(path=NB.BODY):
         if lab in kl:
             print(f'  ◆ {lab}　{o["n"]}頭　単{o["tan"]:.1f}%')
             pla(S, p, mid, label=pl)
+
+    # ══ 訂正：該当馬自身の日付の中央で割り直す ═══════════════
+    print('\n' + '=' * 72)
+    print('【訂正】ここから下は「該当馬自身の日付の中央」で割り直した数字。')
+    print('層も該当馬と同じ期間に絞る。上の mid（全体の中央 '
+          f'{mid}）版は消さずに残してある。')
+    print('=' * 72)
+
+    print('\n=== 割り方の検算（川崎 人気薄 × hp<=1/3 の251頭）===')
+    kw = [x for x in pool if x['ba'] == '川崎' and x['pop'] >= 6]
+    k251 = [x for x in kw if x['hn'] >= NB.HP_MIN and x['hp'] is not None
+            and x['hp'] <= 1 / 3]
+    print('  全体の中央で割った場合：')
+    line(k251, '川崎 人気薄 × hp<=1/3', mid, pad=26)
+    A, B = [x for x in k251 if x['ymd'] < mid], [x for x in k251
+                                                 if x['ymd'] >= mid]
+    for k, T in (('前半', A), ('後半', B)):
+        t = rr(T)
+        print(f'    {k}　{t["n"]}頭　{wtxt(t["w"])}　単{t["tan"]:.1f}%')
+    print('  該当馬自身の中央で割った場合：')
+    h2(k251, kw, '川崎 人気薄 × hp<=1/3')
+    print('  （予定 前半80頭150.8%・1着5頭／後半171頭169.5%・1着7頭）')
+
+    print('\n=== 訂正版：①〜⑧の全セル ===')
+    H = []
+    for lab, S, p, o, base, pl in cand:
+        r = h2(S, p, lab)
+        if r is not None:
+            H.append((lab, S, p, r, pl))
+
+    print('\n=== 訂正版のまとめ ===')
+    kept2 = [(lab, r) for lab, S, p, r, pl in H
+             if not r['short'] and r['ok'] and r['valid']]
+    nv = [(lab, r) for lab, S, p, r, pl in H
+          if not r['short'] and r['ok'] and not r['valid']]
+    print(f'  両期で同期間の層を超え、かつ検定として成立した形 {len(kept2)}件')
+    for lab, r in kept2:
+        print(f'    ○ {lab}　{r["n"]}頭　単{r["tan"]:.1f}%'
+              f'（同期間の層{r["base"]:.1f}% / +{r["tan"]-r["base"]:.1f}pt）　'
+              f'前半{r["a"]["tan"]:.1f}%（1着{r["a"]["nw"]}頭）/層'
+              f'{r["pa"]["tan"]:.1f}%　'
+              f'後半{r["b"]["tan"]:.1f}%（1着{r["b"]["nw"]}頭）/層'
+              f'{r["pb"]["tan"]:.1f}%　最大1頭抜き 単{r["nomax"]:.1f}%')
+    print(f'  両期で層を超えたが、検定として成立しない形 {len(nv)}件'
+          '（どちらかの期が20頭未満か1着3頭未満）')
+    for lab, r in nv:
+        print(f'    △ {lab}　{r["n"]}頭　単{r["tan"]:.1f}%　'
+              f'前半{r["a"]["n"]}頭/1着{r["a"]["nw"]}頭　'
+              f'後半{r["b"]["n"]}頭/1着{r["b"]["nw"]}頭')
+
+    print('\n=== 訂正版：同期間の層を単勝30pt以上超えた形に偽薬 ===')
+    n30 = 0
+    for lab, S, p, r, pl in H:
+        if r['short'] or r['tan'] - r['base'] < GAP:
+            continue
+        n30 += 1
+        print(f'  ◆ {lab}　{r["n"]}頭　単{r["tan"]:.1f}%'
+              f'（同期間の層{r["base"]:.1f}% / +{r["tan"]-r["base"]:.1f}pt）　'
+              f'検定として成立 {"する" if r["valid"] else "しない"}')
+        pla(S, p, mid, label=pl)
+    if not n30:
+        print('  該当なし')
+
+    print('\n=== 訂正版：残った形に偽薬（30pt基準と関係なく）===')
+    for lab, S, p, r, pl in H:
+        if r['short'] or not (r['ok'] and r['valid']):
+            continue
+        if r['tan'] - r['base'] >= GAP:
+            continue        # 上で置いた
+        print(f'  ◆ {lab}　{r["n"]}頭　単{r["tan"]:.1f}%'
+              f'（同期間の層{r["base"]:.1f}%）')
+        pla(S, p, mid, label=pl)
 
     done = 0
     for lab, S, p, o, base, pl in cand:
