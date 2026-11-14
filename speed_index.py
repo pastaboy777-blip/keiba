@@ -22,18 +22,52 @@ speed_index.py — スピード指数を「作る」＆新聞の指数式を「�
 
 走破タイムは秒（例 1:15.8 → 75.8）。距離指数は「1秒あたりのポイント」。
 """
-import argparse, csv
+import argparse, csv, statistics, sys
 
 # (A)で逆算した紙面指数の係数プリセット: place → {距離: (距離指数k[点/秒], 基準タイム[秒])}
 # 指数 = -k × (走破タイム − 基準タイム − 馬場差)。紙面値と一致（大井1200 76.1→-1 等）。
+# 1800mは紙面プリセットに無いため【暫定・推定値】。1200/1400/1600の(k,base)傾向
+#   （k: 200mごとに約 -1.0 / base: 200mごとに約 +14.1秒）を1600から線形外挿したもの:
+#     k ≈ 8.0 - 1.0 = 7.0 、 base ≈ 104.2 + 14.1 = 118.3
+#   実測の紙面係数が得られ次第、差し替えること。
 PRESETS = {
-    "大井": {1200: (10.0, 76.0), 1400: (9.0, 90.2), 1600: (8.0, 104.2)},
+    "大井": {1200: (10.0, 76.0), 1400: (9.0, 90.2), 1600: (8.0, 104.2),
+             1800: (7.0, 118.3)},  # 1800は暫定外挿値（上記コメント参照）
 }
 
 
 def preset(place, dist):
     """place・距離から (距離指数, 基準タイム) を返す。無ければ None。"""
     return PRESETS.get(place, {}).get(int(dist))
+
+
+def interp_coef(place, dist):
+    """距離を跨ぐ正規化(暫定・推定): place・距離から (距離指数k, 基準タイム) を内挿で推定。
+    既存PRESETSに無い距離(例1800が無い場合など)でも、近傍距離から線形内挿してk/baseを求める。
+      - 既知距離ならそのプリセット値をそのまま返す（内挿不要）。
+      - 既知点の範囲内なら、距離で挟む近傍2点から線形内挿する。
+      - 範囲外なら最近傍点の値で代用し、警告を出す（外挿はしない＝暫定の最近傍近似）。
+    戻り値: (k, base)。place が未知（プリセット無し）なら None。
+    ※ あくまで既知点からの内挿・近似であり、紙面実測係数ではない点に注意。"""
+    table = PRESETS.get(place)
+    if not table:
+        return None
+    dist = int(dist)
+    if dist in table:
+        return table[dist]
+    known = sorted(table)  # 距離の昇順
+    if dist < known[0] or dist > known[-1]:
+        near = known[0] if dist < known[0] else known[-1]
+        print(f"[警告] {place}{dist}m はプリセット既知範囲({known[0]}〜{known[-1]}m)外。"
+              f"最近傍 {near}m の値で代用(暫定)。", file=sys.stderr)
+        return table[near]
+    # 距離で挟む近傍2点 (lo <= dist <= hi) から線形内挿
+    lo = max(d for d in known if d <= dist)
+    hi = min(d for d in known if d >= dist)
+    k_lo, b_lo = table[lo]
+    k_hi, b_hi = table[hi]
+    r = (dist - lo) / (hi - lo)
+    return (k_lo + (k_hi - k_lo) * r, b_lo + (b_hi - b_lo) * r)
 
 
 def to_sec(t):
@@ -50,6 +84,43 @@ def speed_index(time_sec, base_time, dist_coef, track_diff=0.0):
     馬場差(track_diff): 負=速い日(基準より速い時計が出る日)。走破タイムが基準・馬場を
     考慮して速いほど指数が高い。"""
     return -dist_coef * (time_sec - base_time - track_diff)
+
+
+def estimate_track_diff(win_times_by_dist, preset):
+    """馬場差(track bias)補正の枠組み(暫定・推定)。
+    同開催日・同距離の複数レースの勝ち時計から、その日の馬場の速さ(基準との差,秒)を推定する。
+    win_times_by_dist: {距離m: 勝ち時計}  値は 秒/'1:16.1' の単一、または複数のリストを許容。
+    preset: {距離m: (k, base)} （PRESETS[place] を渡す想定。各距離の base を参照する）。
+    手法: 各レースの残差 = base − 勝ち時計 を全距離分あつめ、その中央値を『その日の馬場差』とする。
+      正 = 基準より速い時計が出る日（＝速い馬場）／ 負 = 遅い馬場。
+      （中央値を使うのは、特定レースの展開・大波乱の外れ値に強くするため＝頑健推定。）
+    ※ speed_index() の track_diff は符号が逆（負=速い日）の約束なので、指数計算に渡すときは
+       符号を反転させること: track_diff = -estimate_track_diff(...)。
+    対象距離のプリセットが無い場合、その距離は無視する（base が無く残差を取れないため）。
+    戻り値: 馬場差(秒, float)。有効な残差が1つも無ければ 0.0。"""
+    residuals = []
+    for dist, times in win_times_by_dist.items():
+        coef = preset.get(int(dist))
+        if not coef:
+            continue  # その距離の基準タイムが無いので馬場差の推定に使えない（暫定的に無視）
+        base = coef[1]
+        if not isinstance(times, (list, tuple)):
+            times = [times]
+        for t in times:
+            residuals.append(base - to_sec(t))  # 正=基準より速い＝馬場が速い
+    if not residuals:
+        return 0.0
+    return float(statistics.median(residuals))
+
+
+def class_adjust(index, horse_class, class_offsets=None):
+    """クラス(格)補正(暫定・推定)。クラスごとの平均時計差を指数側のオフセットとして与え補正する。
+    class_offsets: {クラス名: 補正ポイント} の dict。上位クラスほど時計が速い傾向を、
+      同じ生タイムでも指数を割り引く／積み増すなどの平準化に使う想定。
+    class_offsets が None、または horse_class が dict に無ければ 0（無補正）。
+    戻り値: index + offset。あくまでクラス間の平均差を近似する暫定補正。"""
+    off = (class_offsets or {}).get(horse_class, 0.0)
+    return index + off
 
 
 def fit(samples):
@@ -117,7 +188,36 @@ def selftest():
     recovered_base = res["const"] / res["dist_coef"]
     assert abs(recovered_base - base_time) < 1e-6, recovered_base
     print(f"復元: 距離指数={res['dist_coef']:.3f}(正解{k}) 基準タイム={recovered_base:.2f}(正解{base_time})")
-    print("SELFTEST PASSED (指数式の逆算＝『盗み』が正しく動作)")
+
+    # (a) estimate_track_diff: 速い日=正の馬場差 / 遅い日=負 を返す（暫定・推定の符号確認）
+    fast = estimate_track_diff({1200: [75.0, 75.2], 1400: 89.0}, PRESETS["大井"])  # 基準より速い
+    slow = estimate_track_diff({1200: 77.0, 1400: 91.5}, PRESETS["大井"])          # 基準より遅い
+    assert fast > 0, f"速い日の馬場差は正のはず: {fast}"
+    assert slow < 0, f"遅い日の馬場差は負のはず: {slow}"
+    print(f"(a) 馬場差推定: 速い日={fast:+.2f}s(>0) 遅い日={slow:+.2f}s(<0)")
+
+    # (b) interp_coef: プリセットに無い距離を近傍から線形内挿（1700は1600と1800の中間的な値）
+    k16, b16 = interp_coef("大井", 1600)
+    k18, b18 = interp_coef("大井", 1800)
+    k17, b17 = interp_coef("大井", 1700)
+    assert k18 < k17 < k16, f"1700のkは1600と1800の中間のはず: {k16},{k17},{k18}"
+    assert b16 < b17 < b18, f"1700のbaseは1600と1800の中間のはず: {b16},{b17},{b18}"
+    assert k18 < k16 and b18 > b16, "1800は1600から見てk減少・base増加の傾向を継続するはず"
+    print(f"(b) 内挿: 1600(k={k16},base={b16}) 1700(k={k17:.2f},base={b17:.2f}) "
+          f"1800(k={k18},base={b18}) ＝中間的")
+
+    # (c) class_adjust: クラスオフセットが単調なら出力も単調、無指定クラスは無補正
+    offs = {"B2": -4.0, "B1": -2.0, "A": 0.0}
+    base_idx = 50.0
+    cb2 = class_adjust(base_idx, "B2", offs)
+    cb1 = class_adjust(base_idx, "B1", offs)
+    ca = class_adjust(base_idx, "A", offs)
+    assert cb2 < cb1 < ca, f"クラス補正は単調のはず: {cb2},{cb1},{ca}"
+    assert class_adjust(base_idx, "未知クラス", offs) == base_idx, "未知クラスは無補正のはず"
+    assert class_adjust(base_idx, "A", None) == base_idx, "offsets無しは無補正のはず"
+    print(f"(c) クラス補正(単調): B2={cb2:.1f} < B1={cb1:.1f} < A={ca:.1f}")
+
+    print("SELFTEST PASSED (逆算＋馬場差推定＋距離内挿＋クラス補正が正しく動作)")
 
 
 def main():
