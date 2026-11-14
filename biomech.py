@@ -385,7 +385,17 @@ def analyze(frames, fps=None):
     res["軌跡幅_前肢"] = trajectory_width(frames, ("front_left_paw", "front_right_paw"))
     res["軌跡幅_後肢"] = trajectory_width(frames, ("back_left_paw", "back_right_paw"))
     res["踏み込み_臀端0肩端1"] = hind_reach(frames)
+    res["関節ROM"] = joint_rom(frames)
     return res
+
+
+def joint_rom(frames):
+    """各関節が1完歩で動く幅（最大角−最小角, deg）。飛節・腕節の可動幅など。"""
+    series = {}
+    for fr in frames:
+        for k, v in joint_angles(fr).items():
+            series.setdefault(k, []).append(v)
+    return {k: round(max(v) - min(v), 1) for k, v in series.items() if len(v) >= 2}
 
 
 def frames_from_h5(h5_path, pcutoff=PCUTOFF):
