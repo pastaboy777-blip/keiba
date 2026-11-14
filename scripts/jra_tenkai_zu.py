@@ -1132,6 +1132,112 @@ def trend_html(data_path, date, place, surface, dist, name):
     return '<div class="ktrend"><div class="kt">過去の傾向</div>%s</div>' % "".join("<p>%s</p>" % l for l in lines)
 
 
+# ── 競馬ブックの厩舎の話(data/kb/danwa_YYYYMMDD.jsonl, scripts/kb_jra.py が作る)から拾う小さな札 ──
+# 有料の中身なので、図に出すのは札だけ(コメントの文は載せない)。予想(位置・ペース・時計)には使わない。
+# 言葉は kb_jra.py --summary のキーワードを元に、向き(歓迎か苦手か)が読めるものだけに絞った。
+KB_PATH = None       # --kb。None なら data/kb/danwa_<日付>.jsonl があれば使う
+KB_OFF = False       # --no-kb
+KB_DEBUG = False     # --kb-debug
+_KB: dict = {}       # 日付 → {(場, R, 馬番): (馬名, [(札, 語)])}
+KB_ORDER = ("良◎", "道悪○", "道悪×", "ハナ", "控え")
+# 先に消す語(誤検出): 渋太い・動きが渋い・重賞・ハナ差 など
+KB_NG = (r"渋太|渋とい|渋く|動きが渋|渋い|重賞|体重|ハナ差|ハナ負け|鼻|差し支え|差し返|差し込|差し替|"
+         r"逃げ馬を|逃げた馬|逃げ切られ|逃げ残|逃げる馬|逃げ粘る馬|控え室")
+KB_PAT = [
+    ("道悪×", r"(道悪|雨馬場|重馬場|渋った馬場|渋馬場|渋い馬場|悪い馬場|馬場が悪)(は|が|も|に|で)?(少し|ちょっと)?"
+             r"(応え|こたえ|堪え|どうか|苦手|下手|ダメ|駄目|良くない|よくない|合わない|向かない|不向き|嫌|マイナス|割り引)"),
+    ("道悪○", r"(道悪|雨馬場|重馬場|渋った馬場|渋馬場|渋い馬場)(は|も|が|で|に)?(全然|全く|むしろ)?"
+             r"(ＯＫ|OK|大丈夫|こなす|こなせ|苦にしない|苦にせず|問題ない|問題なく|平気|上手|得意|歓迎|巧|合う|向く|プラス|良い|いい)"
+             r"|道悪巧者|渋馬場歓迎|道悪歓迎|道悪ＯＫ|(馬場が|馬場は)?渋って(も|くれ)(辛抱|こなせ|こなす|大丈夫|問題|平気|いい|良い|プラス|歓迎|走れ|やれ)"
+             r"|降雨があっても|雨が降っても|雨(予報)?(が|は|も)?(歓迎|苦にしない|降ってほしい|降れば)|脚抜きの(いい|良い)馬場(に|なら|が|は|を)"),
+    ("良◎", r"良馬場(で|なら|が|の|を|希望|向き|ベスト|理想)|パンパン|乾いた馬場|良(い)?馬場で(走|競馬|や)"),
+    ("ハナ", r"ハナ(を|に|へ|は|が|で|だ|主張|切|立|奪|を切|を主張|を取)|先手(を)?(取|主張|奪|必勝)|単騎(逃げ|で逃|の逃|で行)"
+             r"|逃げ(たい|る競馬|の手|に出|て(粘|しぶと|マイペース|淡々)|が理想|が?ベスト|切りたい|れれば|られれば|が決ま|を打|が持ち味|てこそ|に徹)"),
+    ("控え", r"控え(たい|て|る形|る競馬|た方|ても|る作戦|させ)|脚を?(ため|溜め|貯め)|溜めて|ためて(の|から|直線|運|弾け|伸び)"
+             r"|差し(が利|が決ま|に回|に徹|の形|脚を|て(くる|きた|きまし|伸び)|を生か|馬|で(勝|来|伸))|後方から|追い込み|後ろから"),
+]
+# 否定(拾ったあと、その直後に来たら捨てる): 「控える競馬は合わない」「ハナにはこだわらない」
+KB_NEG = r"^[^。、]{0,8}?(は|が|も|に|で)?(は)?(合わない|向かない|良くない|よくない|ダメ|駄目|嫌う|嫌がる|こだわらな|こだわる必要はな|行かな|無理|難しい|しない|せず|できな|出来な|叩かれ|を?試し|行っても|行くことになっても)"
+
+
+def kb_words(short: str, comment: str) -> list:
+    """一言(short)とコメントから [(札, 拾った語)]。同じ札は1回だけ。"""
+    out, seen = [], set()
+    for text in (short or "", comment or ""):
+        t = re.sub(KB_NG, lambda m: "＿" * len(m.group(0)), text)
+        for tag, pat in KB_PAT:
+            if tag in seen:
+                continue
+            for m in re.finditer(pat, t):
+                rest = re.split(r"[。！？]", t[m.end():])[0]
+                if re.match(KB_NEG, rest) or re.search(r"が、今回は", rest):   # 「〜した方がいいですが、今回は…」
+                    continue
+                if tag == "道悪○" and "道悪×" in seen:
+                    break
+                out.append((tag, m.group(0)))
+                seen.add(tag)
+                break
+    if "道悪×" in seen and "道悪○" in seen:   # 両方拾ったら苦手のほうを残す(向きが読めない)
+        out = [x for x in out if x[0] != "道悪○"]
+    return sorted(out, key=lambda x: KB_ORDER.index(x[0]))
+
+
+def _norm_name(s: str) -> str:
+    import unicodedata
+    return re.sub(r"\s", "", unicodedata.normalize("NFKC", s or ""))
+
+
+def kb_load(date: str) -> dict:
+    if KB_OFF or not date:
+        return {}
+    if date in _KB:
+        return _KB[date]
+    import json
+    p = Path(KB_PATH) if KB_PATH else ROOT / "data" / "kb" / ("danwa_%s.jsonl" % date.replace("-", ""))
+    res = {}
+    if p.exists():
+        for line in p.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            d = json.loads(line)
+            if d.get("date") and d["date"] != date:
+                continue
+            for h in d.get("horses", []):
+                w = kb_words(h.get("short", ""), h.get("comment", ""))
+                res[(d["place"], int(d["race_no"]), int(h["umaban"]))] = (h.get("name", ""), w)
+    elif KB_PATH:
+        print("厩舎の話が無い:", p, file=sys.stderr)
+    _KB[date] = res
+    return res
+
+
+def kb_list(ub, name) -> list:
+    """今の鞍のこの馬の [(札, 語)]。場・R・馬番で引き、馬名が違えば付けない。"""
+    kb = kb_load(globals().get("_CUR_DATE") or "")
+    v = kb.get((globals().get("_CUR_PLACE"), globals().get("_CUR_RNO"), ub))
+    if not v or _norm_name(v[0]) != _norm_name(name):
+        return []
+    return v[1]
+
+
+def kb_tag_html(ub, name) -> str:
+    return "".join('<span class="kbt">%s</span>' % H.escape(t) for t, _ in kb_list(ub, name))
+
+
+def kb_debug(rows):
+    if not KB_DEBUG:
+        return
+    kb = kb_load(globals().get("_CUR_DATE") or "")
+    print("[厩舎の話] %s%sR" % (globals().get("_CUR_PLACE"), globals().get("_CUR_RNO")))
+    for r in sorted(rows, key=lambda r: r["ub"]):
+        v = kb.get((globals().get("_CUR_PLACE"), globals().get("_CUR_RNO"), r["ub"]))
+        if v and _norm_name(v[0]) != _norm_name(r["name"]):
+            print("  %2d: 馬名が違うので付けない(出馬表=%s 競馬ブック=%s)" % (r["ub"], r["name"], v[0]))
+            continue
+        for t, w in kb_list(r["ub"], r["name"]):
+            print("  %2d: %s ← %s" % (r["ub"], t, w))
+
+
 def kawa_board(rows, fc, n, rk, key="pos1") -> str:
     """川崎の図(ユーザー指定 2026-11-13「こういう風に」「〇つけないで」)と同じ形。
     1コーナーでの隊列、右が前。小さな馬の絵(枠色・ゼッケンに馬番)の下に 丸数字＋馬名。赤い丸は付けない。
@@ -1147,7 +1253,8 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
 
     def wid(r):   # 名前と札の幅の目安(札1つ +58px)。右隣の馬の名前に札がかからないように
         nt = (1 if kikou_tag(r["ub"]) else 0) + (1 if r.get(k) is None else 0) + (1 if lb0 else 0)
-        return G + 8 * max(0, len(r.get("name") or "") - 7) + 58 * nt
+        nk = len(kb_list(r["ub"], r.get("name")))   # 厩舎の話の札(短いので 1つ +40px)
+        return G + 8 * max(0, len(r.get("name") or "") - 7) + 58 * nt + 40 * nk
     flip = front_is_left(globals().get("_CUR_PLACE"), globals().get("_CUR_SURF"), globals().get("_CUR_DIST"))
     span = W - 2 * P - 130
     lanes, cells = [], []
@@ -1192,6 +1299,7 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
                 tag += '<span class="klane">前◎</span>'
             elif td["front"] <= td["front0"] - 0.15 and r["pos"] <= 1 / 2:
                 tag += '<span class="klane">差◎</span>'
+        tag += kb_tag_html(r["ub"], r["name"])
         if r.get(k) is None:
             tag = '<span class="knd">過去走なし</span>' + tag
         chev = '<span class="kc" style="color:%s">%s</span>' % (cc, "&laquo;" if flip else "&raquo;")
@@ -1659,6 +1767,7 @@ CSS_EXTRA = """
 .kh{z-index:2}
 .klane{display:inline-block;font-size:8.5px;color:#0c0c0e;background:#ffb347;border-radius:3px;padding:0 4px;margin:0 0 0 3px;font-weight:800}
 .lanebias{margin-top:4px;font-size:12px;color:#ffb347;font-weight:700}
+.kbt{display:inline-block;font-size:8.5px;color:#e9e1d2;background:rgba(0,0,0,.28);border:1px solid #a89a84;border-radius:3px;padding:0 3px;margin:0 0 0 3px;line-height:1.25}
 .knd{display:inline-block;font-size:8.5px;color:#fff;background:#d9577a;border-radius:3px;padding:0 4px;margin:0 0 0 3px}
 .kh .kik{font-size:8.5px;padding:0 3px;margin:0 0 0 3px}
 .race.kawa .rd .st{color:#e8a33a;margin-right:8px;font-weight:700}
@@ -1749,7 +1858,12 @@ def main() -> None:
     ap.add_argument("--circle", default="", help='手で赤丸を付ける馬。"12:6,12,15;3:8"(R:馬番)')
     ap.add_argument("--no-trend", action="store_true", help="盤面の下の「過去の傾向」欄を出さない(既定は出す)")
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
+    ap.add_argument("--kb", help="競馬ブックの厩舎の話(kb_jra.py の JSONL)。省略時は data/kb/danwa_<日付>.jsonl があれば使う")
+    ap.add_argument("--no-kb", action="store_true", help="厩舎の話の札(良◎/道悪○/道悪×/ハナ/控え)を出さない")
+    ap.add_argument("--kb-debug", action="store_true", help="厩舎の話の札を、鞍ごとに「馬番: 札 ← 拾った語」で出す")
     a = ap.parse_args()
+    global KB_PATH, KB_OFF, KB_DEBUG
+    KB_PATH, KB_OFF, KB_DEBUG = a.kb, a.no_kb, a.kb_debug
     global ZONE_FRONT, JOCKEY_STATS, STYLE
     STYLE = a.style
     global BASE_DAY, BASE_BABA, BASE_DAY_DIRT, BASE_BABA_DIRT, SHOW_KIKOU, CIRCLE_EACH
@@ -1830,6 +1944,8 @@ def one_race(a, ap):
     globals()["_CUR_DIST"] = dist
     globals()["_CUR_RNO"] = int(rno) if str(rno).isdigit() else None
     globals()["_DATA_PATH"] = a.pace_data
+    globals()["_CUR_DATE"] = a.date or (ME_RACE or {}).get("date")
+    kb_debug(rows)
     fc.lane = lane_bias(place, surface, a.date) if a.pace_data else (None, None, 0)
     fc.today = day_shape(place, surface, a.date, a.race_id) if a.pace_data else None
     if fc.today and fc.today["lanes"] >= 6 and fc.today["out"] is not None:   # 当日の内外が分かれば、それを優先
