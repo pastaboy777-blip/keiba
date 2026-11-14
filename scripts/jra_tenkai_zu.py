@@ -495,12 +495,15 @@ def _toujitsu_weight(key, default):
     return json.load(open(p)).get(key, default) if p.exists() else default
 
 
+BASE_DAY = None   # --base-day: 時計の基準にする開催日(例 前日の良馬場だけ)。ユーザー指定 2026-11-14「昨日の時計で想定しよう」
+
+
 def _meeting_rows(rows, place, surface, date):
-    """同じ開催の、前の開催日の同じ場・同じ芝ダの鞍(8日以内)。"""
+    """同じ開催の、前の開催日の同じ場・同じ芝ダの鞍(8日以内)。--base-day があればその日だけ。"""
     import datetime as dt_
     d0 = dt_.date.fromisoformat(date)
     return [d for d in rows if d.get("place") == place and d.get("surface") == surface
-            and d.get("lap") and d["date"] < date
+            and d.get("lap") and d["date"] < date and (BASE_DAY is None or d["date"] == BASE_DAY)
             and (d0 - dt_.date.fromisoformat(d["date"])).days <= 8]
 
 
@@ -1458,12 +1461,15 @@ def main() -> None:
     ap.add_argument("--style", choices=["kawa", "simple", "stages"], default="kawa",
                     help="simple=4角1枚+赤丸(川崎の図と同じ形) / stages=スタート後・3角・4角の3段")
     ap.add_argument("--zone-front", type=float, default=0.4, help="狙う帯の前後の幅(前から何割、既定0.4)")
+    ap.add_argument("--base-day", help="時計の基準にする開催日 YYYY-MM-DD(同じ場・芝ダ・距離の実際の時計の中央値)")
     ap.add_argument("--hide-pace", default="", help='ペース想定の札(右上のS/M/H)を消す R。"12" や "3,12"')
     ap.add_argument("--circle", default="", help='手で赤丸を付ける馬。"12:6,12,15;3:8"(R:馬番)')
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
     a = ap.parse_args()
     global ZONE_FRONT, JOCKEY_STATS, STYLE
     STYLE = a.style
+    global BASE_DAY
+    BASE_DAY = a.base_day
     HIDE_PACE.update(int(x) for x in a.hide_pace.split(",") if x.strip().isdigit())
     for part in filter(None, a.circle.split(";")):
         rr, uu = part.split(":")
