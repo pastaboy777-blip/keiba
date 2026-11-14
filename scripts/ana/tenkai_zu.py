@@ -4,6 +4,22 @@
       --date "2026.11.10 TUE" --R 6-12 [--res res.json] [--odds odds.json] \
       --pace 6:S 7:M ... [--ana 6:7,1,8,13,5] [--swap 6:12-1] ["note:6=見解"]
 
+★ 2026-11-14、ユーザーの指示で3つ入れた（CLAUDE.md ルール44。120鞍で26通りを比べた結果）
+
+  ① pos（前後）を**1角相対の中央値 → 直近重みづけ(5,4,3,2,1)**に。
+     位置の誤差 0.1850 → **0.1541（−17%）**。大井・川崎・真の1角・全体の4つすべてで小さい。
+     先頭の的中は変わらない（46.7% → 45.0%）。戻す口は **`--pos-median`**。
+  ② 先頭2頭の pos 差が **0.06未満**の鞍に「**先頭候補**」の札を2頭へ。
+     そういう鞍（114鞍中61鞍）は 1頭目だけ44.3% に対し**2頭のどちらかなら75.4%**。
+     足すのは**札1つだけ**で、馬の位置・段・色は1つも動かない。止める口は **`--no-futatsu`**。
+  ③ 内度による**前後の入れ替えを既定で止めた**。
+     入れ替えると先頭46.7% → 45.8%、3番手以内 80鞍 → 75鞍、誤差 0.1850 → 0.2095
+     （11鞍で先頭が入れ替わり**正解3・不正解4**）。復活させる口は **`--swapdu`**。
+     `--swap 6:12-1`（馬番を指定した段の入れ替え）は**別物でそのまま効く**。
+
+  `--pos-median --swapdu --no-futatsu` の3つを付けると、直す前とまったく同じ図になる
+  （大井10/26の12鞍で、`</style>` 以降が1バイトも違わないことを確認）。
+
 ★ 2026-11-11 にユーザーと詰めて確定した形
   （11/10 川崎6Rで「この展開図なんだよね」「逃げ馬合っていて、逃げ馬の後ろに①がいて、
     外⑬と笹川」と確認を得た。実際の4角は `7,13-(1,4),5,8,…` ＝
@@ -93,6 +109,17 @@ def _load(fn):
 OLD_C4 = False      # True なら隊列を4角の中央値で組む
 OLD_NOMB = False    # True なら馬自身の併走実績を内度に入れない
 
+# ★ 2026-11-14、ユーザーの指示で3つ入れた（CLAUDE.md ルール44）。
+#   ① pos を中央値から**直近重みづけ**に（位置の誤差 0.1850 → 0.1541・−17%）
+#   ② 先頭2頭の pos が詰まっている鞍に「先頭候補」の札（1頭目44.3% → 2頭なら75.4%）
+#   ③ 内度による前後の入れ替えを**既定で止める**（先頭46.7%→45.8%・誤差0.1850→0.2095）
+#   旧の形に戻す口は `--pos-median` / `--no-futatsu` / `--swapdu`。この3つを付けると
+#   直す前とまったく同じHTMLが出る（2026-11-14 に大井10/26の12鞍でバイト一致を確認）。
+POS_MEDIAN = False   # True なら pos を中央値に戻す（--pos-median）
+FUTATSU = True       # 「先頭候補」の札を出すか（--no-futatsu で止める）
+SWAPDU = False       # True なら内度による前後の入れ替えを復活させる（--swapdu）
+FUTATSU_DP = 0.06    # 先頭2頭の pos 差がこれ未満なら「先頭候補」を2頭に出す
+
 JK = _load('jk_soto.json')
 SOTO = _load('soto.json')
 CSS = open(os.path.join(HERE, 'tenkai_zu.css')).read()
@@ -108,6 +135,36 @@ def rel(p, k):
     if not p.get(k) or not p.get('n'):
         return None
     return (p[k] - 1) / max(1, p['n'] - 1)
+
+
+def wmean(xs):
+    """直近重みづけの平均（新しい走から 5,4,3,2,1）。
+
+    ★ 2026-11-14、`scratchpad/c1work/ana.py` の **E をそのまま写した**（CLAUDE.md ルール44）。
+      あちらの中身は
+
+          R = runs_of(h)                      # past の順（＝新しい順）のまま
+          ws = list(range(len(R), 0, -1))     # 5,4,3,2,1
+          m = sum(x[0] * w for x, w in zip(R, ws)) / sum(ws)
+
+      `past` は新しい順なので `xs` の先頭がいちばん新しい走。
+      重みの本数は**走数に合わせる**（5走なら 5,4,3,2,1／3走なら 3,2,1／1走なら 1）ので、
+      5走に満たない馬・1走の馬でも落ちない（1走ならその走の値そのもの）。
+      120鞍で A（中央値）と比べ、位置の誤差が 0.1850 → 0.1541（−17%）。
+      大井・川崎・真の1角・全体の4つの切り口すべてで小さかった。
+      先頭の的中は上がらない（46.7% → 45.0%）── 「誰が行くか」ではなく
+      「どこにいるか」が良くなる決め方。"""
+    if not xs:
+        return None
+    ws = list(range(len(xs), 0, -1))
+    return sum(x * w for x, w in zip(xs, ws)) / sum(ws)
+
+
+def pos_of(xs):
+    """pos に使う代表値。既定は直近重みづけ、`--pos-median` で中央値に戻る。"""
+    if not xs:
+        return None
+    return st.median(xs) if POS_MEDIAN else wmean(xs)
 
 
 # ★ 見出しに出す地点名（2026-11-14・CLAUDE.md ルール45）。
@@ -165,8 +222,10 @@ def row_of(h, dist, od):
             mb, mbtag = +MB_CAP, '内%d/%d' % (s['in'], s['grp'])
     return dict(ub=h['ub'], name=h['name'], waku=waku, jk=jn, jr=jr, mbtag=mbtag,
                 uchi=WK.get(waku, .45) + ((jr - JK_BASE) if jr is not None else 0.0) + mb,
+                # ★ pos は既定で**直近重みづけ**（2026-11-14・ルール44。`--pos-median` で中央値）。
+                #   `--c4` / `--old`（当時の図を引き直す口）は**従来どおり中央値のまま**にする。
                 pos=((st.median(c4) if c4 else (st.median(c1) if c1 else None)) if OLD_C4
-                     else (st.median(c1) if c1 else (st.median(c4) if c4 else None))),
+                     else (pos_of(c1) if c1 else pos_of(c4))),
                 pos4=(st.median(c4) if c4 else None), nopos=False,
                 gain=(st.median(per) if per else None), l=l, runs=len(P),
                 soto=((s['out'] / s['grp']) if s and s['grp'] >= 3 else None),
@@ -210,7 +269,13 @@ def _arrange(rows, swap=(), noswap=False):
     #   ユーザーの指摘 ──「10R最初と違うよ！」「なんで変えるの？？」。
     #   **図はユーザーが見た形が基準。** 挙動を変えるのは指示があったときだけ。
     #   止めたいときは `--noswap`（既定は入れ替えあり）。
-    if not noswap:
+    # ★★ 2026-11-14、**ユーザーの指示で既定を「入れ替えなし」に変えた**（ルール44）。
+    #   120鞍で測ると、この入れ替えは先頭の読みを悪くしていた ──
+    #   先頭的中 46.7% → 45.8%、3番手以内 80鞍 → 75鞍、位置の誤差 0.1850 → 0.2095。
+    #   **11鞍で先頭が入れ替わり、正解3・不正解4。**（ルール28 と同じ向き）
+    #   復活させる口は `--swapdu`。`--noswap` は「止める」のまま残してある（既定と同じ意味）。
+    #   ※ `--swap 6:12-1`（馬番を指定した段の入れ替え）は**別物**で、上でそのまま効いている。
+    if SWAPDU and not noswap:
         for i in range(len(rows) - 1):
             a, b = rows[i], rows[i + 1]
             if (b['pos'] - a['pos']) <= SWAP_DP and (b['uchi'] - a['uchi']) >= SWAP_DU:
@@ -313,9 +378,14 @@ def main():
     #   大井1600m・1800m・2000mは左右だけ返して**上下はそのまま**。
     #   （2000mは「1600mと同じ」というユーザーの言葉からの当てはめ。図では未確認）
     VFLIP = {('川崎', 2000)}
-    global OLD_C4, OLD_NOMB
+    global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
+    # ★ 2026-11-14 に入れた3つを旧に戻す口（ルール44）。
+    #   `--pos-median --swapdu --no-futatsu` の3つで、直す前とまったく同じHTMLになる。
+    POS_MEDIAN = '--pos-median' in a              # pos を中央値に戻す
+    FUTATSU = '--no-futatsu' not in a             # 「先頭候補」の札を出さない
+    SWAPDU = '--swapdu' in a                      # 内度による前後の入れ替えを復活させる
     pace = {k: v.lower() for k, v in kv(a, '--pace').items()}
     ana_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--ana').items()}
     swap_sp = {k: v.split(',') for k, v in kv(a, '--swap').items()}
@@ -360,7 +430,22 @@ def main():
         for r in rows:
             r.setdefault('srank', None)
         sw = [tuple(int(y) for y in p_.split('-')) for p_ in swap_sp.get(R, [])]
-        cells, NL = place(arrange(rows, sw, '--noswap' in a))
+        rows = arrange(rows, sw, '--noswap' in a)
+        # ★ 先頭候補（2026-11-14、ユーザーの指示・CLAUDE.md ルール44）
+        #   先頭2頭の pos が FUTATSU_DP(0.06) 未満しか離れていない鞍は、どちらが引くか
+        #   1頭に絞れない。120鞍で測ると、そういう鞍（114鞍中61鞍）の的中は
+        #   **1頭目だけ44.3% に対し、2頭のどちらかなら75.4%**。ルール29（同じラインに
+        #   縦に並ぶ）・ルール8（拮抗なら表裏）と同じ向き。
+        #   **足すのは札1つだけ。** 馬の位置・段・大きさ・色は1つも変えない。
+        #   差が0.06以上の鞍では何も出さない。`--no-futatsu` で止める。
+        #   過去走のない馬（pos が鞍の中央の仮置き）が先頭2頭に来た鞍は出さない
+        #   ── その pos は測った値ではないので「候補」と書けない（ルール22）。
+        sente = set()
+        if (FUTATSU and not plain and len(rows) >= 2
+                and not rows[0]['nopos'] and not rows[1]['nopos']
+                and (rows[1]['pos'] - rows[0]['pos']) < FUTATSU_DP):
+            sente = {rows[0]['ub'], rows[1]['ub']}
+        cells, NL = place(rows)
         if (ven, v['dist']) in MIRROR:
             flip.add(R)
         drawn.append(R)
@@ -386,6 +471,10 @@ def main():
             t = '' if plain else ('<span class="upq">▲押し上げ</span>' if up else
                  ('<span class="dn">▼4角までに下がる</span>' if (r['gain'] or 0) <= -.20 else ''))
             so = ''
+            # ★ 先頭候補の札（2026-11-14・ルール44）。他の札とまったく同じ出し方で、
+            #   --plain では出さない（sente が空になる）。
+            if r['ub'] in sente:
+                so += '<span class="sente">先頭候補</span>'
             if r['chaku']:
                 so += '<span class="sm">%d着</span>' % r['chaku']
             # ★ --plain は数値を落とした「人に見せる版」（2026-11-11、ユーザーの指示

@@ -66,3 +66,9 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
  padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
 .nopast{display:block;font-size:9px;color:#0c0c0e;background:#e8a0a0;border-radius:3px;
  padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
+
+/* 2026-11-14 追加 ── 先頭候補の札（CLAUDE.md ルール44）。
+   既存の札（.jin / .jout / .nopast）と同じ形・同じ大きさで、色だけ新しい。
+   既存の札の色は1つも変えていない。 */
+.sente{display:block;font-size:9px;color:#0c0c0e;background:#7fd0ff;border-radius:3px;
+ padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
