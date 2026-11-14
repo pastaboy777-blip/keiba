@@ -167,6 +167,7 @@ def secs(s):
 
 
 ROW = re.compile(r"(?=(?<!\d)\d{1,2}\s+\d\s+\d{1,2}\s+[ァ-ヶー]{2,}\s+[牡牝セ騸扇]\d)")
+ZEN = str.maketrans("１２３４", "1234")          # 角の札「１周３角」の数字
 
 
 def corners(t):
@@ -187,20 +188,46 @@ def corners(t):
 
       括弧（併走）は前から保存できていた（手元1,300鞍のうち1,268鞍に入っている）。
       落としていたのは **群と群のあいだの , - = だけ**。これを corner_raw に残す。
+
+    ★ 札は繰り返す。頭に「１周」が付く鞍もある（2026-11-14 に直した）。
+
+      向正面スタートの鞍は角が**6段**並ぶ。
+
+        川崎 2000m・2100m … ３角 ４角 １角 ２角 ３角 ４角
+        大井 2400m        … １周３角 １周４角 １角 ２角 ２周３角 ２周４角
+
+      札ごとに `re.search`（最初の一致）で拾っていたので、
+
+        川崎2000m … 「４角」に**1周目の4角**が入り、**最終4角が落ちていた**
+        大井2400m … 札が `１周３角` 形式で終端が合わず **2角・3角が丸ごと欠落**し、
+                     「４角」も1周目のものになっていた（＝ soto.json がずれる）
+
+      だから **頁に出てきた順のリスト（order）も返す**。kekka.py と同じ形で、
+      `order[0]` が最初に通った角、`order[-1]` が**最終4角**。
+      dict（out / raw）は札で引く従来の形のままだが、**同じ札は後に出たほうで上書き**
+      するので、6段の鞍でも `out[4]` は最終4角になる
+      （soto.py / jk_soto.py が見ているのはここ）。
+      4段以下の鞍は札が1回ずつしか出ないので、out / raw は**前とまったく同じ**。
     """
-    out, raw = {}, {}
-    for k, lab in ((1, "１角"), (2, "２角"), (3, "３角"), (4, "４角")):
-        m = re.search(lab + r"\s+([0-9(),=\- ]+?)(?:[１-４]角|■|$)", t)
-        if not m:
-            continue
-        s = m.group(1).strip()
+    out, raw, order = {}, {}, []
+    i = t.find("コーナー通過順位")
+    if i < 0:
+        return out, raw, order
+    seg = t[i:]
+    j = seg.find("■")
+    if j >= 0:
+        seg = seg[:j]
+    for lab, s in re.findall(r"(\S*?[１２３４1234])角\s+([0-9(),=\-]+)", seg):
         seq = []
         for g in re.findall(r"\(([\d,]+)\)|(\d+)", s):
             seq.append([int(x) for x in g[0].split(",")] if g[0] else [int(g[1])])
-        if seq:
-            out[k] = seq
-            raw[k] = s
-    return out, raw
+        if not seq:
+            continue
+        k = int(lab[-1].translate(ZEN))          # 「１周３角」→ 3
+        order.append({"kaku": lab + "角", "raw": s, "seq": seq})
+        out[k] = seq
+        raw[k] = s
+    return out, raw, order
 
 
 def pos_of(seq, ub):
@@ -231,7 +258,14 @@ def do_res(base, label):
         md = re.search(r"(ダ|芝)([\d,]+)m", t)
         mb = re.search(r"天候：\s*(\S+)\s+(?:ダ|芝)：\s*(\S+)", t)
         ml = re.search(r"ハロンタイム\s+([\d.\- ]+?)\s+上がり", t)
-        cn, cnraw = corners(t)
+        cn, cnraw, cnord = corners(t)
+        # ★ 札が繰り返す鞍（向正面スタートの6段）だけ、**頁に出てきた順**で c1/c4 を取る。
+        #   c1 ＝ 最初に通った角（川崎2000mなら1周目の3角）、c4 ＝ 最終4角。
+        #   4段以下の鞍は札で引く従来のまま ── 既にある harvest のデータと1件も変えない
+        #   （1角の札が無い鞍＝大井1200/1400m・川崎900m の c1 は、前と同じく None）。
+        rep = len(cnord) > len(cn)
+        sq1 = cnord[0]["seq"] if rep else cn.get(1)
+        sq4 = cnord[-1]["seq"] if rep else cn.get(4)
         rows = []
         for p in ROW.split(t[i:i + 5000])[1:]:
             m = re.match(r"(\d{1,2})\s+(\d)\s+(\d{1,2})\s+([ァ-ヶー]{2,})\s", p)
@@ -263,8 +297,8 @@ def do_res(base, label):
                          "t": secs(mtm.group(1)) if mtm else None,
                          "sa": sa or None,
                          # 1角と4角の通過順。gain = 1角 − 4角（プラスが押し上げた）
-                         "c1": pos_of(cn[1], ub) if 1 in cn else None,
-                         "c4": pos_of(cn[4], ub) if 4 in cn else None,
+                         "c1": pos_of(sq1, ub) if sq1 else None,
+                         "c4": pos_of(sq4, ub) if sq4 else None,
                          "jk": re.sub(r"^[▲△☆★◇◎]", "", mj.group(1)) if mj else None,
                          "tr": mt.group(1) if mt else None})
         store[key] = {"R": R, "dist": int(md.group(2).replace(",", "")) if md else None,
