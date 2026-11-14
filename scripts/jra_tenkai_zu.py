@@ -732,8 +732,8 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
                  % (*divmod(est["time"], 60), _lap_text(est)))
                 if (est and globals().get("_CUR_RNO") in HIDE_PACE) else ""),
                pcls, mark * 100, flow.split("→ ")[-1], lvl,
-               (('<div class="lanebias">今開催は4角で%sが来ている(前の開催日の3着内 %d頭のうち外 %d%%、ふだん49%%) → %s◎の札</div>'
-                 % (fc.lane[0], fc.lane[2], fc.lane[1] * 100, fc.lane[0])) if getattr(fc, "lane", (None,))[0] else ""),
+               (_today_line(fc) or (('<div class="lanebias">今開催は4角で%sが来ている(前の開催日の3着内 %d頭のうち外 %d%%、ふだん49%%) → %s◎の札</div>'
+                 % (fc.lane[0], fc.lane[2], fc.lane[1] * 100, fc.lane[0])) if getattr(fc, "lane", (None,))[0] else "")),
                board_html, kawa_memo(fc, rows, rk, dist, surface)))
     missing = [r for r in rows if r["pos"] is None]
     miss = ""
@@ -752,6 +752,19 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
            pcls, ptag, {"スロー": "スロー", "ミドル": "平均", "ハイ": "ハイ"}[fc.pace] + "想定",
            pcls, mark * 100, flow, flow_sub, est_html, wind_html(fc),
            board_html, memo, miss))
+
+
+def _today_line(fc):
+    td = getattr(fc, "today", None)
+    if not td or td["n"] < 6:
+        return ""
+    fr = "前" if td["front"] >= td["front0"] + 0.15 else ("差し" if td["front"] <= td["front0"] - 0.15 else "")
+    ln = (getattr(fc, "lane", None) or (None,))[0] or ""
+    sig = "・".join(x for x in ((fr + "が来ている") if fr else "", (ln + "が来ている") if ln else "") if x)
+    out_txt = ("外%d%%(ふだん%d%%)" % (td["out"] * 100, td["out0"] * 100)) if td["out"] is not None else ""
+    return ('<div class="lanebias">今日ここまで%d鞍の3着内: 4角で前1/3から%d%%(ふだん%d%%)・%s%s</div>'
+            % (td["races"], td["front"] * 100, td["front0"] * 100, out_txt,
+               (" → <b>%s</b>" % sig) if sig else " → 偏りなし"))
 
 
 def _lap_text(est):
@@ -898,6 +911,48 @@ def lane_bias(place, surface, date):
     return ("外" if sh >= 0.67 else "内" if sh <= 0.33 else None), sh, n
 
 
+_BASE_SHAPE: dict = {}
+
+
+def _shape_of(races):
+    """3着内の馬の 4角の組での外/内/中 と、4角で前1/3にいたかを数える。"""
+    import re as re_
+    c = {"外": 0, "内": 0, "中": 0, "前": 0, "n": 0}
+    for d in races:
+        n = d.get("field_size") or 0
+        gs = [[int(x) for x in re_.findall(r"\d+", t)]
+              for t in re_.findall(r"\([^)]*\)|\d+", ((d.get("corners") or {}).get("4") or "").replace("*", ""))]
+        for r in d["result"]:
+            if (r.get("finish_pos") or 99) <= 3 and r.get("corner_pos") and n >= 2:
+                c["n"] += 1
+                c["前"] += (r["corner_pos"][-1] - 1) / (n - 1) <= 1 / 3
+                for g in gs:
+                    if r["umaban"] in g and len(g) >= 2:
+                        c["外" if g[-1] == r["umaban"] else "内" if g[0] == r["umaban"] else "中"] += 1
+    return c
+
+
+def day_shape(place, surface, date, race_id):
+    """当日のここまでの鞍(同じ場・芝ダ、この鞍より前)で、3着内の馬が4角で外にいた割合・前1/3にいた割合。
+    ふだん(この場・芝ダの3年)と比べる。ユーザー指定 2026-11-14「どこを狙うか当日で決める」。"""
+    if not _DATA_PATH or not date or not race_id:
+        return None
+    rows = load_rows(_DATA_PATH)
+    key = (place, surface)
+    if key not in _BASE_SHAPE:
+        _BASE_SHAPE[key] = _shape_of([d for d in rows if d.get("place") == place and d.get("surface") == surface
+                                      and d.get("lap") and d["date"] < date])
+    today = [d for d in rows if d.get("place") == place and d.get("surface") == surface and d["date"] == date
+             and d.get("lap") and d["race_id"] < race_id and d["result"] and d["result"][0].get("time")]
+    if not today:
+        return None
+    c, b = _shape_of(today), _BASE_SHAPE[key]
+    lanes = c["外"] + c["内"] + c["中"]
+    bl = b["外"] + b["内"] + b["中"]
+    return {"races": len(today), "n": c["n"], "front": c["前"] / max(1, c["n"]), "front0": b["前"] / max(1, b["n"]),
+            "out": c["外"] / lanes if lanes else None, "out0": b["外"] / bl if bl else None, "lanes": lanes}
+
+
 HIDE_PACE: set = set()   # ペース想定の札を出さない R(--hide-pace "12")
 CIRCLE: dict = {}
 CIRCLE2: dict = {}  # 相手の丸(白)。--circle2 "7:15,10"。本命は --circle(赤)   # 手で丸を付ける馬 {R番号(int): {馬番}}。--circle "12:6,12,15;3:8"
@@ -945,6 +1000,12 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
             tag += '<span class="klane">外◎</span>'
         elif lb == "内" and hs and osc <= sorted(x.get("outer_score", 0) for x in hs)[len(hs) // 3]:
             tag += '<span class="klane">内◎</span>'
+        td = getattr(fc, "today", None)
+        if td and td["n"] >= 6 and r.get("pos") is not None:
+            if td["front"] >= td["front0"] + 0.15 and r["pos"] >= 2 / 3:
+                tag += '<span class="klane">前◎</span>'
+            elif td["front"] <= td["front0"] - 0.15 and r["pos"] <= 1 / 2:
+                tag += '<span class="klane">差◎</span>'
         if r.get(k) is None:
             tag = '<span class="knd">過去走なし</span>' + tag
         hh.append('<div class="kh" style="left:%.2f%%;top:%dpx"><div class="kf">%s<span class="kc" style="color:%s">&raquo;</span></div>'
@@ -1502,8 +1563,8 @@ def main() -> None:
         if not (a.pace_data and a.place):
             ap.error("--day には --pace-data と --place が要ります(集めたデータから組み立てる)")
         a.from_data, a.date = True, a.day
-        ids = sorted(d["race_id"] for d in load_rows(a.pace_data) if d["date"] == a.day and d["place"] == a.place
-                     and d.get("surface") in ("芝", "ダ"))
+        ids = sorted({d["race_id"] for d in load_rows(a.pace_data) if d["date"] == a.day and d["place"] == a.place
+                      and d.get("surface") in ("芝", "ダ")})   # 結果と出馬表の両方にある鞍は1回だけ
         bodies = []
         for rid in ids:
             a.race_id, a.race_no = rid, str(int(rid[-2:]))
@@ -1555,6 +1616,10 @@ def one_race(a, ap):
     globals()["_CUR_RNO"] = int(rno) if str(rno).isdigit() else None
     globals()["_DATA_PATH"] = a.pace_data
     fc.lane = lane_bias(place, surface, a.date) if a.pace_data else (None, None, 0)
+    fc.today = day_shape(place, surface, a.date, a.race_id) if a.pace_data else None
+    if fc.today and fc.today["lanes"] >= 6 and fc.today["out"] is not None:   # 当日の内外が分かれば、それを優先
+        sh = fc.today["out"]
+        fc.lane = (("外" if sh >= 0.67 else "内" if sh <= 0.33 else None), sh, fc.today["lanes"])
     fc._start = (ME_RACE or {}).get("start") if getattr(a, "from_data", False) else None
     if a.pace_data:
         diff, nl, conf, q, est = learned_pace(a.pace_data, a.date, place=place, dist=dist, surface=surface,
