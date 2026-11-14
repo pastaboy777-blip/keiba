@@ -853,10 +853,10 @@ def wind_head(place, date, rno):
 _UMA_CACHE: dict = {}
 
 
-def uma_img(waku, ub, px=50):
+def uma_img(waku, ub, px=50, face_left=False):
     """もらったイラスト(scripts/ana/uma/、uma_img.py)で、枠の色の勝負服・ゼッケンに馬番を描いた馬の絵(data URI)。
     頭が右(ゴール側)を向く(ユーザー指定 2026-11-11「馬の向き逆ね」。元絵の都合で left=True がこの向き)。無ければ None。"""
-    key = (waku, ub, px)
+    key = (waku, ub, px, face_left)
     if key in _UMA_CACHE:
         return _UMA_CACHE[key]
     try:
@@ -864,7 +864,7 @@ def uma_img(waku, ub, px=50):
         import io
         sys.path.insert(0, str(ROOT / "scripts" / "ana"))
         import uma_img as U
-        im = U.horse(waku or 1, ub, px=px, left=True)
+        im = U.horse(waku or 1, ub, px=px, left=not face_left)
         buf = io.BytesIO()
         im.save(buf, format="PNG")
         _UMA_CACHE[key] = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
@@ -954,6 +954,29 @@ def day_shape(place, surface, date, race_id):
 
 
 HIDE_PACE: set = set()   # ペース想定の札を出さない R(--hide-pace "12")
+# コース1周の長さと最後の直線(4角出口→ゴール)、m(JRA コース紹介のおおよその値)。芝は主に使うコース
+COURSE_LAP = {("東京", "芝"): (2083, 526), ("東京", "ダ"): (1899, 502), ("中山", "芝"): (1667, 310),
+              ("中山", "ダ"): (1493, 308), ("京都", "芝"): (1894, 404), ("京都", "ダ"): (1608, 329),
+              ("阪神", "芝"): (2089, 474), ("阪神", "ダ"): (1517, 353), ("中京", "芝"): (1705, 413),
+              ("中京", "ダ"): (1530, 411), ("新潟", "芝"): (2223, 659), ("新潟", "ダ"): (1472, 354),
+              ("福島", "芝"): (1600, 292), ("福島", "ダ"): (1444, 296), ("小倉", "芝"): (1615, 293),
+              ("小倉", "ダ"): (1445, 291), ("札幌", "芝"): (1641, 266), ("札幌", "ダ"): (1487, 264),
+              ("函館", "芝"): (1627, 262), ("函館", "ダ"): (1476, 260)}
+LEFT_TURN = {"東京", "新潟", "中京"}
+
+
+def front_is_left(place, surface, dist):
+    """スタンドから見たとき、最初のコーナーあたりで馬が右→左に走るか(=図の左が前)。
+    スタートが正面(ゴール前の直線〜4角の手前)なら 左回り:左→右 / 右回り:右→左、
+    向こう正面(1角のポケット〜3角)なら逆。ユーザー指摘 2026-11-14「東京11R 位置も向きも逆」「12Rも逆」。"""
+    if (place, surface) not in COURSE_LAP or not dist:
+        return False
+    lap, home = COURSE_LAP[(place, surface)]
+    r = dist % lap if dist > lap else dist
+    homestretch = r <= home + 200
+    return (not homestretch) if place in LEFT_TURN else homestretch
+
+
 CIRCLE: dict = {}
 CIRCLE2: dict = {}  # 相手の丸(白)。--circle2 "7:15,10"。本命は --circle(赤)   # 手で丸を付ける馬 {R番号(int): {馬番}}。--circle "12:6,12,15;3:8"
 
@@ -974,19 +997,26 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
     def wid(r):   # 名前と札の幅の目安(札1つ +58px)。右隣の馬の名前に札がかからないように
         nt = (1 if kikou_tag(r["ub"]) else 0) + (1 if r.get(k) is None else 0) + (1 if lb0 else 0)
         return G + 8 * max(0, len(r.get("name") or "") - 7) + 58 * nt
+    flip = front_is_left(globals().get("_CUR_PLACE"), globals().get("_CUR_SURF"), globals().get("_CUR_DIST"))
+    span = W - 2 * P - 130
     lanes, cells = [], []
-    for r in hs:
+    for r in hs:   # 前の馬から順に置く
         if r.get(k) is not None:
-            x = P + r[k] * (W - 2 * P - 130)
+            f = r[k]
         else:   # 過去走が無い馬は並びが読めないので、横に散らして置く(馬番順)
             j = nod.index(r)
-            x = P + (0.9 - 0.8 * j / max(1, len(nod) - 1)) * (W - 2 * P - 130) if len(nod) > 1 else P
+            f = (0.9 - 0.8 * j / max(1, len(nod) - 1)) if len(nod) > 1 else 0.0
+        x = P + (1 - f) * span if flip else P + f * span   # flip: 左が前(スタンドから見て右→左に走る)
         i = 0 if r.get("outer_score", 0) <= med else 1
         while True:
             while len(lanes) <= i:
-                lanes.append(1e9)
-            if x + wid(r) < lanes[i] + 4:
-                lanes[i] = x
+                lanes.append(None)
+            if flip:   # 前の馬(左)の名前の右端より右に置く
+                ok = lanes[i] is None or x > lanes[i] - 4
+            else:      # 前の馬(右)の左端より、自分の名前の右端が左
+                ok = lanes[i] is None or x + wid(r) < lanes[i] + 4
+            if ok:
+                lanes[i] = x + wid(r) if flip else x
                 cells.append((r, x, i))
                 break
             i += 1
@@ -996,7 +1026,7 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
         up = r.get("gain") is not None and r["gain"] >= 0.20
         cc = "#4fa8ff" if up else "#b9b9c4"
         wc = WAKU.get(r["waku"], ("#15110d", "#f2f2f4"))
-        img = uma_img(r["waku"], r["ub"], px=64)
+        img = uma_img(r["waku"], r["ub"], px=64, face_left=flip)
         fig = ('<img class="uk" src="%s" alt="">' % img) if img else HORSE.format(c="#d8c7ae")
         tag = kikou_tag(r["ub"])
         lb = (getattr(fc, "lane", None) or (None,))[0]
@@ -1013,9 +1043,11 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
                 tag += '<span class="klane">差◎</span>'
         if r.get(k) is None:
             tag = '<span class="knd">過去走なし</span>' + tag
-        hh.append('<div class="kh" style="left:%.2f%%;top:%dpx"><div class="kf">%s<span class="kc" style="color:%s">&raquo;</span></div>'
+        chev = '<span class="kc" style="color:%s">%s</span>' % (cc, "&laquo;" if flip else "&raquo;")
+        hh.append('<div class="kh" style="left:%.2f%%;top:%dpx"><div class="kf">%s</div>'
                   '<div class="kl"><span class="kn" style="background:%s;color:%s">%d</span>%s%s</div></div>'
-                  % (x / W * 100, 10 + lane * LN, fig, cc, wc[0], wc[1], r["ub"], H.escape(r["name"]), tag))
+                  % (x / W * 100, 10 + lane * LN, (chev + fig) if flip else (fig + chev), wc[0], wc[1], r["ub"],
+                     H.escape(r["name"]), tag))
     _, fc.zone_horses = draw_zone([(r, x, l) for r, x, l in cells], fc, ellipse=True)   # 見解用に計算だけ(描かない)
     ring = ""
     want = CIRCLE.get(globals().get("_CUR_RNO"), set())
@@ -1042,8 +1074,9 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
     if ring:
         legend = ('<div class="klegend"><span class="lr"></span>赤丸＝狙い'
                   + ('<span class="lw"></span>白丸＝相手候補' if 'k2"' in ring else "") + '</div>')
-    return ('<div class="kboard"><div class="ktrack%s" style="height:%dpx"><div class="goal"></div>%s</div>%s</div>'
-            % (turf, max(1, len(lanes)) * LN + 24, ring + "\n".join(hh), legend))
+    return ('<div class="kboard"><div class="kdir">%s</div><div class="ktrack%s%s" style="height:%dpx"><div class="goal"></div>%s</div>%s</div>'
+            % ("← 左が前（スタンドから見た向き）" if flip else "右が前（スタンドから見た向き） →", turf, " kflip" if flip else "",
+               max(1, len(lanes)) * LN + 24, ring + "\n".join(hh), legend))
 
 
 def kawa_memo(fc, rows, rk, dist, surface) -> str:
@@ -1452,6 +1485,8 @@ CSS_EXTRA = """
  text-shadow:0 1px 2px rgba(0,0,0,.9)}
 .kn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
  font-size:10px;font-weight:900;box-shadow:0 0 0 1.5px rgba(0,0,0,.5)}
+.ktrack.kflip .goal{right:auto;left:24px}
+.kdir{font-size:11px;color:#9a9aa6;margin:0 2px 4px;font-weight:700}
 .klegend{display:flex;align-items:center;gap:6px;margin:8px 4px 0;font-size:13px;font-weight:700;color:#f2f2f4}
 .klegend span{display:inline-block;width:26px;height:14px;border-radius:50%;margin-left:12px}
 .klegend .lr{border:3px solid rgba(232,40,40,.95);margin-left:0}.klegend .lw{border:3px solid #fff}
@@ -1618,6 +1653,8 @@ def one_race(a, ap):
 
     fc, rows, rk = build(past, waku, place=place, dist=dist, surface=surface, baba=baba, jockeys=jockeys)
     globals()["_CUR_SURF"] = surface
+    globals()["_CUR_PLACE"] = place
+    globals()["_CUR_DIST"] = dist
     globals()["_CUR_RNO"] = int(rno) if str(rno).isdigit() else None
     globals()["_DATA_PATH"] = a.pace_data
     fc.lane = lane_bias(place, surface, a.date) if a.pace_data else (None, None, 0)
