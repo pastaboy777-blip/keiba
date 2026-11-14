@@ -1,6 +1,11 @@
 """隊列(前後)をちゃんと学ぶ: 1角・4角それぞれを目的に、手がかりを1つずつ足して検証区間で比べる。
 
     python3 scripts/jra_position_model2.py --data data/jra/races.jsonl
+    python3 scripts/jra_position_model2.py --research   # 研究用の特徴(流れ別の位置・出遅れ率・相手との比較)も足す
+
+既定は展開図(scripts/jra_tenkai_zu.py の apply_position_model)が計算する特徴まで(STEPS)。
+研究用の特徴を入れたモデルを展開図に使うと 0 で埋まり、4角相関が +0.46→+0.27 まで落ちる
+(notes/live/jra_relearn_20261114.md)。保存前に、モデルの特徴が展開図で作られるかを確かめる。
 
 時系列: 前 2/3 で学習、後 1/3 で検証。騎手の癖なども「その鞍より前」の情報だけで作る。
 指標(1鞍ごと→平均): 順位相関 / 前1/3一致 / ハナ(1角)・先頭(4角)的中
@@ -34,11 +39,40 @@ STEPS = [
     ("+ペース想定", ["pace", "pace_x_early"]),
     ("+同じ芝ダの過去走の位置", ["early_ss", "has_ss", "early_ss_x_chg"]),
     ("+同じ芝ダ・近い距離の位置(長距離も)", ["early_sim", "has_sim2", "long_x_sim"]),
+]
+# ここから下は研究用(展開図では計算しない)。--research のときだけ足す
+RESEARCH_STEPS = [
     ("+流れ別の位置(想定ペースと同じ流れ)", ["early_samepace", "has_samepace", "pace_sens_x_pace"]),
     ("+出遅れ率(推定)", ["late_rate", "late_x_early"]),
     ("+相手との比較(レース内の順位・差)", [k + s_ for k in ("early", "nige", "early_sim", "med_c4")
                                        for s_ in ("_rk", "_gap_prev", "_gap_next")]),
 ]
+
+
+
+
+def zu_feature_names() -> set[str]:
+    """jra_tenkai_zu.apply_position_model の中で特徴 dict に入れているキー名を、ソースから読む。"""
+    import ast
+    src = (Path(__file__).resolve().parent / "jra_tenkai_zu.py").read_text(encoding="utf-8")
+    fn = next(n for n in ast.walk(ast.parse(src))
+              if isinstance(n, ast.FunctionDef) and n.name == "apply_position_model")
+    names = set()
+    for n in ast.walk(fn):
+        if isinstance(n, ast.Dict):
+            names |= {k.value for k in n.keys if isinstance(k, ast.Constant) and isinstance(k.value, str)}
+    return names
+
+
+def check_features(best: dict) -> list[str]:
+    """保存するモデルの特徴のうち、展開図で作られないものを返す。"""
+    have = zu_feature_names()
+    used = []
+    for key in ("1角", "4角"):
+        if key in best:
+            used += best[key]["features"]
+        used += best.get(key + "_lgbm_features", [])
+    return sorted({k for k in used if k not in have})
 
 
 def norm(r, i):
@@ -48,8 +82,16 @@ def norm(r, i):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", default="data/jra/races.jsonl")
+    ap.add_argument("--research", action="store_true",
+                    help="研究用の特徴(展開図では計算しない)も足す。展開図用の models/ には保存しないこと")
     ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1] / "models" / "position_model.json"))
     a = ap.parse_args()
+    steps = STEPS + (RESEARCH_STEPS if a.research else [])
+    print(f"特徴の段: {len(steps)}段({'研究用込み' if a.research else '展開図用'})")
+    for name, add in steps:
+        print(f"  {name}: {', '.join(add)}")
+    if a.research:
+        print("  ※ --research のモデルは展開図では使えない特徴を含む。--out を models/ 以外にすること")
     raw = [json.loads(l) for l in open(a.data, encoding="utf-8") if l.strip()]
     raw = [d for d in raw if d.get("surface") in ("芝", "ダ")]
     raw.sort(key=lambda d: (d["date"], d["race_id"]))
@@ -171,7 +213,7 @@ def main() -> None:
         c, fr, ld = evaluate(lambda x: x["cur"], target, lead)
         print(f"  今の予想(通過順の直近加重)       {c:+.3f} / {fr:.1%} / {ld:.1%}")
         feats = list(BASE)
-        for name, add in [("学習: 基本", [])] + STEPS:
+        for name, add in [("学習: 基本", [])] + steps:
             feats = feats + add
             w = J.ols([[x["x"][k] for k in feats] for q in tr for x in q["rows"]],
                       [x[target] for q in tr for x in q["rows"]], l2=1e-3)
@@ -216,6 +258,14 @@ def main() -> None:
         except ImportError:
             pass
     best["cut"] = cut
+    missing = check_features(best)
+    models_dir = Path(__file__).resolve().parents[1] / "models"
+    if missing and a.research and models_dir not in Path(a.out).resolve().parents:
+        print(f"\n[注意] 研究用モデル: 展開図では作られない特徴を含む({', '.join(missing)})。{a.out} に保存する。")
+    elif missing:
+        print(f"\n[警告] 展開図(apply_position_model)で作られない特徴がモデルに入っている: {', '.join(missing)}\n"
+              f"  このまま使うと 0 で埋まり精度が落ちる。保存せずに止める({a.out} は変えていない)。", file=sys.stderr)
+        sys.exit(1)
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     json.dump(best, open(a.out, "w"), ensure_ascii=False, indent=1)
 
