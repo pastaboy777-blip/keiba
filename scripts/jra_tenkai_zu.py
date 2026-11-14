@@ -497,15 +497,28 @@ def _toujitsu_weight(key, default):
 
 BASE_BABA = None  # --base-baba: 時計の基準にする馬場(例 稍)。ユーザー指定 2026-11-14「雨降る」「先週の稍重 1:10.3」
 BASE_DAY = None   # --base-day: 時計の基準にする開催日(例 前日の良馬場だけ)。ユーザー指定 2026-11-14「昨日の時計で想定しよう」
+_UNSET = object()
+BASE_BABA_DIRT = _UNSET  # --base-baba-dirt: ダートの鞍の基準の馬場(指定が無ければ BASE_BABA)
+BASE_DAY_DIRT = _UNSET   # --base-day-dirt: ダートの鞍の基準の開催日(指定が無ければ BASE_DAY)
+
+
+def _base_for(surface):
+    """その芝ダの時計の基準(開催日の集合, 馬場の集合)。ダートは --base-*-dirt があればそちら。"""
+    if surface == "ダ":
+        return (BASE_DAY if BASE_DAY_DIRT is _UNSET else BASE_DAY_DIRT,
+                BASE_BABA if BASE_BABA_DIRT is _UNSET else BASE_BABA_DIRT)
+    return BASE_DAY, BASE_BABA
 
 
 def _meeting_rows(rows, place, surface, date):
-    """同じ開催の、前の開催日の同じ場・同じ芝ダの鞍(8日以内)。--base-day があればその日だけ。"""
+    """同じ開催の、前の開催日の同じ場・同じ芝ダの鞍(8日以内)。--base-day があればその日だけ。
+    ダートの鞍は --base-day-dirt / --base-baba-dirt(無ければ芝と同じ値)。"""
     import datetime as dt_
     d0 = dt_.date.fromisoformat(date)
+    bday, bbaba = _base_for(surface)
     return [d for d in rows if d.get("place") == place and d.get("surface") == surface
-            and d.get("lap") and d["date"] < date and (BASE_DAY is None or d["date"] in BASE_DAY)
-            and (BASE_BABA is None or d.get("baba") in BASE_BABA)
+            and d.get("lap") and d["date"] < date and (bday is None or d["date"] in bday)
+            and (bbaba is None or d.get("baba") in bbaba)
             and (d0 - dt_.date.fromisoformat(d["date"])).days <= 8]
 
 
@@ -970,6 +983,21 @@ LEFT_TURN = {"東京", "新潟", "中京"}
 FRONT_OVERRIDE: dict = {}   # 例 {("東京", "芝", 1400): False}(右が前)。2026-11-14 東京芝1400を一度右に戻したが、ユーザーが取り消し
 
 
+def starts_on_homestretch(place, surface, dist):
+    """スタートが正面(ゴール前の直線〜4角の手前)か。front_is_left と同じ判定(r = dist % 1周、r <= 直線+200)。
+    分からないコースは None。"""
+    if (place, surface) not in COURSE_LAP or not dist:
+        return None
+    lap, home = COURSE_LAP[(place, surface)]
+    r = dist % lap if dist > lap else dist
+    return r <= home + 200
+
+
+def first_corner_name(place, surface, dist):
+    """正面スタートなら「1コーナー」、向こう正面などからなら「最初のコーナー」(2角/3角は決め打ちしない)。"""
+    return "1コーナー" if starts_on_homestretch(place, surface, dist) else "最初のコーナー"
+
+
 def front_is_left(place, surface, dist):
     """スタンドから見たとき、最初のコーナーあたりで馬が右→左に走るか(=図の左が前)。
     スタートが正面(ゴール前の直線〜4角の手前)なら 左回り:左→右 / 右回り:右→左、
@@ -1181,7 +1209,8 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
         legend = ('<div class="klegend"><span class="lr"></span>赤丸＝狙い'
                   + ('<span class="lw"></span>白丸＝相手候補' if 'k2"' in ring else "") + '</div>')
     return ('<div class="kboard"><div class="kdir">%s</div><div class="ktrack%s%s" style="height:%dpx"><div class="goal"></div>%s</div>%s</div>'
-            % ("← 左が前（スタンドから見た向き）" if flip else "右が前（スタンドから見た向き） →", turf, " kflip" if flip else "",
+            % (first_corner_name(globals().get("_CUR_PLACE"), globals().get("_CUR_SURF"), globals().get("_CUR_DIST"))
+               + ("　← 左が前（スタンドから見た向き）" if flip else "　右が前（スタンドから見た向き） →"), turf, " kflip" if flip else "",
                max(1, len(lanes)) * LN + 24, ring + "\n".join(hh), legend))
 
 
@@ -1190,15 +1219,16 @@ def kawa_memo(fc, rows, rk, dist, surface) -> str:
     k = "pos1" if any(r.get("pos1") is not None for r in rows) else "pos"
     hs = sorted([r for r in rows if r.get(k) is not None], key=lambda r: -r[k])
     circ = lambda u: "&#%d;" % (9311 + u) if 1 <= u <= 20 else str(u)  # noqa: E731
+    c1 = first_corner_name(globals().get("_CUR_PLACE"), surface, dist)
     out = []
     if hs:
-        out.append("%s%dm、1コーナーで前に行くのは%s" % (surface, dist, "".join(circ(r["ub"]) for r in hs[:3])))
+        out.append("%s%dm、%sで前に行くのは%s" % (surface, dist, c1, "".join(circ(r["ub"]) for r in hs[:3])))
         if len(hs) > 5:
             out.append("その後ろに%s" % "".join(circ(r["ub"]) for r in hs[3:6]))
     ups = [r for r in rows if r.get("gain") is not None and r["gain"] >= 0.20]
     for r in sorted(ups, key=lambda r: -r["gain"])[:2]:
-        out.append("%s%sは1コーナー%.2fから4コーナー%.2fまで押し上げる型"
-                   % (circ(r["ub"]), H.escape(r["name"]), 1 - (r.get(k) or 0), 1 - (r.get("pos") or 0)))
+        out.append("%s%sは%s%.2fから4コーナー%.2fまで押し上げる型"
+                   % (circ(r["ub"]), H.escape(r["name"]), c1, 1 - (r.get(k) or 0), 1 - (r.get("pos") or 0)))
     top = sorted((u for u, v in rk.items() if v <= 2), key=lambda u: rk[u])
     if top:
         out.append("終い一番手は%s" % "".join(circ(u) for u in top))
@@ -1643,7 +1673,7 @@ def page(date: str, place: str, rno: str, body: str, learned: bool = False) -> s
         return ('<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>展開予想 %s %s</title>'
                 '<style>%s%s</style></head><body>'
                 '<div class="head"><div class="kicker">%s.%s.%s %s — %s</div><h1>展開予想</h1>'
-                '<div class="sub"><b>1コーナーでの隊列想定</b> ／ 右が前</div></div>%s'
+                '<div class="sub"><b>最初のコーナーでの隊列想定</b> ／ 右が前</div></div>%s'
                 '<div class="tail">印は買い目の保証ではありません。</div></body></html>'
                 % (date, place, css, CSS_EXTRA, y, m, d, wd, place, body))
     return (
@@ -1689,6 +1719,8 @@ def main() -> None:
     ap.add_argument("--kikou", action="store_true", help="気候の札を出す(既定は出さない)")
     ap.add_argument("--base-day", help="時計の基準にする開催日 YYYY-MM-DD(カンマで複数)。同じ場・芝ダ・距離の実際の時計の中央値")
     ap.add_argument("--base-baba", help="時計の基準にする馬場(良/稍/重/不、カンマで複数)")
+    ap.add_argument("--base-day-dirt", help="ダートの鞍の基準の開催日(書式は --base-day。指定が無ければ芝と同じ、空文字なら日を絞らない)")
+    ap.add_argument("--base-baba-dirt", help="ダートの鞍の基準の馬場(書式は --base-baba。指定が無ければ芝と同じ、空文字なら絞らない)")
     ap.add_argument("--hide-pace", default="", help='ペース想定の札(右上のS/M/H)を消す R。"12" や "3,12"')
     ap.add_argument("--circle-each", action="store_true", help="赤丸を1頭ずつ付ける(まとめて1つにしない)")
     ap.add_argument("--circle2", default="", help='相手を白い丸で囲む馬。"7:15,10,8"')
@@ -1698,13 +1730,15 @@ def main() -> None:
     a = ap.parse_args()
     global ZONE_FRONT, JOCKEY_STATS, STYLE
     STYLE = a.style
-    global BASE_DAY, BASE_BABA, SHOW_KIKOU, CIRCLE_EACH
+    global BASE_DAY, BASE_BABA, BASE_DAY_DIRT, BASE_BABA_DIRT, SHOW_KIKOU, CIRCLE_EACH
     CIRCLE_EACH = a.circle_each
     global SHOW_TREND
     SHOW_TREND = not a.no_trend
     SHOW_KIKOU = a.kikou
     BASE_DAY = set(a.base_day.split(",")) if a.base_day else None
     BASE_BABA = set(a.base_baba.split(",")) if a.base_baba else None
+    BASE_DAY_DIRT = _UNSET if a.base_day_dirt is None else (set(a.base_day_dirt.split(",")) if a.base_day_dirt else None)
+    BASE_BABA_DIRT = _UNSET if a.base_baba_dirt is None else (set(a.base_baba_dirt.split(",")) if a.base_baba_dirt else None)
     HIDE_PACE.update(int(x) for x in a.hide_pace.split(",") if x.strip().isdigit())
     for part in filter(None, a.circle2.split(";")):
         rr, uu = part.split(":")

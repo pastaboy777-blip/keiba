@@ -18,7 +18,8 @@
 
 動き
   1) data/jra/all_YYYYMMDD.jsonl = races.jsonl + 出馬表(出馬表の行の馬場を --baba/--baba-dirt で埋める)
-  2) 場ごとに時計の基準: 指定の馬場と同じ馬場だった、8日以内の同じ場の開催日 → --base-day / --base-baba
+  2) 場ごとに時計の基準: 指定の馬場と同じ馬場だった、8日以内の同じ場の開催日
+     芝 → --base-day / --base-baba、ダート → --base-day-dirt / --base-baba-dirt(芝ダ別々)
      (足りない距離は jra_tenkai_zu.py が通常の推定に戻す)
   3) scripts/daily/zu_jra_YYYYMMDD_<場>.html
   4) 1鞍ずつのPNG → data/zu_png/YYYYMMDD/<場>_<R>R.png
@@ -91,17 +92,16 @@ def write_all(path: Path, races_text: str, shutuba: list[dict], turf: dict, dirt
 
 
 def base_args(races, place, babas_by_surface: dict[str, str], date) -> tuple[list[str], str]:
-    """--base-day/--base-baba の引数と、表示用の説明。"""
-    days, babas, desc = set(), [], []
+    """芝は --base-day/--base-baba、ダートは --base-day-dirt/--base-baba-dirt。芝ダは混ぜない。
+    該当日が無いときは日を絞らない(芝は --base-day を付けない、ダートは --base-day-dirt "" で芝の日を引き継がない)。"""
+    args, desc = [], []
     for surf, b in babas_by_surface.items():
         ds = base_days(races, place, surf, b, date)
-        days.update(ds)
-        if b not in babas:
-            babas.append(b)
+        sfx = "-dirt" if surf == "ダ" else ""
+        args += [f"--base-baba{sfx}", b]
+        if ds or sfx:
+            args += [f"--base-day{sfx}", ",".join(ds)]
         desc.append(f"{surf}{BABA_LONG[b]}: " + ("・".join(x[5:] for x in ds) if ds else "該当日なし(通常の推定)"))
-    args = ["--base-baba", ",".join(babas)]
-    if days:
-        args += ["--base-day", ",".join(sorted(days))]
     return args, " / ".join(desc)
 
 
@@ -183,8 +183,6 @@ def main():
         t = turf.get(p, "良")
         d = dirt.get(p, t)
         bb, desc = base_args(races, p, {"芝": t, "ダ": d}, a.date)
-        if t != d:
-            desc += "  ※芝ダで馬場が違うので基準の馬場は両方を渡しています"
         report.append((p, f"芝{BABA_LONG[t]}・ダ{BABA_LONG[d]}", desc))
         c = cfg.get(p, {})
         extra = []

@@ -44,3 +44,6 @@ scripts/ana/soto_[0-9][0-9][0-9][0-9].json
 data/jra/
 data/note/
 data/note_*.log
+
+# 朝の展開図のスクショ(jra_morning.py の出力)
+data/zu_png/
