@@ -53,7 +53,7 @@ def month_checksums(html: str) -> dict[str, str]:
 
 def race_id_of(cname: str) -> str | None:
     """pw01sde10 05 2026 05 02 11 20261108/00 → 202605050211"""
-    m = re.match(r"pw01sde10(\d{2})(\d{4})(\d{2})(\d{2})(\d{2})(\d{8})/", cname)
+    m = re.match(r"pw01sde\d{2}(\d{2})(\d{4})(\d{2})(\d{2})(\d{2})(\d{8})/", cname)
     if not m:
         return None
     jyo, year, kai, nichi, r, _ = m.groups()
