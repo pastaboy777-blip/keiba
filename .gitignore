@@ -48,3 +48,6 @@ data/note_*.log
 # 朝の展開図のスクショ(jra_morning.py の出力)
 data/zu_png/
 data/kb/
+
+# 学習し直す前のモデルの控え
+models/_bak_*/
