@@ -972,8 +972,12 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
         ring += ('<div class="kring k2" style="left:calc(%.2f%% - 14px);top:%dpx;width:158px;height:%dpx"></div>'
                  % (x / W * 100, 10 + l * LN - 8, LN - 2))
     turf = " turf" if globals().get("_CUR_SURF") == "芝" else ""
-    return ('<div class="kboard"><div class="ktrack%s" style="height:%dpx"><div class="goal"></div>%s</div></div>'
-            % (turf, max(1, len(lanes)) * LN + 24, ring + "\n".join(hh)))
+    legend = ""
+    if ring:
+        legend = ('<div class="klegend"><span class="lr"></span>赤丸＝狙い'
+                  + ('<span class="lw"></span>白丸＝相手候補' if 'k2"' in ring else "") + '</div>')
+    return ('<div class="kboard"><div class="ktrack%s" style="height:%dpx"><div class="goal"></div>%s</div>%s</div>'
+            % (turf, max(1, len(lanes)) * LN + 24, ring + "\n".join(hh), legend))
 
 
 def kawa_memo(fc, rows, rk, dist, surface) -> str:
@@ -1382,6 +1386,9 @@ CSS_EXTRA = """
  text-shadow:0 1px 2px rgba(0,0,0,.9)}
 .kn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
  font-size:10px;font-weight:900;box-shadow:0 0 0 1.5px rgba(0,0,0,.5)}
+.klegend{display:flex;align-items:center;gap:6px;margin:8px 4px 0;font-size:13px;font-weight:700;color:#f2f2f4}
+.klegend span{display:inline-block;width:26px;height:14px;border-radius:50%;margin-left:12px}
+.klegend .lr{border:3px solid rgba(232,40,40,.95);margin-left:0}.klegend .lw{border:3px solid #fff}
 .kring.k2{border-color:rgba(255,255,255,.95);box-shadow:0 0 8px rgba(255,255,255,.5)}
 .race.kawa.nopace .rh .pace,.race.kawa.nopace .kenkai,.race.kawa.nopace .bar i{display:none}
 .tbase{margin-left:auto;padding:6px 14px;border:2px solid #d8a84a;border-radius:8px;color:#f2e2b8;font-size:13px;font-weight:700;white-space:nowrap}
