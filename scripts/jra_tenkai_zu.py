@@ -963,12 +963,16 @@ COURSE_LAP = {("東京", "芝"): (2083, 526), ("東京", "ダ"): (1899, 502), ("
               ("小倉", "ダ"): (1445, 291), ("札幌", "芝"): (1641, 266), ("札幌", "ダ"): (1487, 264),
               ("函館", "芝"): (1627, 262), ("函館", "ダ"): (1476, 260)}
 LEFT_TURN = {"東京", "新潟", "中京"}
+# ユーザーが見て決めた向き(計算より優先)。True=左が前
+FRONT_OVERRIDE = {("東京", "芝", 1400): False}   # 2026-11-14「東京11R 向き全部逆」→ 右が前に戻す
 
 
 def front_is_left(place, surface, dist):
     """スタンドから見たとき、最初のコーナーあたりで馬が右→左に走るか(=図の左が前)。
     スタートが正面(ゴール前の直線〜4角の手前)なら 左回り:左→右 / 右回り:右→左、
     向こう正面(1角のポケット〜3角)なら逆。ユーザー指摘 2026-11-14「東京11R 位置も向きも逆」「12Rも逆」。"""
+    if (place, surface, dist) in FRONT_OVERRIDE:
+        return FRONT_OVERRIDE[(place, surface, dist)]
     if (place, surface) not in COURSE_LAP or not dist:
         return False
     lap, home = COURSE_LAP[(place, surface)]
