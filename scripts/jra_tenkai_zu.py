@@ -985,6 +985,7 @@ def front_is_left(place, surface, dist):
 
 
 CIRCLE: dict = {}
+CIRCLE_EACH = False   # --circle-each: 赤丸も1頭ずつ(ユーザー指定 2026-11-14「全部○で囲って」)
 CIRCLE2: dict = {}  # 相手の丸(白)。--circle2 "7:15,10"。本命は --circle(赤)   # 手で丸を付ける馬 {R番号(int): {馬番}}。--circle "12:6,12,15;3:8"
 
 
@@ -1059,7 +1060,7 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
     ring = ""
     want = CIRCLE.get(globals().get("_CUR_RNO"), set())
     sel = [(x, lane) for r, x, lane in cells if r["ub"] in want]
-    spread = sel and (max(x for x, _ in sel) - min(x for x, _ in sel)) > W * 0.45
+    spread = sel and (CIRCLE_EACH or (max(x for x, _ in sel) - min(x for x, _ in sel)) > W * 0.45)
     if sel and spread:   # 離れている馬は1頭ずつ囲む(間の馬を巻き込まない)
         ring = "".join('<div class="kring" style="left:calc(%.2f%% - 14px);top:%dpx;width:158px;height:%dpx"></div>'
                        % (x / W * 100, 10 + l * LN - 8, LN - 2) for x, l in sel)
@@ -1588,13 +1589,15 @@ def main() -> None:
     ap.add_argument("--base-day", help="時計の基準にする開催日 YYYY-MM-DD(カンマで複数)。同じ場・芝ダ・距離の実際の時計の中央値")
     ap.add_argument("--base-baba", help="時計の基準にする馬場(良/稍/重/不、カンマで複数)")
     ap.add_argument("--hide-pace", default="", help='ペース想定の札(右上のS/M/H)を消す R。"12" や "3,12"')
+    ap.add_argument("--circle-each", action="store_true", help="赤丸を1頭ずつ付ける(まとめて1つにしない)")
     ap.add_argument("--circle2", default="", help='相手を白い丸で囲む馬。"7:15,10,8"')
     ap.add_argument("--circle", default="", help='手で赤丸を付ける馬。"12:6,12,15;3:8"(R:馬番)')
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
     a = ap.parse_args()
     global ZONE_FRONT, JOCKEY_STATS, STYLE
     STYLE = a.style
-    global BASE_DAY, BASE_BABA, SHOW_KIKOU
+    global BASE_DAY, BASE_BABA, SHOW_KIKOU, CIRCLE_EACH
+    CIRCLE_EACH = a.circle_each
     SHOW_KIKOU = a.kikou
     BASE_DAY = set(a.base_day.split(",")) if a.base_day else None
     BASE_BABA = set(a.base_baba.split(",")) if a.base_baba else None
