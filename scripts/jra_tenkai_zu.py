@@ -125,10 +125,27 @@ _ROWS_CACHE: dict = {}
 _PACE_CACHE: dict = {}
 
 
+def _is_jump(d: dict) -> bool:
+    try:
+        from nankeiba.scraping.jra_official import is_jump
+    except ImportError:   # 取り込み側が無い環境でも同じ判定
+        def is_jump(race_type, name="", grade=""):
+            return ("障害" in (race_type or "") or "ジャンプ" in (name or "") or "障害" in (name or "")
+                    or "J・G" in (grade or "") or "J.G" in (grade or ""))
+    return is_jump(d.get("race_type"), d.get("name"), d.get("grade"))
+
+
 def load_rows(data_path: str) -> list:
+    """JSONL を読む。障害の鞍は surface を「障」にそろえる。
+    取り込みの時期や出馬表によって障害が「芝」のまま入っていることがあり、
+    図は surface が同じ過去走を拾うので、食い違うと位置が変わる。"""
     import json
     if data_path not in _ROWS_CACHE:
-        _ROWS_CACHE[data_path] = [json.loads(l) for l in open(data_path, encoding="utf-8") if l.strip()]
+        rows = [json.loads(l) for l in open(data_path, encoding="utf-8") if l.strip()]
+        for d in rows:
+            if d.get("surface") != "障" and _is_jump(d):
+                d["surface"] = "障"
+        _ROWS_CACHE[data_path] = rows
     return _ROWS_CACHE[data_path]
 
 
@@ -1225,6 +1242,11 @@ def kawa_memo(fc, rows, rk, dist, surface) -> str:
         out.append("%s%dm、%sで前に行くのは%s" % (surface, dist, c1, "".join(circ(r["ub"]) for r in hs[:3])))
         if len(hs) > 5:
             out.append("その後ろに%s" % "".join(circ(r["ub"]) for r in hs[3:6]))
+    # ハナ候補はハナ専用モデル(apply_hana_model → r["hana"])の上位3頭。
+    # 過去の比較(notes/live/jra_hana_hikaku.md)で上位3頭にハナが入る率は pos1 の並びより4〜6pt良い
+    hn = sorted([r for r in rows if r.get("hana") is not None], key=lambda r: -r["hana"])
+    if hn:
+        out.append("ハナ候補は%s" % "".join(circ(r["ub"]) for r in hn[:3]))
     ups = [r for r in rows if r.get("gain") is not None and r["gain"] >= 0.20]
     for r in sorted(ups, key=lambda r: -r["gain"])[:2]:
         out.append("%s%sは%s%.2fから4コーナー%.2fまで押し上げる型"

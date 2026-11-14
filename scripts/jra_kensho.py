@@ -17,7 +17,7 @@
   pace_of(lap, distance)["diff"] を、展開図と同じ境目 q(その日より前の全鞍の3等分)で切る。
 
 出すもの(notes/live/YYYYMMDD_jra_kensho_auto.md と画面)
-  1 全体: ペース3区分の当たり・外れ方の内訳・1角/4角の順位相関(新馬は別)・ハナ1頭目/上位3頭(新馬除く)
+  1 全体: ペース3区分の当たり・外れ方の内訳・1角/4角の順位相関(新馬は別)・ハナ1頭目/上位3頭(新馬除く。見解の並び pos1 とハナ候補=ハナ専用モデルの2つ、fc.order は参考)
   2 場×芝ダ: 3着内の馬の4角の位置(前1/3・中・後ろ)と、4角の組の外にいた割合(その日だけ)
   3 丸を付けた鞍(scripts/daily/marks_YYYYMMDD.json): 赤丸・白丸の馬の着順
   4 鞍ごとの一覧
@@ -206,6 +206,12 @@ def evaluate(d, pr):
     if hn and lead:
         e["hana1"] = hn[0] in lead
         e["hana3"] = bool(set(hn[:3]) & set(lead))
+    # 見解の「◯コーナーで前に行くのは…」は pos1 の順(kawa_memo)
+    p1 = [r["ub"] for r in sorted([r for r in rows if r.get("pos1") is not None], key=lambda r: -r["pos1"])]
+    e["pos1_pred"] = p1[:3]
+    if p1 and lead:
+        e["p1_1"] = p1[0] in lead
+        e["p1_3"] = bool(set(p1[:3]) & set(lead))
     order = list(getattr(fc, "order", []) or [])
     e["order_pred"] = order[:3]
     if order and lead:
@@ -281,12 +287,15 @@ def report(date, E, marks, *, toujitsu, missing):
         elif g:
             w(f"- 隊列の順位相関({lab}) 最初のコーナー(1角) {mean_s(c1)}・4角 {mean_s(c4)}")
     g = [e for e in E if not e["shinba"]]
-    o1 = [e["order1"] for e in g if "order1" in e]
-    o3 = [e["order3"] for e in g if "order3" in e]
-    w(f"- ハナ(新馬除く、展開図の先頭候補 fc.order の順) 1頭目が当たり **{pct(sum(o1), len(o1))}**・上位3頭に入った **{pct(sum(o3), len(o3))}**")
+    p1 = [e["p1_1"] for e in g if "p1_1" in e]
+    p3 = [e["p1_3"] for e in g if "p1_3" in e]
+    w(f"- ハナ(新馬除く) 見解の並び(pos1「前に行くのは」)の順: 1頭目が当たり **{pct(sum(p1), len(p1))}**・上位3頭に入った **{pct(sum(p3), len(p3))}**")
     h1 = [e["hana1"] for e in g if "hana1" in e]
     h3 = [e["hana3"] for e in g if "hana3" in e]
-    w(f"- 参考: ハナ専用モデル(r[\"hana\"])の順だと 1頭目 {pct(sum(h1), len(h1))}・上位3頭 {pct(sum(h3), len(h3))}\n")
+    w(f"- ハナ(新馬除く) 見解の「ハナ候補」(ハナ専用モデル r[\"hana\"])の順: 1頭目 **{pct(sum(h1), len(h1))}**・上位3頭 **{pct(sum(h3), len(h3))}**")
+    o1 = [e["order1"] for e in g if "order1" in e]
+    o3 = [e["order3"] for e in g if "order3" in e]
+    w(f"- 参考: 展開図の先頭候補 fc.order の順だと 1頭目 {pct(sum(o1), len(o1))}・上位3頭 {pct(sum(o3), len(o3))}\n")
 
     # 2 場×芝ダ
     w("## 2. 場×芝ダ 3着内の馬の4角(その日だけ)\n")
@@ -326,14 +335,19 @@ def report(date, E, marks, *, toujitsu, missing):
 
     # 4 一覧
     w("## 4. 鞍ごと\n")
-    w("| 場R | コース | 馬場 | 頭 | ペース 予→実 | 前後差 予/実 | 1角相関 | 4角相関 | ハナ 予→実 | 1着 | 2着 | 3着 | 人気 |")
+    w("| 場R | コース | 馬場 | 頭 | ペース 予→実 | 前後差 予/実 | 1角相関 | 4角相関 | ハナ 見解/候補→実 | 1着 | 2着 | 3着 | 人気 |")
     w("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for e in sorted(E, key=lambda e: (e["place"], e["R"])):
         pa = (f"{e['pace_pred'] or '-'}→{e.get('pace_act') or '-'}" + (" ○" if e.get("pace_act") and e["pace_pred"] == e["pace_act"] else ""))
         df = (f"{e['diff_pred']:+.1f}/{e['diff_act']:+.1f}" if e.get("diff_pred") is not None and "diff_act" in e else "-")
-        hp = "".join(maru(u) for u in e["order_pred"][:3]) if not e["shinba"] and e["order_pred"] else "-"
+        mk = lambda a, b: "◎" if e.get(a) else ("○" if e.get(b) else "")  # noqa: E731
+        if e["shinba"]:
+            hp, hk = "-", ""
+        else:
+            hp = ("".join(maru(u) for u in e.get("pos1_pred", [])) or "-") + mk("p1_1", "p1_3") + " / " \
+                + ("".join(maru(u) for u in e.get("hana_pred", [])) or "-") + mk("hana1", "hana3")
+            hk = ""
         ha = "".join(maru(u) for u in e["lead_act"]) or "-"
-        hk = "" if e["shinba"] else (" ◎" if e.get("order1") else (" ○" if e.get("order3") else ""))
         tops = {}
         for t in e["top"]:
             tops.setdefault(t["fin"], []).append(f"{maru(t['ub'])} 4角{t['c4'] or '-'}" + (f"{t['lane']}" if t["lane"] and t["lane"] != "単" else ""))
@@ -341,7 +355,8 @@ def report(date, E, marks, *, toujitsu, missing):
         w(f"| {e['place']}{e['R']}R | {e['surface']}{e['dist']}{' 新馬' if e['shinba'] else ''} | {e['baba'] or '-'} | {e['n']} | {pa} | {df} | "
           f"{('%+.2f' % e['c1']) if 'c1' in e else '-'} | {('%+.2f' % e['c4']) if 'c4' in e else '-'} | {hp}→{ha}{hk} | "
           + " | ".join("・".join(tops.get(k, ["-"])) for k in (1, 2, 3)) + f" | {nin} |")
-    w("\nハナ: 予は展開図の先頭候補(fc.order)の上位3頭(新馬は出さない)、実は1角先頭。◎=1頭目が当たり、○=上位3頭に入った。"
+    w("\nハナ: 見解は見解の並び(pos1「前に行くのは」)の上位3頭、候補は見解の「ハナ候補」(ハナ専用モデル)の上位3頭"
+      "(新馬は出さない)、実は1角先頭。◎=1頭目が当たり、○=上位3頭に入った。"
       "1〜3着は 馬番・4角の通過順位・組の中の位置(外/内/中)。人気は1着-2着-3着の順。")
     return "\n".join(L) + "\n"
 
