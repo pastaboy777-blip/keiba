@@ -899,7 +899,8 @@ def lane_bias(place, surface, date):
 
 
 HIDE_PACE: set = set()   # ペース想定の札を出さない R(--hide-pace "12")
-CIRCLE: dict = {}   # 手で丸を付ける馬 {R番号(int): {馬番}}。--circle "12:6,12,15;3:8"
+CIRCLE: dict = {}
+CIRCLE2: dict = {}  # 相手の丸(白)。--circle2 "7:15,10"。本命は --circle(赤)   # 手で丸を付ける馬 {R番号(int): {馬番}}。--circle "12:6,12,15;3:8"
 
 
 def kawa_board(rows, fc, n, rk, key="pos1") -> str:
@@ -967,6 +968,9 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
         cx, cy = (ax + bx) / 2, (ay + by) / 2
         ring = ('<div class="kring" style="left:calc(%.2f%% - %dpx);top:%dpx;width:%dpx;height:%dpx;'
                 'transform:rotate(%.1fdeg)"></div>' % (cx / 940 * 100, length / 2, cy - hgt / 2, length, hgt, ang))
+    for x, l in [(x, l) for r, x, l in cells if r["ub"] in CIRCLE2.get(globals().get("_CUR_RNO"), set())]:
+        ring += ('<div class="kring k2" style="left:calc(%.2f%% - 14px);top:%dpx;width:158px;height:%dpx"></div>'
+                 % (x / W * 100, 10 + l * LN - 8, LN - 2))
     turf = " turf" if globals().get("_CUR_SURF") == "芝" else ""
     return ('<div class="kboard"><div class="ktrack%s" style="height:%dpx"><div class="goal"></div>%s</div></div>'
             % (turf, max(1, len(lanes)) * LN + 24, ring + "\n".join(hh)))
@@ -1378,6 +1382,7 @@ CSS_EXTRA = """
  text-shadow:0 1px 2px rgba(0,0,0,.9)}
 .kn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
  font-size:10px;font-weight:900;box-shadow:0 0 0 1.5px rgba(0,0,0,.5)}
+.kring.k2{border-color:rgba(255,255,255,.95);box-shadow:0 0 8px rgba(255,255,255,.5)}
 .race.kawa.nopace .rh .pace,.race.kawa.nopace .kenkai,.race.kawa.nopace .bar i{display:none}
 .tbase{margin-left:auto;padding:6px 14px;border:2px solid #d8a84a;border-radius:8px;color:#f2e2b8;font-size:13px;font-weight:700;white-space:nowrap}
 .race.kawa .rd{white-space:nowrap}
@@ -1466,6 +1471,7 @@ def main() -> None:
     ap.add_argument("--base-day", help="時計の基準にする開催日 YYYY-MM-DD(カンマで複数)。同じ場・芝ダ・距離の実際の時計の中央値")
     ap.add_argument("--base-baba", help="時計の基準にする馬場(良/稍/重/不、カンマで複数)")
     ap.add_argument("--hide-pace", default="", help='ペース想定の札(右上のS/M/H)を消す R。"12" や "3,12"')
+    ap.add_argument("--circle2", default="", help='相手を白い丸で囲む馬。"7:15,10,8"')
     ap.add_argument("--circle", default="", help='手で赤丸を付ける馬。"12:6,12,15;3:8"(R:馬番)')
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
     a = ap.parse_args()
@@ -1475,6 +1481,9 @@ def main() -> None:
     BASE_DAY = set(a.base_day.split(",")) if a.base_day else None
     BASE_BABA = set(a.base_baba.split(",")) if a.base_baba else None
     HIDE_PACE.update(int(x) for x in a.hide_pace.split(",") if x.strip().isdigit())
+    for part in filter(None, a.circle2.split(";")):
+        rr, uu = part.split(":")
+        CIRCLE2[int(rr)] = {int(x) for x in uu.split(",") if x}
     for part in filter(None, a.circle.split(";")):
         rr, uu = part.split(":")
         CIRCLE[int(rr)] = {int(x) for x in uu.split(",") if x}
