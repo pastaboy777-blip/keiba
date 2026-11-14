@@ -481,6 +481,13 @@ def main(path=NB.BODY):
     h2(k251, kw, '川崎 人気薄 × hp<=1/3')
     print('  （予定 前半80頭150.8%・1着5頭／後半171頭169.5%・1着7頭）')
 
+    print('\n=== 訂正版：hp<=1/3 の土台（増減は問わない。⑧の比べる相手）===')
+    for ba in ('川崎', '大井', '船橋', '浦和', '南関4場'):
+        bu = und if ba == '南関4場' else [x for x in und if x['ba'] == ba]
+        hpS = [x for x in bu if x['hn'] >= NB.HP_MIN and x['hp'] is not None
+               and x['hp'] <= 1 / 3]
+        h2(hpS, bu, f'{ba} hp<=1/3（増減は問わない）')
+
     print('\n=== 訂正版：①〜⑧の全セル ===')
     H = []
     for lab, S, p, o, base, pl in cand:
