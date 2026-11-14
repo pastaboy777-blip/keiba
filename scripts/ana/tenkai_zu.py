@@ -36,7 +36,7 @@ import sys, os, json, re, html, base64, io, statistics as st
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from horse_svg import HORSE, CHEV, CHEV_L
+from horse_svg import HORSE, HORSE_L, CHEV, CHEV_L
 try:
     import uma_img
 except Exception:
@@ -406,7 +406,12 @@ def main():
             #   向きだけでなく**馬との左右も**返す ── ふつうの鞍は進む先（右）に矢印があるので、
             #   鏡の鞍では進む先（左）に来るのが同じ絵になる。位置の `left` は動かさない。
             cv = (CHEV_L if R in flip else CHEV).format(c=cc)
-            uma = fig or HORSE.format(c=col)
+            # ★ シルエット（`--svg`、または uma/ の画像が無い環境）も鏡にする（2026-11-14）。
+            #   HORSE は**右向き1枚だけ**だったので、鏡の鞍では馬だけ進行方向と逆を向き、
+            #   左向きに直した矢印 CHEV_L と食い違っていた。向きの条件は上の `fig` と同じ
+            #   （右向き＝鏡でも --migi でもない鞍）。HORSE / HORSE_L の中身は触っていない。
+            uma = fig or (HORSE if ((R not in flip) and (R not in migi))
+                          else HORSE_L).format(c=col)
             hh.append('<div class="horse" style="left:%dpx;top:%dpx"><div class="fig">%s</div>'
                       '<div class="lab"><span class="n" style="background:%s;color:%s">%d</span>'
                       '<span class="nm">%s</span></div>%s%s</div>'
