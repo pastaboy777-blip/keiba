@@ -60,7 +60,7 @@ def parse(html, cname):
         res.append({"finish_pos": None, "umaban": int(txt(num.group(1))), "waku": int(wk.group(1)) if wk else None,
                     "horse_id": hid.group(1), "horse_name": nm, "sex_age": jm.group(1) if jm else None,
                     "kinryo": float(jm.group(2)) if jm else None,
-                    "jockey": (jm.group(3) if jm else jk).replace(" ", "").replace("▲", "").replace("△", "").replace("☆", "").replace("◇", "").replace("★", ""),
+                    "jockey": (jm.group(3) if jm else jk).replace(" ", "").replace("▲", "").replace("△", "").replace("☆", "").replace("◇", "").replace("★", "") if False else re.sub(r"\d+[A-Z]?$", "", (jm.group(3) if jm else jk).replace(" ", "")).translate(str.maketrans("", "", "▲△☆◇★")),
                     "sire": txt(sire.group(1)) if sire else None, "damsire": bms.group(1).strip() if bms else None,
                     "corner_pos": [], "time": None, "agari": None, "popularity": None})
     s = dist.group(2) if dist else None
