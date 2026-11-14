@@ -54,6 +54,8 @@ def groups(s):
 
 
 def waku(u, n):
+    if n < 8:
+        return u            # 枠1〜nに1頭ずつ。空くのは外枠
     base, rem = divmod(n, 8)
     cnt = [base + (1 if (8 - i) < rem else 0) for i in range(1, 9)]
     s = 0
