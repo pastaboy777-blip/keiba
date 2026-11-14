@@ -942,7 +942,7 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
         if r.get(k) is None:
             tag = '<span class="knd">過去走なし</span>' + tag
         hh.append('<div class="kh" style="left:%.2f%%;top:%dpx"><div class="kf">%s<span class="kc" style="color:%s">&raquo;</span></div>'
-                  '<div class="kl"><span class="kn" style="background:%s;color:%s">%d</span>%s</div>%s</div>'
+                  '<div class="kl"><span class="kn" style="background:%s;color:%s">%d</span>%s%s</div></div>'
                   % (x / W * 100, 10 + lane * LN, fig, cc, wc[0], wc[1], r["ub"], H.escape(r["name"]), tag))
     _, fc.zone_horses = draw_zone([(r, x, l) for r, x, l in cells], fc, ellipse=True)   # 見解用に計算だけ(描かない)
     ring = ""
@@ -1366,7 +1366,7 @@ CSS_EXTRA = """
 .horse.wide{width:170px}
 .kboard{margin:8px 16px}.ktrack{position:relative;background:#3a2f26;border-radius:4px;border-top:3px solid #ddd}
 .ktrack.turf{background:repeating-linear-gradient(90deg,#3f7d3a 0 56px,#3a7536 56px 58px)}
-.kh{position:absolute;width:150px}.kf{display:flex;align-items:center;height:42px}
+.kh{position:absolute;width:auto}.kf{display:flex;align-items:center;height:42px}
 .kf img.uk{height:40px;width:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
 .kc{font-size:19px;font-weight:900;margin-left:1px;letter-spacing:-3px}
 .kl{display:flex;align-items:center;gap:3px;font-size:10.5px;color:#f2f2f4;font-weight:700;white-space:nowrap;
@@ -1381,10 +1381,10 @@ CSS_EXTRA = """
 .kring{position:absolute;border:5px solid rgba(232,40,40,.95);border-radius:50%;
  box-shadow:0 0 12px rgba(232,40,40,.55);pointer-events:none;z-index:0}
 .kh{z-index:2}
-.klane{display:inline-block;font-size:8.5px;color:#0c0c0e;background:#ffb347;border-radius:3px;padding:0 4px;margin:1px 0 0 3px;font-weight:800}
+.klane{display:inline-block;font-size:8.5px;color:#0c0c0e;background:#ffb347;border-radius:3px;padding:0 4px;margin:0 0 0 3px;font-weight:800}
 .lanebias{margin-top:4px;font-size:12px;color:#ffb347;font-weight:700}
-.knd{display:inline-block;font-size:8.5px;color:#fff;background:#d9577a;border-radius:3px;padding:0 4px;margin:1px 0 0 18px}
-.kh .kik{font-size:8.5px;padding:0 3px;margin:1px 0 0 18px}
+.knd{display:inline-block;font-size:8.5px;color:#fff;background:#d9577a;border-radius:3px;padding:0 4px;margin:0 0 0 3px}
+.kh .kik{font-size:8.5px;padding:0 3px;margin:0 0 0 3px}
 .race.kawa .rd .st{color:#e8a33a;margin-right:8px;font-weight:700}
 .race.kawa .kenkai p{font-size:12px;line-height:1.7;margin:4px 0}
 .fig img.uma{height:46px;width:auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.45))}
