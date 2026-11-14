@@ -330,8 +330,11 @@ def main():
         cells, NL = place(arrange(rows, sw, '--noswap' in a))
         if (ven, v['dist']) in MIRROR:
             flip.add(R)
-        if R in flip:                      # 前を左に回す（位置を左右反転）
-            cells = [(r, WID - x, ln) for r, x, ln in cells]
+        if R in flip:                      # 図ごと鏡 ── 左右だけでなく上下も返す
+            # ★ 2026-11-14、ユーザーの指示 ──「上下逆」「2000mスタート地点　内枠が下」。
+            #   鏡の鞍はスタート地点の内外が逆に見えるので、段の順も逆にする。
+            #   （川崎2000m 9Rで「⑫の方が下だね」＝先頭列にいた8枠の⑫が下に来る）
+            cells = [(r, WID - x, NL - 1 - ln) for r, x, ln in cells]
         pc = pace.get(R, 'm')
         tag, nm, eff = LAB.get(pc, LAB['m'])
         b = T.sui(ven, v['dist'], baba)
