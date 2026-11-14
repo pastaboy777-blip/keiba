@@ -100,6 +100,15 @@ def render(frames, idx, analysis, image_b64=None, W=1000, H=620):
 
     # 走法クロック（右上）
     _clock_inset(s, analysis, W - 150, 90, 66)
+    # 負荷ゲージ（メーター）2つ（右上・クロックの下）※モデル推定
+    sup = _support_estimate(frames, idx, analysis)
+    _gauge(s, W - 150, 258, 58, sup if sup is not None else 1.0,
+           0, 3, "支える力(体重比)", "倍", measured=(sup is not None))
+    shift = analysis.get("人重心ずれ")
+    _gauge(s, W - 150, 378, 58, shift if shift is not None else 0,
+           -30, 30, "人の重心のずれ", "%", measured=(shift is not None))
+    s.append(f'<text x="{W-150}" y="424" text-anchor="middle" font-size="9" '
+             f'fill="#999">※モデル推定・実測ではない</text>')
     # 円弧モデル（左下）
     _arc_inset(s, frames, 150, H - 90, 120)
     # 負荷凡例＋まとめ（下帯）
@@ -123,6 +132,68 @@ def _clock_inset(s, analysis, cx, cy, r):
                  f'L{x-7:.0f},{y:.0f} Z" fill="#e03131"/>')
         s.append(f'<text x="{cx}" y="{cy+r+16:.0f}" text-anchor="middle" font-size="12" '
                  f'fill="#fff">走法 {h}時 {analysis.get("走法傾向","")}</text>')
+
+
+def _gauge(s, cx, cy, r, value, vmin, vmax, label, unit, measured=True):
+    """半円メーター（青→橙→赤のアーク＋針）をSVGで描く。
+    (cx,cy)は半円の平らな底辺の中心、arcはその上側。value=Noneは中央・測定なし扱い。
+    ※力・荷重はモデル推定（2D単眼からは実測不可）。"""
+    def pt(t, rad):
+        # t=0→左端(vmin) / t=0.5→真上 / t=1→右端(vmax)
+        a = math.radians(180 - 180 * max(0.0, min(1.0, t)))
+        return (cx + rad * math.cos(a), cy - rad * math.sin(a))
+    span = (vmax - vmin) or 1e-9
+    # 台座
+    s.append(f'<rect x="{cx-r-10:.0f}" y="{cy-r-22:.0f}" width="{2*r+20:.0f}" '
+             f'height="{r+54:.0f}" rx="6" fill="#000a" stroke="#555" stroke-width="1"/>')
+    # ラベル（上）
+    s.append(f'<text x="{cx:.0f}" y="{cy-r-8:.0f}" text-anchor="middle" font-size="12" '
+             f'fill="#ddd">{label}</text>')
+    # カラーアーク（青→橙→赤）
+    for t0, t1, col in ((0.0, 0.5, HEAT[0]), (0.5, 0.8, HEAT[3]), (0.8, 1.0, HEAT[4])):
+        x0, y0 = pt(t0, r)
+        x1, y1 = pt(t1, r)
+        s.append(f'<path d="M{x0:.1f},{y0:.1f} A{r},{r} 0 0 1 {x1:.1f},{y1:.1f}" '
+                 f'fill="none" stroke="{col}" stroke-width="10"/>')
+    # 両端の目盛り数値
+    s.append(f'<text x="{cx-r:.0f}" y="{cy+14:.0f}" text-anchor="middle" font-size="9" '
+             f'fill="#999">{vmin:g}</text>')
+    s.append(f'<text x="{cx+r:.0f}" y="{cy+14:.0f}" text-anchor="middle" font-size="9" '
+             f'fill="#999">{vmax:g}</text>')
+    # 針
+    t = 0.5 if value is None else (value - vmin) / span
+    tx, ty = pt(t, r * 0.82)
+    s.append(f'<line x1="{cx:.0f}" y1="{cy:.0f}" x2="{tx:.1f}" y2="{ty:.1f}" '
+             f'stroke="#fff" stroke-width="3"/>')
+    s.append(f'<circle cx="{cx:.0f}" cy="{cy:.0f}" r="4" fill="#fff"/>')
+    # 数値（下）
+    disp = "測定なし" if (value is None or not measured) else f"{value:g}{unit}"
+    s.append(f'<text x="{cx:.0f}" y="{cy+30:.0f}" text-anchor="middle" font-size="14" '
+             f'fill="#fff" font-weight="bold">{disp}</text>')
+
+
+def _support_estimate(frames, idx, analysis):
+    """ゲージ①「支える力（体重比）」の簡易推定（0〜3倍）。
+    接地肢数（蹄が重心より下）と走法クロック位相から見積もる“モデル推定”。
+    推定不能なら None（＝中央1.0・測定なし扱い）。"""
+    import biomech
+    fr = frames[idx]
+    c = biomech.cog(fr)
+    if not c:
+        return None
+    grounded = 0
+    for bp in ("front_left_paw", "front_right_paw", "back_left_paw", "back_right_paw"):
+        p = fr.get(bp)
+        if p and p[1] > c[1]:          # 蹄が重心より下＝接地側
+            grounded += 1
+    # 走法クロック位相の割増（接地・回転で最大、浮きで最小）
+    phase = {"接地・回転": 1.0, "制動寄り": 0.85, "推進寄り": 0.7,
+             "浮き寄り": 0.25}.get(analysis.get("走法傾向", ""), 0.6)
+    if grounded == 0:                   # 空中（浮き）
+        return round(0.3 * phase, 2)
+    # 体重(1.0)を接地肢で分配しつつ、接地相の動的荷重で割増
+    val = (1.0 / grounded) * (1.0 + 1.5 * phase)
+    return round(max(0.0, min(3.0, val)), 2)
 
 
 def _arc_inset(s, frames, cx, cy, size):
@@ -232,13 +303,17 @@ def selftest():
     svg = render(frames, len(frames) // 2, analysis, W=1000, H=620)
     assert svg.startswith("<svg") and "走法" in svg and "馬の重心" in svg
     assert "円弧モデル" in svg and "負荷(推定" in svg
+    # 負荷ゲージ（メーター）: ラベルとアーク(<path)が描かれる
+    assert "支える力" in svg and "重心のずれ" in svg, "負荷ゲージのラベルが無い"
+    assert "<path" in svg, "ゲージのアーク(<path)が無い"
+    assert "モデル推定・実測ではない" in svg, "ゲージの推定注記が無い"
     d = tempfile.mkdtemp()
     html = os.path.join(d, "ov.html")
     open(html, "w", encoding="utf-8").write(
         f'<!doctype html><meta charset="utf-8"><body style="margin:0">{svg}</body>')
     print(f"HTML: {html}")
     print("SELFTEST PASSED（オーバーレイSVG生成: 骨格・角度・重心・走法クロック・"
-          "円弧モデル・負荷凡例・まとめを含む）")
+          "負荷ゲージ(支える力/人の重心のずれ)・円弧モデル・負荷凡例・まとめを含む）")
     return html
 
 
