@@ -183,6 +183,48 @@ def to_png(svg_or_html_path, png_path, W=1000, H=620):
     return png_path if os.path.exists(png_path) else None
 
 
+def rasterize_svg(svg, png, W, H):
+    """SVG文字列→PNG。cairosvg優先（Colab向き・高速）、無ければchromium。"""
+    try:
+        import cairosvg
+        cairosvg.svg2png(bytestring=svg.encode(), write_to=png,
+                         output_width=W, output_height=H)
+        import os
+        return png if os.path.exists(png) else None
+    except Exception:
+        import os
+        html = png + ".html"
+        with open(html, "w", encoding="utf-8") as f:
+            f.write(f'<!doctype html><meta charset="utf-8">'
+                    f'<body style="margin:0">{svg}</body>')
+        return to_png("file://" + os.path.abspath(html), png, W, H)
+
+
+def render_video(frames, analysis, out_mp4, images_b64=None, fps=24,
+                 W=1000, H=620, workdir=None, max_frames=None):
+    """各フレームにオーバーレイを描いて動画(mp4)に。images_b64があれば実写へ重ねる。
+    rasterizeはcairosvg(あれば)/chromium。ffmpegでH.264に結合。"""
+    import os, subprocess, tempfile
+    workdir = workdir or tempfile.mkdtemp()
+    n = len(frames) if max_frames is None else min(len(frames), max_frames)
+    wrote = 0
+    for i in range(n):
+        img = images_b64[i] if images_b64 and i < len(images_b64) else None
+        svg = render(frames, i, analysis, image_b64=img, W=W, H=H)
+        png = os.path.join(workdir, f"f{i:04d}.png")
+        if rasterize_svg(svg, png, W, H):
+            wrote += 1
+    if not wrote:
+        return None
+    out = os.path.abspath(out_mp4)
+    subprocess.run(["ffmpeg", "-y", "-framerate", str(fps),
+                    "-i", os.path.join(workdir, "f%04d.png"),
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                    "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+                    "-movflags", "+faststart", out], capture_output=True)
+    return out if os.path.exists(out) else None
+
+
 def selftest():
     import biomech, tempfile, os
     frames = biomech._synthetic(dig_delta=2.2)
