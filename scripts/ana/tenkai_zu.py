@@ -110,6 +110,24 @@ def rel(p, k):
     return (p[k] - 1) / max(1, p['n'] - 1)
 
 
+# ★ 見出しに出す地点名（2026-11-14・CLAUDE.md ルール45）。
+#   最初に記録される角は場と距離でちがう（大井1000m・1200mは3角／大井1400mは2角／川崎900mは3角）。
+#   見出しを「1コーナーでの隊列想定」と決め打ちしていたが、120鞍中49鞍で実際の地点と違っていた。
+#   位置は「スタート後いちばん最初に記録された角」で揃っているので隊列は壊れていない。
+#   嘘なのは地点名だけなので、どの鞍でも正しい言い方に直し、
+#   **ルール45に載っている場・距離だけ**具体の地点を添える（浦和・船橋は測っていない＝書かない）。
+KADO1 = {('大井', 1000): '3コーナー', ('大井', 1200): '3コーナー',
+         ('大井', 1400): '2コーナー', ('川崎', 900): '3コーナー'}
+
+
+def kado(ven, dist):
+    if (ven, dist) in KADO1:
+        return KADO1[(ven, dist)]
+    if (ven == '大井' and dist >= 1600) or (ven == '川崎' and dist >= 1400):
+        return '1コーナー'
+    return None                      # 測っていない場・距離は地点名を出さない
+
+
 def row_of(h, dist, od):
     P = h.get('past') or []
     # ★ 隊列は1コーナーで組む（2026-11-11・CLAUDE.md ルール23）。
@@ -318,6 +336,7 @@ def main():
             note[k] = t
     C = json.load(open(card))
     body, drawn = [], []     # drawn ＝ この図に入れた鞍（ヘッダーの向きの文に使う）
+    dists = []               # この図に入れた鞍の距離（ヘッダーの地点名に使う・ルール45）
     for key in sorted(C, key=lambda x: C[x]['R']):
         v = C[key]
         if not (lo <= v['R'] <= hi):
@@ -345,6 +364,7 @@ def main():
         if (ven, v['dist']) in MIRROR:
             flip.add(R)
         drawn.append(R)
+        dists.append(v['dist'])
         vf = (ven, v['dist']) in VFLIP     # 段の順も返すか（川崎2000mだけ）
         if R in flip:                      # 前を左に回す（位置を左右反転）
             # ★ 2026-11-14、ユーザーの指示 ──「上下逆」「2000mスタート地点　内枠が下」。
@@ -452,8 +472,20 @@ def main():
     muki = ('前の向きは鞍ごとに変わります' if mix else
             ('左が前' if (drawn and nf) else '右が前'))
     mline = '<b>%s</b>%s馬番は枠の色。' % (muki, '。' if mix else '、')
-    sub = ('<div class="sub"><b>1コーナーでの隊列想定</b>　／　%s</div>' % muki if plain else
-           '<div class="sub"><b>1コーナーでの隊列想定</b>　／　過去走の<b>1コーナー通過順</b>で隊列を組み、'
+    # ★ 地点名は鞍の距離から出す（2026-11-14・CLAUDE.md ルール45）。
+    #   「1コーナー」の決め打ちはやめ、分かっている場・距離だけ具体の角を添える。
+    kado_g = {}
+    for d_ in dists:
+        nm_ = kado(ven, d_)
+        if nm_ and d_ not in kado_g.setdefault(nm_, []):
+            kado_g[nm_].append(d_)
+    kline = ('（%s）' % '／'.join(
+        '%s%sは%s' % (ven, '・'.join('%dm' % d_ for d_ in sorted(ds)), nm_)
+        for nm_, ds in kado_g.items())) if kado_g else ''
+    sub = ('<div class="sub"><b>スタート後いちばん最初の角での隊列想定</b>%s　／　%s</div>'
+           % (kline, muki) if plain else
+           '<div class="sub"><b>スタート後いちばん最初の角での隊列想定</b>%s　／　'
+           '過去走の<b>最初に記録された角の通過順</b>で隊列を組み、' % kline +
             '<b>枠と騎手</b>で位置を直しています。' + mline + '<br>'
             '内外は枠と騎手から —— 1枠79.8% / 2枠71.1% / 3枠60.5% / 4枠50.9% / '
             '5枠45.0% / 6枠34.6% / 7枠30.8% / 8枠21.9%（4コーナーで併走したとき内にいた割合・'
