@@ -781,11 +781,14 @@ def _lap_text(est):
     return '<span class="lap">ラップ想定 %s</span>' % "-".join("%.1f" % x for x in laps)
 
 
+SHOW_KIKOU = False   # 気候の札は出さない(ユーザー指定 2026-11-14「あの表示消して」「パクッてると思われちゃう」)。--kikou で出す
+
+
 def kikou_tag(ub):
     """今日の気候(発走時の気温 寒<10/涼<20/暖<25/暑)が得意な馬に札。note むねひろ の「気候／◯」を
     こちらのデータで作ったもの(scripts/jra_kikou_kenkyu.py: 力が同じ層で 得意 > 苦手 に3着内率 +3〜7pt)。
     その気候で2走以上・他の気候で2走以上、3着内率が他より 0.25 以上高いときだけ。"""
-    if ME_RACE is None or ub not in ME_PAST:
+    if not SHOW_KIKOU or ME_RACE is None or ub not in ME_PAST:
         return ""
     try:
         sys.path.insert(0, str(ROOT / "scripts"))
@@ -1580,6 +1583,7 @@ def main() -> None:
     ap.add_argument("--style", choices=["kawa", "simple", "stages"], default="kawa",
                     help="simple=4角1枚+赤丸(川崎の図と同じ形) / stages=スタート後・3角・4角の3段")
     ap.add_argument("--zone-front", type=float, default=0.4, help="狙う帯の前後の幅(前から何割、既定0.4)")
+    ap.add_argument("--kikou", action="store_true", help="気候の札を出す(既定は出さない)")
     ap.add_argument("--base-day", help="時計の基準にする開催日 YYYY-MM-DD(カンマで複数)。同じ場・芝ダ・距離の実際の時計の中央値")
     ap.add_argument("--base-baba", help="時計の基準にする馬場(良/稍/重/不、カンマで複数)")
     ap.add_argument("--hide-pace", default="", help='ペース想定の札(右上のS/M/H)を消す R。"12" や "3,12"')
@@ -1589,7 +1593,8 @@ def main() -> None:
     a = ap.parse_args()
     global ZONE_FRONT, JOCKEY_STATS, STYLE
     STYLE = a.style
-    global BASE_DAY, BASE_BABA
+    global BASE_DAY, BASE_BABA, SHOW_KIKOU
+    SHOW_KIKOU = a.kikou
     BASE_DAY = set(a.base_day.split(",")) if a.base_day else None
     BASE_BABA = set(a.base_baba.split(",")) if a.base_baba else None
     HIDE_PACE.update(int(x) for x in a.hide_pace.split(",") if x.strip().isdigit())
