@@ -84,6 +84,18 @@ def conc(S, pool, label, ref_label):
     if same:
         print('     → 層が高いこと自体がその馬で出来ており、該当はそれを'
               '含んでいるだけ、という形になりうる')
+    # 公平な抜き方：該当の上位3頭を「該当からも層からも」抜く。
+    # 該当から3頭だけ抜いて層は丸ごとのまま比べると、分母が違うので
+    # 同じ1頭が該当では大きく層では小さく効き、該当だけが不利になる。
+    print('     同じ馬を該当と層の両方から抜いて比べる（分母はそのまま）')
+    ids = {i for _, i, _ in winners(S)[:3]}
+    for nm_, T in ((f'該当', S), (f'層', pool)):
+        w = winners(T)
+        tot = sum(v for v, _, _ in w)
+        cut = sum(v for v, i, _ in w if i in ids)
+        print(f'       {nm_}　抜く前 {tot/len(T):>6.1f}%　'
+              f'該当の上位3頭を抜くと {(tot-cut)/len(T):>6.1f}%'
+              f'（抜けた払戻 {cut:,.0f}円 / {len(T)}頭）')
 
 
 def deep(S, pool, label, mid, ref_label):
@@ -100,6 +112,20 @@ def deep(S, pool, label, mid, ref_label):
               f'複{o["fuku"]:>6.1f}%　最大1頭抜き 単{o["tan_nomax"]:>6.1f}%')
     if ts:
         print(f'     偽薬の幅　単{min(ts):.1f}〜{max(ts):.1f}%')
+    # 5回では偽薬自身の散らばりが分からない。同じ検定の回数だけ増やす
+    # （新しい条件を試すのではないので、探し回ることにはならない）。
+    big = [o['tan'] for o in placebo(S, pool, k=200, mid=mid)
+           if not o['short']]
+    if big:
+        big.sort()
+        obs = ev(S, mid)['tan']
+        over = sum(1 for v in big if v >= obs)
+        print(f'   偽薬を200回に増やす　単の分布 '
+              f'最小{big[0]:.1f} / 5%点{big[len(big)//20]:.1f} / '
+              f'中央{big[len(big)//2]:.1f} / '
+              f'95%点{big[int(len(big)*0.95)]:.1f} / 最大{big[-1]:.1f}%')
+        print(f'     該当の{obs:.1f}%以上が出た偽薬 {over}/{len(big)}回'
+              f'（{over/len(big)*100:.1f}%）')
     print('   人気帯をそろえる')
     for lab, a, b in by_pop(S, pool, mid=mid):
         def fmt(o):
