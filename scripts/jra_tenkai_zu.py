@@ -910,7 +910,11 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
     W, P, G = 940, 22, 138    # 盤面の幅の目安(px)。置くときは % に直すので画面幅が違っても切れない
     lanes, cells = [], []
     for r in hs:
-        x = P + (r[k] if r.get(k) is not None else 0.0) * (W - 2 * P - 130)
+        if r.get(k) is not None:
+            x = P + r[k] * (W - 2 * P - 130)
+        else:   # 過去走が無い馬は並びが読めないので、横に散らして置く(馬番順)
+            j = nod.index(r)
+            x = P + (0.9 - 0.8 * j / max(1, len(nod) - 1)) * (W - 2 * P - 130) if len(nod) > 1 else P
         i = 0 if r.get("outer_score", 0) <= med else 1
         while True:
             while len(lanes) <= i:
@@ -920,7 +924,7 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
                 cells.append((r, x, i))
                 break
             i += 1
-    LN = 68
+    LN = 76
     hh = []
     for r, x, lane in cells:
         up = r.get("gain") is not None and r["gain"] >= 0.20
