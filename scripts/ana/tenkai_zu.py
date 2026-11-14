@@ -36,7 +36,7 @@ import sys, os, json, re, html, base64, io, statistics as st
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from horse_svg import HORSE, CHEV
+from horse_svg import HORSE, CHEV, CHEV_L
 try:
     import uma_img
 except Exception:
@@ -308,7 +308,7 @@ def main():
             k, _, t = tok[5:].partition('=')
             note[k] = t
     C = json.load(open(card))
-    body = []
+    body, drawn = [], []     # drawn ＝ この図に入れた鞍（ヘッダーの向きの文に使う）
     for key in sorted(C, key=lambda x: C[x]['R']):
         v = C[key]
         if not (lo <= v['R'] <= hi):
@@ -335,6 +335,7 @@ def main():
         cells, NL = place(arrange(rows, sw, '--noswap' in a))
         if (ven, v['dist']) in MIRROR:
             flip.add(R)
+        drawn.append(R)
         vf = (ven, v['dist']) in VFLIP     # 段の順も返すか（川崎2000mだけ）
         if R in flip:                      # 前を左に回す（位置を左右反転）
             # ★ 2026-11-14、ユーザーの指示 ──「上下逆」「2000mスタート地点　内枠が下」。
@@ -388,10 +389,16 @@ def main():
             fig = (None if ('--svg' in a or uma_img is None)
                    else uma_tag(r['waku'], r['ub'], 40,
                                 (R not in flip) and (R not in migi)))
-            hh.append('<div class="horse" style="left:%dpx;top:%dpx"><div class="fig">%s%s</div>'
+            # ★ 矢印も鏡にする（2026-11-14）。鏡の鞍は馬が左向きなのに `>>` だけ右向きで、
+            #   絵と逆を向いていた（ルール43の★で「まだ直していない」と書いていた1点）。
+            #   向きだけでなく**馬との左右も**返す ── ふつうの鞍は進む先（右）に矢印があるので、
+            #   鏡の鞍では進む先（左）に来るのが同じ絵になる。位置の `left` は動かさない。
+            cv = (CHEV_L if R in flip else CHEV).format(c=cc)
+            uma = fig or HORSE.format(c=col)
+            hh.append('<div class="horse" style="left:%dpx;top:%dpx"><div class="fig">%s</div>'
                       '<div class="lab"><span class="n" style="background:%s;color:%s">%d</span>'
                       '<span class="nm">%s</span></div>%s%s</div>'
-                      % (int(x), 14 + ln * LANE, fig or HORSE.format(c=col), CHEV.format(c=cc),
+                      % (int(x), 14 + ln * LANE, (cv + uma) if R in flip else (uma + cv),
                          wc[0], wc[1], r['ub'], html.escape(r['name']), t, so))
         tmpl = (
             '<div class="race"><div class="rh"><span class="rn">%dR</span>'
@@ -419,9 +426,18 @@ def main():
                ('<div class="view"><h4>見解</h4><p>%s</p></div>' % note[R]) if R in note else ''))
     # ★ 2026-11-11、ユーザーの指示 ──「1コーナーでの隊列想定は一番上に書いて」。
     #   --plain でも必ず残す。図が「どの地点の絵か」は数値ではなく、読み違いを防ぐ行。
-    sub = ('<div class="sub"><b>1コーナーでの隊列想定</b>　／　右が前</div>' if plain else
+    # ★ 向きは**この図に入っている鞍**で決める（2026-11-14）。
+    #   鏡の鞍（大井1600/1800/2000m・川崎2000m）は**前が左**なので「右が前」は嘘になる。
+    #   1枚に複数の鞍が入るので、全部鏡なら「左が前」、全部ふつうなら「右が前」、
+    #   混ざっていたらどちらとも書かない（ルール43の★で残していた1点）。
+    nf = sum(1 for R_ in drawn if R_ in flip)
+    mix = bool(drawn) and 0 < nf < len(drawn)
+    muki = ('前の向きは鞍ごとに変わります' if mix else
+            ('左が前' if (drawn and nf) else '右が前'))
+    mline = '<b>%s</b>%s馬番は枠の色。' % (muki, '。' if mix else '、')
+    sub = ('<div class="sub"><b>1コーナーでの隊列想定</b>　／　%s</div>' % muki if plain else
            '<div class="sub"><b>1コーナーでの隊列想定</b>　／　過去走の<b>1コーナー通過順</b>で隊列を組み、'
-            '<b>枠と騎手</b>で位置を直しています。<b>右が前</b>、馬番は枠の色。<br>'
+            '<b>枠と騎手</b>で位置を直しています。' + mline + '<br>'
             '内外は枠と騎手から —— 1枠79.8% / 2枠71.1% / 3枠60.5% / 4枠50.9% / '
             '5枠45.0% / 6枠34.6% / 7枠30.8% / 8枠21.9%（4コーナーで併走したとき内にいた割合・'
             '南関12,244頭）。騎手は併走60回以上の人だけ、基準線44.7%との差を足しています。<br>'

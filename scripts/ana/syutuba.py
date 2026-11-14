@@ -70,6 +70,42 @@ def flat(t):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t))
 
 
+def nosp(s):
+    """名前から空白（全角スペースを含む）を落とす。
+       楽天は1字姓を「所　蛍」と全角スペースで埋めてくる。jk_soto.json 側は素の3字。"""
+    s = re.sub(r"\s+", "", s or "")
+    return s or None
+
+
+def profile(blk):
+    """`class="profile"` のセルから（騎手, 調教師）を取る。
+
+    セルの中身は <br> 区切りで
+      性齢 ／ 毛色 ／ 負担重量 ／ 騎手 ／（所属）／【勝率】／【3着内率】／ 調教師。
+
+    ★ 以前は平らにしたブロック全体を
+      `(?:\\d+\\.\\d)\\s+([^\\s（）\\[\\]【】]{2,6})\\s*[（(]` で探していた。
+      名前に全角スペースが入る騎手（1字姓の「所　蛍」など）はこの名前パターンに
+      当たらないので先頭で照合できず、そのまま過去走の表まで走って
+      「54.0 1:45.2 (1.6)」を拾い、**jk が `1:45.2` になっていた**
+      （2026-10-27 大井10R ①ジュアルエリモ）。セルを <br> で区切って読めばずれない。
+    """
+    m = re.search(r'class="profile"[^>]*>(.*?)</td>', blk, re.S)
+    if not m:
+        return None, None
+    ps = [x for x in (flat(y).strip() for y in re.split(r"<br\s*/?>", m.group(1))) if x]
+    jk = tr = None
+    for i, x in enumerate(ps[:-1]):
+        if re.fullmatch(r"\d+(?:\.\d)?", x):          # 負担重量。その次が騎手
+            nx = ps[i + 1]
+            if not re.search(r"[【】（）()]", nx):     # 騎手が未定の鞍は（所属）が来る
+                jk = nosp(nx)
+            break
+    if ps and not re.search(r"[【】（）()]", ps[-1]):  # 最後が調教師
+        tr = nosp(ps[-1])
+    return jk, tr
+
+
 def secs(s):
     """走破タイム「1:41.2」「41.2」を秒に。★ 自前半＝走破タイム−上がり3F。
        楽天は前半タイムを出さないが、引き算で出る。"""
@@ -107,15 +143,11 @@ def one(base, R):
                          "t": sec, "zen": round(sec - agf, 1) if sec else None,
                          "w": int(w), "waku": int(wk), "tsuka": q,
                          "c1": q[0] if q else None, "c4": q[-1] if q else None})
-        # ★ 騎手と調教師（2026-11-11 に追加）
-        #   ブロックは「54.0 | 野畑凌 | （川 崎） | 【0.0%】 | 【0.0%】 | 山崎誠」の並び。
+        # ★ 騎手と調教師（2026-11-11 に追加 / 2026-11-14 に profile セル読みへ直した）
         #   オッズ頁（tanfuku）は発走の数時間前まで開かないので、前夜はここからしか取れない。
         #   騎手は内外（jk_soto.json）に、調教師は2頭出しの判定に使う。
-        mjk = re.search(r"(?:\d+\.\d)\s+([^\s（）\[\]【】]{2,6})\s*[（(]", fb)
-        mtr = re.search(r"】\s*([^\s（）\[\]【】]{2,6})\s", fb[fb.find("】"):]) if "】" in fb else None
-        if mtr:
-            mtr = re.findall(r"】\s*([^\s（）\[\]【】]{2,6})\s", fb)
-            mtr = mtr[-1] if mtr else None
+        #   減量記号（△▲◇☆★◎）は付いたまま返す（照合側で外す ── CLAUDE.md ルール21★）。
+        mjk, mtr = profile(blk)
         # ★ 当日だけ入る欄。前日は空
         mo = re.search(r"(\d+\.\d)\s*倍", fb)
         mnk = re.search(r"(\d{1,2})\s*番人気", fb)
@@ -126,8 +158,7 @@ def one(base, R):
                    "nin": int(mnk.group(1)) if mnk else None,
                    "w": int(mww.group(1)) if mww else None,
                    "dw": mww.group(2).replace("±", "+") if mww else None,
-                   "jk": mjk.group(1) if mjk else None,
-                   "tr": mtr if mtr else None})
+                   "jk": mjk, "tr": mtr})
     return {"R": R, "dist": int(md.group(2).replace(",", "")) if md else None,
             "start": ms.group(1) if ms else "", "cls": ms.group(2) if ms else "",
             "horses": hs}

@@ -16,3 +16,9 @@ HORSE = '''<svg class="hv" viewBox="0 0 118 78" width="60" height="40" aria-hidd
 CHEV = ('<svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true">'
         '<g fill="none" stroke="{c}" stroke-width="2.6" stroke-linecap="round">'
         '<path d="M2 3 L7 7 L2 11"/><path d="M10 3 L15 7 L10 11"/></g></svg>')
+
+# 左向きの矢印（CHEV を x=11 で鏡にしただけ）。鏡の鞍（大井1600/1800/2000m・川崎2000m）で使う。
+# ★ CHEV 自体は変えない。zu.py / taretsu_zu.py / kekka_zu.py の出力を動かさないため。
+CHEV_L = ('<svg class="cv" viewBox="0 0 22 14" width="15" height="10" aria-hidden="true">'
+          '<g fill="none" stroke="{c}" stroke-width="2.6" stroke-linecap="round">'
+          '<path d="M20 3 L15 7 L20 11"/><path d="M12 3 L7 7 L12 11"/></g></svg>')
