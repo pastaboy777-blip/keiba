@@ -969,6 +969,11 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
     nod = [r for r in rows if r.get(k) is None]          # 過去走が無い馬も描く(後方に置いて札)
     hs += nod
     W, P, G = 940, 22, 138    # 盤面の幅の目安(px)。置くときは % に直すので画面幅が違っても切れない
+    lb0 = (getattr(fc, "lane", None) or (None,))[0]
+
+    def wid(r):   # 名前と札の幅の目安(札1つ +58px)。右隣の馬の名前に札がかからないように
+        nt = (1 if kikou_tag(r["ub"]) else 0) + (1 if r.get(k) is None else 0) + (1 if lb0 else 0)
+        return G + 8 * max(0, len(r.get("name") or "") - 7) + 58 * nt
     lanes, cells = [], []
     for r in hs:
         if r.get(k) is not None:
@@ -980,7 +985,7 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
         while True:
             while len(lanes) <= i:
                 lanes.append(1e9)
-            if x < lanes[i] - G:
+            if x + wid(r) < lanes[i] + 4:
                 lanes[i] = x
                 cells.append((r, x, i))
                 break
