@@ -60,6 +60,14 @@ def race_id_of(cname: str) -> str | None:
     return f"{year}{jyo}{kai}{nichi}{r}"
 
 
+def is_jump(race_type: str | None, name: str | None = "", grade: str | None = "") -> bool:
+    """障害レースか。公式ページのコース表記は障害でも「（芝）」「（芝→ダート）」などで、
+    「障害」とは書かれない(2026-11-14 東京8R 秋陽ジャンプS で確認)。
+    確かな手がかりは category 欄の「障害3歳以上」。名前の「ジャンプ」、グレードの「J・G」も見る。"""
+    return ("障害" in (race_type or "") or "ジャンプ" in (name or "") or "障害" in (name or "")
+            or "J・G" in (grade or "") or "J.G" in (grade or ""))
+
+
 def parse_race(html: str, race_id: str) -> dict | None:
     """結果ページ → dataset 形式の dict。着順表が無ければ None。"""
     tb = re.search(r"<table[^>]*>(.*?)</table>", html, re.S)
@@ -116,6 +124,9 @@ def parse_race(html: str, race_id: str) -> dict | None:
     grade = re.search(r'alt="(G(?:&#8544;|&#8545;|&#8546;|Ⅰ|Ⅱ|Ⅲ)|J・G[^"]*|L)"', html)
     s = dist.group(2) if dist else None
     surface = {"芝": "芝", "ダート": "ダ", "障害": "障"}.get(s)
+    if is_jump(_txt(typ_m.group(1)) if typ_m else "", _txt(name.group(1)) if name else "",
+               unescape(grade.group(1)) if grade else ""):
+        surface = "障"
     return {
         "race_id": race_id,
         "date": "%s-%02d-%02d" % (date.group(1), int(date.group(2)), int(date.group(3))) if date else "",

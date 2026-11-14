@@ -15,6 +15,9 @@ from pathlib import Path
 
 import requests
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from nankeiba.scraping.jra_official import is_jump  # noqa: E402  障害の判定(コース欄は障害でも「（芝）」)
+
 URL = "https://www.jra.go.jp/JRADB/accessD.html"
 PLACE = {"01": "札幌", "02": "函館", "03": "福島", "04": "新潟", "05": "東京", "06": "中山", "07": "中京", "08": "京都", "09": "阪神", "10": "小倉"}
 S = requests.Session()
@@ -66,7 +69,8 @@ def parse(html, cname):
     s = dist.group(2) if dist else None
     return {"race_id": f"{year}{jyo}{kai}{nichi}{r}", "date": f"{ymd[:4]}-{ymd[4:6]}-{ymd[6:]}", "place": PLACE[jyo],
             "name": txt(name.group(1)) if name else "", "distance": int(dist.group(1).replace(",", "")) if dist else 0,
-            "surface": "障" if "障害" in body[:3000] and "ジャンプ" in (txt(name.group(1)) if name else "") else {"芝": "芝", "ダート": "ダ", "障害": "障"}.get(s), "baba": None, "field_size": len(res),
+            "surface": "障" if is_jump(txt(cls[0][1]) if cls else "", txt(name.group(1)) if name else "")
+            else {"芝": "芝", "ダート": "ダ", "障害": "障"}.get(s), "baba": None, "field_size": len(res),
             "result": sorted(res, key=lambda x: x["umaban"]), "lap": [], "corners": {}, "payouts": {},
             "race_class": txt(cls[1][1]) if len(cls) > 1 else None, "race_type": txt(cls[0][1]) if cls else None,
             "grade": None, "start": f"{int(t.group(1)):02d}:{t.group(2)}" if t else None, "source": "jra.go.jp shutuba"}
