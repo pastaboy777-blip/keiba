@@ -1583,6 +1583,7 @@ def main() -> None:
     ap.add_argument("--style", choices=["kawa", "simple", "stages"], default="kawa",
                     help="simple=4角1枚+赤丸(川崎の図と同じ形) / stages=スタート後・3角・4角の3段")
     ap.add_argument("--zone-front", type=float, default=0.4, help="狙う帯の前後の幅(前から何割、既定0.4)")
+    ap.add_argument("--base-time", help='時計の基準を手で決める(例 "1:11.8")。ラップ想定は出さない')
     ap.add_argument("--kikou", action="store_true", help="気候の札を出す(既定は出さない)")
     ap.add_argument("--base-day", help="時計の基準にする開催日 YYYY-MM-DD(カンマで複数)。同じ場・芝ダ・距離の実際の時計の中央値")
     ap.add_argument("--base-baba", help="時計の基準にする馬場(良/稍/重/不、カンマで複数)")
@@ -1686,6 +1687,10 @@ def one_race(a, ap):
             conf = "高" if margin >= 0.78 else ("中" if margin >= 0.35 else "低")
             fc.pace_model = "LightGBM"
         apply_learned_pace(fc, rows, diff, q=q)
+        if getattr(a, "base_time", None) and est:
+            mm_, ss_ = a.base_time.split(":")
+            est = dict(est, time=int(mm_) * 60 + float(ss_))
+            est.pop("laps", None)
         fc.n_learn, fc.conf, fc.est, fc.q = nl, conf, est, q
     fc._place, fc._surface, fc._dist = place, surface, dist
     return render_race(rno, name, dist, surface, baba, len(rows), fc, rows, rk), place, rno, fc
