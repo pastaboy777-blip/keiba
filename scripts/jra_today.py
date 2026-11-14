@@ -12,7 +12,8 @@
    - 出馬表の行の馬場は朝の値(data/jra/morning_YYYYMMDD.json)で埋める。--baba/--baba-dirt があればそれで上書き
 3) scripts/daily/zu_jra_YYYYMMDD_<場>.html を作り直す
    - data/jra/morning_YYYYMMDD.json(scripts/jra_morning.py が残す)があれば、場ごとに朝と同じ
-     時計の基準・丸などで作る。--baba/--baba-dirt で馬場を変えた場は、時計の基準をその馬場で選び直す
+     時計の基準・丸などで作る。--baba/--baba-dirt で馬場を変えた場は、時計の基準をその馬場で選び直し、
+     その馬場と基準を morning_YYYYMMDD.json に書き戻す(丸などは残す。次の作り直しでは指定不要)
    - 無ければ今までどおり(--extra だけ)
    - --extra は朝の引数の後ろに足す
 4) --png で 1鞍ずつのPNG(data/zu_png/YYYYMMDD/<場>_<R>R.png)も作り直す。2分割(split)は作り直さない
@@ -85,7 +86,8 @@ def main():
     done = {d["race_id"] for d in races}
 
     mp = jra / f"morning_{ymd}.json"
-    morning = json.loads(mp.read_text(encoding="utf-8")).get("places", {}) if mp.exists() else {}
+    mdoc = json.loads(mp.read_text(encoding="utf-8")) if mp.exists() else {"date": a.date, "places": {}}
+    morning = mdoc.setdefault("places", {})
     if morning:
         print("朝の設定:", mp.relative_to(ROOT))
     else:
@@ -93,6 +95,22 @@ def main():
     turf = {p: m["turf"] for p, m in morning.items()} | over_t
     dirt = {p: m["dirt"] for p, m in morning.items()} | over_d
     fill = bool(morning or over_t or over_d)
+
+    # --baba/--baba-dirt で変えた場は、時計の基準を選び直して morning_YYYYMMDD.json に書き戻す
+    # (丸などの mark_args は残す)。次の作り直しで指定し直さなくてよいように。
+    desc_by_place = {}
+    for p in sorted(set(over_t) | set(over_d)):
+        t = turf.get(p, "良")
+        dd = dirt.get(p, t)
+        bb, desc_by_place[p] = base_args(races, p, {"芝": t, "ダ": dd}, a.date)
+        m = morning.setdefault(p, {"mark_args": []})
+        mark = m.get("mark_args", [])
+        m.update({"turf": t, "dirt": dd, "base_args": bb, "mark_args": mark, "zu_args": bb + mark})
+    if desc_by_place:
+        mp.write_text(json.dumps(mdoc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        print(f"{mp.relative_to(ROOT)} に書き戻し: " + " / ".join(
+            f"{p} 芝{BABA_LONG[morning[p]['turf']]}・ダ{BABA_LONG[morning[p]['dirt']]}"
+            f"({' '.join(morning[p]['base_args'])})" for p in desc_by_place))
 
     allp = jra / f"all_{ymd}.jsonl"
     with allp.open("w", encoding="utf-8") as fo:
@@ -120,13 +138,11 @@ def main():
         if m or p in over_t or p in over_d:
             t = turf.get(p, "良")
             dd = dirt.get(p, t)
-            if m and p not in over_t and p not in over_d:
-                args += m["base_args"]
-                note = f"朝の基準(芝{BABA_LONG[t]}・ダ{BABA_LONG[dd]})"
+            args += m["base_args"]
+            if p in desc_by_place:
+                note = f"芝{BABA_LONG[t]}・ダ{BABA_LONG[dd]}で選び直し: {desc_by_place[p]}"
             else:
-                bb, desc = base_args(races, p, {"芝": t, "ダ": dd}, a.date)
-                args += bb
-                note = f"芝{BABA_LONG[t]}・ダ{BABA_LONG[dd]}で選び直し: {desc}"
+                note = f"朝の基準(芝{BABA_LONG[t]}・ダ{BABA_LONG[dd]})"
             args += (m or {}).get("mark_args", [])
             print(f"[{p}] {note}  丸など {' '.join((m or {}).get('mark_args', [])) or 'なし'}", flush=True)
         out = ROOT / "scripts" / "daily" / f"zu_jra_{ymd}_{p}.html"
