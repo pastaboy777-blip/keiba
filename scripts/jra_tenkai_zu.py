@@ -719,14 +719,17 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
             '<span class="rd"><span class="st">%s</span>%s%dm ／ %d頭 ／ %s</span>'
             '<span class="pace p-%s"><b>%s</b> %s</span>%s</div>'
             '<div class="pbar p-%s"><div class="bar"><span>ゆっくり</span><span>ふつう</span><span>速い</span>'
-            '<i style="left:%.1f%%"></i></div><div class="flow">→ <b>%s</b>　<small>%s</small></div></div>'
+            '<i style="left:%.1f%%"></i></div><div class="flow">→ <b>%s</b>　<small>%s</small></div>%s</div>'
             '%s<div class="kenkai"><div class="kt">見解</div><p>%s</p></div></div>'
             % (" nopace" if globals().get("_CUR_RNO") in HIDE_PACE else "", rno, start, surface, dist, n, H.escape(name), pcls, ptag,
                {"スロー": "スロー", "ミドル": "ミドル", "ハイ": "ハイ"}[fc.pace] + "想定",
                (('<span class="tbase"><b>%d:%04.1f</b> の時計をベースにしています%s</span>'
                  % (*divmod(est["time"], 60), _lap_text(est)))
                 if (est and globals().get("_CUR_RNO") in HIDE_PACE) else ""),
-               pcls, mark * 100, flow.split("→ ")[-1], lvl, board_html, kawa_memo(fc, rows, rk, dist, surface)))
+               pcls, mark * 100, flow.split("→ ")[-1], lvl,
+               (('<div class="lanebias">今開催は4角で%sが来ている(前の開催日の3着内 %d頭のうち外 %d%%、ふだん49%%) → %s◎の札</div>'
+                 % (fc.lane[0], fc.lane[2], fc.lane[1] * 100, fc.lane[0])) if getattr(fc, "lane", (None,))[0] else ""),
+               board_html, kawa_memo(fc, rows, rk, dist, surface)))
     missing = [r for r in rows if r["pos"] is None]
     miss = ""
     if missing:
@@ -858,6 +861,38 @@ def uma_fig(waku, ub, col):
     return ('<img class="uma" src="%s" alt="">' % img) if img else HORSE.format(c=col)
 
 
+_DATA_PATH = None
+
+
+def lane_bias(place, surface, date):
+    """同じ開催の前の開催日(8日以内)、4角の通過順で3着内の馬が組(2頭以上)の外にいた割合。
+    3年の芝で外49%・内40%、1日ごとの外率は中央50%・上位10%が67%(2026-11-14 福島芝は75%)。
+    返り値 ("外"|"内"|None, 外率, 頭数)"""
+    import re as re_
+    import datetime as dt_
+    if not _DATA_PATH or not date:
+        return None, None, 0
+    d0 = dt_.date.fromisoformat(date)
+    c = {"外": 0, "内": 0, "中": 0}
+    for d in load_rows(_DATA_PATH):
+        if d.get("place") != place or d.get("surface") != surface or not d.get("lap") or d["date"] >= date:
+            continue
+        if (d0 - dt_.date.fromisoformat(d["date"])).days > 8:
+            continue
+        gs = [[int(x) for x in re_.findall(r"\d+", t)]
+              for t in re_.findall(r"\([^)]*\)|\d+", ((d.get("corners") or {}).get("4") or "").replace("*", ""))]
+        for r in d["result"]:
+            if (r.get("finish_pos") or 99) <= 3:
+                for g in gs:
+                    if r["umaban"] in g and len(g) >= 2:
+                        c["外" if g[-1] == r["umaban"] else "内" if g[0] == r["umaban"] else "中"] += 1
+    n = sum(c.values())
+    if n < 8:
+        return None, None, n
+    sh = c["外"] / n
+    return ("外" if sh >= 0.67 else "内" if sh <= 0.33 else None), sh, n
+
+
 HIDE_PACE: set = set()   # ペース想定の札を出さない R(--hide-pace "12")
 CIRCLE: dict = {}   # 手で丸を付ける馬 {R番号(int): {馬番}}。--circle "12:6,12,15;3:8"
 
@@ -894,6 +929,12 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
         img = uma_img(r["waku"], r["ub"], px=64)
         fig = ('<img class="uk" src="%s" alt="">' % img) if img else HORSE.format(c="#d8c7ae")
         tag = kikou_tag(r["ub"])
+        lb = (getattr(fc, "lane", None) or (None,))[0]
+        osc = r.get("outer_score", 0)
+        if lb == "外" and hs and osc >= sorted(x.get("outer_score", 0) for x in hs)[len(hs) * 2 // 3]:
+            tag += '<span class="klane">外◎</span>'
+        elif lb == "内" and hs and osc <= sorted(x.get("outer_score", 0) for x in hs)[len(hs) // 3]:
+            tag += '<span class="klane">内◎</span>'
         if r.get(k) is None:
             tag = '<span class="knd">過去走なし</span>' + tag
         hh.append('<div class="kh" style="left:%.2f%%;top:%dpx"><div class="kf">%s<span class="kc" style="color:%s">&raquo;</span></div>'
@@ -1332,6 +1373,8 @@ CSS_EXTRA = """
 .kring{position:absolute;border:5px solid rgba(232,40,40,.95);border-radius:50%;
  box-shadow:0 0 12px rgba(232,40,40,.55);pointer-events:none;z-index:0}
 .kh{z-index:2}
+.klane{display:inline-block;font-size:8.5px;color:#0c0c0e;background:#ffb347;border-radius:3px;padding:0 4px;margin:1px 0 0 3px;font-weight:800}
+.lanebias{margin-top:4px;font-size:12px;color:#ffb347;font-weight:700}
 .knd{display:inline-block;font-size:8.5px;color:#fff;background:#d9577a;border-radius:3px;padding:0 4px;margin:1px 0 0 18px}
 .kh .kik{font-size:8.5px;padding:0 3px;margin:1px 0 0 18px}
 .race.kawa .rd .st{color:#e8a33a;margin-right:8px;font-weight:700}
@@ -1476,6 +1519,8 @@ def one_race(a, ap):
     fc, rows, rk = build(past, waku, place=place, dist=dist, surface=surface, baba=baba, jockeys=jockeys)
     globals()["_CUR_SURF"] = surface
     globals()["_CUR_RNO"] = int(rno) if str(rno).isdigit() else None
+    globals()["_DATA_PATH"] = a.pace_data
+    fc.lane = lane_bias(place, surface, a.date) if a.pace_data else (None, None, 0)
     fc._start = (ME_RACE or {}).get("start") if getattr(a, "from_data", False) else None
     if a.pace_data:
         diff, nl, conf, q, est = learned_pace(a.pace_data, a.date, place=place, dist=dist, surface=surface,
