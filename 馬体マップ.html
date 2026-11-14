@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>馬体の見方 1枚図解</title>
+<meta name="description" content="サラブレッドの馬体コンフォメーションと脚元を1枚で把握する模式図＋早見表。確からしさ（高/中/通説）付き。">
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg:#f6f4ef;
+    --panel:#ffffff;
+    --panel2:#fbfaf6;
+    --ink:#20242e;
+    --muted:#5b6472;
+    --line:#ded9cf;
+    --line-strong:#c7c1b4;
+    --horse:#ece5d6;
+    --horse-2:#e0d8c6;
+    --horse-stroke:#6a6150;
+    --leg-far:#cdc6b6;
+    --guide:#7b8794;
+    --accent:#2f6f6a;
+    --hi:#1d7a46;
+    --hi-bg:#e3f1e8;
+    --mid:#9a6a12;
+    --mid-bg:#f6ecd4;
+    --lore:#5f6670;
+    --lore-bg:#eceae5;
+    --bad:#b0412c;
+    --shadow:0 1px 2px rgba(20,22,28,.06),0 6px 20px rgba(20,22,28,.07);
+  }
+  :root:not([data-theme="light"]){
+    @media (prefers-color-scheme: dark){
+      --bg:#14161b;
+      --panel:#1d2026;
+      --panel2:#23262d;
+      --ink:#eceef2;
+      --muted:#a3abb8;
+      --line:#333843;
+      --line-strong:#434a56;
+      --horse:#3a3528;
+      --horse-2:#45402f;
+      --horse-stroke:#c9bfa6;
+      --leg-far:#4a4535;
+      --guide:#8d99a8;
+      --accent:#5fb8b0;
+      --hi:#58c88a;
+      --hi-bg:#163024;
+      --mid:#e0b34f;
+      --mid-bg:#352a13;
+      --lore:#aeb6c2;
+      --lore-bg:#2a2d34;
+      --bad:#e8775f;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14161b;--panel:#1d2026;--panel2:#23262d;--ink:#eceef2;--muted:#a3abb8;
+    --line:#333843;--line-strong:#434a56;--horse:#3a3528;--horse-2:#45402f;--horse-stroke:#c9bfa6;
+    --leg-far:#4a4535;--guide:#8d99a8;--accent:#5fb8b0;--hi:#58c88a;--hi-bg:#163024;
+    --mid:#e0b34f;--mid-bg:#352a13;--lore:#aeb6c2;--lore-bg:#2a2d34;--bad:#e8775f;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family: system-ui, "Hiragino Kaku Gothic ProN", sans-serif;
+    line-height:1.6;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:1040px;margin:0 auto;padding:24px 16px 56px}
+  header.top{margin-bottom:18px}
+  h1{font-size:clamp(1.3rem,3.4vw,1.9rem);margin:0 0 6px;letter-spacing:.02em}
+  .sub{color:var(--muted);font-size:.92rem;margin:0}
+  .callout{
+    margin:14px 0 20px;padding:12px 16px;border-radius:10px;
+    background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);
+    box-shadow:var(--shadow);font-size:.95rem;
+  }
+  .callout b{color:var(--accent)}
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    box-shadow:var(--shadow);padding:16px;margin-bottom:20px;
+  }
+  .card h2{font-size:1.05rem;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+  .card .note{color:var(--muted);font-size:.85rem;margin:0 0 10px}
+  /* confidence legend */
+  .legend{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;font-size:.88rem}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-weight:600;font-size:.8rem;white-space:nowrap}
+  .chip.hi{background:var(--hi-bg);color:var(--hi)}
+  .chip.mid{background:var(--mid-bg);color:var(--mid)}
+  .chip.lore{background:var(--lore-bg);color:var(--lore)}
+  .legend .def{color:var(--muted)}
+  /* svg */
+  .figure{width:100%;height:auto;display:block;background:var(--panel2);border-radius:10px}
+  .lead{stroke:var(--guide);stroke-width:1.4;fill:none}
+  .dot{fill:var(--accent)}
+  .lbl{fill:var(--ink);font-weight:700;font-size:16px}
+  .lbl.sm{font-weight:700;font-size:15px}
+  .en{fill:var(--muted);font-weight:500;font-size:11px}
+  .jointlabel{fill:var(--horse-stroke)}
+  .guidev{stroke:var(--guide);stroke-width:1.4;stroke-dasharray:5 5;opacity:.75;fill:none}
+  .guidetxt{fill:var(--guide);font-size:12px;font-weight:600}
+  /* table */
+  .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{border-collapse:collapse;width:100%;min-width:620px;font-size:.9rem}
+  caption{caption-side:top;text-align:left;color:var(--muted);font-size:.82rem;padding-bottom:8px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{background:var(--panel2);font-size:.82rem;color:var(--muted);font-weight:700;border-bottom:2px solid var(--line-strong);position:sticky;top:0}
+  tbody th{font-weight:800;color:var(--ink);white-space:nowrap}
+  td.ideal{color:var(--hi)}
+  td.bad{color:var(--bad)}
+  td.risk{color:var(--ink)}
+  tbody tr:nth-child(even){background:var(--panel2)}
+  .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.72rem;font-weight:700}
+  .tag.hi{background:var(--hi-bg);color:var(--hi)}
+  .tag.mid{background:var(--mid-bg);color:var(--mid)}
+  .tag.lore{background:var(--lore-bg);color:var(--lore)}
+  .principles{margin:14px 0 2px;padding:0;list-style:none;display:grid;gap:8px}
+  .principles li{padding-left:22px;position:relative;font-size:.9rem}
+  .principles li::before{content:"▸";position:absolute;left:4px;color:var(--accent);font-weight:700}
+  footer{color:var(--muted);font-size:.78rem;text-align:center;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>馬体の見方 ― 1枚図解</h1>
+    <p class="sub">サラブレッドのコンフォメーション（立ち姿）と脚元を、確からしさ付きで俯瞰する模式図。</p>
+  </header>
+
+  <div class="callout">
+    大前提：<b>馬体で成績は当てにくい＝血統（種牡馬効果）が支配的。</b>
+    立ち姿単独で勝ち負けを当てる力は総じて弱い（Love et al. 2006, 3,916頭）。
+    馬体が効くのは主に<b>故障のしやすさ・現役寿命・馬場適性</b>。消し材料・リスク評価・適性の手がかりとして使う。
+  </div>
+
+  <!-- 凡例 -->
+  <section class="card" aria-label="確からしさの凡例">
+    <h2>確からしさの凡例</h2>
+    <div class="legend">
+      <span><span class="chip hi">高</span><span class="def">大規模／複数研究で裏付けあり</span></span>
+      <span><span class="chip mid">中</span><span class="def">解剖・力学の理屈は通るが実証は限定的</span></span>
+      <span><span class="chip lore">通説</span><span class="def">広く語られるが裏付けが弱い／研究と食い違う</span></span>
+    </div>
+  </section>
+
+  <!-- 図 -->
+  <section class="card" aria-label="馬体の模式図">
+    <h2>部位マップ（横向きの模式図）</h2>
+    <p class="note">頭・首・き甲・肩・肩端・背/トップライン・胴(バレル)・腰/トモ・飛節・球節・繋・蹄・腕節(前膝) を識別。破線は脚元の「鉛直線チェック」の目安。</p>
+    <svg class="figure" viewBox="0 0 1020 650" role="img" aria-labelledby="figtitle figdesc">
+      <title id="figtitle">横向きの馬の部位模式図</title>
+      <desc id="figdesc">頭を左にした馬の模式図。各部位から引き出し線でラベルを付けている。</desc>
+
+      <!-- 鉛直線チェック（前肢）: 肩端から下ろす目安 -->
+      <line class="guidev" x1="384" y1="262" x2="384" y2="548"/>
+      <text class="guidetxt" x="390" y="600">鉛直線チェック（肩端→腕節・球節中央）</text>
+
+      <!-- far (奥) legs: lighter for depth -->
+      <g fill="var(--leg-far)">
+        <path d="M470 338 q 10 70 6 108 q -2 40 2 72 l 20 0 q 4 -34 2 -72 q -2 -40 6 -108 z"/>
+        <path d="M790 332 q -40 60 -48 92 q -10 44 -4 84 l 20 0 q -4 -42 4 -84 q 6 -30 46 -84 z"/>
+      </g>
+
+      <!-- horse body silhouette (facing left) -->
+      <path fill="var(--horse)" stroke="var(--horse-stroke)" stroke-width="2.4" stroke-linejoin="round"
+        d="M160 216
+           C 170 180, 190 150, 218 128
+           C 300 150, 420 150, 500 160
+           C 620 172, 740 168, 838 176
+           C 884 196, 916 240, 912 300
+           C 902 332, 840 344, 752 345
+           C 672 344, 600 352, 525 360
+           C 470 364, 430 350, 400 330
+           C 388 312, 382 286, 384 260
+           C 340 214, 290 198, 250 195
+           C 212 198, 190 208, 183 214
+           C 176 216, 168 216, 160 216 Z"/>
+
+      <!-- near front leg -->
+      <path fill="var(--horse-2)" stroke="var(--horse-stroke)" stroke-width="2.2" stroke-linejoin="round"
+        d="M398 332
+           C 414 372, 426 392, 430 408
+           C 433 440, 436 460, 438 476
+           C 439 490, 440 500, 441 508
+           L 456 512
+           C 456 480, 454 452, 452 430
+           C 450 400, 440 372, 426 330 Z"/>
+      <!-- near hind leg (with hock angle) -->
+      <path fill="var(--horse-2)" stroke="var(--horse-stroke)" stroke-width="2.2" stroke-linejoin="round"
+        d="M835 330
+           C 828 362, 800 384, 760 404
+           C 752 430, 752 456, 754 476
+           C 755 490, 757 500, 758 508
+           L 773 512
+           C 773 482, 772 454, 772 430
+           C 773 404, 800 378, 865 340
+           C 862 332, 848 328, 835 330 Z"/>
+
+      <!-- hooves -->
+      <path fill="var(--horse-stroke)" d="M439 509 l 20 0 l 4 14 q -14 5 -28 0 z"/>
+      <path fill="var(--horse-stroke)" d="M756 509 l 20 0 l 4 14 q -14 5 -28 0 z"/>
+
+      <!-- joint markers -->
+      <g>
+        <circle cx="430" cy="408" r="6.5" fill="var(--panel2)" stroke="var(--horse-stroke)" stroke-width="2.2"/>
+        <circle cx="438" cy="476" r="6" fill="var(--panel2)" stroke="var(--horse-stroke)" stroke-width="2.2"/>
+        <circle cx="760" cy="404" r="7" fill="var(--panel2)" stroke="var(--horse-stroke)" stroke-width="2.2"/>
+        <circle cx="755" cy="476" r="6" fill="var(--panel2)" stroke="var(--horse-stroke)" stroke-width="2.2"/>
+      </g>
+
+      <!-- shoulder diagonal hint -->
+      <line x1="500" y1="162" x2="384" y2="260" stroke="var(--horse-stroke)" stroke-width="1.4" stroke-dasharray="4 4" opacity=".55"/>
+
+      <!-- ===== leader lines + anchors + labels ===== -->
+      <!-- 頭 head -->
+      <circle class="dot" cx="196" cy="168" r="3.5"/>
+      <line class="lead" x1="196" y1="168" x2="118" y2="150"/>
+      <text class="lbl" x="22" y="148" text-anchor="start">頭<tspan class="en" dx="6">head</tspan></text>
+
+      <!-- 首 neck -->
+      <circle class="dot" cx="320" cy="162" r="3.5"/>
+      <line class="lead" x1="320" y1="162" x2="320" y2="86"/>
+      <text class="lbl" x="320" y="74" text-anchor="middle">首<tspan class="en" dx="4">neck</tspan></text>
+
+      <!-- き甲 withers -->
+      <circle class="dot" cx="500" cy="161" r="3.5"/>
+      <line class="lead" x1="500" y1="161" x2="500" y2="86"/>
+      <text class="lbl" x="500" y="74" text-anchor="middle">き甲<tspan class="en" dx="4">withers</tspan></text>
+
+      <!-- 背/トップライン back -->
+      <circle class="dot" cx="650" cy="170" r="3.5"/>
+      <line class="lead" x1="650" y1="170" x2="690" y2="86"/>
+      <text class="lbl" x="690" y="74" text-anchor="middle">背／トップライン<tspan class="en" dx="4">back</tspan></text>
+
+      <!-- 腰/トモ hindquarters -->
+      <circle class="dot" cx="852" cy="210" r="3.5"/>
+      <line class="lead" x1="852" y1="210" x2="930" y2="128"/>
+      <text class="lbl" x="930" y="118" text-anchor="middle">腰／トモ<tspan class="en" dx="4">後躯</tspan></text>
+
+      <!-- 肩 shoulder -->
+      <circle class="dot" cx="440" cy="212" r="3.5"/>
+      <line class="lead" x1="440" y1="212" x2="118" y2="232"/>
+      <text class="lbl" x="22" y="230" text-anchor="start">肩<tspan class="en" dx="6">shoulder</tspan></text>
+
+      <!-- 肩端 point of shoulder -->
+      <circle class="dot" cx="384" cy="262" r="3.5"/>
+      <line class="lead" x1="384" y1="262" x2="118" y2="300"/>
+      <text class="lbl" x="22" y="298" text-anchor="start">肩端<tspan class="en" dx="6">point of shoulder</tspan></text>
+
+      <!-- 腕節(前膝) knee -->
+      <circle class="dot" cx="430" cy="408" r="3.5"/>
+      <line class="lead" x1="430" y1="408" x2="118" y2="396"/>
+      <text class="lbl sm" x="22" y="394" text-anchor="start">腕節（前膝）<tspan class="en" dx="4">knee / carpus</tspan></text>
+
+      <!-- 球節 fetlock -->
+      <circle class="dot" cx="438" cy="476" r="3.5"/>
+      <line class="lead" x1="438" y1="476" x2="118" y2="456"/>
+      <text class="lbl sm" x="22" y="454" text-anchor="start">球節<tspan class="en" dx="6">fetlock</tspan></text>
+
+      <!-- 繋 pastern -->
+      <circle class="dot" cx="446" cy="498" r="3.5"/>
+      <line class="lead" x1="446" y1="498" x2="118" y2="508"/>
+      <text class="lbl sm" x="22" y="506" text-anchor="start">繋<tspan class="en" dx="6">pastern</tspan></text>
+
+      <!-- 蹄 hoof -->
+      <circle class="dot" cx="449" cy="518" r="3.5"/>
+      <line class="lead" x1="449" y1="518" x2="150" y2="560"/>
+      <text class="lbl sm" x="22" y="564" text-anchor="start">蹄<tspan class="en" dx="6">hoof</tspan></text>
+
+      <!-- 飛節 hock -->
+      <circle class="dot" cx="760" cy="404" r="3.5"/>
+      <line class="lead" x1="760" y1="404" x2="958" y2="404"/>
+      <text class="lbl" x="880" y="400" text-anchor="start">飛節<tspan class="en" dx="4">hock</tspan></text>
+
+      <!-- バレル(胴) barrel -->
+      <circle class="dot" cx="600" cy="330" r="3.5"/>
+      <line class="lead" x1="600" y1="330" x2="600" y2="628"/>
+      <text class="lbl" x="600" y="645" text-anchor="middle">バレル（胴）<tspan class="en" dx="4">barrel ＝心肺スペース</tspan></text>
+    </svg>
+  </section>
+
+  <!-- 早見表 -->
+  <section class="card" aria-label="脚元の早見表">
+    <h2>脚元 早見表</h2>
+    <p class="note">脚元は「蹄‐繋軸が一直線か」「鉛直線が関節中央を通るか」で見る。理想角度の数値は資料でばらつく＝目安。</p>
+    <div class="tablewrap">
+      <table>
+        <caption>繋・球節・蹄・飛節・腕節 ― 理想／悪い例／主リスク（第2章の早見表を流用）</caption>
+        <thead>
+          <tr>
+            <th scope="col">部位</th>
+            <th scope="col">理想</th>
+            <th scope="col">悪い例</th>
+            <th scope="col">主リスク</th>
+            <th scope="col">確度</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">繋 <span class="en" style="font-weight:500;color:var(--muted)">pastern</span></th>
+            <td class="ideal">蹄‐繋軸が一直線／角度と長さの相性（前 約45〜50°）</td>
+            <td class="bad">立ち繋ぎ（短・急）／寝繋ぎ（長・緩）</td>
+            <td class="risk">立＝球節・舟状骨／寝＝種子骨・屈腱・繋靱帯</td>
+            <td><span class="tag lore">通説〜中</span></td>
+          </tr>
+          <tr>
+            <th scope="row">球節 <span class="en" style="font-weight:500;color:var(--muted)">fetlock</span></th>
+            <td class="ideal">全力時の沈み込み（過伸展）が過大でない</td>
+            <td class="bad">dropped＝沈み込み過大・左右差・腫脹熱感</td>
+            <td class="risk">繋靱帯装置の破綻 → ブレークダウン（両種子骨骨折）</td>
+            <td><span class="tag hi">機序：高</span></td>
+          </tr>
+          <tr>
+            <th scope="row">蹄 <span class="en" style="font-weight:500;color:var(--muted)">hoof</span></th>
+            <td class="ideal">蹄‐繋軸が一直線・厚壁・丸く均整</td>
+            <td class="bad">扁平蹄・薄壁・低踵/長爪先・狭蹄</td>
+            <td class="risk">挫傷・軟骨下骨障害・種子骨骨折（低踵で悪化）</td>
+            <td><span class="tag mid">低踵＝中</span> <span class="tag lore">形＝通説</span></td>
+          </tr>
+          <tr>
+            <th scope="row">飛節 <span class="en" style="font-weight:500;color:var(--muted)">hock</span></th>
+            <td class="ideal">160°前後・鉛直線に沿う・後望でまっすぐ</td>
+            <td class="bad">曲飛（sickle）／直飛（post-legged）</td>
+            <td class="risk">カーブ・飛節内腫・OA（両極端で非効率）</td>
+            <td><span class="tag mid">病態＝中</span> <span class="tag lore">角度＝通説</span></td>
+          </tr>
+          <tr>
+            <th scope="row">腕節 <span class="en" style="font-weight:500;color:var(--muted)">carpus</span></th>
+            <td class="ideal">まっすぐ・鉛直線が中央を通る</td>
+            <td class="bad">back／over at the knee・オフセット（bench）</td>
+            <td class="risk">back＝腕骨チップ骨折・屈腱の素因（過伸展）</td>
+            <td><span class="tag lore">通説強</span> <span class="tag mid">研究は否定寄りも</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ul class="principles">
+      <li><b>蹄‐繋軸（hoof-pastern axis）</b>：蹄壁背側と P1・P2 のラインが平行であること。前折れ＝立ち過ぎ、後折れ＝低踵・寝過ぎ。</li>
+      <li><b>鉛直線チェック</b>：前肢は肩端からの線が腕節・球節中央を通る。後肢は臀端からの線が飛節後面〜球節後面に沿う。</li>
+      <li>運動器疾患は競走馬の疾病の<b>約55%</b>（JRA）。脚元は「走る理由」より「壊れにくさ」を読む場所。<span class="tag hi">高</span></li>
+    </ul>
+  </section>
+
+  <footer>
+    出典：『馬体の見方 総合リファレンス』（本リポジトリ）第0・1・2章。確からしさ区分は同文書の表記に準拠。
+  </footer>
+
+</div>
+</body>
+</html>
