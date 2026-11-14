@@ -153,7 +153,15 @@ def row_of(h, dist, od):
                 gain=(st.median(per) if per else None), l=l, runs=len(P),
                 soto=((s['out'] / s['grp']) if s and s['grp'] >= 3 else None),
                 tr=(h.get('tr') or o.get('tr')),
-                chaku=o.get('chaku'), nin=o.get('nin'), odds=o.get('odds'))
+                chaku=o.get('chaku'),
+                # ★ 人気・単勝は出馬表にも入る（2026-11-14 に直した）。
+                #   syutuba.py の nin / odds は**前日は空で、当日に入る**（同ファイル冒頭）。
+                #   ここが o（--odds の頁）しか見ていなかったので、CLAUDE.md の
+                #   「発走30分前に取り直して印を打ち直す」をやっても人気が出なかった。
+                #   オッズ頁のほうが新しいので o を優先し、無ければ出馬表から拾う
+                #   （waku / jk / tr と同じ「両方見る」形。優先の向きだけ逆）。
+                nin=(o.get('nin') or h.get('nin')),
+                odds=(o.get('odds') or h.get('odds')))
 
 
 def arrange(rows, swap=(), noswap=False):
