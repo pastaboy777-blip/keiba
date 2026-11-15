@@ -136,6 +136,17 @@ FUTATSU = True       # 「先頭候補」の札を出すか（--no-futatsu で�
 SWAPDU = False       # True なら内度による前後の入れ替えを復活させる（--swapdu）
 FUTATSU_DP = 0.06    # 先頭2頭の pos 差がこれ未満なら「先頭候補」を2頭に出す
 
+# ★ 2026-11-15、ユーザーの指摘 ──「**5R ②④⑦⑧ 1直線にならぶのは不自然**」。
+#   過去走なしの馬は pos が「鞍の中央（全馬の中央値）」で**全頭まったく同じ値**になるので、
+#   図では横が1pxも違わず**縦一直線**に並んでいた。
+#   これは「この4頭が横一線に並ぶ」という、**過去走から言えないこと**を図が主張している状態。
+#   → 中央のあたりに**少しだけ**散らす。馬番の昇順に等間隔（乱数なし＝毎回同じ図）。
+#   幅は小さく、前後の集団に食い込まない程度。札の「過去走なし」はそのまま（ルール22）。
+#   いままでどおり全部中央に重ねる口は **`--nopast-center`**。
+NOPAST_CENTER = False    # True なら過去走なしを全部中央に重ねる（--nopast-center）
+NOPAST_STEP = 0.022      # 1頭ずつずらす幅（pos。図では約17px）
+NOPAST_MAX = 0.26        # 何頭いても全体でこれ以上は広げない（±0.13）
+
 JK = _load('jk_soto.json')
 SOTO = _load('soto.json')
 CSS = open(os.path.join(HERE, 'tenkai_zu.css')).read()
@@ -332,6 +343,17 @@ def _arrange(rows, swap=(), noswap=False):
     """pos を決めて、枠と騎手で近い2頭を入れ替える。過去走なしは鞍の中央に置く。"""
     ps = [r['pos'] for r in rows if r['pos'] is not None]
     mid = st.median(ps) if ps else .5
+    # ★ 過去走なしは鞍の中央。ただし**全頭まったく同じ値にしない**（2026-11-15、
+    #   ユーザーの指摘「5R ②④⑦⑧ 1直線にならぶのは不自然」）。
+    #   馬番の昇順に等間隔で中央の前後へずらす ── **乱数を使っていないので毎回同じ図**。
+    #   並びの順（馬番の昇順）は中央に重ねていたときと同じで、横だけが少し散る。
+    #   `--nopast-center` で元の「全部中央」に戻る。
+    npw = sorted((r for r in rows if r['pos'] is None), key=lambda r: r['ub'])
+    step = (0 if (NOPAST_CENTER or len(npw) < 2) else
+            min(NOPAST_STEP, NOPAST_MAX / (len(npw) - 1)))
+    for k, r in enumerate(npw):
+        r['pos'] = min(1., max(0., mid + (k - (len(npw) - 1) / 2) * step))
+        r['nopos'] = True
     for r in rows:
         if r['pos'] is None:
             r['pos'], r['nopos'] = mid, True
@@ -476,7 +498,7 @@ def main():
     #     大井1200mは最初に記録される角が3コーナー、1400mは2コーナー（ルール45）で地点は違うが、
     #     ユーザーの判断は「同じ」。**左右はそのまま**（どちらも MIRROR に入れない）。
     VFLIP = {('川崎', 2000), ('大井', 1200), ('大井', 1400)}
-    global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU
+    global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, NOPAST_CENTER
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
     # ★ 2026-11-14 に入れた3つを旧に戻す口（ルール44）。
@@ -484,6 +506,15 @@ def main():
     POS_MEDIAN = '--pos-median' in a              # pos を中央値に戻す
     FUTATSU = '--no-futatsu' not in a             # 「先頭候補」の札を出さない
     SWAPDU = '--swapdu' in a                      # 内度による前後の入れ替えを復活させる
+    # ★ 2026-11-15、過去走なしを中央に重ねる旧の形に戻す口（上の NOPAST_* の★）
+    NOPAST_CENTER = '--nopast-center' in a
+    # ★ 2026-11-15、ユーザーの指示 ──「**下がラチ沿いと書いて**」。
+    #   どちら側が内（ラチ沿い）かを、**馬が走る枠の外**に小さく書くだけ。
+    #   上下を返す鞍（VFLIP ＝ 川崎2000m・大井1200m・1400m）は内が**下**に来るので下に、
+    #   それ以外は**上**に出す（ルール43）。％も数字も出さない（ルール47）。
+    #   `--plain`（宣伝用）でも出す ── 向きを示すだけで手の内ではない。
+    #   止める口は **`--no-rachi`**。枠の中には何も足していないので馬は1pxも動かない。
+    rachi = '--no-rachi' not in a
     pace = {k: v.lower() for k, v in kv(a, '--pace').items()}
     ana_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--ana').items()}
     swap_sp = {k: v.split(',') for k, v in kv(a, '--swap').items()}
@@ -646,6 +677,19 @@ def main():
             cap = ('<div class="kd">最初のコーナー　%s</div>'
                    % ('← 左が前（スタンドから見た向き）' if R in flip
                       else '→ 右が前（スタンドから見た向き）'))
+        # ★ 2026-11-15、ユーザーの指示 ──「**下がラチ沿いと書いて**」。
+        #   どちら側が内かを**枠の外**に小さく1語だけ。上下を返す鞍（VFLIP）は内が下なので下、
+        #   それ以外は上（ルール43 ──「2000mスタート地点　内枠が下」「大井1600mは内が上だよ」）。
+        #   **枠の中には何も足していない** ので馬の left/top は1pxも動かない。
+        #   `--plain` でも出す（向きだけで手の内ではない）。止める口は `--no-rachi`。
+        ra_u = ra_d = ''
+        if rachi:
+            tag_ = '<div class="rachi%s">ラチ沿い</div>'
+            if vf:
+                ra_d = tag_ % ' d'
+            else:
+                ra_u = tag_ % ''
+        cap += ra_u
         # ★★ 2026-11-15、ユーザーの見本の画像どおりに3つ足した（「真似して」「書いてあること」）。
         #   並びは**見本のまま** ── 図の枠 → ●赤丸＝狙い → 過去の傾向 → 見解。
         #   どれも `.track` の**外**に置くので、**馬の left/top は1pxも動かない**
@@ -666,6 +710,7 @@ def main():
         # 凡例 … --ana / --ana2 で囲った鞍だけ（見本に「●赤丸＝狙い」と書いてある）
         leg = ('<div class="analeg"><b>●</b>赤丸＝狙い</div>'
                if (ana_sp.get(R) or ana2_sp.get(R)) and not plain else '')
+        leg = ra_d + leg          # ★ 下がラチ沿いの鞍（VFLIP）はここに出す（枠のすぐ下）
         # A … 過去の傾向（場×距離×馬場。中身は keiko.py。harvest だけを読む）
         kei = ('' if plain else
                '<div class="keiko"><h4>過去の傾向</h4><p><b>%s</b>　%s</p></div>'
