@@ -263,6 +263,7 @@ def ncor(ven, dist, tsuka=None):
         return len(tsuka)
     return None
 
+SUITEI = DORO = True                # main() の --no-suitei / --no-doro で止める
 JK = _load('jk_soto.json')
 SOTO = _load('soto.json')
 CSS = open(os.path.join(HERE, 'tenkai_zu.css')).read()
@@ -436,7 +437,25 @@ def row_of(h, dist, od, ven=None):
             mb, mbtag = -MB_CAP, '外%d/%d' % (s['out'], s['grp'])
         elif ri >= MB_TH:
             mb, mbtag = +MB_CAP, '内%d/%d' % (s['in'], s['grp'])
-    return dict(ub=h['ub'], name=h['name'], waku=waku, jk=jn, jr=jr, mbtag=mbtag,
+    # ★ 2026-11-15、道悪の札（ユーザーの指示 ── 見本の「道悪○」「道悪×」が足りない）。
+    #   その馬の過去走（出馬表の5走）だけの事実。新しく測りに行かない（最優先ルール）。
+    #   重・不良の走が2本以上ある馬だけ。3着内の割合を良・稍重の走と比べて
+    #     道悪○ … 道悪で3着内があり、良・稍重より割合が高い（良・稍重の走が無いときも○）
+    #     道悪× … 道悪で3着内が0本、良・稍重では3着内がある
+    #   札の数字は「道悪の3着内/道悪の走数」。％は出さない（ルール47）。
+    #   ★ 中央では「馬場の得手で狙いを動かす」は効かなかった（handoff_jra_to_nankan.md 1-6）。
+    #     札は材料を見せるだけで、隊列も位置も動かさない。
+    dd = [p for p in P if p.get('baba') in ('重', '不') and p.get('chaku')]
+    gg = [p for p in P if p.get('baba') in ('良', '稍') and p.get('chaku')]
+    wd = sum(p['chaku'] <= 3 for p in dd)
+    wg = sum(p['chaku'] <= 3 for p in gg)
+    doro = None
+    if len(dd) >= 2:
+        if wd and (not gg or wd / len(dd) > wg / len(gg)):
+            doro = ('○', wd, len(dd))
+        elif not wd and wg:
+            doro = ('×', wd, len(dd))
+    return dict(ub=h['ub'], name=h['name'], waku=waku, jk=jn, jr=jr, mbtag=mbtag, doro=doro,
                 uchi=WK.get(waku, .45) + ((jr - JK_BASE) if jr is not None else 0.0) + mb,
                 # ★ pos は既定で**直近重みづけ**（2026-11-14・ルール44。`--pos-median` で中央値）。
                 #   `--c4` / `--old`（当時の図を引き直す口）は**従来どおり中央値のまま**にする。
@@ -660,6 +679,9 @@ def main():
     #   `--plain`（宣伝用）でも出す ── 向きを示すだけで手の内ではない。
     #   止める口は **`--no-rachi`**。枠の中には何も足していないので馬は1pxも動かない。
     rachi = '--no-rachi' not in a
+    global SUITEI, DORO
+    SUITEI = '--no-suitei' not in a     # 推定タイムを止める口（2026-11-15）
+    DORO = '--no-doro' not in a         # 道悪の札を止める口（2026-11-15）
     pace = {k: v.lower() for k, v in kv(a, '--pace').items()}
     ana_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--ana').items()}
     swap_sp = {k: v.split(',') for k, v in kv(a, '--swap').items()}
@@ -737,6 +759,27 @@ def main():
         pc = pace.get(R, 'm')
         tag, nm, eff = LAB.get(pc, LAB['m'])
         b = T.sui(ven, v['dist'], baba)
+
+        # ★ 2026-11-15、推定タイム（ユーザーの指示 ── 見本は「推定 2:01.0（前3F 37.1・上がり 34.2）」。
+        #   こちらは水準しか出しておらず、速いか遅いかが読めなかった）。
+        #   数字は tenkai.race() がもともと出しているもの（推定前3F・推定走破）。
+        #   上がり＝水準の上がり3F ＋（走破のずれ − 前3Fのずれ）。中盤は水準どおりと置く。
+        #   「走破−前3F」では1200m以外で中盤まで入ってしまう（1600mで上がり65秒になった）。
+        #   1200m（前3F＋後3Fで全部）では「走破−前3F」とほぼ同じ値になる。
+        #   推定が出ない鞍（全頭過去走なし）は従来どおり水準だけ。
+        def suitei(v, b):
+            base = ('この鞍の前3Fの水準 %.1f秒' % b['f3']) if b else ''
+            if plain or not SUITEI:
+                return base
+            _, p = T.race(v, ven, baba)
+            if not p or not p.get('f3') or not p.get('est'):
+                return base
+            t, bb = p['est'], p['base']
+            if not bb.get('a3'):
+                return base
+            a3 = bb['a3'] + (t - bb['t']) - (p['f3'] - bb['f3'])
+            return ('推定 %d:%04.1f（前3F %.1f・上がり %.1f）　%s'
+                    % (int(t // 60), t % 60, p['f3'], a3, base))
         hh = []
         for r, x, ln in cells:
             lead = (r['chaku'] or 99) <= 3
@@ -769,6 +812,9 @@ def main():
             if r['mbtag'] and not plain:
                 so += '<span class="%s">過去 %s</span>' % (
                     'jin' if r['mbtag'][0] == '内' else 'jout', r['mbtag'])
+            if r.get('doro') and not plain and DORO:
+                so += '<span class="doro%s">道悪%s %d/%d</span>' % (
+                    (('' if r['doro'][0] == '○' else ' x'),) + r['doro'])
             if r['nopos']:
                 so += '<span class="nopast">過去走なし</span>'
             # ★ 2026-11-15、同じ地点（角の数）の過去走が1本も無く、4角で代用した馬の札。
@@ -884,7 +930,7 @@ def main():
             tmpl
             % (v['R'], v.get('start') or '', v['dist'], len(v['horses']),
                html.escape(v.get('cls') or ''), pc, tag, nm, pc, GP.get(pc, 50), eff,
-               ('この鞍の前3Fの水準 %.1f秒' % b['f3']) if b else '', kl2, cap,
+               suitei(v, b), kl2, cap,
                NL * LANE + 24, (ring(cells, ana_sp.get(R, set()), '--each' in a,
                      (a[a.index('--ring-color') + 1] if '--ring-color' in a else None),
                      '--ring-box' in a)

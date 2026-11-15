@@ -114,3 +114,9 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
    ％も数字も書かない（ルール47）。止める口は --no-rachi。 */
 .rachi{margin:5px 18px -3px;font-size:10.5px;color:#bdb3a2;font-weight:700;letter-spacing:.1em}
 .rachi.d{margin:-6px 18px 10px}
+
+/* 2026-11-15 追加 ── 道悪の札（過去5走の重・不良での3着内）。.sente と同じ形・大きさで色だけ。
+   ○は青緑、×は灰。.track の中の札が1行増えるだけで、馬の left/top は動かない。 */
+.doro{display:block;font-size:9px;color:#0c0c0e;background:#5fd6c8;border-radius:3px;
+ padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
+.doro.x{background:#9a9aa4;color:#0c0c0e}
