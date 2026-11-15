@@ -529,49 +529,98 @@ def _arrange(rows, swap=(), noswap=False):
 #   **きれいに繰り返す**。段差が +1,+1,−2 の繰り返しになり、(+1,+1) の箇所が
 #   **必ず斜め一直線**になる。**13頭以上で必ず起きる。**
 #
-#   → **段のラベルを入れ替えるだけ**で消える。0→1→2 の代わりに **1→0→2** の順で配ると
-#     段差が −1,+2,−1,+2… と**交互**になり、連続する段差が等しくならない。
-#   ★ 段のラベルの入れ替えは**段の番号の付け替え（全単射）**なので、
-#     **横（left）も馬の順番も段の数も1つも変わらない**（＝重なりも作らない。
-#     同じ段に入る馬の組み合わせがそのままだから）。
-#   ★ 乱数は使わない。頭数ごとに**辞書順でいちばん早い入れ替え**を選ぶので、
+#   ★★ **3段のままでは構造上消せない。** 最初にラベルの入れ替え（0→1→2 を 1→0→2 など
+#     6通り）で消そうとしたが、**どれも残った**（14頭はどの入れ替えでも4か所）。
+#     理由 ── 間隔59pxに対し GAP が136pxなので、**連続する3頭はかならず別の段**に
+#     入らなければならない。段が3つしかないと、並びは **period 3 の繰り返し以外に有り得ない**
+#     （a,b,c と置いたら4頭目は a に戻るしかない）。3つの段差は必ず合計0になり、
+#     ±1 が2つと ∓2 が1つの組になるので、**繰り返しの折り返しで ±1 が必ず隣り合う**。
+#     → 段のラベルをどう振っても斜めは残る。**段を1つ増やすしかない。**
+#
+#   → **13頭以上（＝重なり避けで3段になる鞍）だけ、段を1つ増やして4段で組む。**
+#     置き方は 0→1→3→2 の繰り返しになり、段差が +1,+2,−1,−2 と**4つで一巡**するので
+#     連続する段差が等しくならない ── 斜めが**1か所も出ない**。
+#   ★ 決め方は総当たりではなく**決定的な深さ優先**（空いている段のうち、
+#     斜めを作らないものを「いちばん長く空いている」順に試す）。**乱数は使わない。**
 #     同じカードなら何度出しても同じ図になる。
-#   止める口（旧の 0→1→2 の順に戻す）は **`--dan-nama`**。
+#   ★ 重なりは作らない ── 候補は `x < その段の最後のx − GAP` を満たす段だけ（place と同じ式）。
+#   ★ **横（left）も馬の順番も1つも動かない。** 変えたのは「どの馬をどの段に置くか」と、
+#     13頭以上の鞍の**段数が3→4になる**（＝図の高さが92px増える）ことだけ。
+#   ★ 12頭以下（2段）は 0,1,0,1… ＝すでに段差が交互なので斜めは0か所。**何も変えない**
+#     （`--dan-nama` を付けると 11/16 大井の12鞍すべてでHTMLがバイト単位で一致する）。
+#   止める口（旧の段の割り当てに戻す）は **`--dan-nama`**。
 DAN_NAMA = False
+SHIMA_CAP = 20000        # 深さ優先の打ち切り（これを超えたら元の割り当てのまま）
 
 
 def _nshima(xs, lns):
     """斜め3頭の数。xs は横（この向きのまま連続3頭）、lns は段。
 
     「x の差が等しく（±3px）かつ段差が等しくゼロでない」── 報告の測り方と同じ。"""
-    c = 0
-    for i in range(len(xs) - 2):
-        if (abs((xs[i + 1] - xs[i]) - (xs[i + 2] - xs[i + 1])) <= 3.0
-                and (lns[i + 1] - lns[i]) == (lns[i + 2] - lns[i + 1])
-                and lns[i + 1] != lns[i]):
-            c += 1
-    return c
+    return sum(1 for i in range(len(xs) - 2) if _naname(xs, lns, i + 2, lns[i + 2]))
+
+
+def _naname(xs, lns, i, c):
+    """i 頭目を段 c に置くと、i-2・i-1・i が斜め一直線になるか。"""
+    if i < 2:
+        return False
+    return (abs((xs[i - 1] - xs[i - 2]) - (xs[i] - xs[i - 1])) <= 3.0
+            and (c - lns[i - 1]) == (lns[i - 1] - lns[i - 2]) and c != lns[i - 1])
+
+
+def _assign(xs, L):
+    """横が xs（この順）の馬を L 段に割り振る。重なりも斜めも作らない並びを1つ返す。
+
+    見つからなければ None。深さ優先で、候補は
+      ① 重なり避け（`x < その段の最後のx − GAP`。place と同じ式）
+      ② 斜めを作らない（直前2頭との段差が等しくならない）
+    を満たす段だけ。順は「まだ使っていない段 → 長く空いている段 → 段番号」で**決定的**。"""
+    n = len(xs)
+    last = [None] * L
+    lns = []
+    cnt = [0]
+
+    def rec():
+        i = len(lns)
+        if i == n:
+            return True
+        cnt[0] += 1
+        if cnt[0] > SHIMA_CAP:
+            return False
+        cs = [c for c in range(L)
+              if (last[c] is None or xs[i] < last[c] - GAP) and not _naname(xs, lns, i, c)]
+        cs.sort(key=lambda c: (0 if last[c] is None else 1,
+                               -(last[c] or 0), c))
+        for c in cs:
+            keep = last[c]
+            last[c] = xs[i]
+            lns.append(c)
+            if rec():
+                return True
+            lns.pop()
+            last[c] = keep
+        return False
+
+    return lns if rec() else None
 
 
 def shima(out, nl):
-    """段のラベルを入れ替えて斜めの縞を消す（上の★★）。
+    """斜めの縞を消す（上の★★）。`out` は横の順（pos の昇順）。
 
-    `out` は横の順（pos の昇順）。段の数 nl は変えない。
-    nl! 通り（nl は実際には1〜4）を辞書順に見て、斜め3頭がいちばん少ないものを採る。
-    0 が出たらそこで止める ── 辞書順の先頭なので**毎回同じ答え**。"""
+    返すのは (out, 段数)。段数は**そのまま**か、13頭以上の鞍で**1つだけ増える**。"""
     if DAN_NAMA or nl < 3:
-        return out                       # 2段は 0,1,0,1… ＝すでに交互なので縞はできない
+        return out, nl        # 2段は 0,1,0,1… ＝すでに段差が交互。1頭も動かさない
     xs = [x for r, x, ln in out]
+    # 段を増やさずに済むならそのほうがよい（ラベルの入れ替えだけ・辞書順で決定的）
     lns = [ln for r, x, ln in out]
-    best = None
     for p in itertools.permutations(range(nl)):
-        c = _nshima(xs, [p[v] for v in lns])
-        if best is None or c < best[0]:
-            best = (c, p)
-        if c == 0:
-            break
-    p = best[1]
-    return [(r, x, p[ln]) for r, x, ln in out]
+        s = [p[v] for v in lns]
+        if _nshima(xs, s) == 0:
+            return [(r, x, s[i]) for i, (r, x, ln) in enumerate(out)], nl
+    s = _assign(xs, nl + 1)          # 3段では必ずここに来る（上の★★）
+    if s is None:
+        return out, nl               # 見つからなければ元のまま（縞は残るが壊さない）
+    return [(r, x, s[i]) for i, (r, x, ln) in enumerate(out)], nl + 1
 
 
 def place(rows):
@@ -593,8 +642,7 @@ def place(rows):
         else:
             lanes.append(x)
             out.append((r, x, len(lanes) - 1))
-    nl = max(1, len(lanes))
-    return shima(out, nl), nl
+    return shima(out, max(1, len(lanes)))
 
 
 def ring(cells, ana, each=False, color=None, box=False):
