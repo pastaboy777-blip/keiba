@@ -276,13 +276,20 @@ def cyo_tags(z):
         return ''
     s = ''
     ya = (z.get('ya') or '').strip()
+    yaji = False                      # 矢印の札（↗／↓）を出したか
     if '↗' in ya or '↑' in ya:
-        s += '<span class="cup">調子上向き</span>'
+        s += '<span class="cup">調教↗ 好調</span>'
+        yaji = True
     elif '↓' in ya or '↘' in ya:
         s += '<span class="cdn">下降</span>'
+        yaji = True
     if not z.get('nrun'):
         s += '<span class="cno">追い切りなし</span>'
-    if CYO_HYO and z.get('tanpyo'):
+    # ★ 2026-11-15、ユーザーの指示 ──「好調教の馬をわかるようにしたいんだよね」。
+    #   総評の一言は**矢印が付いた馬（↗／↓）にだけ**小さく添える。
+    #   → （平行）の馬には何も出さない ── 全頭に札が付くと「ひと目で」が消えるため。
+    #   `--cyokyo-hyo` を付けたときだけ全頭に出す（短評や各ハロンの数字は出さない）。
+    if z.get('tanpyo') and (CYO_HYO or yaji):
         s += '<span class="chy">%s</span>' % html.escape(z['tanpyo'])
     return s
 

@@ -135,8 +135,14 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
    「調子上向きとか　情報載せて」。CLAUDE.md ルール48）。
    既存の札（.jin / .jout / .nopast / .sente / .daiyo / .bao / .bax）と
    同じ形・同じ大きさで、色だけ新しい。既存の札の色は1つも変えていない。 */
-.cup{display:block;font-size:9px;color:#0c0c0e;background:#8ef0c8;border-radius:3px;
- padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
+/* ★ 2026-11-15、ユーザーの指示 ──「調教上向きとか」
+   「**好調教の馬をわかるようにしたいんだよね**」。
+   他の札（9px・淡い地色）と同じ見た目だと鞍の中で埋もれるので、
+   **この札だけ**を大きく・濃く・縁取りで浮かせる。ひと鞍に1〜2頭しか付かない。
+   下降（.cdn）と追い切りなし（.cno）は地味なまま＝目が上向きに行く。 */
+.cup{display:block;font-size:10.5px;color:#2a1400;background:#ffb020;border-radius:4px;
+ padding:1px 6px;font-weight:900;margin:2px auto 0;width:max-content;
+ box-shadow:0 0 0 1.5px #fff3d0,0 1px 4px rgba(255,176,32,.55);letter-spacing:.02em}
 .cdn{display:block;font-size:9px;color:#0c0c0e;background:#f18fb0;border-radius:3px;
  padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
 .cno{display:block;font-size:9px;color:#0c0c0e;background:#a9b8d8;border-radius:3px;
