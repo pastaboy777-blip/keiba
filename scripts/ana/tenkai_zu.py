@@ -19,6 +19,16 @@
             先頭候補・騎手も消える）。2026-11-12 の「説明文いらない　小文字消して」
             「バレるじゃん」で作ったもの。**--no-pct とは独立で、挙動は変えていない。**
 
+★ 2026-11-15、内外は**札で出す**（段は重なり避けのまま。CLAUDE.md ルール20を守る）
+
+  ユーザーの指示 ──「**内　外の文言で良いカモ**」。
+  いちど「縦（段）を内外にする」話が出たが**取り消しになった**ので、段には手を付けていない。
+  代わりに**馬ごとに「内」「外」の1字の札**を出す（内度 .55以上＝内／.40以下＝外／間は何も出さない）。
+  **数字は出さない**（ルール47「秘密にしないと」）。止める口は **`--no-uchisoto`**。
+  `--plain` では出さない（他の札と同じ扱い）。`--no-pct` では出す。
+  `--soto` / `--uchi` で指名した馬は「外（指定）」「内（指定）」の札が出るので**二重に出さない**。
+  **馬の位置・段・大きさ・色は1つも動かない**（札を1つ足すだけ。ルール20★・31★）。
+
 ★ 2026-11-14、ユーザーの指示で3つ入れた（CLAUDE.md ルール44。120鞍で26通りを比べた結果）
 
   ① pos（前後）を**1角相対の中央値 → 直近重みづけ(5,4,3,2,1)**に。
@@ -135,6 +145,16 @@ POS_MEDIAN = False   # True なら pos を中央値に戻す（--pos-median）
 FUTATSU = True       # 「先頭候補」の札を出すか（--no-futatsu で止める）
 SWAPDU = False       # True なら内度による前後の入れ替えを復活させる（--swapdu）
 FUTATSU_DP = 0.06    # 先頭2頭の pos 差がこれ未満なら「先頭候補」を2頭に出す
+
+# ★ 2026-11-15、内外の札（ユーザーの指示 ──「内　外の文言で良いカモ」）。
+#   段（縦）は**重なり避けのまま**（ルール20）。内外は**札で読ませる**。
+#   内度（枠 → 騎手 → 馬の実績。ルール21・25）が US_IN 以上なら「内」、
+#   US_OUT 以下なら「外」、そのあいだは**何も出さない**。
+#   帯の切り方は row_of() の内度のままで、`sub` の説明文に出していた
+#   「内81.0% / 中50.0% / 外33.3%」の3つの帯と同じ考え方。
+#   **数字は札に書かない**（ルール47）。止める口は `--no-uchisoto`。
+UCHISOTO = True      # 「内」「外」の札を出すか（--no-uchisoto で止める）
+US_IN, US_OUT = .55, .40
 
 JK = _load('jk_soto.json')
 SOTO = _load('soto.json')
@@ -476,7 +496,7 @@ def main():
     #     大井1200mは最初に記録される角が3コーナー、1400mは2コーナー（ルール45）で地点は違うが、
     #     ユーザーの判断は「同じ」。**左右はそのまま**（どちらも MIRROR に入れない）。
     VFLIP = {('川崎', 2000), ('大井', 1200), ('大井', 1400)}
-    global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU
+    global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, UCHISOTO
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
     # ★ 2026-11-14 に入れた3つを旧に戻す口（ルール44）。
@@ -484,6 +504,7 @@ def main():
     POS_MEDIAN = '--pos-median' in a              # pos を中央値に戻す
     FUTATSU = '--no-futatsu' not in a             # 「先頭候補」の札を出さない
     SWAPDU = '--swapdu' in a                      # 内度による前後の入れ替えを復活させる
+    UCHISOTO = '--no-uchisoto' not in a           # 「内」「外」の札を出さない
     pace = {k: v.lower() for k, v in kv(a, '--pace').items()}
     ana_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--ana').items()}
     swap_sp = {k: v.split(',') for k, v in kv(a, '--swap').items()}
@@ -590,6 +611,19 @@ def main():
                 so += '<span class="jin">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100)
             elif r['jr'] is not None and r['jr'] <= .40:
                 so += '<span class="jout">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100)
+            # ★ 内外の札（2026-11-15、ユーザーの指示 ──「内　外の文言で良いカモ」）。
+            #   内度の帯を**1字だけ**で出す。数字は書かない（ルール47）。
+            #   `--soto` / `--uchi` で指名された馬は下の mbtag が「外（指定）」「内（指定）」に
+            #   なっているので**ここでは出さない**（二重に出さない。指定のほうを優先）。
+            #   「過去 外3/4」とは**別物** ── あちらはその馬の併走実績、こちらは
+            #   枠＋騎手＋実績から出した帯。両方出てよい（1枠で外偏りの馬は
+            #   ルール25のとおり帯をまたがないので「内」＋「過去 外3/3」が並ぶ）。
+            if (UCHISOTO and not plain
+                    and r['mbtag'] not in ('外（指定）', '内（指定）')):
+                if r['uchi'] >= US_IN:
+                    so += '<span class="uin">内</span>'
+                elif r['uchi'] <= US_OUT:
+                    so += '<span class="uout">外</span>'
             if r['mbtag'] and not plain:
                 so += '<span class="%s">過去 %s</span>' % (
                     'jin' if r['mbtag'][0] == '内' else 'jout', r['mbtag'])
