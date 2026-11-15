@@ -160,6 +160,109 @@ NOPAST_CENTER = False    # True なら過去走なしを全部中央に重ねる
 NOPAST_STEP = 0.022      # 1頭ずつずらす幅（pos。図では約17px）
 NOPAST_MAX = 0.26        # 何頭いても全体でこれ以上は広げない（±0.13）
 
+# ★★ 2026-11-15、**地点をまたいだ平均をやめた**（ユーザーの指摘 ──
+#   「**1600戦なんか隊列が変だなぁ**」「**8Rもこんな一直線になるか？**」「**隊列おかしい　直して**」）。
+#
+#   pos は過去走の `c1` ＝「**最初に記録された角**」の相対位置から出していたが、
+#   その角は**場と距離でまったく別の地点**（CLAUDE.md ルール45）。
+#     大井1200m … 3コーナー（2段）  ／ 大井1400m … 2コーナー（3段）
+#     大井1600m以上 … 1コーナー（4段）／ 大井2400m … 1周3角（6段）
+#   これを同じ `c1` として平均していたので、**1200m中心の馬は位置が後ろに出る**
+#   （3角では隊列が伸びきっている）。1600mの馬と並べられず、図が一直線になっていた。
+#   実例 ── 11/16 大井6R ①ファジーエンジェルは過去5走のうち4走が大井1200mで
+#   その `c1` は 1.0 / 0.92 / 1.0。**3コーナー時点の順位**で、1600mの1角の話ではない。
+#   **ルール2（上がりを距離帯をまたいで持ち越さない）と同じ構造の間違いを位置でやっていた。**
+#
+#   → **今日の鞍と同じ地点が取れる過去走だけ**で pos と gain を出す。
+#     同じ地点の走が1本も無い馬は **`c4`（最終4角）で代用**し、札「4角で代用」を出す
+#     （`c4` はどの距離にも必ずあるので比較できる。馬を図から消さない ── ルール22）。
+#   いままでどおり地点を混ぜる口は **`--pos-mazeru`**。
+POS_MAZERU = False       # True なら地点を混ぜる（直す前の挙動・--pos-mazeru）
+
+# ★ 場×距離 → **結果ページに記録される角の数**。
+#   `harvest/*_res.json` の `corner_raw` の札の並びを数えて作った（推測ではない）。
+#   南関4場・2,896鞍で、**同じ場・距離は1つの形しか出てこなかった**（例外0）。
+#     2段 = 3,4         → 最初の角は3コーナー
+#     3段 = 2,3,4       → 最初の角は2コーナー
+#     4段 = 1,2,3,4     → 最初の角は1コーナー
+#     6段 = 3,4,1,2     → 最初の角は1周3角（向正面スタート。スタート直後）
+#   ★★ **6段の鞍は出馬表の `tsuka` に4本しか入らない**（最初2つ＋最後2つ。
+#     `syutuba.py` 冒頭）。だから `len(tsuka)` だけでは 4段と6段を見分けられない。
+#     大井2400mの過去走は実データでも `tsuka` が4本だった（5走ぶん確認）。
+#     **場×距離で引くのが先、`len(tsuka)` はこの表に無い場のための保険。**
+NCOR = {
+    ('大井', 1000): 2, ('大井', 1200): 2, ('大井', 1400): 3, ('大井', 1600): 4,
+    ('大井', 1650): 4, ('大井', 1700): 4, ('大井', 1800): 4, ('大井', 2000): 4,
+    ('大井', 2400): 6, ('大井', 2600): 6,
+    ('川崎', 900): 2, ('川崎', 1400): 4, ('川崎', 1500): 4, ('川崎', 1600): 4,
+    ('川崎', 2000): 6, ('川崎', 2100): 6,
+    ('浦和', 800): 2, ('浦和', 1300): 4, ('浦和', 1400): 4, ('浦和', 1500): 4,
+    ('浦和', 2000): 4,
+    ('船橋', 1000): 2, ('船橋', 1200): 3, ('船橋', 1500): 4, ('船橋', 1600): 4,
+    ('船橋', 1700): 4, ('船橋', 1800): 4, ('船橋', 2200): 6, ('船橋', 2400): 6,
+}
+
+
+# ★★ 2026-11-15、ユーザーの指摘 ──
+#   「**内一直線にこんな並ばないし、縦一直線にこんなに並ばない！**」
+#
+#   pos が**同じ値（またはほぼ同じ値）**になった馬は、`place()` で横が同じ場所に置かれ、
+#   段だけ分かれて**縦に積まれる**。図は「この馬たちが横一線に並ぶ」と主張しているが、
+#   持ち走が1〜5本しかないので**値が重なりやすいだけ**で、そこまでは言えない。
+#   （過去走なしの馬を散らしたのと同じ問題。あのときは「過去走なし」だけ直して、
+#     **同じ値になった馬は直していなかった**。）
+#
+#   → **差が TIE_EPS 以内の馬が3頭以上かたまっているときだけ**、少しだけ前後に散らす。
+#     **2頭の重なりはそのまま**残す ── それは「競る」という情報（ユーザーは
+#     「競っている」ことを否定していない。「**こんなに**並ばない」）。
+#   **乱数は使わない**（並びは pos → 馬番の順で決まる＝同じカードなら毎回同じ図）。
+#   隣の集団とのすき間の TIE_ROOM までしか使わないので、前の集団・後ろの集団には食い込まない。
+#   いままでどおり重ねる口は **`--pos-kasaneru`**。
+POS_KASANERU = False     # True なら同じ値の馬を重ねたままにする（--pos-kasaneru）
+TIE_EPS = 0.05           # これ以内の差は「ほぼ同じ値」（図では約39px）
+TIE_MIN = 3              # 3頭以上かたまっていたら散らす（2頭は競りとして残す）
+TIE_STEP = 0.030         # 1頭ずつずらす幅（pos。図では約23px）
+TIE_ROOM = 0.60          # 隣とのすき間はここまでしか使わない
+
+
+def spread_ties(rows, allr):
+    """pos がほぼ同じ3頭以上を、少しだけ前後に散らす（上の★★）。"""
+    if POS_KASANERU:
+        return
+    mv = [r for r in allr if not r['nopos']]      # 過去走なしは別の仕組みで散らしてある
+    i = 0
+    while i < len(mv):
+        j = i + 1
+        while j < len(mv) and (mv[j]['pos'] - mv[j - 1]['pos']) <= TIE_EPS:
+            j += 1
+        k = j - i
+        if k >= TIE_MIN:
+            grp = mv[i:j]
+            c = sum(r['pos'] for r in grp) / k
+            ix = [allr.index(r) for r in grp]     # すき間は過去走なしの馬も入れて見る
+            lo = allr[min(ix) - 1]['pos'] if min(ix) > 0 else 0.0
+            hi = allr[max(ix) + 1]['pos'] if max(ix) + 1 < len(allr) else 1.0
+            half = min(TIE_STEP * (k - 1) / 2,
+                       max(0.0, (c - lo) * TIE_ROOM), max(0.0, (hi - c) * TIE_ROOM))
+            step = 2 * half / (k - 1)
+            for t, r in enumerate(grp):
+                r['pos'] = min(1., max(0., c + (t - (k - 1) / 2) * step))
+        i = j
+
+
+def ncor(ven, dist, tsuka=None):
+    """その鞍で記録される角の数。分からなければ None（＝地点をそろえない）。
+
+    表に無い場（笠松・佐賀・門別・盛岡…）の過去走は `len(tsuka)` で代用する。
+    6段の鞍は `tsuka` が4本なので**南関以外の6段は4段と区別できない**が、
+    南関4場は上の表で引けるので、ふだんの鞍はこれで足りる。"""
+    n = NCOR.get((ven, dist))
+    if n:
+        return n
+    if tsuka:
+        return len(tsuka)
+    return None
+
 JK = _load('jk_soto.json')
 SOTO = _load('soto.json')
 CSS = open(os.path.join(HERE, 'tenkai_zu.css')).read()
@@ -285,22 +388,35 @@ def mikata(dist, rows):
     return ''.join(s)
 
 
-def row_of(h, dist, od):
+def row_of(h, dist, od, ven=None):
+    """★ `ven` は 2026-11-15 に足した（地点をそろえるため・上の NCOR の★★）。
+      渡さないと（`ninki.py` など外から3つで呼ぶ経路）**地点を混ぜる従来のまま**になる。"""
     P = h.get('past') or []
     # ★ 隊列は1コーナーで組む（2026-11-11・CLAUDE.md ルール23）。
     #   4角の中央値で組むと「前に行って下がる馬」が中団に描かれる。
     #   11/10 11Rの⑩ヒーローコールは1角0.00（5走中3走ハナ）の逃げ馬なのに
     #   4角中央値0.40で中団に置き、「▼下がる」と札まで付けて逃げ切られた。
     #   南関803鞍でも1角のほうが上（先頭の的中43.5%対40.2%）。
-    c1 = [rel(p, 'c1') for p in P]
+    # ★★ 2026-11-15、**その「1コーナー」は距離でちがう地点だった**（上の★★・ルール45）。
+    #   今日の鞍と**同じ角の数**が取れた過去走だけを pos と gain に使う。
+    #   表に無い場・距離、`--pos-mazeru`、`--c4`／`--old` は従来どおり全部混ぜる。
+    NT = None if (OLD_C4 or POS_MAZERU) else ncor(ven, dist)
+    Pm = ([p for p in P
+           if ncor(p.get('venue'), p.get('dist'), p.get('tsuka')) == NT] if NT else P)
+    c1 = [rel(p, 'c1') for p in Pm]
     c1 = [x for x in c1 if x is not None]
     c4 = [rel(p, 'c4') for p in P]
     c4 = [x for x in c4 if x is not None]
     per = []
-    for p in P:
+    for p in Pm:
         a, b = rel(p, 'c1'), rel(p, 'c4')
         if a is not None and b is not None:
             per.append(a - b)
+    # ★ 同じ地点の走が1本も無い馬は c4（最終4角）で代用する。
+    #   c4 はどの距離・どの場にも必ずあるので、他の馬と並べられる。
+    #   「履歴が引けない馬を切らない」（ルール6）・「図から消さない」（ルール22）と同じ向きで、
+    #   **代用したことを札で言う**だけにして、位置はちゃんと出す。
+    daiyo = bool(NT) and not c1 and bool(c4)
     e, l, _c, n, ext = T.prof(h, dist)
     o = od.get(h['ub']) or {}
     waku = h.get('waku') or o.get('waku') or 4
@@ -326,7 +442,7 @@ def row_of(h, dist, od):
                 #   `--c4` / `--old`（当時の図を引き直す口）は**従来どおり中央値のまま**にする。
                 pos=((st.median(c4) if c4 else (st.median(c1) if c1 else None)) if OLD_C4
                      else (pos_of(c1) if c1 else pos_of(c4))),
-                pos4=(st.median(c4) if c4 else None), nopos=False,
+                pos4=(st.median(c4) if c4 else None), nopos=False, daiyo=daiyo,
                 gain=(st.median(per) if per else None), l=l, runs=len(P),
                 soto=((s['out'] / s['grp']) if s and s['grp'] >= 3 else None),
                 tr=(h.get('tr') or o.get('tr')),
@@ -392,6 +508,11 @@ def _arrange(rows, swap=(), noswap=False):
             if (b['pos'] - a['pos']) <= SWAP_DP and (b['uchi'] - a['uchi']) >= SWAP_DU:
                 a['pos'], b['pos'] = b['pos'], a['pos']
                 rows[i], rows[i + 1] = b, a
+    # ★ 2026-11-15、pos がほぼ同じ3頭以上を散らす（上の spread_ties の★★）。
+    #   入れ替え（--swap / SWAPDU）を済ませたあと、並べ直す前に動かす。
+    #   2頭だけの重なりは動かさないので、「先頭候補」の札（差0.06未満）はほぼそのまま出る。
+    spread_ties(rows, sorted(rows, key=lambda r: (r['pos'], r['ub'])))
+    rows.sort(key=lambda r: r['pos'])
     return rows
 
 
@@ -516,6 +637,7 @@ def main():
     #     **MIRROR には足さない** ── 鏡にはしない（前は右）。上下だけ返す（内が下）。
     VFLIP = {('川崎', 2000), ('大井', 1200), ('大井', 1400), ('大井', 2400)}
     global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, NOPAST_CENTER
+    global POS_MAZERU, POS_KASANERU
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
     # ★ 2026-11-14 に入れた3つを旧に戻す口（ルール44）。
@@ -525,6 +647,10 @@ def main():
     SWAPDU = '--swapdu' in a                      # 内度による前後の入れ替えを復活させる
     # ★ 2026-11-15、過去走なしを中央に重ねる旧の形に戻す口（上の NOPAST_* の★）
     NOPAST_CENTER = '--nopast-center' in a
+    # ★ 2026-11-15、**地点をそろえるのをやめて混ぜる**旧の形に戻す口（上の POS_MAZERU の★★）
+    POS_MAZERU = '--pos-mazeru' in a
+    # ★ 2026-11-15、**pos がほぼ同じ3頭以上を散らすのをやめる**口（上の TIE_* の★★）
+    POS_KASANERU = '--pos-kasaneru' in a
     # ★ 2026-11-15、ユーザーの指示 ──**両方の向きを本人が言っている**（迷ったらこの2つ）
     #     1R（大井**1200m**＝VFLIP）を見て  ──「**下がラチ沿いと書いて**」
     #     8R（大井**1600m**＝VFLIPでない）を見て ──「**上がラチ沿いと書いて**」
@@ -566,7 +692,7 @@ def main():
             for x in rv['rows']:
                 od.setdefault(x['ub'], {}).update(
                     {k2: x[k2] for k2 in ('jk', 'waku', 'chaku') if x.get(k2) is not None})
-        rows = [row_of(h, v['dist'], od) for h in v['horses']]
+        rows = [row_of(h, v['dist'], od, ven) for h in v['horses']]
         for r in rows:                      # 手直しは札より強い。指名された馬だけ動かす
             if r['ub'] in soto_sp.get(R, ()):
                 r['uchi'], r['mbtag'] = min(r['uchi'], .32), '外（指定）'
@@ -645,6 +771,11 @@ def main():
                     'jin' if r['mbtag'][0] == '内' else 'jout', r['mbtag'])
             if r['nopos']:
                 so += '<span class="nopast">過去走なし</span>'
+            # ★ 2026-11-15、同じ地点（角の数）の過去走が1本も無く、4角で代用した馬の札。
+            #   既存の札（.nopast / .sente）とまったく同じ形・大きさで、色だけ新しい。
+            #   `--plain`（宣伝用）では出さない。`--no-pct` では出す（％を含まない札なので）。
+            elif r.get('daiyo') and not plain:
+                so += '<span class="daiyo">4角で代用</span>'
             wc = W.get(r['waku'], ('#15110d', '#f2f2f4'))
             # ★ 鞍ごとに馬の向きを変える（2026-11-13、ユーザーの指示 ──
             #   「1200 1400はそのまま」「1600は向き変えて」）。
