@@ -811,12 +811,12 @@ def main():
             _, p = T.race(v, ven, baba)
             if not p or not p.get('f3') or not p.get('est'):
                 return base
+            # ★ 同日、ユーザーの見本の形に合わせた ──
+            #   「推定 1:14.8（前3F 36.3）　水準 1:14.4（前3F 35.6）」。上がりは出さない。
             t, bb = p['est'], p['base']
-            if not bb.get('a3'):
-                return base
-            a3 = bb['a3'] + (t - bb['t']) - (p['f3'] - bb['f3'])
-            return ('推定 %d:%04.1f（前3F %.1f・上がり %.1f）　%s'
-                    % (int(t // 60), t % 60, p['f3'], a3, base))
+            mmss = lambda x: '%d:%04.1f' % (int(x // 60), x % 60)
+            return ('推定 %s（前3F %.1f）　水準 %s（前3F %.1f）'
+                    % (mmss(t), p['f3'], mmss(bb['t']), bb['f3']))
         hh = []
         for r, x, ln in cells:
             lead = (r['chaku'] or 99) <= 3
