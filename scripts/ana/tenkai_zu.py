@@ -134,6 +134,89 @@ LAB = {'s': ('S', 'スロー想定', '前に行った馬が<b>そのまま残る
 GP = {'s': 24, 'm': 50, 'h': 76}
 
 
+# ★★ 2026-11-15、**推定タイムをペースの行に出した**（ユーザーの指示 ──
+#   見本（JRAの展開図）と見比べて「いろいろ検証して」「足りないところ学んで」）。
+#
+#   見本        「→ 前に行った馬がそのまま残りやすい　推定 2:01.0（前3F 37.1・上がり 34.2）」
+#   こちらの旧  「→ 中団から前へ出てくる馬まで　この鞍の前3Fの水準 38.3秒」
+#
+#   **水準（過去の中央値）しか出していなかったので、この鞍が速いのか遅いのかが読めない。**
+#   → `tenkai.race()` が返す推定値を並べる。**水準も残す**（比べられるように）。
+#
+#   ★★ `race()` が返すのは **`f3`（推定前3F）と `est`（推定走破タイム）の2つだけ**。
+#     **推定上がりは返っていない**（`tenkai.py` の `race()` を読んで確かめた。
+#     返り値は `{"f3":…, "base":…, "est":…}` で、`base` は水準＝過去の中央値）。
+#     だから**上がりは書かない**（CLAUDE.md ルール11 ── 無いものを作らない）。
+#     ※ `tenkai.py` の `main()` は**1頭ずつの**推定上がり（`水準a3 + その馬のl`）を出している。
+#       鞍の上がりとして出すなら、どの馬のものを鞍の代表にするかを決める話になるので、
+#       **やるかどうかはユーザーが決める**（★★★ 最優先ルール・ルール31）。
+#   止める口（旧の「水準だけ」に戻す）は **`--no-suitei`**。
+SUITEI = True
+
+
+def mmss(t):
+    """秒 → m:ss.s（見本の「2:01.0」の体裁）"""
+    m = int(t // 60)
+    return '%d:%04.1f' % (m, t - m * 60)
+
+
+def pnum(p, b):
+    """ペースの行の右に出す数字。p は `tenkai.race()` の2つめ、b は `tenkai.sui()`。"""
+    f3 = (p or {}).get('f3')
+    est = (p or {}).get('est')
+    if not SUITEI or f3 is None:
+        return ('この鞍の前3Fの水準 %.1f秒' % b['f3']) if b else ''
+    if est is not None:
+        s = '推定 %s（前3F %.1f）' % (mmss(est), f3)
+        return s + ('　水準 %s（前3F %.1f）' % (mmss(b['t']), b['f3']) if b else '')
+    s = '推定 前3F %.1f' % f3
+    return s + ('　水準 前3F %.1f' % b['f3'] if b else '')
+
+
+# ★★ 2026-11-15、**馬場適性の札**（同じ指示。見本には各馬に `道悪○` `道悪×` が付いている）。
+#   明日の大井は不良想定なのに、こちらの図には馬ごとの馬場の情報が1つも無かった。
+#   出馬表の過去走は `baba`（良／稍／重／不）と `chaku` を持っている（`syutuba.py`）ので、
+#   **道悪（重・不良）での3着内**を数えて札を出す。
+#
+#   ★ 略記の穴（`kb.py` の「穴1」）── 馬ページは `良/稍/重/不` の1文字、出馬表・成績は
+#     `良/稍重/重/不良`。**`baba in ("重","不良")` と書くと不良だけ落ちる。**
+#     11/16 大井の出馬表の実データは**1文字**（良190・不145・稍73・重38）だった。
+#     どちらでも通るように**先頭1文字**で見る。`稍重` は先頭が `稍` なので道悪に入らない。
+#
+#   ★ 基準（11/16 大井144頭で数えて決めた）
+#       `道悪○` … 道悪で3着内が**1回以上**　　　　　　　　　　→ 23頭（16%）
+#       `道悪×` … 道悪を**3走以上**使って3着内が**0回**　　　→ 12頭（8%）
+#       道悪1-2走で3着内0回／道悪の経験なし … **何も出さない**（「分からない」が正しい）
+#     ×を「1走でも3着内0回」にすると**77頭（53%）**、「2走以上」でも**51頭（35%）**に付く。
+#     大井のこのクラスは1走あたりの3着内が約2割なので、2走0回は偶然でも4割弱起きる ──
+#     **ほぼ全頭に×が付いて意味がなくなる**ので、3走に上げた。
+#     3走0回でも偶然は約5割残る。**強い札ではない。**基準はこの2つの数字で動かせる。
+#   ★ ％も走数も出さない（ルール47「秘密にしないと」）。見本と同じ **`道悪○` の2文字だけ**。
+#   ★ 既存の札（.jin / .jout / .nopast / .sente / .daiyo）と**同じ形・同じ大きさ**。
+#     色だけ新しい（既存の札の色は1つも変えていない）。
+#   `--plain`（宣伝用）では出さない。`--no-pct` では出す（％も数字も含まない札なので）。
+#   止める口は **`--no-baba-tag`**。
+BABA_TAG = True
+BABA_O_HIT = 1      # `道悪○` … 道悪での3着内がこれ以上
+BABA_X_RUN = 3      # `道悪×` … 道悪の走数がこれ以上で、3着内が0回
+BABA_BAD = ('重', '不')     # 先頭1文字で見る（不 も 不良 も拾う。稍重 は入らない）
+
+
+def baba_tag(h):
+    """道悪（重・不良）の成績から札を1つ返す。経験が無ければ None（＝何も言わない）。"""
+    if not BABA_TAG:
+        return None
+    P = [p for p in (h.get('past') or []) if (p.get('baba') or '')[:1] in BABA_BAD]
+    if not P:
+        return None
+    hit = sum(1 for p in P if (p.get('chaku') or 99) <= 3)
+    if hit >= BABA_O_HIT:
+        return 'o'
+    if len(P) >= BABA_X_RUN:
+        return 'x'
+    return None
+
+
 def _load(fn):
     p = os.path.join(HERE, fn)
     return json.load(open(p)) if os.path.exists(p) else {}
@@ -438,6 +521,8 @@ def row_of(h, dist, od, ven=None):
         elif ri >= MB_TH:
             mb, mbtag = +MB_CAP, '内%d/%d' % (s['in'], s['grp'])
     return dict(ub=h['ub'], name=h['name'], waku=waku, jk=jn, jr=jr, mbtag=mbtag,
+                # ★ 2026-11-15、道悪（重・不良）での3着内から出す札（baba_tag の★★）
+                btag=baba_tag(h),
                 uchi=WK.get(waku, .45) + ((jr - JK_BASE) if jr is not None else 0.0) + mb,
                 # ★ pos は既定で**直近重みづけ**（2026-11-14・ルール44。`--pos-median` で中央値）。
                 #   `--c4` / `--old`（当時の図を引き直す口）は**従来どおり中央値のまま**にする。
@@ -744,7 +829,7 @@ def main():
     #     **MIRROR には足さない** ── 鏡にはしない（前は右）。上下だけ返す（内が下）。
     VFLIP = {('川崎', 2000), ('大井', 1200), ('大井', 1400), ('大井', 2400)}
     global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, NOPAST_CENTER
-    global POS_MAZERU, POS_NAMA, DAN_NAMA
+    global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
     # ★ 2026-11-14 に入れた3つを旧に戻す口（ルール44）。
@@ -761,6 +846,10 @@ def main():
     POS_NAMA = '--pos-nama' in a
     # ★ 2026-11-15、**段のラベルの入れ替えをやめて 0→1→2 の順に戻す**口（shima の★★）
     DAN_NAMA = '--dan-nama' in a
+    # ★ 2026-11-15、推定タイムを出さず**水準だけ**に戻す口（pnum の★★）
+    SUITEI = '--no-suitei' not in a
+    # ★ 2026-11-15、道悪の札を出さない口（baba_tag の★★）
+    BABA_TAG = '--no-baba-tag' not in a
     # ★ 2026-11-15、ユーザーの指示 ──**両方の向きを本人が言っている**（迷ったらこの2つ）
     #     1R（大井**1200m**＝VFLIP）を見て  ──「**下がラチ沿いと書いて**」
     #     8R（大井**1600m**＝VFLIPでない）を見て ──「**上がラチ沿いと書いて**」
@@ -850,6 +939,9 @@ def main():
         pc = pace.get(R, 'm')
         tag, nm, eff = LAB.get(pc, LAB['m'])
         b = T.sui(ven, v['dist'], baba)
+        # ★ 2026-11-15、推定タイム（pnum の★★）。`race()` の2つめが推定を持っている。
+        #   出馬表だけを読む（楽天も競馬ブックも叩かない）。
+        pp = T.race(v, ven, baba)[1] if SUITEI else None
         hh = []
         for r, x, ln in cells:
             lead = (r['chaku'] or 99) <= 3
@@ -862,6 +954,11 @@ def main():
             t = '' if plain else ('<span class="upq">▲押し上げ</span>' if up else
                  ('<span class="dn">▼4角までに下がる</span>' if (r['gain'] or 0) <= -.20 else ''))
             so = ''
+            # ★ 道悪の札（2026-11-15・baba_tag の★★）。見本に合わせて**いちばん上**
+            #   （馬名のすぐ下）に置く。`--plain` では出さない。`--no-pct` では出す。
+            if r.get('btag') and not plain:
+                so += ('<span class="bao">道悪○</span>' if r['btag'] == 'o'
+                       else '<span class="bax">道悪×</span>')
             # ★ 先頭候補の札（2026-11-14・ルール44）。他の札とまったく同じ出し方で、
             #   --plain では出さない（sente が空になる）。
             if r['ub'] in sente:
@@ -997,7 +1094,7 @@ def main():
             tmpl
             % (v['R'], v.get('start') or '', v['dist'], len(v['horses']),
                html.escape(v.get('cls') or ''), pc, tag, nm, pc, GP.get(pc, 50), eff,
-               ('この鞍の前3Fの水準 %.1f秒' % b['f3']) if b else '', kl2, cap,
+               pnum(pp, b), kl2, cap,
                NL * LANE + 24, (ring(cells, ana_sp.get(R, set()), '--each' in a,
                      (a[a.index('--ring-color') + 1] if '--ring-color' in a else None),
                      '--ring-box' in a)
