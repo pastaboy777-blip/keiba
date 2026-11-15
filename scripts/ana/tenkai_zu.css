@@ -105,5 +105,5 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
    .rachi    … 枠の上に出す（内が上の鞍）
    .rachi.d  … 枠の下に出す（上下を返す鞍＝川崎2000m・大井1200m・1400m。ルール43）
    ％も数字も書かない（ルール47）。止める口は --no-rachi。 */
-.rachi{margin:2px 18px -4px;font-size:10.5px;color:#bdb3a2;font-weight:700;letter-spacing:.1em}
+.rachi{margin:5px 18px -3px;font-size:10.5px;color:#bdb3a2;font-weight:700;letter-spacing:.1em}
 .rachi.d{margin:-6px 18px 10px}
