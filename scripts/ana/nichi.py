@@ -26,6 +26,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import statistics as st
 import sys
 from pathlib import Path
@@ -153,7 +154,58 @@ def main():
         span = max(ag) - min(ag)
         bar = "█" * int(span * 2)
         print(f"   {r:>2}R {m['dist']}m {zone(m['dist'])} {span:>5.1f}秒 {bar}")
+    # ⑤ 3着内の4角の位置
+    print(f"\n■ ⑤ 3着内の馬は4角でどこにいたか（頭数で前1/3・中・後1/3に割る）")
+    zen_rows(done)
     print("\n   ※ここで出た性格は【その日のもの】。翌日に持ち越さないこと。")
+
+
+def c4_of(pas):
+    """通過順位「3-3-2-1」の最後＝最終4角。伏せ字や空は None。"""
+    q = [int(y) for y in re.findall(r"\d+", pas or "")]
+    return q[-1] if q else None
+
+
+def zen_rows(done):
+    """⑤ 前後の傾向 ── 2026-11-15、中央からの申し送り（handoff_jra_to_nankan.md 1-1）。
+
+    中央では「今日ここまでの3着内が4角でどこにいたか」を後半の狙いに使った。
+    前後の傾向は当てになり、内外は当てにならなかった。なので**前後だけ**を出す。
+
+    ★ ふだんの平均とは比べない（CLAUDE.md 最優先ルール。「過去◯日と比べて」をしない）。
+      中央の札は「ふだん比 ±15pt」で出していたが、南関ではその比べ方をしない。
+      **今日の鞍だけの数**を並べる。どう読むかは人が決める。
+    ★ 内外は出さない（ルール12・14。1日の内外は当てにならず、単独の馬は記録されない）。
+    ★ 通過順位が伏せ字（cookie 切れ）の鞍は数えない。数えられなかった鞍は言う。
+    """
+    cnt = {"前": 0, "中": 0, "後": 0}
+    miss = []
+    for r, m, rows, rk in done:
+        n = len(rows)
+        cell = []
+        for x in rows[:3]:
+            c = c4_of(x.get("pas"))
+            if c is None or n < 2:
+                cell.append("?")
+                continue
+            rel = (c - 1) / (n - 1)
+            k = "前" if rel < 1 / 3 else ("中" if rel < 2 / 3 else "後")
+            cnt[k] += 1
+            cell.append(f"{x['ub']}番{k}({c}/{n})")
+        if all(c == "?" for c in cell):
+            miss.append(f"{r}R")
+            continue
+        print(f"   {r:>2}R {m['dist']}m  " + "  ".join(cell))
+    tot = sum(cnt.values())
+    if not tot:
+        print("   通過順位が取れていません（cookie 切れで伏せ字の可能性。ルール5）")
+        return
+    print("   今日ここまで " + "   ".join(
+        f"{k} {v}頭 ({v / tot * 100:.0f}%)" for k, v in cnt.items()) + f"   計{tot}頭")
+    if miss:
+        print(f"   ※通過順位が無く数えていない鞍: {' '.join(miss)}")
+    print("   ※前に偏った日は、後半の丸に「前へ出られる馬」を入れる。差しに偏った日はその逆。")
+    print("     隊列（並び）は前日のまま変えない。変えるのは狙いだけ。")
 
 
 if __name__ == "__main__":
