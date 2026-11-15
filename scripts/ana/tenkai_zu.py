@@ -263,7 +263,36 @@ def ncor(ven, dist, tsuka=None):
         return len(tsuka)
     return None
 
-SUITEI = DORO = True                # main() の --no-suitei / --no-doro で止める
+SUITEI = DORO = True
+CYK = {}                            # --cyokyo で読む調教の短評
+CYK_BUN = False
+CYK_LABEL = '調教☝'                 # 好調教の札の文字（☝が出ない環境なら '調教↑'）
+
+# 調教の札（2026-11-15、ユーザーの指示「調教上向きとか」）。競馬ブックの短評・矢印・
+# 最後の追い切りの短評から、こちらの言葉で3つに分ける（調教↑／調教↓／追切りなし。
+# 「調教☝とか」の指示で短い形に。☝は画像のフォントで出ないことがあるので矢印）。どれにも当たらなければ札なし。
+#   矢印 ↗↑ → 調教↑、↘↓ → 調教↓（矢印が先）
+#   次に 短評 → 最後の追い切りの短評 の順で、言葉で判定する（下向きの言葉を先に見る）
+CYK_DOWN = ('重め', '今ひと息', '今一息', '平凡', 'フラつ', '良化度合遅', '物足り', '案外', '鈍')
+CYK_UP = ('良化', '上向', '素軽', 'キビキビ', '脚色に余裕', '先着', '好調', '絶好', '動き良')
+
+
+def cyk_fuda(cz):
+    if '手控え' in (cz.get('tanpyo') or ''):
+        return '追切りなし'
+    ya = cz.get('ya') or ''
+    if ya in ('↗', '↑'):
+        return '調教↑'
+    if ya in ('↘', '↓'):
+        return '調教↓'
+    last = [x.get('tanpyo') or '' for x in (cz.get('runs') or []) if x.get('date') != '◇']
+    for t in [cz.get('tanpyo') or ''] + last[-1:]:
+        if any(w in t for w in CYK_DOWN):
+            return '調教↓'
+        if any(w in t for w in CYK_UP):
+            return '調教↑'
+    return None
+# ↑ SUITEI・DORO は main() の --no-suitei / --no-doro で止める
 JK = _load('jk_soto.json')
 SOTO = _load('soto.json')
 CSS = open(os.path.join(HERE, 'tenkai_zu.css')).read()
@@ -683,7 +712,10 @@ def main():
     #   `--plain`（宣伝用）でも出す ── 向きを示すだけで手の内ではない。
     #   止める口は **`--no-rachi`**。枠の中には何も足していないので馬は1pxも動かない。
     rachi = '--no-rachi' not in a
-    global SUITEI, DORO
+    global SUITEI, DORO, CYK, CYK_BUN
+    CYK_BUN = '--cyokyo-bun' in a       # 短評の文をそのまま出す（有料欄の文言。既定は出さない）
+    CYK = ({R_: {h['ub']: h for h in hs} for R_, hs in json.load(open(g('--cyokyo'))).items()}
+           if g('--cyokyo') else {})
     SUITEI = '--no-suitei' not in a     # 推定タイムを止める口（2026-11-15）
     DORO = '--no-doro' not in a         # 道悪の札を止める口（2026-11-15）
     pace = {k: v.lower() for k, v in kv(a, '--pace').items()}
@@ -819,6 +851,23 @@ def main():
             if r.get('doro') and not plain and DORO:
                 so += '<span class="doro%s">道悪%s %d/%d</span>' % (
                     (('' if r['doro'][0] == '○' else ' x'),) + r['doro'])
+            # ★ 2026-11-15、調教の短評（ユーザーの指示「隊列図に調教コメント加えられる？」）。
+            #   `--cyokyo cyokyo.json`（`cyokyo.py --json` で取ったもの）を渡したときだけ出す。
+            #   **競馬ブックの有料欄の文言**なので既定では出さない。人に見せる図に載せるかは
+            #   ユーザーが決める（handoff_jra_to_nankan.md 1-7「有料記事の文言は図に載せない」）。
+            #   矢印 ↗ ↘ だけ添える（→ は付けない）。馬の位置は動かない。`--plain` では出ない。
+            #   ★ 同日、ユーザーの指示「調教上向きとか」── 既定は**こちらの言葉の札**（cyk_fuda）。
+            #     競馬ブックの短評そのものは `--cyokyo-bun` を付けたときだけ。
+            cz = CYK.get(R, {}).get(r['ub'])
+            if cz and not plain:
+                if CYK_BUN and cz.get('tanpyo'):
+                    ya = cz.get('ya') if cz.get('ya') in ('↗', '↘', '↑', '↓') else ''
+                    so += '<span class="cyk">調教 %s%s</span>' % (html.escape(cz['tanpyo']), ya)
+                else:
+                    # ★ 同日「調教☝だけで良いよ」── 出すのは**好調教（↑）だけ**。↓・追切りなしは出さない。
+                    f = cyk_fuda(cz)
+                    if f == '調教↑':
+                        so += '<span class="cyk">%s</span>' % CYK_LABEL
             if r['nopos']:
                 so += '<span class="nopast">過去走なし</span>'
             # ★ 2026-11-15、同じ地点（角の数）の過去走が1本も無く、4角で代用した馬の札。

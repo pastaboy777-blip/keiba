@@ -74,9 +74,16 @@ def main():
     head, mmdd = sys.argv[1], sys.argv[2]
     rs = (range(1, 13) if "--all" in sys.argv
           else [int(x) for x in sys.argv[3:] if x.isdigit()])
+    # ★ 2026-11-15 --json 出力.json … 取った分をファイルに残す（展開図 tenkai_zu.py --cyokyo 用）。
+    #   取り直しで競馬ブックを叩かないため。中身は有料欄なので **data/ と同じくコミットしない**。
+    js = sys.argv[sys.argv.index("--json") + 1] if "--json" in sys.argv else None
+    keep = json.load(open(js)) if js and os.path.exists(js) else {}
     for R in rs:
         rid = "%s%02d%s" % (head, R, mmdd)
         hs = parse(get(rid))
+        if js and hs:
+            keep[str(R)] = hs
+            json.dump(keep, open(js, "w"), ensure_ascii=False)
         print("=" * 94)
         print("%2dR  %d頭" % (R, len(hs)))
         if not hs:

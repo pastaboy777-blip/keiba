@@ -120,3 +120,10 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
 .doro{display:block;font-size:9px;color:#0c0c0e;background:#5fd6c8;border-radius:3px;
  padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
 .doro.x{background:#9a9aa4;color:#0c0c0e}
+
+/* 2026-11-15 追加 ── 調教の短評（--cyokyo を渡したときだけ）。.sente と同じ形・大きさで色だけ。 */
+/* 「好調教の馬をわかるようにしたい」（同日）── 調教↑ だけ大きく明るく。調教↓・追切りなし は小さく灰色。 */
+.cyk{display:block;font-size:11.5px;color:#1a1200;background:#ffd23f;border-radius:4px;
+ padding:1px 7px;font-weight:900;margin:2px auto 0;width:max-content;
+ box-shadow:0 0 0 2px #fff3b0,0 0 8px rgba(255,210,63,.75)}
+.cyk.x{font-size:9px;padding:0 5px;margin:1px auto 0;background:#9a9aa4;color:#0c0c0e;box-shadow:none;font-weight:800}
