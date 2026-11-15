@@ -1,6 +1,13 @@
 
+/* ★ 2026-11-15、ユーザーの指示 ──「**砂の色をもう少し明るくして**」。
+   変えたのは --d1 / --d2（.track の地色）だけ。**変更前の値を残しておく** ──
+     --d1:#3b3027  --d2:#342a22   ← 前
+     --d1:#4e4034  --d2:#453a2e   ← 後（少しだけ明るく。色味は砂のまま＝茶系）
+   行きすぎならこの2つを前の値に戻すだけで元に戻る。
+   見本の緑は芝の鞍なので真似しない（ユーザーの指示）。
+   馬の位置・段・大きさは1pxも動かしていない（色だけ）。 */
 :root{--bg:#0c0c0e;--card:#16161a;--acc:#e8362f;--acc2:#3987e5;--gold:#d8a84a;--grn:#5fe07a;
- --tx:#f2f2f4;--dim:#8c8c96;--line:#2a2a31;--d1:#3b3027;--d2:#342a22}
+ --tx:#f2f2f4;--dim:#8c8c96;--line:#2a2a31;--d1:#4e4034;--d2:#453a2e}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--tx);width:1060px;padding:32px 38px 34px;
  font-family:"Noto Sans CJK JP","Hiragino Sans","Yu Gothic",sans-serif;-webkit-font-smoothing:antialiased}
@@ -77,3 +84,17 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
    ユーザーの見本の画像どおり、小さく・控えめ・左寄せ。
    .track の中には何も足していないので、馬の left/top は1pxも動かない。 */
 .kd{margin:11px 18px -3px;font-size:11px;color:var(--dim);font-weight:700}
+
+/* 2026-11-15 追加 ── ユーザーの見本の画像どおり、図の枠の下に3つ。
+   並びは 凡例（●赤丸＝狙い）→ 過去の傾向 → 見解。
+   .view（見解）は前からある形をそのまま使う（薄い帯・左に線）。
+   .keiko は同じ形で、線の色だけ砂に寄せた金系。どれも .track の外なので馬は動かない。 */
+.analeg{margin:0 16px 8px;font-size:11.5px;color:#c9c9d2;font-weight:700}
+.analeg b{color:var(--acc);font-size:13px;margin-right:4px}
+.keiko{margin:0 16px 10px;background:#121216;border:1px solid var(--line);
+ border-left:3px solid var(--gold);border-radius:8px;padding:10px 15px}
+.keiko h4{font-size:11px;color:var(--gold);letter-spacing:.1em;margin-bottom:5px;font-weight:700}
+.keiko p{font-size:12.2px;line-height:1.85;color:#c9c9d2}
+.keiko b{color:#f2f2f4;font-weight:800}
+/* ペースの箱の2行目（当日の結果があるときだけ出る） */
+.peff2{font-size:12px;color:#c9c9d2;margin-top:6px;font-weight:600;line-height:1.7}
