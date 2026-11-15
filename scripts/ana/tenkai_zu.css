@@ -108,8 +108,16 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
 /* 2026-11-15 追加 ── ユーザーの指示「**下がラチ沿いと書いて**」。
    どちら側が内（ラチ沿い）かを示す小さな文字。**.track の外**に置くだけなので
    馬の left/top は1pxも動かない（ルール20★・31★）。
-   .rachi    … 枠の上に出す（内が上の鞍）
-   .rachi.d  … 枠の下に出す（上下を返す鞍＝川崎2000m・大井1200m・1400m。ルール43）
-   ％も数字も書かない（ルール47）。止める口は --no-rachi。 */
-.rachi{margin:5px 18px -3px;font-size:10.5px;color:#bdb3a2;font-weight:700;letter-spacing:.1em}
-.rachi.d{margin:-6px 18px 10px}
+   .rachi    … 枠の上端にぴったり寄せる（内が上の鞍）
+   .rachi.d  … 枠の下端にぴったり寄せる（上下を返す鞍＝川崎2000m・大井1200m・1400m。ルール43）
+   ％も数字も書かない（ルール47）。止める口は --no-rachi。
+
+   ★ 2026-11-15 に寄せ方を直した。ユーザーの指摘 ──「ラチ沿いの文字が『最初のコーナー
+     ← 左が前』の行の下に潜り込んでいて、**どちらの端を指しているのか分からない**」。
+     上の行（.kd）との間を開け、**枠との間は 0 にする**（.track の margin を打ち消す
+     負の margin。.track は margin:10px 16px 12px）。
+     これで文字が指している端が一目で分かる。**.track の中には何も足していないので
+     馬の left/top は1pxも動かない**（ルール20★・31★）。 */
+.rachi{margin:12px 18px -10px;font-size:10.5px;color:#bdb3a2;font-weight:700;
+ letter-spacing:.1em;line-height:1.25}
+.rachi.d{margin:-12px 18px 12px}

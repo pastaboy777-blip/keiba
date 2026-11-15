@@ -26,6 +26,16 @@
       （VFLIP ＝ 川崎2000m・大井1200m・1400m）は内が**下**なので枠の下、
       それ以外は枠の**上**（ルール43）。％も数字も出さない。`--plain` でも出す。
       止める口は **`--no-rachi`**。
+  **順位で等間隔に並べる** … ユーザーの指摘「**縦一直線にこんなに並ばない**」
+      「**不自然でしょ？**」「**正確に作って**」。`pos` は過去走の平均なので値が真ん中に
+      寄り、8R（1600m・14頭）は7頭が0.18の幅に固まって縦に積まれていた。
+      相対位置は**順位**で、定義上かならず0〜1に均等に散る ──
+      だから **`pos` の順位で等間隔（0, 1/(n-1), …, 1）に並べる**。
+      **順番は1頭も変えない。変えるのは間隔だけ。** 測った値は `pos0` に残してあり、
+      「先頭候補」の札と見解の文の数字はそちらを見る。
+      値そのままで横を決める口は **`--pos-nama`**。
+      （これで縦積みも階段も消えるので、「3頭以上の固まりを散らす」処理
+        ＝`--pos-kasaneru` は**外した**。あれは等間隔の斜めの階段を作っていた。）
   過去走なしを散らす … ユーザーの指摘「**5R ②④⑦⑧ 1直線にならぶのは不自然**」。
       過去走なしの馬は pos が鞍の中央で**全頭同じ値**になり、縦一直線に並んでいた。
       馬番の昇順に等間隔で中央の前後へ少しだけずらす（**乱数なし＝毎回同じ図**）。
@@ -204,50 +214,39 @@ NCOR = {
 
 
 # ★★ 2026-11-15、ユーザーの指摘 ──
-#   「**内一直線にこんな並ばないし、縦一直線にこんなに並ばない！**」
+#   「**縦一直線にこんなに並ばない**」「**不自然でしょ？**」「**正確に作って**」
 #
-#   pos が**同じ値（またはほぼ同じ値）**になった馬は、`place()` で横が同じ場所に置かれ、
-#   段だけ分かれて**縦に積まれる**。図は「この馬たちが横一線に並ぶ」と主張しているが、
-#   持ち走が1〜5本しかないので**値が重なりやすいだけ**で、そこまでは言えない。
-#   （過去走なしの馬を散らしたのと同じ問題。あのときは「過去走なし」だけ直して、
-#     **同じ値になった馬は直していなかった**。）
+#   `pos` は過去走（1〜5本）の平均なので、**値が鞍の真ん中に寄る**。
+#   11/16 大井8R（1600m・14頭）は
+#     ③0.17 ⑨0.20 ⑩0.21 ⑬0.23 ⑭0.30 ⑪0.32 ④0.35  ← **7頭が0.18の幅に固まる**
+#     ⑥0.48 ／ ②0.65 ⑤0.67 ①0.69 ／ ⑧0.92
+#   で、図は「7頭が同じ場所に横一線」という**実際には起こらない隊列**を描いていた。
+#   ところが**相対位置は順位**で、レースには必ず1番手と最後尾がいる ──
+#   定義上かならず **0〜1に均等に散る**。
 #
-#   → **差が TIE_EPS 以内の馬が3頭以上かたまっているときだけ**、少しだけ前後に散らす。
-#     **2頭の重なりはそのまま**残す ── それは「競る」という情報（ユーザーは
-#     「競っている」ことを否定していない。「**こんなに**並ばない」）。
-#   **乱数は使わない**（並びは pos → 馬番の順で決まる＝同じカードなら毎回同じ図）。
-#   隣の集団とのすき間の TIE_ROOM までしか使わないので、前の集団・後ろの集団には食い込まない。
-#   いままでどおり重ねる口は **`--pos-kasaneru`**。
-POS_KASANERU = False     # True なら同じ値の馬を重ねたままにする（--pos-kasaneru）
-TIE_EPS = 0.05           # これ以内の差は「ほぼ同じ値」（図では約39px）
-TIE_MIN = 3              # 3頭以上かたまっていたら散らす（2頭は競りとして残す）
-TIE_STEP = 0.030         # 1頭ずつずらす幅（pos。図では約23px）
-TIE_ROOM = 0.60          # 隣とのすき間はここまでしか使わない
+#   → **`pos` の値そのままで横を決めるのをやめ、`pos` の順位で等間隔に並べる。**
+#     頭数 n に対して前から 0, 1/(n-1), 2/(n-1), …, 1 を割り当てる。
+#     **順番は1頭も変えない**（並べ替えは pos の小さい順のまま）。変えるのは**間隔だけ**。
+#   ★ なぜこれが「正確」か ── こちらが本当に持っている情報は**順番**だけ。
+#     間隔の細かさ（0.17 と 0.20 の差）は過去走の平均から出た値で、もともと信用できない。
+#   ★ これで**縦積みも階段も消える**ので、前に入れていた「3頭以上の固まりを散らす」処理
+#     （`spread_ties` / `--pos-kasaneru` / TIE_*）は**外した** ──
+#     あれは等間隔の**きれいな斜めの階段**を作ってしまい、それも実際には起こらない形だった。
+#   ★ 測った値（0.17 など）は `pos0` に残してあり、
+#     「先頭候補」の札（差0.06未満）と見解の文の `%.2f` は**そちらを見る**。
+#   いままでどおり `pos` の値そのままで横を決める口は **`--pos-nama`**。
+POS_NAMA = False         # True なら pos の値そのままで横を決める（--pos-nama）
 
 
-def spread_ties(rows, allr):
-    """pos がほぼ同じ3頭以上を、少しだけ前後に散らす（上の★★）。"""
-    if POS_KASANERU:
+def rankify(rows):
+    """pos の順位で等間隔に並べ替える（上の★★）。rows は pos の昇順。"""
+    for r in rows:
+        r.setdefault('pos0', r['pos'])            # 測った値（札と見解の文はこちらを見る）
+    if POS_NAMA or OLD_C4 or len(rows) < 2:       # --c4 / --old の経路は触らない
         return
-    mv = [r for r in allr if not r['nopos']]      # 過去走なしは別の仕組みで散らしてある
-    i = 0
-    while i < len(mv):
-        j = i + 1
-        while j < len(mv) and (mv[j]['pos'] - mv[j - 1]['pos']) <= TIE_EPS:
-            j += 1
-        k = j - i
-        if k >= TIE_MIN:
-            grp = mv[i:j]
-            c = sum(r['pos'] for r in grp) / k
-            ix = [allr.index(r) for r in grp]     # すき間は過去走なしの馬も入れて見る
-            lo = allr[min(ix) - 1]['pos'] if min(ix) > 0 else 0.0
-            hi = allr[max(ix) + 1]['pos'] if max(ix) + 1 < len(allr) else 1.0
-            half = min(TIE_STEP * (k - 1) / 2,
-                       max(0.0, (c - lo) * TIE_ROOM), max(0.0, (hi - c) * TIE_ROOM))
-            step = 2 * half / (k - 1)
-            for t, r in enumerate(grp):
-                r['pos'] = min(1., max(0., c + (t - (k - 1) / 2) * step))
-        i = j
+    n = len(rows)
+    for i, r in enumerate(rows):
+        r['pos'] = i / (n - 1)
 
 
 def ncor(ven, dist, tsuka=None):
@@ -378,9 +377,11 @@ def mikata(dist, rows):
     if hana:
         s.append('ハナ候補は%s。' % nm(hana))
     for r in rows:
-        if (r['gain'] or 0) >= .20 and r['pos'] is not None and r['pos4'] is not None:
+        # ★ 数字は**測った値**（pos0）を書く。pos は図の横を決めるための順位になっている
+        #   （2026-11-15・rankify の★★）。`--pos-nama` では両方同じ値。
+        if (r['gain'] or 0) >= .20 and r.get('pos0') is not None and r['pos4'] is not None:
             s.append('%s%sは最初のコーナー%.2fから4コーナー%.2fまで押し上げる型。'
-                     % (maru(r['ub']), html.escape(r['name']), r['pos'], r['pos4']))
+                     % (maru(r['ub']), html.escape(r['name']), r['pos0'], r['pos4']))
     shi = [r for r in sorted(rows, key=lambda r: (r['srank'] is None, r['srank'] or 99))
            if r['srank']][:2]
     if shi:
@@ -508,11 +509,10 @@ def _arrange(rows, swap=(), noswap=False):
             if (b['pos'] - a['pos']) <= SWAP_DP and (b['uchi'] - a['uchi']) >= SWAP_DU:
                 a['pos'], b['pos'] = b['pos'], a['pos']
                 rows[i], rows[i + 1] = b, a
-    # ★ 2026-11-15、pos がほぼ同じ3頭以上を散らす（上の spread_ties の★★）。
-    #   入れ替え（--swap / SWAPDU）を済ませたあと、並べ直す前に動かす。
-    #   2頭だけの重なりは動かさないので、「先頭候補」の札（差0.06未満）はほぼそのまま出る。
-    spread_ties(rows, sorted(rows, key=lambda r: (r['pos'], r['ub'])))
-    rows.sort(key=lambda r: r['pos'])
+    # ★ 2026-11-15、**順位で等間隔に並べる**（上の rankify の★★）。
+    #   入れ替え（--swap / SWAPDU）を済ませて並び終わったあと、最後に間隔だけを直す。
+    #   **順番は1頭も動かない。** `--pos-nama` で値そのままに戻る。
+    rankify(rows)
     return rows
 
 
@@ -637,7 +637,7 @@ def main():
     #     **MIRROR には足さない** ── 鏡にはしない（前は右）。上下だけ返す（内が下）。
     VFLIP = {('川崎', 2000), ('大井', 1200), ('大井', 1400), ('大井', 2400)}
     global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, NOPAST_CENTER
-    global POS_MAZERU, POS_KASANERU
+    global POS_MAZERU, POS_NAMA
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
     # ★ 2026-11-14 に入れた3つを旧に戻す口（ルール44）。
@@ -649,8 +649,9 @@ def main():
     NOPAST_CENTER = '--nopast-center' in a
     # ★ 2026-11-15、**地点をそろえるのをやめて混ぜる**旧の形に戻す口（上の POS_MAZERU の★★）
     POS_MAZERU = '--pos-mazeru' in a
-    # ★ 2026-11-15、**pos がほぼ同じ3頭以上を散らすのをやめる**口（上の TIE_* の★★）
-    POS_KASANERU = '--pos-kasaneru' in a
+    # ★ 2026-11-15、**順位で等間隔に並べるのをやめて pos の値そのままで横を決める**口
+    #   （上の rankify の★★）
+    POS_NAMA = '--pos-nama' in a
     # ★ 2026-11-15、ユーザーの指示 ──**両方の向きを本人が言っている**（迷ったらこの2つ）
     #     1R（大井**1200m**＝VFLIP）を見て  ──「**下がラチ沿いと書いて**」
     #     8R（大井**1600m**＝VFLIPでない）を見て ──「**上がラチ沿いと書いて**」
@@ -715,9 +716,12 @@ def main():
         #   過去走のない馬（pos が鞍の中央の仮置き）が先頭2頭に来た鞍は出さない
         #   ── その pos は測った値ではないので「候補」と書けない（ルール22）。
         sente = set()
+        # ★ 差は**測った値**（pos0）で見る。pos は図の横を決めるための順位になっていて、
+        #   頭数で決まる等間隔（14頭なら0.077）なので差の判定には使えない
+        #   （2026-11-15・rankify の★★）。`--pos-nama` では両方同じ値。
         if (FUTATSU and not plain and len(rows) >= 2
                 and not rows[0]['nopos'] and not rows[1]['nopos']
-                and (rows[1]['pos'] - rows[0]['pos']) < FUTATSU_DP):
+                and (rows[1]['pos0'] - rows[0]['pos0']) < FUTATSU_DP):
             sente = {rows[0]['ub'], rows[1]['ub']}
         cells, NL = place(rows)
         if (ven, v['dist']) in MIRROR:
