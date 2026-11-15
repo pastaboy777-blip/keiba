@@ -29,6 +29,16 @@
   `--soto` / `--uchi` で指名した馬は「外（指定）」「内（指定）」の札が出るので**二重に出さない**。
   **馬の位置・段・大きさ・色は1つも動かない**（札を1つ足すだけ。ルール20★・31★）。
 
+★ 2026-11-15、**段の上下だけ内度順**にした（帯にはしていない）
+
+  ユーザーの指示 ──「**縦の並び方を直す（重なる馬どうしは、内寄りの予想の馬を必ず上にする）**」。
+  段はいままでどおり**重なり避け**。変えたのは
+  **「重なって別の段に分けるとき、どちらを上にするか」だけ**（`place()`）。
+  **横（left）は `pos` だけで決まる ── 1pxも動かない。**
+  `VFLIP` の鞍（川崎2000m・大井1200m・大井1400m）は、あとから段の順が返るので
+  **自動的に内が下**に来る（ここでは反転しない）。
+  戻す口は **`--tate-kasanari`**（2026-11-15 より前の割り当て）。
+
 ★ 2026-11-14、ユーザーの指示で3つ入れた（CLAUDE.md ルール44。120鞍で26通りを比べた結果）
 
   ① pos（前後）を**1角相対の中央値 → 直近重みづけ(5,4,3,2,1)**に。
@@ -155,6 +165,13 @@ FUTATSU_DP = 0.06    # 先頭2頭の pos 差がこれ未満なら「先頭候補
 #   **数字は札に書かない**（ルール47）。止める口は `--no-uchisoto`。
 UCHISOTO = True      # 「内」「外」の札を出すか（--no-uchisoto で止める）
 US_IN, US_OUT = .55, .40
+
+# ★ 2026-11-15、段の上下（ユーザーの指示 ──
+#   「縦の並び方を直す（重なる馬どうしは、内寄りの予想の馬を必ず上にする）」）。
+#   段は**重なり避けのまま**（帯にはしない＝ルール20）。変えたのは
+#   「重なって段を分けるとき、どちらを上にするか」だけ。中身は place()。
+#   --tate-kasanari で 2026-11-15 より前の割り当て（_kasanari）に戻る。
+TATE_KASANARI = False
 
 JK = _load('jk_soto.json')
 SOTO = _load('soto.json')
@@ -380,14 +397,8 @@ def _arrange(rows, swap=(), noswap=False):
     return rows
 
 
-def place(rows):
-    """重なり避けで段を作る。
-
-    ★ 「x が近い馬の段を内度順に並べ替える」後処理を一度入れたが**失敗した**
-      （2026-11-11）。同じ段に x の近い馬が同居して重なる。
-      段の割り当てを内外に合わせたいなら、段そのものを内外の帯にするしかないが、
-      それはユーザーに「ちがう」と言われた形。**ここは重なり避けのままにする。**
-      ずれている鞍は `--swap` で馬番を指定して直す。"""
+def _kasanari(rows):
+    """重なり避けだけで段を作る（2026-11-15 より前の形）。`--tate-kasanari` で戻る口。"""
     out, lanes = [], []
     for r in sorted(rows, key=lambda r: r['pos']):
         x = PAD + (1 - r['pos']) * (WID - 2 * PAD)
@@ -400,6 +411,83 @@ def place(rows):
             lanes.append(x)
             out.append((r, x, len(lanes) - 1))
     return out, max(1, len(lanes))
+
+
+def _cluster(rows):
+    """横で重なりうる馬を「かたまり」に切る。
+
+    pos 順（＝ x の大きい順）に見て、**隣との間が GAP より広い**ところで切る。
+    かたまりをまたぐ2頭は必ず GAP より離れているので、
+    **かたまりの中だけ段を組み替えても、外の馬とは絶対に重ならない。**
+    2026-11-11 の失敗（x の近い馬が同じ段に同居した）は、
+    かたまりを無視して全体を内度順に並べ替えたために起きた。"""
+    cl, cur = [], []
+    for r in sorted(rows, key=lambda r: r['pos']):
+        x = PAD + (1 - r['pos']) * (WID - 2 * PAD)
+        if cur and (cur[-1][1] - x) > GAP:
+            cl.append(cur)
+            cur = []
+        cur.append((r, x))
+    if cur:
+        cl.append(cur)
+    return cl
+
+
+def _fit(seq):
+    """渡された順に、空いている段へ**上から**詰める。
+
+    その段に**すでに置いた馬すべて**と GAP より離れているかを見るので、
+    **どんな順で渡しても重ならない。** x の大きい順に渡すと
+    `_kasanari()` とまったく同じ割り当てになる（同じ段の中は x が降順に並ぶので、
+    いちばん近いのは最後に置いた馬 ＝ 元の `x < last - GAP` と同じ判定）。"""
+    lanes, out = [], []
+    for r, x in seq:
+        for i, xs in enumerate(lanes):
+            if all(abs(x - o) > GAP for o in xs):
+                xs.append(x)
+                out.append((r, x, i))
+                break
+        else:
+            lanes.append([x])
+            out.append((r, x, len(lanes) - 1))
+    return out, len(lanes)
+
+
+def place(rows):
+    """重なり避けで段を作り、**重なった馬どうしは内度の高いほうを上の段**にする。
+
+    ★ 2026-11-15、ユーザーの指示 ──
+      「**縦の並び方を直す（重なる馬どうしは、内寄りの予想の馬を必ず上にする）**」。
+      **段を内外の帯にはしていない**（それはルール20でユーザーが否定した形）。
+      段はいままでどおり**重なり避け**で、変えたのは
+      **「重なって別の段に分けるとき、どちらを上にするか」だけ。**
+      横（x）は `pos` だけで決まる ── **1pxも動かない。**
+
+    ★ 2026-11-11 に「x が近い馬の段を内度順に並べ替える」後処理を入れて**失敗した**。
+      同じ段に x の近い馬が同居して重なった。原因は
+      **かたまりを無視して全体を並べ替えたこと**。今回は `_cluster()` で
+      かたまりに切り、**その中だけ**内度順に詰め直す。かたまりの外とは
+      必ず GAP より離れているので重ならない（`_fit()` も段の中の全馬を見る）。
+
+    ★ 段が増えないことを**毎回確かめる**。内度順に詰めると、まれに
+      重なり避けだけのときより段が増えることがある（詰め方の順が変わるため）。
+      増える鞍は**そのかたまりだけ元の詰め方に戻す** ── 図が縦に伸びないほうを採る。
+
+    ★ `VFLIP` の鞍（川崎2000m・大井1200m・大井1400m）は、呼び出し側で
+      あとから `ln → NL-1-ln` が効くので、ここで「内度が高い＝ln が小さい」に
+      しておけば**自動的に内が下**に来る。ここでは反転しない。
+
+    止める口は `--tate-kasanari`（＝ `_kasanari()`。2026-11-15 より前の図に戻る）。"""
+    if TATE_KASANARI:
+        return _kasanari(rows)
+    out, nl = [], 0
+    for cl in _cluster(rows):
+        base, nb = _fit(cl)                       # 元の詰め方（x の大きい順）
+        uch, nu = _fit(sorted(cl, key=lambda t: (-t[0]['uchi'], -t[1])))
+        got, n = (uch, nu) if nu <= nb else (base, nb)
+        out += got
+        nl = max(nl, n)
+    return out, max(1, nl)
 
 
 def ring(cells, ana, each=False, color=None, box=False):
@@ -496,7 +584,7 @@ def main():
     #     大井1200mは最初に記録される角が3コーナー、1400mは2コーナー（ルール45）で地点は違うが、
     #     ユーザーの判断は「同じ」。**左右はそのまま**（どちらも MIRROR に入れない）。
     VFLIP = {('川崎', 2000), ('大井', 1200), ('大井', 1400)}
-    global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, UCHISOTO
+    global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, UCHISOTO, TATE_KASANARI
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
     # ★ 2026-11-14 に入れた3つを旧に戻す口（ルール44）。
@@ -505,6 +593,8 @@ def main():
     FUTATSU = '--no-futatsu' not in a             # 「先頭候補」の札を出さない
     SWAPDU = '--swapdu' in a                      # 内度による前後の入れ替えを復活させる
     UCHISOTO = '--no-uchisoto' not in a           # 「内」「外」の札を出さない
+    # ★ 段の上下を内度順にしない（2026-11-15 より前の割り当てに戻る）
+    TATE_KASANARI = '--tate-kasanari' in a
     pace = {k: v.lower() for k, v in kv(a, '--pace').items()}
     ana_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--ana').items()}
     swap_sp = {k: v.split(',') for k, v in kv(a, '--swap').items()}
