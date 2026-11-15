@@ -4,6 +4,21 @@
       --date "2026.11.10 TUE" --R 6-12 [--res res.json] [--odds odds.json] \
       --pace 6:S 7:M ... [--ana 6:7,1,8,13,5] [--swap 6:12-1] ["note:6=見解"]
 
+★ 人に見せる版は2つある（別の口。混ぜない）
+
+  --no-pct  **説明のところだけ**を差し替える（2026-11-15、ユーザーの指示 ──
+            「みんなに見せるから展開予想の下に％は出さないで」「秘密にしないと」
+            「こんな感じで出して　説明のところ」＋見本の画像）。
+            見出しの下の長い説明文（枠の内率・騎手の基準線・ずれ0.21・母数）を出さず、
+            **馬の枠のすぐ上に小さく1行だけ** ──
+            「3コーナー　→ 右が前（スタンドから見た向き）」（角は kado()、向きは鞍ごと）。
+            騎手の札（「町田直 内38%」）も出さない。
+            **終い順位・過去 外n/m・▲▼・先頭候補・過去走なしは残る。**
+            ペースの帯と「この鞍の前3Fの水準 39.5秒」も残る（秒は見本にも出ている）。
+  --plain   宣伝用。数値の札を**まとめて**落とす（終い順位・過去 外n/m・▲▼・
+            先頭候補・騎手も消える）。2026-11-12 の「説明文いらない　小文字消して」
+            「バレるじゃん」で作ったもの。**--no-pct とは独立で、挙動は変えていない。**
+
 ★ 2026-11-14、ユーザーの指示で3つ入れた（CLAUDE.md ルール44。120鞍で26通りを比べた結果）
 
   ① pos（前後）を**1角相対の中央値 → 直近重みづけ(5,4,3,2,1)**に。
@@ -358,6 +373,17 @@ def main():
     od_all = json.load(open(g('--odds'))) if g('--odds') else {}
     res = json.load(open(g('--res'))) if g('--res') else {}
     plain = '--plain' in a          # 人に見せる版（数値を落とす）
+    # ★ 2026-11-15、ユーザーの指示 ──「みんなに見せるから展開予想の下に％は出さないで」
+    #   「**秘密にしないと**」「**こんな感じで出して　説明のところ**」（見本の画像つき）。
+    #   --no-pct は**説明のところだけ**を差し替える口。
+    #     ・見出しの下の長い説明文（枠の内率・騎手の基準線・ずれ0.21・母数）を**丸ごと出さない**
+    #     ・代わりに**馬の枠のすぐ上**に小さく1行だけ出す ──
+    #       「3コーナー　→ 右が前（スタンドから見た向き）」（角の名前は kado()、向きは鞍ごと）
+    #     ・騎手の札（「町田直 内38%」）も出さない（％が本体なので名前だけ残しても意味がない）
+    #   残すもの … **終い順位・過去 外n/m・▲押し上げ／▼下がる・先頭候補・過去走なし**、
+    #              ペースの帯と「この鞍の前3Fの水準 39.5秒」（秒は見本にも出ている）。
+    #   --plain（宣伝用）は**1文字も変えていない**。別の口。
+    nopct = '--no-pct' in a
     # ★ 鞍ごとに左右を反転する（2026-11-13、ユーザーの指示 ──
     #   「1200 1400はそのまま」「1600は向き変えて」「向きあってる？？」）。
     #   大井1600m・1650mは2コーナー付近から出るので、1コーナーは反対側にある。
@@ -482,8 +508,8 @@ def main():
             #   図の形・馬の並び・〇・▲▼は変えない（ルール31）。
             if r['srank'] and r['srank'] <= 3 and not plain:
                 so += '<span class="sm">終い%d位</span>' % r['srank']
-            if plain:
-                pass                      # 騎手の札も出さない
+            if plain or nopct:
+                pass                      # 騎手の札も出さない（--no-pct は「内38%」が本体）
             elif r['jr'] is not None and r['jr'] >= .53:
                 so += '<span class="jin">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100)
             elif r['jr'] is not None and r['jr'] <= .40:
@@ -526,6 +552,19 @@ def main():
                       '<span class="nm">%s</span></div>%s%s</div>'
                       % (int(x), 14 + ln * LANE, (cv + uma) if R in flip else (uma + cv),
                          wc[0], wc[1], r['ub'], html.escape(r['name']), t, so))
+        # ★ --no-pct の1行（2026-11-15、ユーザーの見本の画像どおり）。
+        #   「<角の名前>　→ 右が前（スタンドから見た向き）」を**馬の枠のすぐ上**に小さく置く。
+        #   角の名前は kado()（大井1200mなら3コーナー／1400mなら2コーナー／1600m以上は1コーナー）。
+        #   **kado() が None の場（浦和・船橋など）は角の名前を出さず、向きだけ書く**（ルール45）。
+        #   向きは鞍ごと ── 鏡の鞍（R in flip）は「← 左が前」、ふつうの鞍は「→ 右が前」。
+        #   鞍の枠の上に置くので、1枚に鏡とふつうが混ざる日も自然に鞍ごとの向きになる。
+        cap = ''
+        if nopct:
+            kd = kado(ven, v['dist'])
+            cap = ('<div class="kd">%s%s</div>'
+                   % (('%s　' % kd) if kd else '',
+                      '← 左が前（スタンドから見た向き）' if R in flip
+                      else '→ 右が前（スタンドから見た向き）'))
         tmpl = (
             '<div class="race"><div class="rh"><span class="rn">%dR</span>'
             '<span class="rt">%s</span>'
@@ -534,7 +573,7 @@ def main():
             '<div class="pbar p-%s"><div class="gauge"><div class="gz z1">ゆっくり</div>'
             '<div class="gz z2">ふつう</div><div class="gz z3">速い</div>'
             '<div class="gmark" style="left:%d%%"></div></div>'
-            '<div class="peff">→ %s<span class="pnum">%s</span></div></div>'
+            '<div class="peff">→ %s<span class="pnum">%s</span></div></div>%s'
             '<div class="track" style="height:%dpx"><div class="goal'
             + (' l' if R in flip else '')
             + '"></div>%s%s</div>%s</div>')
@@ -542,7 +581,7 @@ def main():
             tmpl
             % (v['R'], v.get('start') or '', v['dist'], len(v['horses']),
                html.escape(v.get('cls') or ''), pc, tag, nm, pc, GP.get(pc, 50), eff,
-               ('この鞍の前3Fの水準 %.1f秒' % b['f3']) if b else '',
+               ('この鞍の前3Fの水準 %.1f秒' % b['f3']) if b else '', cap,
                NL * LANE + 24, (ring(cells, ana_sp.get(R, set()), '--each' in a,
                      (a[a.index('--ring-color') + 1] if '--ring-color' in a else None),
                      '--ring-box' in a)
@@ -571,7 +610,13 @@ def main():
     kline = ('（%s）' % '／'.join(
         '%s%sは%s' % (ven, '・'.join('%dm' % d_ for d_ in sorted(ds)), nm_)
         for nm_, ds in kado_g.items())) if kado_g else ''
-    sub = ('<div class="sub"><b>スタート後いちばん最初の角での隊列想定</b>%s　／　%s</div>'
+    # ★ --no-pct は**この説明文を丸ごと出さない**（2026-11-15、ユーザーの指示 ──
+    #   「秘密にしないと」「こんな感じで出して　説明のところ」。見本の画像に
+    #   枠の内率・騎手の基準線・ずれ0.21・母数は1つも写っていなかった）。
+    #   代わりの1行（角の名前＋向き）は**鞍ごとに馬の枠のすぐ上**に出してあるので、
+    #   **全体の見出しの下には何も置かない**。--plain の1行は1文字も変えていない。
+    sub = ('' if nopct else
+           '<div class="sub"><b>スタート後いちばん最初の角での隊列想定</b>%s　／　%s</div>'
            % (kline, muki) if plain else
            '<div class="sub"><b>スタート後いちばん最初の角での隊列想定</b>%s　／　'
            '過去走の<b>最初に記録された角の通過順</b>で隊列を組み、' % kline +
