@@ -27,10 +27,12 @@
      data/zu_png/YYYYMMDD/split_<場><R>.png
      (途中の連結データは場×馬場で1つずつ作って使い回し、終わったら消す)
   6) 作ったファイルの一覧と、各場の時計の基準を表示
+  6b) 丸の候補の一覧(鞍ごとに1行)を画面に出し、data/jra/kouho_YYYYMMDD.txt にも残す
+     (jra_tenkai_zu.py --dump-kouho が場ごとに data/jra/kouho_YYYYMMDD_<場>.json を書く。表示だけで予想は変えない)
   7) 使った設定(場ごとの芝ダの馬場・jra_tenkai_zu.py へ渡した引数)を data/jra/morning_YYYYMMDD.json に残す
      → 昼に scripts/jra_today.py が読んで、同じ馬場・時計の基準・丸で作り直す
 
-jra_tenkai_zu.py は呼ぶだけで、中身には手を入れない。
+jra_tenkai_zu.py は呼ぶだけ(--dump-kouho で候補の JSON を書かせる)。
 """
 from __future__ import annotations
 
@@ -143,6 +145,45 @@ def maru(nums: str) -> str:
     return "".join(MARU[int(x)] if 0 < int(x) < len(MARU) else f"({x})" for x in nums.split(",") if x.strip())
 
 
+def kouho_path(ymd: str, place: str) -> Path:
+    return JRA / f"kouho_{ymd}_{place}.json"
+
+
+def _m(us) -> str:
+    return "".join(MARU[u] if 0 < u < len(MARU) else f"({u})" for u in us) or "なし"
+
+
+def kouho_line(k: dict) -> str:
+    """「京都11R 芝2200 重: 位置(1-2・5-7) ⑤⑦ ／ 終い候補 ⑫⑮ ／ 押上 なし ／ ハナ候補 ⑧⑩⑥ ／ 札 道悪○⑥ 道悪×③」"""
+    head = f"{k['place']}{k['race']}R {k['surface']}{k['dist']} {BABA_LONG.get(k.get('baba') or '', k.get('baba') or '-')}"
+    pb = "・".join(k.get("pos_buckets") or [])
+    parts = ["位置 (過去走なし)" if not k.get("n_known", 1) else f"位置({pb}) {_m(k['pos'])}" if pb else "位置 (表なし)",
+             f"終い候補 {_m(k['shimai'])}", f"押上 {_m(k['oshiage'])}", f"ハナ候補 {_m(k['hana'])}"]
+    if k.get("kb_day"):
+        parts.append("札 " + (" ".join(t + _m(v) for t, v in k["kb"].items()) or "なし"))
+    return head + ": " + " ／ ".join(parts)
+
+
+def kouho_report(date: str) -> Path | None:
+    """その日の data/jra/kouho_YYYYMMDD_<場>.json を全部まとめて画面に出し、kouho_YYYYMMDD.txt に保存。"""
+    ymd = date.replace("-", "")
+    files = sorted(JRA.glob(f"kouho_{ymd}_*.json"))
+    if not files:
+        return None
+    lines = []
+    for f in files:
+        ks = json.loads(f.read_text(encoding="utf-8"))
+        lines += [kouho_line(k) for k in sorted(ks, key=lambda k: int(k["race"]))]
+        lines.append("")
+    out = JRA / f"kouho_{ymd}.txt"
+    head = (f"丸の候補 {date}(位置=予想4角の順位がそのコースで1着の多い2区分に入る馬 / "
+            "終い・押上=図の札 / ハナ=ハナ専用モデル上位3頭 / 札=厩舎の話のうち今日の馬場に関わるもの)")
+    out.write_text(head + "\n" + "\n".join(lines), encoding="utf-8")
+    print("\n== 丸の候補 ==")
+    print("\n".join("  " + l if l else "" for l in lines).rstrip())
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--date", required=True)
@@ -205,7 +246,7 @@ def main():
         out = ROOT / "scripts" / "daily" / f"zu_jra_{ymd}_{p}.html"
         print(f"[{p}] 展開図 …", flush=True)
         print(run([sys.executable, str(ZU), "--day", a.date, "--place", p, "--pace-data", str(allp),
-                   "--out", str(out)] + bb + extra).rstrip())
+                   "--out", str(out), "--dump-kouho", str(kouho_path(ymd, p))] + bb + extra).rstrip())
         made.append(out)
         if not a.no_png:
             shoot(out, pngdir, p)
@@ -264,6 +305,10 @@ def main():
     keep.update(setting)
     mp.write_text(json.dumps({"date": a.date, "places": keep}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     made.append(mp)
+
+    kp = kouho_report(a.date)
+    if kp:
+        made.append(kp)
 
     print("\n== 作ったファイル ==")
     for f in made:

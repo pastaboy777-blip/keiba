@@ -16,7 +16,8 @@
      その馬場と基準を morning_YYYYMMDD.json に書き戻す(丸などは残す。次の作り直しでは指定不要)
    - 無ければ今までどおり(--extra だけ)
    - --extra は朝の引数の後ろに足す
-4) --png で 1鞍ずつのPNG(data/zu_png/YYYYMMDD/<場>_<R>R.png)も作り直す。2分割(split)は作り直さない
+4) 丸の候補の一覧(jra_morning.py と同じ)を画面に出し、data/jra/kouho_YYYYMMDD.txt に保存
+5) --png で 1鞍ずつのPNG(data/zu_png/YYYYMMDD/<場>_<R>R.png)も作り直す。2分割(split)は作り直さない
 """
 from __future__ import annotations
 
@@ -32,7 +33,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "src"))
 
 import jra_official_harvest as H  # noqa: E402
-from jra_morning import BABA_LONG, base_args, parse_baba, shoot  # noqa: E402
+from jra_morning import BABA_LONG, base_args, kouho_path, kouho_report, parse_baba, shoot  # noqa: E402
 from nankeiba.scraping.jra_official import links, month_checksums, parse_race, race_id_of  # noqa: E402
 
 
@@ -147,7 +148,7 @@ def main():
             print(f"[{p}] {note}  丸など {' '.join((m or {}).get('mark_args', [])) or 'なし'}", flush=True)
         out = ROOT / "scripts" / "daily" / f"zu_jra_{ymd}_{p}.html"
         cmd = [sys.executable, str(ROOT / "scripts" / "jra_tenkai_zu.py"), "--day", a.date, "--place", p,
-               "--pace-data", str(allp), "--out", str(out)] + args + shlex.split(a.extra)
+               "--pace-data", str(allp), "--out", str(out), "--dump-kouho", str(kouho_path(ymd, p))] + args + shlex.split(a.extra)
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode != 0:
             sys.stderr.write(r.stderr[-3000:])
@@ -157,6 +158,9 @@ def main():
         if a.png:
             shoot(out, pngdir, p)
             print("→", (pngdir / f"{p}_*R.png").relative_to(ROOT))
+    kp = kouho_report(a.date)   # 丸の候補(場ごとの JSON をまとめて data/jra/kouho_YYYYMMDD.txt)
+    if kp:
+        print("→", kp.relative_to(ROOT))
 
 
 if __name__ == "__main__":

@@ -1111,10 +1111,50 @@ def _corner_side(d, ub):
     return ""
 
 
-def trend_html(data_path, date, place, surface, dist, name):
+_BUCKET_LABEL = ("1-2番手", "3-4", "5-7", "8-10", "11-")
+
+
+def course_win_line(place, surface, dist, baba=None):
+    """models/course_pos.json(scripts/jra_course_pos.py)から「このコースの勝ち馬の4角」の1行。
+    馬場(良/渋)の版が鞍数十分(MIN_N 以上)なら、その日の馬場の版も添える。表示だけで予想には使わない。"""
+    try:
+        import datetime as _dt
+        import jra_course_pos as CP
+        k, s = CP.lookup(place, surface, dist)
+    except Exception:  # noqa: BLE001  (表が無い環境では出さない)
+        return ""
+    if not s:
+        return ""
+    lvl = len(k.split("|"))
+    what = ("このコース" if lvl == 3 and k.split("|")[2].isdigit()
+            else "この距離帯(%s)" % k.split("|")[2] if lvl == 3 else "この場の%s" % surface)
+    try:
+        p0, p1 = CP._M["period"]
+        yrs = "%d年 " % max(1, round((_dt.date.fromisoformat(p1) - _dt.date.fromisoformat(p0)).days / 365))
+    except Exception:  # noqa: BLE001
+        yrs = ""
+    pc = lambda v: "%d%%" % round(v * 100)  # noqa: E731
+    seg = lambda w: "・".join("%s %s" % (lb, pc(v)) if i else "%s%s" % (lb, pc(v))  # noqa: E731
+                              for i, (lb, v) in enumerate(zip(_BUCKET_LABEL, w)))
+    out = "%sの勝ち馬の4角(%s%d鞍): %s" % (what, yrs, s["n"], seg(s["win"]))
+    if baba:
+        _, sb = CP.lookup(place, surface, dist, baba)
+        if sb is not None and sb is not s:
+            g = "良" if baba == "良" else "渋"
+            out += "　／　今日の馬場(%s・%d鞍): %s" % (g, sb["n"], seg(sb["win"]))
+        else:   # 版はあるが鞍数が足りない
+            g = "良" if baba == "良" else "渋" if baba in ("稍", "重", "不") else None
+            e = (CP._M.get("course") or {}).get(k, {}).get(g) if g and lvl == 3 else None
+            if e and e is not s:
+                out += "　／　今日の馬場(%s)は%d鞍で少ないので全体のみ" % (g, e["n"])
+    return '<span class="tl">勝つ位置</span>' + out
+
+
+def trend_html(data_path, date, place, surface, dist, name, baba=None):
     """「過去の傾向」欄(ユーザー指定 2026-11-15)。その鞍の日付より前の行だけを使う。
     1) 同じレース名の過去の回(最大3回): 年・馬場・1〜3着の 4角位置/頭数・組の外内・人気(人気は表示だけ)
-    2) 同じ場・芝ダ・距離を馬場(良/稍重/重以上)で分け、3着内の馬の 4角前/中/後1/3 の割合・組の外の割合・鞍数"""
+    2) 同じ場・芝ダ・距離を馬場(良/稍重/重以上)で分け、3着内の馬の 4角前/中/後1/3 の割合・組の外の割合・鞍数
+    3) このコースの勝ち馬の4角の区分(models/course_pos.json。こちらは表全体で、日付で切っていない)"""
     if not data_path or not date:
         return ""
     seen, past = set(), []
@@ -1179,6 +1219,9 @@ def trend_html(data_path, date, place, surface, dist, name):
         if segs:
             lines.append('<span class="tl">この条件%s%s%dm</span>' % (place, surface, dist)
                          + "3着内の4角　" + "　／　".join(segs))
+    cw = course_win_line(place, surface, dist, baba)
+    if cw:
+        lines.append(cw)
     if not lines:
         return ""
     return '<div class="ktrend"><div class="kt">過去の傾向</div>%s</div>' % "".join("<p>%s</p>" % l for l in lines)
@@ -1917,6 +1960,7 @@ def main() -> None:
     ap.add_argument("--kb", help="競馬ブックの厩舎の話(kb_jra.py の JSONL)。省略時は data/kb/danwa_<日付>.jsonl があれば使う")
     ap.add_argument("--no-kouho", action="store_true", help="候補の札(終い候補/押上候補)を出さない")
     ap.add_argument("--no-kb", action="store_true", help="厩舎の話の札(良◎/道悪○/道悪×/ハナ/控え)を出さない")
+    ap.add_argument("--dump-kouho", help="丸の候補(位置・終い/押上・ハナ・厩舎の話の札)を鞍ごとに JSON で書き出す")
     ap.add_argument("--kb-debug", action="store_true", help="厩舎の話の札を、鞍ごとに「馬番: 札 ← 拾った語」で出す")
     a = ap.parse_args()
     global KB_PATH, KB_OFF, KB_DEBUG
@@ -1951,21 +1995,67 @@ def main() -> None:
         a.from_data, a.date = True, a.day
         ids = sorted({d["race_id"] for d in load_rows(a.pace_data) if d["date"] == a.day and d["place"] == a.place
                       and d.get("surface") in ("芝", "ダ")})   # 結果と出馬表の両方にある鞍は1回だけ
-        bodies = []
+        bodies, kouho = [], []
         for rid in ids:
             a.race_id, a.race_no = rid, str(int(rid[-2:]))
             body, place, rno, fc = one_race(a, ap)
             bodies.append(body)
+            kouho.append(kouho_of(fc, place))
             print(rno + "R", fc.summary())
         rno = "%s〜%sR" % (str(int(ids[0][-2:])), str(int(ids[-1][-2:]))) if ids else ""
         body = "\n".join(bodies)
         place = a.place
     else:
         body, place, rno, fc = one_race(a, ap)
+        kouho = [kouho_of(fc, place)]
         print(fc.summary())
+    if a.dump_kouho:
+        import json
+        Path(a.dump_kouho).parent.mkdir(parents=True, exist_ok=True)
+        Path(a.dump_kouho).write_text(json.dumps(kouho, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(page(a.date, place, rno.rstrip("R"), body, learned=bool(a.pace_data)), encoding="utf-8")
     print("→", a.out)
+
+
+KB_BABA = {"良": ("良◎",), "稍": ("良◎", "道悪○", "道悪×"), "重": ("道悪○", "道悪×"), "不": ("道悪○", "道悪×")}
+
+
+def kouho_of(fc, place) -> dict:
+    """丸の候補(表示だけ。予想は変えない)。
+    位置: 予想4角(pos。1=先頭)の順位が、そのコースで1着の割合の高い上位2区分(course_pos の win)に入る馬
+    終い/押上: r["kouho"]、ハナ: ハナ専用モデルの上位3頭、札: 厩舎の話のうちその日の馬場に関わるもの"""
+    rows, baba = getattr(fc, "_rows", []), getattr(fc, "_baba", None)
+    surface, dist = fc._surface, fc._dist
+    out = {"place": place, "race": int(fc._rno) if str(fc._rno).isdigit() else fc._rno,
+           "surface": surface, "dist": dist, "baba": baba, "n": len(rows)}
+    try:
+        from jra_course_pos import bucket, lookup
+        _, cs = lookup(place, surface, dist, baba)
+    except Exception:  # noqa: BLE001
+        cs = None
+    pos = []
+    if cs:
+        top2 = sorted(range(5), key=lambda i: -cs["win"][i])[:2]
+        out["pos_buckets"] = [_BUCKET_LABEL[i].replace("番手", "") for i in sorted(top2)]
+        known = sorted([r for r in rows if r.get("pos") is not None], key=lambda r: (-r["pos"], r["ub"]))
+        pos = sorted(r["ub"] for i, r in enumerate(known) if bucket(i + 1) in top2)
+    out["pos"] = pos
+    out["n_known"] = sum(1 for r in rows if r.get("pos") is not None)
+    out["shimai"] = sorted(r["ub"] for r in rows if "終い候補" in (r.get("kouho") or []))
+    out["oshiage"] = sorted(r["ub"] for r in rows if "押上候補" in (r.get("kouho") or []))
+    hn = sorted([r for r in rows if r.get("hana") is not None], key=lambda r: -r["hana"])
+    out["hana"] = [r["ub"] for r in hn[:3]]
+    kb = {}
+    for r in sorted(rows, key=lambda r: r["ub"]):
+        for t, _ in kb_list(r["ub"], r["name"]):
+            if t in KB_BABA.get(baba or "良", ()):
+                kb.setdefault(t, [])
+                if r["ub"] not in kb[t]:
+                    kb[t].append(r["ub"])
+    out["kb"] = {t: kb[t] for t in KB_ORDER if t in kb}
+    out["kb_day"] = bool(kb_load(globals().get("_CUR_DATE") or ""))
+    return out
 
 
 def one_race(a, ap):
@@ -2031,8 +2121,9 @@ def one_race(a, ap):
             est.pop("laps", None)
         fc.n_learn, fc.conf, fc.est, fc.q = nl, conf, est, q
     fc._place, fc._surface, fc._dist = place, surface, dist
-    fc.trend = (trend_html(a.pace_data, a.date or (ME_RACE or {}).get("date"), place, surface, dist, name)
+    fc.trend = (trend_html(a.pace_data, a.date or (ME_RACE or {}).get("date"), place, surface, dist, name, baba)
                 if (SHOW_TREND and STYLE == "kawa" and a.pace_data) else "")
+    fc._rows, fc._baba, fc._rno = rows, baba, rno
     return render_race(rno, name, dist, surface, baba, len(rows), fc, rows, rk), place, rno, fc
 
 
