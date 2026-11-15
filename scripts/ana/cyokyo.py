@@ -2,6 +2,9 @@
 
   python3 cyokyo.py 2026101305 1023 1 2 3 4 5 6   # rid頭10桁 日付4桁 R...
   python3 cyokyo.py 2026101305 1023 --all         # 1R〜12R
+  python3 cyokyo.py 2026171001 1116 --all --json cyokyo1116.json
+      ↑ 鞍→馬番で引ける形で保存する。`tenkai_zu.py --cyokyo <json>` に渡すと
+        図に「調子上向き」「追い切りなし」の札が出る（CLAUDE.md ルール48）。
 
 取れるもの（1頭ぶん）
   追い切り短評 … 「攻め強化」「多少上向く」など、競馬ブックの一言
@@ -74,9 +77,13 @@ def main():
     head, mmdd = sys.argv[1], sys.argv[2]
     rs = (range(1, 13) if "--all" in sys.argv
           else [int(x) for x in sys.argv[3:] if x.isdigit()])
+    # ★ 2026-11-15、保存する口（--json）。鞍→馬番 ＝ tenkai_zu.py --cyokyo が読む形。
+    jp = (sys.argv[sys.argv.index("--json") + 1] if "--json" in sys.argv else None)
+    out = {}
     for R in rs:
         rid = "%s%02d%s" % (head, R, mmdd)
         hs = parse(get(rid))
+        out[str(R)] = {str(z["ub"]): z for z in hs}
         print("=" * 94)
         print("%2dR  %d頭" % (R, len(hs)))
         if not hs:
@@ -91,6 +98,9 @@ def main():
                     "*" if r["gap11"] else " ", r["date"], r["course"][:7],
                     r["baba"], t, r["asiiro"], r["tanpyo"]))
         time.sleep(0.5)
+    if jp:
+        json.dump(out, open(jp, "w"), ensure_ascii=False, indent=1)
+        print("\n→ %s（%d鞍・%d頭）" % (jp, len(out), sum(len(v) for v in out.values())))
 
 
 if __name__ == "__main__":

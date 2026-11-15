@@ -66,8 +66,12 @@ CROP_PAD = 40         # 下の余白（背景色と違う最後の行 + これ�
 
 # tenkai_zu.py にそのまま流す口（値を1つ取るもの / 取らないもの）
 ZU_VAL = ('--pace', '--ana', '--ana2', '--swap', '--soto', '--uchi',
-          '--flip', '--migi', '--odds', '--res')
-ZU_FLAG = ('--noswap', '--c4', '--nomb', '--old', '--svg')
+          '--flip', '--migi', '--odds', '--res',
+          # ★ 2026-11-15、調教（CLAUDE.md ルール48・tenkai_zu.py の cyo_tags）。
+          #   `cyokyo.py --json` が出した json をそのまま流す。
+          '--cyokyo')
+ZU_FLAG = ('--noswap', '--c4', '--nomb', '--old', '--svg',
+           '--no-cyokyo', '--cyokyo-hyo')
 
 
 def die(msg, code=2):

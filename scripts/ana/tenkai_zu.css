@@ -130,3 +130,16 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
 .rachi{margin:12px 18px -10px;font-size:10.5px;color:#bdb3a2;font-weight:700;
  letter-spacing:.1em;line-height:1.25}
 .rachi.d{margin:-12px 18px 12px}
+
+/* 2026-11-15 追加 ── 調教の札（ユーザーの指示「調教も全レース取って」
+   「調子上向きとか　情報載せて」。CLAUDE.md ルール48）。
+   既存の札（.jin / .jout / .nopast / .sente / .daiyo / .bao / .bax）と
+   同じ形・同じ大きさで、色だけ新しい。既存の札の色は1つも変えていない。 */
+.cup{display:block;font-size:9px;color:#0c0c0e;background:#8ef0c8;border-radius:3px;
+ padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
+.cdn{display:block;font-size:9px;color:#0c0c0e;background:#f18fb0;border-radius:3px;
+ padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
+.cno{display:block;font-size:9px;color:#0c0c0e;background:#a9b8d8;border-radius:3px;
+ padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
+.chy{display:block;font-size:9px;color:#15110d;background:#ded6c4;border-radius:3px;
+ padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}

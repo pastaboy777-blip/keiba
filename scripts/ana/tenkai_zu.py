@@ -37,6 +37,17 @@
   `--dan-nama --no-suitei --no-baba-tag` の3つで、直す前と**本体がバイト単位で一致**
   （差はCSSに札の定義が8行増えた分だけ）。
 
+★ 2026-11-15、**調教の札**（ユーザーの指示 ──「調教も全レース取って」
+  「調子上向きとか　情報載せて」。CLAUDE.md ルール48）。中身は cyo_tags の★★。
+
+  --cyokyo <json>  `cyokyo.py --json` が出した調教（鞍→馬番）を**外から渡す**。
+                   図の中から競馬ブックは叩かない。渡さなければ札は1つも出ない。
+     `調子上向き` … 矢印 ↗　／　`下降` … 矢印 ↓　／　`追い切りなし` … 本数0
+     総評の一言（「素軽さ出る」など）は**全頭に付いて札が4〜5段になる**ので既定では
+     出さない。出す口は `--cyokyo-hyo`。止める口は `--no-cyokyo`。
+     `--plain` では出さない。`--no-pct` では出す（％も時計も含まない札なので）。
+     **馬の位置・段・色・大きさは1つも動かない**（144頭で left/top が完全一致）。
+
 ★ 2026-11-15 に入れた2つ（どちらも**馬の位置・段・色・大きさを1つも動かさない**）
 
   「ラチ沿い」の文字 … ユーザーの指示「**下がラチ沿いと書いて**」。
@@ -233,6 +244,47 @@ def baba_tag(h):
     if len(P) >= BABA_X_RUN:
         return 'x'
     return None
+
+
+# ★★ 2026-11-15、**調教の札**。ユーザーの指示 ──「**調教も全レース取って**」
+#   「**調子上向きとか　情報載せて**」。CLAUDE.md ルール48（調教は `cyokyo.py` で取れる。
+#   隊列だけで印を打たない）の実務。
+#
+#   出すもの（言葉だけ。％も時計も出さない ── ルール47「秘密にしないと」）
+#       `調子上向き` … 競馬ブックの矢印が **↗**（11/16 大井は144頭中**14頭**）
+#       `下降`       … 矢印が **↓**（11/16 大井は**0頭**。出る日のために入れてある）
+#       `追い切りなし` … 追い切りの**本数0**（11/16 大井は**4頭**）
+#   ★ 総評の一言（「素軽さ出る」「動き今ひと息」など）は**出さない**ことにした。
+#     144頭**全頭**に付くので、道悪○・終い順位・過去走なしと重なって札が4〜5段になり、
+#     馬の絵より札のほうが大きくなる（実際に出して見比べて決めた。指示の
+#     「札が増えすぎて読めなくなるなら矢印と本数0だけにする」のとおり）。
+#     出したいときの口は **`--cyokyo-hyo`**（総評の札だけを足す。既定では出さない）。
+#   ★ データは**外から渡す**（`--cyokyo <json>`）。図の中から競馬ブックを叩かない。
+#     json は `cyokyo.py` の parse を鞍→馬番で入れた形（`{"5": {"6": {...}}}`）。
+#   ★ 既存の札（.jin / .jout / .nopast / .sente / .daiyo / .bao / .bax）と
+#     **同じ形・同じ大きさ**。色だけ新しい（既存の札の色は1つも変えていない）。
+#   `--plain`（宣伝用）では出さない。`--no-pct` では出す（％も数字も含まない札なので）。
+#   止める口は **`--no-cyokyo`**。
+CYOKYO = True        # 調教の札を出すか（--no-cyokyo で止める）
+CYO_HYO = False      # 総評の一言も札にするか（--cyokyo-hyo で出す）
+CYO = {}             # --cyokyo で読んだ調教（鞍 → 馬番 → 1頭ぶん）
+
+
+def cyo_tags(z):
+    """調教1頭ぶんから札のHTMLを返す。渡されていなければ空（＝何も言わない）。"""
+    if not (CYOKYO and z):
+        return ''
+    s = ''
+    ya = (z.get('ya') or '').strip()
+    if '↗' in ya or '↑' in ya:
+        s += '<span class="cup">調子上向き</span>'
+    elif '↓' in ya or '↘' in ya:
+        s += '<span class="cdn">下降</span>'
+    if not z.get('nrun'):
+        s += '<span class="cno">追い切りなし</span>'
+    if CYO_HYO and z.get('tanpyo'):
+        s += '<span class="chy">%s</span>' % html.escape(z['tanpyo'])
+    return s
 
 
 def _load(fn):
@@ -847,7 +899,7 @@ def main():
     #     **MIRROR には足さない** ── 鏡にはしない（前は右）。上下だけ返す（内が下）。
     VFLIP = {('川崎', 2000), ('大井', 1200), ('大井', 1400), ('大井', 2400)}
     global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, NOPAST_CENTER
-    global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG
+    global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
     # ★ 2026-11-14 に入れた3つを旧に戻す口（ルール44）。
@@ -868,6 +920,13 @@ def main():
     SUITEI = '--no-suitei' not in a
     # ★ 2026-11-15、道悪の札を出さない口（baba_tag の★★）
     BABA_TAG = '--no-baba-tag' not in a
+    # ★ 2026-11-15、調教の札（cyo_tags の★★）。ユーザーの指示 ──
+    #   「調教も全レース取って」「調子上向きとか　情報載せて」。
+    #   データは `--cyokyo <json>` で**外から渡す**（図の中から競馬ブックを叩かない）。
+    #   止める口は `--no-cyokyo`、総評の一言も出す口は `--cyokyo-hyo`。
+    CYOKYO = '--no-cyokyo' not in a
+    CYO_HYO = '--cyokyo-hyo' in a
+    CYO = json.load(open(g('--cyokyo'))) if g('--cyokyo') else {}
     # ★ 2026-11-15、ユーザーの指示 ──**両方の向きを本人が言っている**（迷ったらこの2つ）
     #     1R（大井**1200m**＝VFLIP）を見て  ──「**下がラチ沿いと書いて**」
     #     8R（大井**1600m**＝VFLIPでない）を見て ──「**上がラチ沿いと書いて**」
@@ -977,6 +1036,11 @@ def main():
             if r.get('btag') and not plain:
                 so += ('<span class="bao">道悪○</span>' if r['btag'] == 'o'
                        else '<span class="bax">道悪×</span>')
+            # ★ 調教の札（2026-11-15・cyo_tags の★★）。道悪の札のすぐ下に置く。
+            #   `--plain` では出さない。`--no-pct` では出す（％も時計も含まない札）。
+            #   渡されていない鞍・馬は何も出ない（＝前日のカードはそのまま）。
+            if not plain:
+                so += cyo_tags((CYO.get(R) or {}).get(str(r['ub'])))
             # ★ 先頭候補の札（2026-11-14・ルール44）。他の札とまったく同じ出し方で、
             #   --plain では出さない（sente が空になる）。
             if r['ub'] in sente:
