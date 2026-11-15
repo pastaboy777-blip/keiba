@@ -274,7 +274,8 @@ CYK_LABEL = '調教☝'                 # 好調教の札の文字（☝が出�
 #   矢印 ↗↑ → 調教↑、↘↓ → 調教↓（矢印が先）
 #   次に 短評 → 最後の追い切りの短評 の順で、言葉で判定する（下向きの言葉を先に見る）
 CYK_DOWN = ('重め', '今ひと息', '今一息', '平凡', 'フラつ', '良化度合遅', '物足り', '案外', '鈍')
-CYK_UP = ('良化', '上向', '素軽', 'キビキビ', '脚色に余裕', '先着', '好調', '絶好', '動き良')
+CYK_UP = ('良化', '上向', '素軽', 'キビキビ', '脚色に余裕', '先着', '好調', '絶好', '動き良',
+          '軽快', '上々', '時計以上')   # 後ろ3つは 11/16 大井1R で足した
 
 
 def cyk_fuda(cz):
@@ -285,7 +286,7 @@ def cyk_fuda(cz):
         return '調教↑'
     if ya in ('↘', '↓'):
         return '調教↓'
-    last = [x.get('tanpyo') or '' for x in (cz.get('runs') or []) if x.get('date') != '◇']
+    last = [x.get('tanpyo') or '' for x in (cz.get('runs') or []) if x.get('date') not in ('◇', '■')]   # ◇■は前回より前の調教
     for t in [cz.get('tanpyo') or ''] + last[-1:]:
         if any(w in t for w in CYK_DOWN):
             return '調教↓'
