@@ -1,0 +1,948 @@
+"""展開図 ── 過去走の1コーナー通過順で隊列を組み、枠と騎手で位置を直す。
+
+  python3 tenkai_zu.py <card.json> <out.html> --ven 川崎 --baba 不良 \
+      --date "2026.11.10 TUE" --R 6-12 [--res res.json] [--odds odds.json] \
+      --pace 6:S 7:M ... [--ana 6:7,1,8,13,5] [--swap 6:12-1] ["note:6=見解"]
+
+★ 人に見せる版は2つある（別の口。混ぜない）
+
+  --no-pct  **説明のところだけ**を差し替える（2026-11-15、ユーザーの指示 ──
+            「みんなに見せるから展開予想の下に％は出さないで」「秘密にしないと」
+            「こんな感じで出して　説明のところ」＋見本の画像）。
+            見出しの下の長い説明文（枠の内率・騎手の基準線・ずれ0.21・母数）を出さず、
+            **馬の枠のすぐ上に小さく1行だけ** ──
+            「3コーナー　→ 右が前（スタンドから見た向き）」（角は kado()、向きは鞍ごと）。
+            騎手の札（「町田直 内38%」）も出さない。
+            **終い順位・過去 外n/m・▲▼・先頭候補・過去走なしは残る。**
+            ペースの帯と「この鞍の前3Fの水準 39.5秒」も残る（秒は見本にも出ている）。
+  --plain   宣伝用。数値の札を**まとめて**落とす（終い順位・過去 外n/m・▲▼・
+            先頭候補・騎手も消える）。2026-11-12 の「説明文いらない　小文字消して」
+            「バレるじゃん」で作ったもの。**--no-pct とは独立で、挙動は変えていない。**
+
+★ 2026-11-15 に入れた2つ（どちらも**馬の位置・段・色・大きさを1つも動かさない**）
+
+  「ラチ沿い」の文字 … ユーザーの指示「**下がラチ沿いと書いて**」。
+      どちら側が内かを**馬の枠の外**に小さく1語だけ出す。上下を返す鞍
+      （VFLIP ＝ 川崎2000m・大井1200m・1400m）は内が**下**なので枠の下、
+      それ以外は枠の**上**（ルール43）。％も数字も出さない。`--plain` でも出す。
+      止める口は **`--no-rachi`**。
+  過去走なしを散らす … ユーザーの指摘「**5R ②④⑦⑧ 1直線にならぶのは不自然**」。
+      過去走なしの馬は pos が鞍の中央で**全頭同じ値**になり、縦一直線に並んでいた。
+      馬番の昇順に等間隔で中央の前後へ少しだけずらす（**乱数なし＝毎回同じ図**）。
+      札の「過去走なし」はそのまま。**過去走のある馬の位置は動かない。**
+      元の「全部中央」に戻す口は **`--nopast-center`**。
+
+★ 2026-11-14、ユーザーの指示で3つ入れた（CLAUDE.md ルール44。120鞍で26通りを比べた結果）
+
+  ① pos（前後）を**1角相対の中央値 → 直近重みづけ(5,4,3,2,1)**に。
+     位置の誤差 0.1850 → **0.1541（−17%）**。大井・川崎・真の1角・全体の4つすべてで小さい。
+     先頭の的中は変わらない（46.7% → 45.0%）。戻す口は **`--pos-median`**。
+  ② 先頭2頭の pos 差が **0.06未満**の鞍に「**先頭候補**」の札を2頭へ。
+     そういう鞍（114鞍中61鞍）は 1頭目だけ44.3% に対し**2頭のどちらかなら75.4%**。
+     足すのは**札1つだけ**で、馬の位置・段・色は1つも動かない。止める口は **`--no-futatsu`**。
+  ③ 内度による**前後の入れ替えを既定で止めた**。
+     入れ替えると先頭46.7% → 45.8%、3番手以内 80鞍 → 75鞍、誤差 0.1850 → 0.2095
+     （11鞍で先頭が入れ替わり**正解3・不正解4**）。復活させる口は **`--swapdu`**。
+     `--swap 6:12-1`（馬番を指定した段の入れ替え）は**別物でそのまま効く**。
+
+  `--pos-median --swapdu --no-futatsu` の3つを付けると、直す前とまったく同じ図になる
+  （大井10/26の12鞍で、`</style>` 以降が1バイトも違わないことを確認）。
+
+★ 2026-11-11 にユーザーと詰めて確定した形
+  （11/10 川崎6Rで「この展開図なんだよね」「逃げ馬合っていて、逃げ馬の後ろに①がいて、
+    外⑬と笹川」と確認を得た。実際の4角は `7,13-(1,4),5,8,…` ＝
+    ⑦1番手・⑬2番手(外)・①3番手(内)・⑧6番手で、図と合っていた。）
+
+  ・段は**重なり避け**のまま。縦を内外の帯にしたり1頭1段にしたりしない。
+    （どちらも勝手にやって「ちがう」と2回言われた。**形を作り替えない。**）
+  ・ただし**枠で取れない位置に馬を置かない**。pos が近い2頭は、
+    **内度（枠＋騎手）の高いほうを前**に置き替える。
+    11/10 6Rは8枠の⑫が先頭列の2番目にいたのを1枠の①と入れ替えて正しくなった。
+  ・**過去走のない馬も図に置く**（鞍の中央・札で明記）。
+    11/10 7Rの⑦ルナティックブルーを「記録なし」欄に落として図から消していた。
+    その馬が12番人気3着。
+  ・狙う一帯は**ひとつの〇**で囲う。1頭ずつ囲わない。
+
+★ 内度 ＝ 枠の内率 ＋ 騎手の内率（基準線44.7%との差）
+
+  枠 1枠79.8 2枠71.1 3枠60.5 4枠50.9 5枠45.0 6枠34.6 7枠30.8 8枠21.9（南関12,244頭）
+  騎手 jk_soto.json。併走60回以上のみ。減量記号（△▲◇☆★◎）は外して照合する。
+  事前の帯 → 当日ほんとうに併走したとき内にいた割合は 内81.0% / 中50.0% / 外33.3%。
+
+★ 前後（pos）の精度はここが限界（2026-11-11 に21,180件で測った）
+
+  直近重みづけ 0.2200 → 枠・騎手・距離・頭数を足しても 0.2188。**ほぼ動かない。**
+  枠と騎手は**内外には50ポイント効くが、前後にはほとんど効かない**
+  （1-2枠0.455 / 3-6枠0.500 / 7-8枠0.455）。
+  **位置は「だいたい」。当てにしすぎない。**
+"""
+import sys, os, json, re, html, base64, io, statistics as st
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+from horse_svg import HORSE, HORSE_L, CHEV, CHEV_L
+try:
+    import uma_img
+except Exception:
+    uma_img = None
+
+_UMA = {}
+
+
+def uma_tag(waku, ub, h=40, left=True):
+    """ユーザーからもらった馬の絵（枠色のゼッケンに馬番）。作れなければ None。
+
+    ★ 2026-11-11、ユーザーの指示 ──「それでこれを使ってくれない？？ 馬の絵」。
+      絵は `uma/`（`uma_img.py --build` で作る）。体の色では押し上げを出せなくなるので、
+      ▲押し上げ／▼下がるは**札と矢印**で読む。`--svg` で前のシルエットに戻せる。
+    """
+    k = (waku, ub, h, left)
+    if k in _UMA:
+        return _UMA[k]
+    try:
+        im = uma_img.horse(waku, ub, h * 2, left)
+        b = io.BytesIO(); im.save(b, 'PNG')
+        _UMA[k] = ('<img class="hv" src="data:image/png;base64,%s" height="%d" alt="">'
+                   % (base64.b64encode(b.getvalue()).decode(), h))
+    except Exception:
+        _UMA[k] = None
+    return _UMA[k]
+import tenkai as T
+import keiko as K
+
+W = {1: ('#ffffff', '#111'), 2: ('#1b1b1b', '#fff'), 3: ('#e03a30', '#fff'),
+     4: ('#2d6fd0', '#fff'), 5: ('#f2d231', '#111'), 6: ('#2f9e57', '#fff'),
+     7: ('#f08a24', '#111'), 8: ('#f29ab8', '#111')}
+WK = {1: .798, 2: .711, 3: .605, 4: .509, 5: .450, 6: .346, 7: .308, 8: .219}
+JK_BASE, JK_MIN = .447, 60
+WID, LANE, PAD, GAP = 900, 92, 64, 136
+SWAP_DP, SWAP_DU = 0.12, 0.15     # pos がこれだけ近く、内度がこれだけ違えば入れ替える
+MB_MIN, MB_TH, MB_CAP = 3, 0.70, 0.12   # 馬の実績（併走回数・偏り・内度に足す上限）
+LAB = {'s': ('S', 'スロー想定', '前に行った馬が<b>そのまま残る</b>'),
+       'm': ('M', 'ミドル想定', '<b>中団から前へ出てくる馬</b>まで'),
+       'h': ('H', 'ハイ想定', '前が<b>垂れる</b>。終いのある馬が届く')}
+GP = {'s': 24, 'm': 50, 'h': 76}
+
+
+def _load(fn):
+    p = os.path.join(HERE, fn)
+    return json.load(open(p)) if os.path.exists(p) else {}
+
+
+# ★ 当日に出した図をそのまま引き直すための切り替え（2026-11-11、ユーザーの指示
+#   ──「最初のまま出して！！」「勝手に動かさないで」）。
+#   11/9・11/10 の図は「4コーナーの中央値で隊列を組み」「馬自身の実績は内度に入れない」
+#   形で出していた。そのあとルール23（1角で組む）とルール25（馬の実績±0.12）を入れたので、
+#   同じカードを今のツールで引くと**並びも内度も変わる**。
+#   --old（＝--c4 と --nomb の両方）で当時の形に戻す。既定は今の形のまま。
+OLD_C4 = False      # True なら隊列を4角の中央値で組む
+OLD_NOMB = False    # True なら馬自身の併走実績を内度に入れない
+
+# ★ 2026-11-14、ユーザーの指示で3つ入れた（CLAUDE.md ルール44）。
+#   ① pos を中央値から**直近重みづけ**に（位置の誤差 0.1850 → 0.1541・−17%）
+#   ② 先頭2頭の pos が詰まっている鞍に「先頭候補」の札（1頭目44.3% → 2頭なら75.4%）
+#   ③ 内度による前後の入れ替えを**既定で止める**（先頭46.7%→45.8%・誤差0.1850→0.2095）
+#   旧の形に戻す口は `--pos-median` / `--no-futatsu` / `--swapdu`。この3つを付けると
+#   直す前とまったく同じHTMLが出る（2026-11-14 に大井10/26の12鞍でバイト一致を確認）。
+POS_MEDIAN = False   # True なら pos を中央値に戻す（--pos-median）
+FUTATSU = True       # 「先頭候補」の札を出すか（--no-futatsu で止める）
+SWAPDU = False       # True なら内度による前後の入れ替えを復活させる（--swapdu）
+FUTATSU_DP = 0.06    # 先頭2頭の pos 差がこれ未満なら「先頭候補」を2頭に出す
+
+# ★ 2026-11-15、ユーザーの指摘 ──「**5R ②④⑦⑧ 1直線にならぶのは不自然**」。
+#   過去走なしの馬は pos が「鞍の中央（全馬の中央値）」で**全頭まったく同じ値**になるので、
+#   図では横が1pxも違わず**縦一直線**に並んでいた。
+#   これは「この4頭が横一線に並ぶ」という、**過去走から言えないこと**を図が主張している状態。
+#   → 中央のあたりに**少しだけ**散らす。馬番の昇順に等間隔（乱数なし＝毎回同じ図）。
+#   幅は小さく、前後の集団に食い込まない程度。札の「過去走なし」はそのまま（ルール22）。
+#   いままでどおり全部中央に重ねる口は **`--nopast-center`**。
+NOPAST_CENTER = False    # True なら過去走なしを全部中央に重ねる（--nopast-center）
+NOPAST_STEP = 0.022      # 1頭ずつずらす幅（pos。図では約17px）
+NOPAST_MAX = 0.26        # 何頭いても全体でこれ以上は広げない（±0.13）
+
+# ★★ 2026-11-15、**地点をまたいだ平均をやめた**（ユーザーの指摘 ──
+#   「**1600戦なんか隊列が変だなぁ**」「**8Rもこんな一直線になるか？**」「**隊列おかしい　直して**」）。
+#
+#   pos は過去走の `c1` ＝「**最初に記録された角**」の相対位置から出していたが、
+#   その角は**場と距離でまったく別の地点**（CLAUDE.md ルール45）。
+#     大井1200m … 3コーナー（2段）  ／ 大井1400m … 2コーナー（3段）
+#     大井1600m以上 … 1コーナー（4段）／ 大井2400m … 1周3角（6段）
+#   これを同じ `c1` として平均していたので、**1200m中心の馬は位置が後ろに出る**
+#   （3角では隊列が伸びきっている）。1600mの馬と並べられず、図が一直線になっていた。
+#   実例 ── 11/16 大井6R ①ファジーエンジェルは過去5走のうち4走が大井1200mで
+#   その `c1` は 1.0 / 0.92 / 1.0。**3コーナー時点の順位**で、1600mの1角の話ではない。
+#   **ルール2（上がりを距離帯をまたいで持ち越さない）と同じ構造の間違いを位置でやっていた。**
+#
+#   → **今日の鞍と同じ地点が取れる過去走だけ**で pos と gain を出す。
+#     同じ地点の走が1本も無い馬は **`c4`（最終4角）で代用**し、札「4角で代用」を出す
+#     （`c4` はどの距離にも必ずあるので比較できる。馬を図から消さない ── ルール22）。
+#   いままでどおり地点を混ぜる口は **`--pos-mazeru`**。
+POS_MAZERU = False       # True なら地点を混ぜる（直す前の挙動・--pos-mazeru）
+
+# ★ 場×距離 → **結果ページに記録される角の数**。
+#   `harvest/*_res.json` の `corner_raw` の札の並びを数えて作った（推測ではない）。
+#   南関4場・2,896鞍で、**同じ場・距離は1つの形しか出てこなかった**（例外0）。
+#     2段 = 3,4         → 最初の角は3コーナー
+#     3段 = 2,3,4       → 最初の角は2コーナー
+#     4段 = 1,2,3,4     → 最初の角は1コーナー
+#     6段 = 3,4,1,2     → 最初の角は1周3角（向正面スタート。スタート直後）
+#   ★★ **6段の鞍は出馬表の `tsuka` に4本しか入らない**（最初2つ＋最後2つ。
+#     `syutuba.py` 冒頭）。だから `len(tsuka)` だけでは 4段と6段を見分けられない。
+#     大井2400mの過去走は実データでも `tsuka` が4本だった（5走ぶん確認）。
+#     **場×距離で引くのが先、`len(tsuka)` はこの表に無い場のための保険。**
+NCOR = {
+    ('大井', 1000): 2, ('大井', 1200): 2, ('大井', 1400): 3, ('大井', 1600): 4,
+    ('大井', 1650): 4, ('大井', 1700): 4, ('大井', 1800): 4, ('大井', 2000): 4,
+    ('大井', 2400): 6, ('大井', 2600): 6,
+    ('川崎', 900): 2, ('川崎', 1400): 4, ('川崎', 1500): 4, ('川崎', 1600): 4,
+    ('川崎', 2000): 6, ('川崎', 2100): 6,
+    ('浦和', 800): 2, ('浦和', 1300): 4, ('浦和', 1400): 4, ('浦和', 1500): 4,
+    ('浦和', 2000): 4,
+    ('船橋', 1000): 2, ('船橋', 1200): 3, ('船橋', 1500): 4, ('船橋', 1600): 4,
+    ('船橋', 1700): 4, ('船橋', 1800): 4, ('船橋', 2200): 6, ('船橋', 2400): 6,
+}
+
+
+# ★★ 2026-11-15、ユーザーの指摘 ──
+#   「**内一直線にこんな並ばないし、縦一直線にこんなに並ばない！**」
+#
+#   pos が**同じ値（またはほぼ同じ値）**になった馬は、`place()` で横が同じ場所に置かれ、
+#   段だけ分かれて**縦に積まれる**。図は「この馬たちが横一線に並ぶ」と主張しているが、
+#   持ち走が1〜5本しかないので**値が重なりやすいだけ**で、そこまでは言えない。
+#   （過去走なしの馬を散らしたのと同じ問題。あのときは「過去走なし」だけ直して、
+#     **同じ値になった馬は直していなかった**。）
+#
+#   → **差が TIE_EPS 以内の馬が3頭以上かたまっているときだけ**、少しだけ前後に散らす。
+#     **2頭の重なりはそのまま**残す ── それは「競る」という情報（ユーザーは
+#     「競っている」ことを否定していない。「**こんなに**並ばない」）。
+#   **乱数は使わない**（並びは pos → 馬番の順で決まる＝同じカードなら毎回同じ図）。
+#   隣の集団とのすき間の TIE_ROOM までしか使わないので、前の集団・後ろの集団には食い込まない。
+#   いままでどおり重ねる口は **`--pos-kasaneru`**。
+POS_KASANERU = False     # True なら同じ値の馬を重ねたままにする（--pos-kasaneru）
+TIE_EPS = 0.05           # これ以内の差は「ほぼ同じ値」（図では約39px）
+TIE_MIN = 3              # 3頭以上かたまっていたら散らす（2頭は競りとして残す）
+TIE_STEP = 0.030         # 1頭ずつずらす幅（pos。図では約23px）
+TIE_ROOM = 0.60          # 隣とのすき間はここまでしか使わない
+
+
+def spread_ties(rows, allr):
+    """pos がほぼ同じ3頭以上を、少しだけ前後に散らす（上の★★）。"""
+    if POS_KASANERU:
+        return
+    mv = [r for r in allr if not r['nopos']]      # 過去走なしは別の仕組みで散らしてある
+    i = 0
+    while i < len(mv):
+        j = i + 1
+        while j < len(mv) and (mv[j]['pos'] - mv[j - 1]['pos']) <= TIE_EPS:
+            j += 1
+        k = j - i
+        if k >= TIE_MIN:
+            grp = mv[i:j]
+            c = sum(r['pos'] for r in grp) / k
+            ix = [allr.index(r) for r in grp]     # すき間は過去走なしの馬も入れて見る
+            lo = allr[min(ix) - 1]['pos'] if min(ix) > 0 else 0.0
+            hi = allr[max(ix) + 1]['pos'] if max(ix) + 1 < len(allr) else 1.0
+            half = min(TIE_STEP * (k - 1) / 2,
+                       max(0.0, (c - lo) * TIE_ROOM), max(0.0, (hi - c) * TIE_ROOM))
+            step = 2 * half / (k - 1)
+            for t, r in enumerate(grp):
+                r['pos'] = min(1., max(0., c + (t - (k - 1) / 2) * step))
+        i = j
+
+
+def ncor(ven, dist, tsuka=None):
+    """その鞍で記録される角の数。分からなければ None（＝地点をそろえない）。
+
+    表に無い場（笠松・佐賀・門別・盛岡…）の過去走は `len(tsuka)` で代用する。
+    6段の鞍は `tsuka` が4本なので**南関以外の6段は4段と区別できない**が、
+    南関4場は上の表で引けるので、ふだんの鞍はこれで足りる。"""
+    n = NCOR.get((ven, dist))
+    if n:
+        return n
+    if tsuka:
+        return len(tsuka)
+    return None
+
+JK = _load('jk_soto.json')
+SOTO = _load('soto.json')
+CSS = open(os.path.join(HERE, 'tenkai_zu.css')).read()
+
+
+def jk_rate(name):
+    n = re.sub(r'^[△▲◇☆★◎]+', '', (name or '').strip())
+    a = JK.get(n)
+    return n, (a[1] / a[0] if (a and a[0] >= JK_MIN) else None)
+
+
+def rel(p, k):
+    if not p.get(k) or not p.get('n'):
+        return None
+    return (p[k] - 1) / max(1, p['n'] - 1)
+
+
+def wmean(xs):
+    """直近重みづけの平均（新しい走から 5,4,3,2,1）。
+
+    ★ 2026-11-14、`scratchpad/c1work/ana.py` の **E をそのまま写した**（CLAUDE.md ルール44）。
+      あちらの中身は
+
+          R = runs_of(h)                      # past の順（＝新しい順）のまま
+          ws = list(range(len(R), 0, -1))     # 5,4,3,2,1
+          m = sum(x[0] * w for x, w in zip(R, ws)) / sum(ws)
+
+      `past` は新しい順なので `xs` の先頭がいちばん新しい走。
+      重みの本数は**走数に合わせる**（5走なら 5,4,3,2,1／3走なら 3,2,1／1走なら 1）ので、
+      5走に満たない馬・1走の馬でも落ちない（1走ならその走の値そのもの）。
+      120鞍で A（中央値）と比べ、位置の誤差が 0.1850 → 0.1541（−17%）。
+      大井・川崎・真の1角・全体の4つの切り口すべてで小さかった。
+      先頭の的中は上がらない（46.7% → 45.0%）── 「誰が行くか」ではなく
+      「どこにいるか」が良くなる決め方。"""
+    if not xs:
+        return None
+    ws = list(range(len(xs), 0, -1))
+    return sum(x * w for x, w in zip(xs, ws)) / sum(ws)
+
+
+def pos_of(xs):
+    """pos に使う代表値。既定は直近重みづけ、`--pos-median` で中央値に戻る。"""
+    if not xs:
+        return None
+    return st.median(xs) if POS_MEDIAN else wmean(xs)
+
+
+# ★ 見出しに出す地点名（2026-11-14・CLAUDE.md ルール45）。
+#   最初に記録される角は場と距離でちがう（大井1000m・1200mは3角／大井1400mは2角／川崎900mは3角）。
+#   見出しを「1コーナーでの隊列想定」と決め打ちしていたが、120鞍中49鞍で実際の地点と違っていた。
+#   位置は「スタート後いちばん最初に記録された角」で揃っているので隊列は壊れていない。
+#   嘘なのは地点名だけなので、どの鞍でも正しい言い方に直し、
+#   **ルール45に載っている場・距離だけ**具体の地点を添える（浦和・船橋は測っていない＝書かない）。
+KADO1 = {('大井', 1000): '3コーナー', ('大井', 1200): '3コーナー',
+         ('大井', 1400): '2コーナー', ('川崎', 900): '3コーナー'}
+
+
+def kado(ven, dist):
+    """★ 2026-11-15 から `--no-pct` の1行では**使っていない**（下の cap のところ）。
+      ユーザーが見本をもう一度出して「これの真似して！」と言い、その見本には
+      「最初のコーナー　← 左が前（スタンドから見た向き）」と書いてあって
+      角の名前（3コーナー・1コーナー）が**出ていなかった**ため。
+      既定の図（`--no-pct` なし）の見出しでは**そのまま使っている**ので消さない
+      （ルール45の記録。角の名前はここが唯一の出どころ）。"""
+    if (ven, dist) in KADO1:
+        return KADO1[(ven, dist)]
+    if (ven == '大井' and dist >= 1600) or (ven == '川崎' and dist >= 1400):
+        return '1コーナー'
+    return None                      # 測っていない場・距離は地点名を出さない
+
+
+# ★ 丸囲み数字（①②③…）。見解の文で馬番に使う（2026-11-15）。
+#   図の馬番は枠色のゼッケン（`<span class="n">`）なので、文章のほうは
+#   他のツール（card.py / shirushi.py）と同じ丸囲みに揃える。
+def maru(n):
+    if 1 <= n <= 20:
+        return chr(0x245F + n)
+    if 21 <= n <= 35:
+        return chr(0x3250 + (n - 20))
+    if 36 <= n <= 50:
+        return chr(0x32B0 + (n - 35))
+    return str(n)
+
+
+def mikata(dist, rows):
+    """見解の文を自動で作る（2026-11-15、ユーザーの見本の文面どおり）。
+
+    見本（芝の鞍）──
+      「芝2000m、最初のコーナーで前に行くのは④①⑤。その後ろに⑮②⑧。
+        ハナ候補は①④⑤。終い一番手は⑱③。」
+      押し上げ型がいる鞍だけ、3文目と4文目のあいだに
+      「⑰ケリフレッドアスクは最初のコーナー0.88から4コーナー0.89まで押し上げる型。」が入る。
+
+    ★ **数字は図が持っているものだけ**（pos・pos4・gain・終い順位）。新しく測らない。
+    ★ **買い目・印・推奨は書かない。** 事実の並べ替えだけ。
+    ★ 「ハナ候補」は**過去走から pos が出た馬だけ**から選ぶ（過去走なしの pos は
+      鞍の中央の仮置きで、測った値ではない ── ルール22・44②と同じ扱い）。
+    ★ 地点の言い方は「最初のコーナー」。場・距離で実際の角が違う（ルール45）ので
+      「1コーナー」と書くと嘘になる鞍がある。見本の12Rの言い方に合わせた。
+    """
+    s = []
+    nm = lambda rs: ''.join(maru(r['ub']) for r in rs)
+    # ★ 全頭が過去走なし（新馬戦・2歳戦）の鞍は、並びが pos ではなく重なり避けの順なので
+    #   「前に行くのは①②③」と書くと**測っていないことを書く**ことになる（ルール22）。
+    #   11/16 大井の2R・3R（2歳）がこれ。その鞍は隊列を読めないと書く。
+    if rows and all(r['nopos'] for r in rows):
+        return 'ダ%dm、出走馬すべて過去走なし。最初のコーナーの隊列は過去走から読めない。' % dist
+    if len(rows) >= 1:
+        s.append('ダ%dm、最初のコーナーで前に行くのは%s。' % (dist, nm(rows[:3])))
+    if len(rows) > 3:
+        s.append('その後ろに%s。' % nm(rows[3:6]))
+    hana = [r for r in rows if not r['nopos']][:3]
+    if hana:
+        s.append('ハナ候補は%s。' % nm(hana))
+    for r in rows:
+        if (r['gain'] or 0) >= .20 and r['pos'] is not None and r['pos4'] is not None:
+            s.append('%s%sは最初のコーナー%.2fから4コーナー%.2fまで押し上げる型。'
+                     % (maru(r['ub']), html.escape(r['name']), r['pos'], r['pos4']))
+    shi = [r for r in sorted(rows, key=lambda r: (r['srank'] is None, r['srank'] or 99))
+           if r['srank']][:2]
+    if shi:
+        s.append('終い一番手は%s。' % nm(shi))
+    return ''.join(s)
+
+
+def row_of(h, dist, od, ven=None):
+    """★ `ven` は 2026-11-15 に足した（地点をそろえるため・上の NCOR の★★）。
+      渡さないと（`ninki.py` など外から3つで呼ぶ経路）**地点を混ぜる従来のまま**になる。"""
+    P = h.get('past') or []
+    # ★ 隊列は1コーナーで組む（2026-11-11・CLAUDE.md ルール23）。
+    #   4角の中央値で組むと「前に行って下がる馬」が中団に描かれる。
+    #   11/10 11Rの⑩ヒーローコールは1角0.00（5走中3走ハナ）の逃げ馬なのに
+    #   4角中央値0.40で中団に置き、「▼下がる」と札まで付けて逃げ切られた。
+    #   南関803鞍でも1角のほうが上（先頭の的中43.5%対40.2%）。
+    # ★★ 2026-11-15、**その「1コーナー」は距離でちがう地点だった**（上の★★・ルール45）。
+    #   今日の鞍と**同じ角の数**が取れた過去走だけを pos と gain に使う。
+    #   表に無い場・距離、`--pos-mazeru`、`--c4`／`--old` は従来どおり全部混ぜる。
+    NT = None if (OLD_C4 or POS_MAZERU) else ncor(ven, dist)
+    Pm = ([p for p in P
+           if ncor(p.get('venue'), p.get('dist'), p.get('tsuka')) == NT] if NT else P)
+    c1 = [rel(p, 'c1') for p in Pm]
+    c1 = [x for x in c1 if x is not None]
+    c4 = [rel(p, 'c4') for p in P]
+    c4 = [x for x in c4 if x is not None]
+    per = []
+    for p in Pm:
+        a, b = rel(p, 'c1'), rel(p, 'c4')
+        if a is not None and b is not None:
+            per.append(a - b)
+    # ★ 同じ地点の走が1本も無い馬は c4（最終4角）で代用する。
+    #   c4 はどの距離・どの場にも必ずあるので、他の馬と並べられる。
+    #   「履歴が引けない馬を切らない」（ルール6）・「図から消さない」（ルール22）と同じ向きで、
+    #   **代用したことを札で言う**だけにして、位置はちゃんと出す。
+    daiyo = bool(NT) and not c1 and bool(c4)
+    e, l, _c, n, ext = T.prof(h, dist)
+    o = od.get(h['ub']) or {}
+    waku = h.get('waku') or o.get('waku') or 4
+    # ★ 騎手は出馬表（syutuba.py が拾う jk）を優先。オッズ頁は発走の数時間前まで開かない
+    jn, jr = jk_rate(h.get('jk') or o.get('jk'))
+    s = SOTO.get(h['name'])
+    # ★ 馬自身の実績（2026-11-11 に追加・CLAUDE.md ルール25）
+    #   ユーザーの指摘 ──「③　外じゃないの？？」。9R③チェリストは併走4回**全部外**なのに
+    #   3枠(60.5%)＋岡村健(45.9%)だけで内度.62 を付け、内に置いていた。
+    #   札（過去の事実）はルール16で出してよい。内度への反映は**偏りきった馬だけ**、
+    #   ±MB_CAP に抑える。順は 枠 → 騎手 → 馬（ルール21）なので、
+    #   1枠や8枠はこれでは帯をまたがない（9R①サラサは外3/3でも.80→.68で内のまま）。
+    mb, mbtag = 0.0, None
+    if s and s['grp'] >= MB_MIN and not OLD_NOMB:
+        ro, ri = s['out'] / s['grp'], s['in'] / s['grp']
+        if ro >= MB_TH:
+            mb, mbtag = -MB_CAP, '外%d/%d' % (s['out'], s['grp'])
+        elif ri >= MB_TH:
+            mb, mbtag = +MB_CAP, '内%d/%d' % (s['in'], s['grp'])
+    return dict(ub=h['ub'], name=h['name'], waku=waku, jk=jn, jr=jr, mbtag=mbtag,
+                uchi=WK.get(waku, .45) + ((jr - JK_BASE) if jr is not None else 0.0) + mb,
+                # ★ pos は既定で**直近重みづけ**（2026-11-14・ルール44。`--pos-median` で中央値）。
+                #   `--c4` / `--old`（当時の図を引き直す口）は**従来どおり中央値のまま**にする。
+                pos=((st.median(c4) if c4 else (st.median(c1) if c1 else None)) if OLD_C4
+                     else (pos_of(c1) if c1 else pos_of(c4))),
+                pos4=(st.median(c4) if c4 else None), nopos=False, daiyo=daiyo,
+                gain=(st.median(per) if per else None), l=l, runs=len(P),
+                soto=((s['out'] / s['grp']) if s and s['grp'] >= 3 else None),
+                tr=(h.get('tr') or o.get('tr')),
+                chaku=o.get('chaku'),
+                # ★ 人気・単勝は出馬表にも入る（2026-11-14 に直した）。
+                #   syutuba.py の nin / odds は**前日は空で、当日に入る**（同ファイル冒頭）。
+                #   ここが o（--odds の頁）しか見ていなかったので、CLAUDE.md の
+                #   「発走30分前に取り直して印を打ち直す」をやっても人気が出なかった。
+                #   オッズ頁のほうが新しいので o を優先し、無ければ出馬表から拾う
+                #   （waku / jk / tr と同じ「両方見る」形。優先の向きだけ逆）。
+                nin=(o.get('nin') or h.get('nin')),
+                odds=(o.get('odds') or h.get('odds')))
+
+
+def arrange(rows, swap=(), noswap=False):
+    """pos を決めて、枠と騎手で位置を直す。過去走なしは鞍の中央。
+
+    ★ 自動の入れ替えは「pos が近い隣どうし」しか直せない。
+      11/10 6Rの⑫(8枠)と①(1枠)は pos では①が前なのに、段を詰める都合で
+      ⑫が先頭列の2番目、①が5段下に描かれた。**段の割り当てのほうが問題**で、
+      これは隣どうしの入れ替えでは直らない。だから `--swap 6:12-1` で
+      馬番を指定して入れ替えられるようにしてある。ユーザーが鞍ごとに指名する。"""
+    return _arrange(rows, swap, noswap)
+
+
+def _arrange(rows, swap=(), noswap=False):
+    """pos を決めて、枠と騎手で近い2頭を入れ替える。過去走なしは鞍の中央に置く。"""
+    ps = [r['pos'] for r in rows if r['pos'] is not None]
+    mid = st.median(ps) if ps else .5
+    # ★ 過去走なしは鞍の中央。ただし**全頭まったく同じ値にしない**（2026-11-15、
+    #   ユーザーの指摘「5R ②④⑦⑧ 1直線にならぶのは不自然」）。
+    #   馬番の昇順に等間隔で中央の前後へずらす ── **乱数を使っていないので毎回同じ図**。
+    #   並びの順（馬番の昇順）は中央に重ねていたときと同じで、横だけが少し散る。
+    #   `--nopast-center` で元の「全部中央」に戻る。
+    npw = sorted((r for r in rows if r['pos'] is None), key=lambda r: r['ub'])
+    step = (0 if (NOPAST_CENTER or len(npw) < 2) else
+            min(NOPAST_STEP, NOPAST_MAX / (len(npw) - 1)))
+    for k, r in enumerate(npw):
+        r['pos'] = min(1., max(0., mid + (k - (len(npw) - 1) / 2) * step))
+        r['nopos'] = True
+    for r in rows:
+        if r['pos'] is None:
+            r['pos'], r['nopos'] = mid, True
+    by = {r['ub']: r for r in rows}
+    for u1, u2 in swap:
+        if u1 in by and u2 in by:
+            by[u1]['pos'], by[u2]['pos'] = by[u2]['pos'], by[u1]['pos']
+    rows.sort(key=lambda r: r['pos'])
+    # ★★ この入れ替えを**勝手に外すな**（2026-11-11）。
+    #   9Rで裏目に出たのを理由に一度削除して、10Rの図が最初に出したものと変わり、
+    #   ユーザーの指摘 ──「10R最初と違うよ！」「なんで変えるの？？」。
+    #   **図はユーザーが見た形が基準。** 挙動を変えるのは指示があったときだけ。
+    #   止めたいときは `--noswap`（既定は入れ替えあり）。
+    # ★★ 2026-11-14、**ユーザーの指示で既定を「入れ替えなし」に変えた**（ルール44）。
+    #   120鞍で測ると、この入れ替えは先頭の読みを悪くしていた ──
+    #   先頭的中 46.7% → 45.8%、3番手以内 80鞍 → 75鞍、位置の誤差 0.1850 → 0.2095。
+    #   **11鞍で先頭が入れ替わり、正解3・不正解4。**（ルール28 と同じ向き）
+    #   復活させる口は `--swapdu`。`--noswap` は「止める」のまま残してある（既定と同じ意味）。
+    #   ※ `--swap 6:12-1`（馬番を指定した段の入れ替え）は**別物**で、上でそのまま効いている。
+    if SWAPDU and not noswap:
+        for i in range(len(rows) - 1):
+            a, b = rows[i], rows[i + 1]
+            if (b['pos'] - a['pos']) <= SWAP_DP and (b['uchi'] - a['uchi']) >= SWAP_DU:
+                a['pos'], b['pos'] = b['pos'], a['pos']
+                rows[i], rows[i + 1] = b, a
+    # ★ 2026-11-15、pos がほぼ同じ3頭以上を散らす（上の spread_ties の★★）。
+    #   入れ替え（--swap / SWAPDU）を済ませたあと、並べ直す前に動かす。
+    #   2頭だけの重なりは動かさないので、「先頭候補」の札（差0.06未満）はほぼそのまま出る。
+    spread_ties(rows, sorted(rows, key=lambda r: (r['pos'], r['ub'])))
+    rows.sort(key=lambda r: r['pos'])
+    return rows
+
+
+def place(rows):
+    """重なり避けで段を作る。
+
+    ★ 「x が近い馬の段を内度順に並べ替える」後処理を一度入れたが**失敗した**
+      （2026-11-11）。同じ段に x の近い馬が同居して重なる。
+      段の割り当てを内外に合わせたいなら、段そのものを内外の帯にするしかないが、
+      それはユーザーに「ちがう」と言われた形。**ここは重なり避けのままにする。**
+      ずれている鞍は `--swap` で馬番を指定して直す。"""
+    out, lanes = [], []
+    for r in sorted(rows, key=lambda r: r['pos']):
+        x = PAD + (1 - r['pos']) * (WID - 2 * PAD)
+        for i, last in enumerate(lanes):
+            if x < last - GAP:
+                lanes[i] = x
+                out.append((r, x, i))
+                break
+        else:
+            lanes.append(x)
+            out.append((r, x, len(lanes) - 1))
+    return out, max(1, len(lanes))
+
+
+def ring(cells, ana, each=False, color=None, box=False):
+    """狙いを囲う。既定は**ひとつの〇**で一帯を囲う（ルール20）。
+
+    ★ each=True は**1頭ずつ**囲う（2026-11-11、ユーザーの指示 ──「馬券になった馬に〇」）。
+      答え合わせのように「この馬とこの馬が来た」を示すときに使う。
+      予想の図では既定（ひとつの〇）のまま。"""
+    # ★ 色と形の指定（2026-11-13、ユーザーの指示 ──「③⑧⑪を黄色い枠で囲って！」）
+    #   --ring-color で色、--ring-box で角を丸めない四角い枠。既定は赤い楕円。
+    st_ = ''
+    if color:
+        st_ += 'border-color:%s;' % color
+    if box:
+        st_ += 'border-radius:10px;'
+    if each:
+        return ''.join(
+            '<div class="ring" style="%sleft:%dpx;top:%dpx;width:%dpx;height:%dpx"></div>'
+            % (st_, int(x - 52), int(ln * LANE + 2), 104, LANE - 4)
+            for r, x, ln in cells if r['ub'] in ana)
+    pts = [(x, ln) for r, x, ln in cells if r['ub'] in ana]
+    if not pts:
+        return ''
+    xs = [p[0] for p in pts]
+    ls = [p[1] for p in pts]
+    return ('<div class="ring" style="%sleft:%dpx;top:%dpx;width:%dpx;height:%dpx"></div>'
+            % (st_, int(min(xs) - 80), int(min(ls) * LANE + 2),
+               int(max(xs) - min(xs) + 160), int((max(ls) - min(ls) + 1) * LANE - 4)))
+
+
+def kv(a, key):
+    out = {}
+    if key in a:
+        for tok in a[a.index(key) + 1:]:
+            if tok.startswith('--') or tok.startswith('note:') or ':' not in tok:
+                break
+            k, v = tok.split(':', 1)
+            out[k] = v
+    return out
+
+
+def main():
+    a = sys.argv[1:]
+    if len(a) < 2:
+        print(__doc__)
+        return
+    card, out = a[0], a[1]
+    g = lambda k, d=None: a[a.index(k) + 1] if k in a else d
+    ven, baba, date = g('--ven', '川崎'), g('--baba'), g('--date', '')
+    lo, _, hi = g('--R', '1-12').partition('-')
+    lo, hi = int(lo), int(hi or lo)
+    od_all = json.load(open(g('--odds'))) if g('--odds') else {}
+    res = json.load(open(g('--res'))) if g('--res') else {}
+    # ★ 2026-11-15、ペースの箱の2行目に使う「今日ここまで」の結果（ユーザーの見本の画像）。
+    #   `--kyou a.json,b.json` … `kekka.py --json` が出した鞍の json を並べる。
+    #   **図の中から取りに行かない**（楽天を叩かない）。渡された json だけを読む。
+    #   当日の結果が無ければこの行は出ない ── 前日のカードでは出ないということ。
+    kyo = K.kyou([x for x in g('--kyou', '').split(',') if x]) if g('--kyou') else None
+    plain = '--plain' in a          # 人に見せる版（数値を落とす）
+    # ★ 2026-11-15、ユーザーの指示 ──「みんなに見せるから展開予想の下に％は出さないで」
+    #   「**秘密にしないと**」「**こんな感じで出して　説明のところ**」（見本の画像つき）。
+    #   --no-pct は**説明のところだけ**を差し替える口。
+    #     ・見出しの下の長い説明文（枠の内率・騎手の基準線・ずれ0.21・母数）を**丸ごと出さない**
+    #     ・代わりに**馬の枠のすぐ上**に小さく1行だけ出す ──
+    #       「3コーナー　→ 右が前（スタンドから見た向き）」（角の名前は kado()、向きは鞍ごと）
+    #     ・騎手の札（「町田直 内38%」）も出さない（％が本体なので名前だけ残しても意味がない）
+    #   残すもの … **終い順位・過去 外n/m・▲押し上げ／▼下がる・先頭候補・過去走なし**、
+    #              ペースの帯と「この鞍の前3Fの水準 39.5秒」（秒は見本にも出ている）。
+    #   --plain（宣伝用）は**1文字も変えていない**。別の口。
+    nopct = '--no-pct' in a
+    # ★ 鞍ごとに左右を反転する（2026-11-13、ユーザーの指示 ──
+    #   「1200 1400はそのまま」「1600は向き変えて」「向きあってる？？」）。
+    #   大井1600m・1650mは2コーナー付近から出るので、1コーナーは反対側にある。
+    #   --flip 9,11 で、その鞍だけ**前を左**にし、**馬の絵も左向き**にする（進行方向と揃う）。
+    #   鏡でない鞍の絵は**右向き**。--migi は絵の向きだけを反転する古い口
+    #   （鏡でない鞍に挙げると絵だけ左向きになる）。残してあるが、ふつうは --flip を使う。
+    migi = {x.strip() for x in (a[a.index('--migi') + 1].split(',') if '--migi' in a else [])}
+    flip = {x.strip() for x in (a[a.index('--flip') + 1].split(',') if '--flip' in a else [])}
+    # ★ 距離で自動的に鏡にする（2026-11-13、ユーザーの指示）。
+    #   大井1600m・1800m・2000m … 向正面から左へ、1コーナーまで → 図ごと鏡
+    #   大井1200m・1400m・1650m・2400m … 川崎と全部同じ（鏡にしない）
+    #   ※ 2026-11-13 にユーザーから全距離ぶん聞き終えた
+    #   川崎2000m … ユーザーの言葉（2026-11-14）「川崎2000mは向き全部逆ね」→ 図ごと鏡。
+    #     川崎の他の距離（900/1400/1500/1600/2100）は鏡にしない。
+    MIRROR = {('大井', 1600), ('大井', 1800), ('大井', 2000), ('川崎', 2000)}
+    # ★ 上下（段の順）を返すのは川崎2000mだけ（2026-11-14、ユーザーの指示）。
+    #   「2000mスタート地点　内枠が下」／「**大井1600mは内が上だよ**」「１８００も」。
+    #   大井1600m・1800m・2000mは左右だけ返して**上下はそのまま**。
+    #   （2000mは「1600mと同じ」というユーザーの言葉からの当てはめ。図では未確認）
+    #   ★ 2026-11-15、ユーザーの指示 ──「**1200m上下逆だあと**」「**1400mも同じだね！**」
+    #     理由もユーザーの言葉で ──「**内枠が内からスタートするよ**」。
+    #     大井1200m・1400mは向正面からのスタートで、内枠のゲートがそのまま内ラチ側にある。
+    #     スタンドから見るとその「内」が**図の下側**に来るので段の順を返す（川崎2000mと同じ理屈）。
+    #     大井1200mは最初に記録される角が3コーナー、1400mは2コーナー（ルール45）で地点は違うが、
+    #     ユーザーの判断は「同じ」。**左右はそのまま**（どちらも MIRROR に入れない）。
+    #   ★ 2026-11-15、**大井2400mも足した**。ユーザーはコース図を見て ──
+    #     「**大井2400m戦はスタートしてすぐコーナーだね！**」「**ということは1200mと同じ表記だ**」。
+    #     最初に記録される角が「１周３角」でスタート直後（ルール45の6段コース）。
+    #     **MIRROR には足さない** ── 鏡にはしない（前は右）。上下だけ返す（内が下）。
+    VFLIP = {('川崎', 2000), ('大井', 1200), ('大井', 1400), ('大井', 2400)}
+    global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, NOPAST_CENTER
+    global POS_MAZERU, POS_KASANERU
+    OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
+    OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
+    # ★ 2026-11-14 に入れた3つを旧に戻す口（ルール44）。
+    #   `--pos-median --swapdu --no-futatsu` の3つで、直す前とまったく同じHTMLになる。
+    POS_MEDIAN = '--pos-median' in a              # pos を中央値に戻す
+    FUTATSU = '--no-futatsu' not in a             # 「先頭候補」の札を出さない
+    SWAPDU = '--swapdu' in a                      # 内度による前後の入れ替えを復活させる
+    # ★ 2026-11-15、過去走なしを中央に重ねる旧の形に戻す口（上の NOPAST_* の★）
+    NOPAST_CENTER = '--nopast-center' in a
+    # ★ 2026-11-15、**地点をそろえるのをやめて混ぜる**旧の形に戻す口（上の POS_MAZERU の★★）
+    POS_MAZERU = '--pos-mazeru' in a
+    # ★ 2026-11-15、**pos がほぼ同じ3頭以上を散らすのをやめる**口（上の TIE_* の★★）
+    POS_KASANERU = '--pos-kasaneru' in a
+    # ★ 2026-11-15、ユーザーの指示 ──**両方の向きを本人が言っている**（迷ったらこの2つ）
+    #     1R（大井**1200m**＝VFLIP）を見て  ──「**下がラチ沿いと書いて**」
+    #     8R（大井**1600m**＝VFLIPでない）を見て ──「**上がラチ沿いと書いて**」
+    #   どちら側が内（ラチ沿い）かを、**馬が走る枠の外**に小さく書くだけ。
+    #   上下を返す鞍（VFLIP ＝ 川崎2000m・大井1200m・1400m）は内が**下**に来るので下に、
+    #   それ以外は**上**に出す（ルール43）。％も数字も出さない（ルール47）。
+    #   `--plain`（宣伝用）でも出す ── 向きを示すだけで手の内ではない。
+    #   止める口は **`--no-rachi`**。枠の中には何も足していないので馬は1pxも動かない。
+    rachi = '--no-rachi' not in a
+    pace = {k: v.lower() for k, v in kv(a, '--pace').items()}
+    ana_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--ana').items()}
+    swap_sp = {k: v.split(',') for k, v in kv(a, '--swap').items()}
+    # ★ 内外の手直し（2026-11-11 に追加・CLAUDE.md ルール26）
+    #   --soto 10:3 でその馬を外に、--uchi 10:3 で内に寄せる。
+    #   ユーザーは鞍ごとに馬番で指名してくる（shirushi.py の FORCE / DROP と同じ考え）。
+    #   11/11 10Rの③オングライドパスは併走2回（内1・外1）で札も出ず、
+    #   3枠＋加藤雄で内度.72 ＝ 中団のいちばん内に描かれた。ユーザーの指摘 ──「③　外じゃないの？？」。
+    # ★ 2つめの囲い（2026-11-13、ユーザーの指示 ──「それで⑧⑪を赤丸で囲って一緒に」）。
+    #   --ana2 は --ana とは別の色・形で重ねて描ける。既定は赤い楕円。
+    ana2_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--ana2').items()}
+    soto_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--soto').items()}
+    uchi_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--uchi').items()}
+    note = {}
+    for tok in a:
+        if tok.startswith('note:'):
+            k, _, t = tok[5:].partition('=')
+            note[k] = t
+    C = json.load(open(card))
+    body, drawn = [], []     # drawn ＝ この図に入れた鞍（ヘッダーの向きの文に使う）
+    dists = []               # この図に入れた鞍の距離（ヘッダーの地点名に使う・ルール45）
+    for key in sorted(C, key=lambda x: C[x]['R']):
+        v = C[key]
+        if not (lo <= v['R'] <= hi):
+            continue
+        R = str(v['R'])
+        od = {o['ub']: o for o in (od_all.get(R) or [])}
+        rv = res.get(R) or {}
+        if rv.get('rows'):
+            for x in rv['rows']:
+                od.setdefault(x['ub'], {}).update(
+                    {k2: x[k2] for k2 in ('jk', 'waku', 'chaku') if x.get(k2) is not None})
+        rows = [row_of(h, v['dist'], od, ven) for h in v['horses']]
+        for r in rows:                      # 手直しは札より強い。指名された馬だけ動かす
+            if r['ub'] in soto_sp.get(R, ()):
+                r['uchi'], r['mbtag'] = min(r['uchi'], .32), '外（指定）'
+            elif r['ub'] in uchi_sp.get(R, ()):
+                r['uchi'], r['mbtag'] = max(r['uchi'], .68), '内（指定）'
+        for i, r in enumerate(sorted([x for x in rows if x['l'] is not None],
+                                     key=lambda x: x['l']), 1):
+            r['srank'] = i
+        for r in rows:
+            r.setdefault('srank', None)
+        sw = [tuple(int(y) for y in p_.split('-')) for p_ in swap_sp.get(R, [])]
+        rows = arrange(rows, sw, '--noswap' in a)
+        # ★ 先頭候補（2026-11-14、ユーザーの指示・CLAUDE.md ルール44）
+        #   先頭2頭の pos が FUTATSU_DP(0.06) 未満しか離れていない鞍は、どちらが引くか
+        #   1頭に絞れない。120鞍で測ると、そういう鞍（114鞍中61鞍）の的中は
+        #   **1頭目だけ44.3% に対し、2頭のどちらかなら75.4%**。ルール29（同じラインに
+        #   縦に並ぶ）・ルール8（拮抗なら表裏）と同じ向き。
+        #   **足すのは札1つだけ。** 馬の位置・段・大きさ・色は1つも変えない。
+        #   差が0.06以上の鞍では何も出さない。`--no-futatsu` で止める。
+        #   過去走のない馬（pos が鞍の中央の仮置き）が先頭2頭に来た鞍は出さない
+        #   ── その pos は測った値ではないので「候補」と書けない（ルール22）。
+        sente = set()
+        if (FUTATSU and not plain and len(rows) >= 2
+                and not rows[0]['nopos'] and not rows[1]['nopos']
+                and (rows[1]['pos'] - rows[0]['pos']) < FUTATSU_DP):
+            sente = {rows[0]['ub'], rows[1]['ub']}
+        cells, NL = place(rows)
+        if (ven, v['dist']) in MIRROR:
+            flip.add(R)
+        drawn.append(R)
+        dists.append(v['dist'])
+        vf = (ven, v['dist']) in VFLIP     # 段の順も返すか（川崎2000m・大井1200m・1400m）
+        if R in flip or vf:                # 前を左に回す（左右）／段の順を返す（上下）
+            # ★ 2026-11-14、ユーザーの指示 ──「上下逆」「2000mスタート地点　内枠が下」。
+            #   （川崎2000m 9Rで「⑫の方が下だね」＝先頭列にいた8枠の⑫が下に来る）
+            #   ただし大井は「1600mは内が上だよ」「１８００も」＝**上下は返さない**。
+            # ★ 2026-11-15、**左右（MIRROR）と上下（VFLIP）を独立に効かせるようにした**。
+            #   大井1200m・1400mは「上下だけ返す」鞍なので、ここが `if R in flip:` の
+            #   中だけだと VFLIP に足しても効かなかった（ルール43の「別物」の形に揃えた）。
+            cells = [(r, (WID - x) if R in flip else x,
+                      (NL - 1 - ln) if vf else ln) for r, x, ln in cells]
+        pc = pace.get(R, 'm')
+        tag, nm, eff = LAB.get(pc, LAB['m'])
+        b = T.sui(ven, v['dist'], baba)
+        hh = []
+        for r, x, ln in cells:
+            lead = (r['chaku'] or 99) <= 3
+            up = (r['gain'] or 0) >= .20
+            col = '#f2d231' if lead else ('#6fc0ff' if up else '#d8c7ae')
+            cc = col if lead else ('#6fc0ff' if up else '#b9b9c4')
+            # gain は 1角−4角。プラスが押し上げ、マイナスが4角までに下がる
+            # ★ --plain では ▲押し上げ／▼下がる も出さない（2026-11-11、ユーザーの指示
+            #   ──「馬の下の町田とか押上とか消して」）。残すのは馬番・馬名・過去走なしだけ。
+            t = '' if plain else ('<span class="upq">▲押し上げ</span>' if up else
+                 ('<span class="dn">▼4角までに下がる</span>' if (r['gain'] or 0) <= -.20 else ''))
+            so = ''
+            # ★ 先頭候補の札（2026-11-14・ルール44）。他の札とまったく同じ出し方で、
+            #   --plain では出さない（sente が空になる）。
+            if r['ub'] in sente:
+                so += '<span class="sente">先頭候補</span>'
+            if r['chaku']:
+                so += '<span class="sm">%d着</span>' % r['chaku']
+            # ★ --plain は数値を落とした「人に見せる版」（2026-11-11、ユーザーの指示
+            #   ──「全部消して　騎手は残して良いよ」）。騎手は名前だけ残す。
+            #   図の形・馬の並び・〇・▲▼は変えない（ルール31）。
+            if r['srank'] and r['srank'] <= 3 and not plain:
+                so += '<span class="sm">終い%d位</span>' % r['srank']
+            if plain or nopct:
+                pass                      # 騎手の札も出さない（--no-pct は「内38%」が本体）
+            elif r['jr'] is not None and r['jr'] >= .53:
+                so += '<span class="jin">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100)
+            elif r['jr'] is not None and r['jr'] <= .40:
+                so += '<span class="jout">%s 内%.0f%%</span>' % (html.escape(r['jk']), r['jr'] * 100)
+            if r['mbtag'] and not plain:
+                so += '<span class="%s">過去 %s</span>' % (
+                    'jin' if r['mbtag'][0] == '内' else 'jout', r['mbtag'])
+            if r['nopos']:
+                so += '<span class="nopast">過去走なし</span>'
+            # ★ 2026-11-15、同じ地点（角の数）の過去走が1本も無く、4角で代用した馬の札。
+            #   既存の札（.nopast / .sente）とまったく同じ形・大きさで、色だけ新しい。
+            #   `--plain`（宣伝用）では出さない。`--no-pct` では出す（％を含まない札なので）。
+            elif r.get('daiyo') and not plain:
+                so += '<span class="daiyo">4角で代用</span>'
+            wc = W.get(r['waku'], ('#15110d', '#f2f2f4'))
+            # ★ 鞍ごとに馬の向きを変える（2026-11-13、ユーザーの指示 ──
+            #   「1200 1400はそのまま」「1600は向き変えて」）。
+            # ★★ `uma_tag(..., left)` の `left` は**名前と逆**（uma_img.horse の docstring）。
+            #   left=True → **右向き**、left=False → 左向き。下の式はこうなっている。
+            #     鏡でない鞍（--flip でも --migi でもない）… left=True  ＝ **右向き**（既定）
+            #     鏡の鞍（--flip ／ MIRROR）            … left=False ＝ **左向き**
+            #     --migi に挙げた鞍                      … left=False ＝ 絵だけ左向きに反転
+            #   ※ --migi は「絵の向きだけを反転する」口。名前に引かれないこと。
+            #   絵の向き＝進行方向。1200m・1400mは**川崎と同じ＝右向き**で、
+            #   --flip の鞍は図ごと鏡にする＝位置を左右反転し、**馬の絵は左向き**になる。
+            #   2026-11-13 に「1200m・1400mは左向きのまま」と書いたのは読み違い。
+            #   ユーザーの指摘 ──「なぜ馬が左向いてるの？？1200mと1400m」「川崎と同じでしょ」
+            #   ／「1600mだけ馬の向きが違う」。CLAUDE.md ルール39 の表と★★が正。
+            fig = (None if ('--svg' in a or uma_img is None)
+                   else uma_tag(r['waku'], r['ub'], 40,
+                                (R not in flip) and (R not in migi)))
+            # ★ 矢印も鏡にする（2026-11-14）。鏡の鞍は馬が左向きなのに `>>` だけ右向きで、
+            #   絵と逆を向いていた（ルール43の★で「まだ直していない」と書いていた1点）。
+            #   向きだけでなく**馬との左右も**返す ── ふつうの鞍は進む先（右）に矢印があるので、
+            #   鏡の鞍では進む先（左）に来るのが同じ絵になる。位置の `left` は動かさない。
+            cv = (CHEV_L if R in flip else CHEV).format(c=cc)
+            # ★ シルエット（`--svg`、または uma/ の画像が無い環境）も鏡にする（2026-11-14）。
+            #   HORSE は**右向き1枚だけ**だったので、鏡の鞍では馬だけ進行方向と逆を向き、
+            #   左向きに直した矢印 CHEV_L と食い違っていた。向きの条件は上の `fig` と同じ
+            #   （右向き＝鏡でも --migi でもない鞍）。HORSE / HORSE_L の中身は触っていない。
+            uma = fig or (HORSE if ((R not in flip) and (R not in migi))
+                          else HORSE_L).format(c=col)
+            hh.append('<div class="horse" style="left:%dpx;top:%dpx"><div class="fig">%s</div>'
+                      '<div class="lab"><span class="n" style="background:%s;color:%s">%d</span>'
+                      '<span class="nm">%s</span></div>%s%s</div>'
+                      % (int(x), 14 + ln * LANE, (cv + uma) if R in flip else (uma + cv),
+                         wc[0], wc[1], r['ub'], html.escape(r['name']), t, so))
+        # ★ --no-pct の1行（2026-11-15、ユーザーの見本の画像どおり）。
+        #   「<角の名前>　→ 右が前（スタンドから見た向き）」を**馬の枠のすぐ上**に小さく置く。
+        #   角の名前は kado()（大井1200mなら3コーナー／1400mなら2コーナー／1600m以上は1コーナー）。
+        #   **kado() が None の場（浦和・船橋など）は角の名前を出さず、向きだけ書く**（ルール45）。
+        #   向きは鞍ごと ── 鏡の鞍（R in flip）は「← 左が前」、ふつうの鞍は「→ 右が前」。
+        #   鞍の枠の上に置くので、1枚に鏡とふつうが混ざる日も自然に鞍ごとの向きになる。
+        # ★★ 2026-11-15、**角の名前をやめて「最初のコーナー」にした**。
+        #   ユーザーが見本の画像をもう一度出して「**これの真似して！**」「**それの大井版で
+        #   お願い**」と言い、その見本には「**最初のコーナー　← 左が前（スタンドから見た向き）**」
+        #   と書いてあって、角の名前（3コーナー・1コーナー）が**1つも出ていなかった**。
+        #   角の名前を出さないほうが「秘密にしないと」（ルール47）にも合う。
+        #   `kado()` は**消していない** ── 既定の図（`--no-pct` なし）の見出しでは
+        #   そのまま使っている（ルール45の記録）。**変えたのは `--no-pct` のときだけ。**
+        cap = ''
+        if nopct:
+            cap = ('<div class="kd">最初のコーナー　%s</div>'
+                   % ('← 左が前（スタンドから見た向き）' if R in flip
+                      else '→ 右が前（スタンドから見た向き）'))
+        # ★ 2026-11-15、ユーザーの指示 ──「**下がラチ沿いと書いて**」。
+        #   どちら側が内かを**枠の外**に小さく1語だけ。上下を返す鞍（VFLIP）は内が下なので下、
+        #   それ以外は上（ルール43 ──「2000mスタート地点　内枠が下」「大井1600mは内が上だよ」）。
+        #   **枠の中には何も足していない** ので馬の left/top は1pxも動かない。
+        #   `--plain` でも出す（向きだけで手の内ではない）。止める口は `--no-rachi`。
+        ra_u = ra_d = ''
+        if rachi:
+            tag_ = '<div class="rachi%s">ラチ沿い</div>'
+            if vf:
+                ra_d = tag_ % ' d'
+            else:
+                ra_u = tag_ % ''
+        cap += ra_u
+        # ★★ 2026-11-15、ユーザーの見本の画像どおりに3つ足した（「真似して」「書いてあること」）。
+        #   並びは**見本のまま** ── 図の枠 → ●赤丸＝狙い → 過去の傾向 → 見解。
+        #   どれも `.track` の**外**に置くので、**馬の left/top は1pxも動かない**
+        #   （ルール20★・31★。確認済み ── 足す前と `left`/`top`・馬番・馬名が完全一致）。
+        #   ★ `--plain`（宣伝用）は**1バイトも変えない**。ルール47で `--no-pct` を入れたときと
+        #     同じ扱い。足した欄はどれも `--plain` では出さない。
+        #   ★ `--no-pct` では**出す**（％を含むが、ユーザーがこの欄を出すと決めた）。
+        #     騎手の札や枠の内率の説明は出さないまま（ルール47は変えない）。
+        # B … ペースの箱の2行目。**その日の結果があるときだけ**（前日のカードでは出ない）
+        kl2 = ''
+        if kyo and kyo['races'] and not plain:
+            futsu = K.cond(ven, v['dist'], baba) if baba else None
+            if not futsu or not futsu['races']:
+                futsu = K.cond(ven, v['dist'])      # その馬場の分が無ければ全馬場で比べる
+            s2 = K.kyou_line(kyo, futsu)
+            if s2:
+                kl2 = '<div class="peff2">%s</div>' % html.escape(s2)
+        # 凡例 … --ana / --ana2 で囲った鞍だけ（見本に「●赤丸＝狙い」と書いてある）
+        leg = ('<div class="analeg"><b>●</b>赤丸＝狙い</div>'
+               if (ana_sp.get(R) or ana2_sp.get(R)) and not plain else '')
+        leg = ra_d + leg          # ★ 下がラチ沿いの鞍（VFLIP）はここに出す（枠のすぐ下）
+        # A … 過去の傾向（場×距離×馬場。中身は keiko.py。harvest だけを読む）
+        kei = ('' if plain else
+               '<div class="keiko"><h4>過去の傾向</h4><p><b>%s</b>　%s</p></div>'
+               % (html.escape(K.head(ven, v['dist'])), html.escape(K.body(ven, v['dist']))))
+        # C … 見解。**`note:R=` があればそちらが優先**（手で書いたものを自動で上書きしない）
+        vtx = note.get(R) or ('' if plain else mikata(v['dist'], rows))
+        viw = ('<div class="view"><h4>見解</h4><p>%s</p></div>' % vtx) if vtx else ''
+        tmpl = (
+            '<div class="race"><div class="rh"><span class="rn">%dR</span>'
+            '<span class="rt">%s</span>'
+            '<span class="rd">ダ<b>%dm</b> ／ %d頭 ／ %s</span>'
+            '<span class="pace p-%s"><b>%s</b> %s</span></div>'
+            '<div class="pbar p-%s"><div class="gauge"><div class="gz z1">ゆっくり</div>'
+            '<div class="gz z2">ふつう</div><div class="gz z3">速い</div>'
+            '<div class="gmark" style="left:%d%%"></div></div>'
+            '<div class="peff">→ %s<span class="pnum">%s</span></div>%s</div>%s'
+            '<div class="track" style="height:%dpx"><div class="goal'
+            + (' l' if R in flip else '')
+            + '"></div>%s%s</div>%s%s%s</div>')
+        body.append(
+            tmpl
+            % (v['R'], v.get('start') or '', v['dist'], len(v['horses']),
+               html.escape(v.get('cls') or ''), pc, tag, nm, pc, GP.get(pc, 50), eff,
+               ('この鞍の前3Fの水準 %.1f秒' % b['f3']) if b else '', kl2, cap,
+               NL * LANE + 24, (ring(cells, ana_sp.get(R, set()), '--each' in a,
+                     (a[a.index('--ring-color') + 1] if '--ring-color' in a else None),
+                     '--ring-box' in a)
+                + ring(cells, ana2_sp.get(R, set()), '--each2' in a or '--each' in a,
+                       (a[a.index('--ring-color2') + 1] if '--ring-color2' in a else None),
+                       '--ring-box2' in a)), '\n'.join(hh), leg, kei, viw))
+    # ★ 2026-11-11、ユーザーの指示 ──「1コーナーでの隊列想定は一番上に書いて」。
+    #   --plain でも必ず残す。図が「どの地点の絵か」は数値ではなく、読み違いを防ぐ行。
+    # ★ 向きは**この図に入っている鞍**で決める（2026-11-14）。
+    #   鏡の鞍（大井1600/1800/2000m・川崎2000m）は**前が左**なので「右が前」は嘘になる。
+    #   1枚に複数の鞍が入るので、全部鏡なら「左が前」、全部ふつうなら「右が前」、
+    #   混ざっていたらどちらとも書かない（ルール43の★で残していた1点）。
+    nf = sum(1 for R_ in drawn if R_ in flip)
+    mix = bool(drawn) and 0 < nf < len(drawn)
+    muki = ('前の向きは鞍ごとに変わります' if mix else
+            ('左が前' if (drawn and nf) else '右が前'))
+    mline = '<b>%s</b>%s馬番は枠の色。' % (muki, '。' if mix else '、')
+    # ★ 地点名は鞍の距離から出す（2026-11-14・CLAUDE.md ルール45）。
+    #   「1コーナー」の決め打ちはやめ、分かっている場・距離だけ具体の角を添える。
+    kado_g = {}
+    for d_ in dists:
+        nm_ = kado(ven, d_)
+        if nm_ and d_ not in kado_g.setdefault(nm_, []):
+            kado_g[nm_].append(d_)
+    kline = ('（%s）' % '／'.join(
+        '%s%sは%s' % (ven, '・'.join('%dm' % d_ for d_ in sorted(ds)), nm_)
+        for nm_, ds in kado_g.items())) if kado_g else ''
+    # ★ --no-pct は**この説明文を丸ごと出さない**（2026-11-15、ユーザーの指示 ──
+    #   「秘密にしないと」「こんな感じで出して　説明のところ」。見本の画像に
+    #   枠の内率・騎手の基準線・ずれ0.21・母数は1つも写っていなかった）。
+    #   代わりの1行（角の名前＋向き）は**鞍ごとに馬の枠のすぐ上**に出してあるので、
+    #   **全体の見出しの下には何も置かない**。--plain の1行は1文字も変えていない。
+    sub = ('' if nopct else
+           '<div class="sub"><b>スタート後いちばん最初の角での隊列想定</b>%s　／　%s</div>'
+           % (kline, muki) if plain else
+           '<div class="sub"><b>スタート後いちばん最初の角での隊列想定</b>%s　／　'
+           '過去走の<b>最初に記録された角の通過順</b>で隊列を組み、' % kline +
+            '<b>枠と騎手</b>で位置を直しています。' + mline + '<br>'
+            '内外は枠と騎手から —— 1枠79.8% / 2枠71.1% / 3枠60.5% / 4枠50.9% / '
+            '5枠45.0% / 6枠34.6% / 7枠30.8% / 8枠21.9%（4コーナーで併走したとき内にいた割合・'
+            '南関12,244頭）。騎手は併走60回以上の人だけ、基準線44.7%との差を足しています。<br>'
+            '<b>縦の並びは重なりを避けただけです。</b>'
+            '位置の予想は平均で0.21ずれます（南関803鞍で測定）。'
+            # ★「1角から」も地点名が嘘になる（2026-11-14・ルール45）。gain は
+            #   「最初に記録された角 − 4角」なので、見出しと同じ言い方に揃える。
+            #   具体の角は見出しに添えてあるので、ここでは繰り返さない。
+'<b>▼は最初の角から4コーナーまでに下がる馬</b>で、前にいないという意味ではありません。</div>')
+    page = ('<!doctype html><html lang="ja"><head><meta charset="utf-8">'
+            '<title>展開予想</title><style>@@CSS@@</style></head><body>'
+            '<div class="head"><div class="kicker">@@DATE@@ — @@VEN@@@@BABA@@</div>'
+            '<h1>展開予想</h1>@@SUB@@</div>'
+            '@@BODY@@<div class="tail">印は買い目の保証ではありません。</div></body></html>')
+    page = (page.replace('@@SUB@@', sub).replace('@@CSS@@', CSS).replace('@@DATE@@', date).replace('@@VEN@@', ven)
+            .replace('@@BABA@@', ('／馬場 ' + baba) if baba else '')
+            .replace('@@BODY@@', '\n'.join(body)))
+    open(out, 'w').write(page)
+    print('%d鞍 → %s' % (len(body), out))
+
+
+if __name__ == '__main__':
+    main()

@@ -65,6 +65,25 @@ def main() -> None:
     print("\n--- 比較: 素朴な人気順買い(三連複) ---")
     print("  [人気順4点] " + naive_favorite_roi(races))
 
+    print("\n--- ケリー資金配分シミュレーション(三連複・複利)---")
+    print("  固定額と違い、資金の一定割合を各点に張り、勝てば加速・負ければ減速する。")
+    for frac in (0.10, 0.25, 0.50):
+        res = run_backtest(
+            races,
+            jockeys=jockeys,
+            trainers=trainers,
+            weights=weights,
+            bet_type="trio",
+            ev_threshold=1.3,
+            max_bets=6,
+            min_history=4,
+            kelly=True,
+            bankroll=100000.0,
+            kelly_fraction=frac,
+        )
+        print(f"  [{frac:.0%}ケリー] " + res.summary())
+    print("  注: 分数ケリー係数が大きいほど期待成長は上がるが最大DD(下落)も増える。")
+
     print(
         "\n注: 合成データによるロジック検証です。ROIが100%超でも"
         "「コードが市場の歪みを突けている」ことの確認であり、"

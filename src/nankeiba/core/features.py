@@ -89,14 +89,27 @@ def starts_since_layoff(
     return count
 
 
-def tatakii_bonus(n: int) -> float:
-    """叩き○走目に応じた加点。2〜3走目をピークにする。
+# 手設定の叩き加点プライア。2〜3走目をピークにする。
+# 1走目(休み明け)はまだズブいので低め、2〜3走目で最大、その後は緩やかに低下。
+# 実データからは priors.learn_tatakii_bonus で推定して差し替えられる。
+TATAKII_PRIOR: dict[int, float] = {1: -0.10, 2: 0.10, 3: 0.12, 4: 0.05, 5: 0.0}
 
-    1走目(休み明け)はまだズブいので低め、2〜3走目で最大、その後は緩やかに低下。
+
+def tatakii_bonus(n: int, table: dict[int, float] | None = None) -> float:
+    """叩き○走目に応じた加点。既定は手設定プライア、table で上書き可能。
+
+    table を渡した場合、その最大キーを超える n はそのキーの値にクランプする
+    (learn_tatakii_bonus は max_n 以上を1つに集約するため)。
     """
-    table = {1: -0.10, 2: 0.10, 3: 0.12, 4: 0.05, 5: 0.0}
-    if n in table:
-        return table[n]
+    if table is not None:
+        if n in table:
+            return table[n]
+        max_key = max(table) if table else 0
+        if n > max_key and max_key in table:
+            return table[max_key]
+        return 0.0
+    if n in TATAKII_PRIOR:
+        return TATAKII_PRIOR[n]
     return -0.05  # 使い込み気味
 
 
@@ -275,10 +288,13 @@ def horse_features(
     jockeys: ConnStats | None = None,
     trainers: ConnStats | None = None,
     interval_prior: dict[str, float] | None = None,
+    tatakii_table: dict[int, float] | None = None,
 ) -> dict[str, float]:
     """馬1頭の特徴量ベクトル(重みをかける前の生の値)。
 
     「ズブい馬を走らせる」観点を数値化したもの。スコア = Σ 重み×特徴量。
+    interval_prior / tatakii_table を渡すと、間隔・叩きのプライアを
+    実データ学習値(priors.learn_*)で上書きできる。
     """
     jockeys = jockeys or ConnStats()
     trainers = trainers or ConnStats()
@@ -296,7 +312,7 @@ def horse_features(
         "ability": profile.ability,
         "interval_fit": iv.interval_fit(profile, upcoming_days, prior=interval_prior),
         "toughness": profile.toughness - 0.5,
-        "tatakii": tatakii_bonus(n_tatakii),
+        "tatakii": tatakii_bonus(n_tatakii, tatakii_table),
         "senkou": senkou_power(runs),
         "agari": agari_sharpness(runs),
         "baba_fit": baba_fit(runs, ctx, baseline),
@@ -317,6 +333,7 @@ def horse_score(
     trainers: ConnStats | None = None,
     weights: ScoreWeights | None = None,
     interval_prior: dict[str, float] | None = None,
+    tatakii_table: dict[int, float] | None = None,
 ) -> float:
     """馬1頭の総合強さスコア = 重み・特徴量の内積。
 
@@ -324,6 +341,7 @@ def horse_score(
     """
     w = (weights or ScoreWeights()).as_dict()
     feats = horse_features(
-        runs, ctx, jockeys=jockeys, trainers=trainers, interval_prior=interval_prior
+        runs, ctx, jockeys=jockeys, trainers=trainers,
+        interval_prior=interval_prior, tatakii_table=tatakii_table,
     )
     return sum(w[f] * feats[f] for f in FEATURE_NAMES)

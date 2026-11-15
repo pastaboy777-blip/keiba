@@ -1,0 +1,772 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""競馬ブック（地方）から読むための土台。取得とHTMLの解釈だけを持つ。
+
+★ここに書いてあるのは、2026-09-15に大井で実際に踏んだ穴の記録でもある。
+  同じところで二度転ばないように、理由つきで残す。
+
+穴1 馬場の略記
+    馬ページの馬場欄は 良/稍/重/不 の1文字。出馬表・成績ページは 良/稍重/重/不良。
+    `baba in ("重","不良")` と書くと **不良だけ落ちる**。9/15はこれで
+    「フェスティヴルディ 道悪3走0勝1好走」と出した。実際は不良4走4勝4好走だった。
+    → WET / HEAVY を使う。自前で文字列を並べない。
+
+穴2 列位置を決め打ちしない（★これが一番やられる）
+    出馬表の予想家の欄（「大木尚」「善林浩」…）は **開催や場によって本数が変わる**。
+    成績の本文行には、見出しに無いセルが1つ入る（重量の直後の減量印）。
+    決め打ちすると、ある日は通るのに別の日だけ静かにずれる。
+    9/14の大井11Rは、レース後の出馬表で1頭だけ行が崩れて馬名欄に着順が入った。
+    → syutuba()/seiseki() は **見出し行から列名で引く**。増えても減っても合う。
+
+穴3 日程ページから会場を拾うとき
+    HTMLのタグを消しただけでは改行と空白が残り、会場名が窓から外れる。
+    → 必ず \\s+ を潰してから探す。9/15はこれで「大井なし」と出た。
+
+穴4 出走間隔
+    馬ページの履歴は、当日のレースが走り終わると **その日の行が増える**。
+    素直に最後の行を取ると間隔が0日になる。
+    → last_run() は基準日の行を除いてから最後を取る。
+
+穴5 レースIDの並べ替え
+    rid = 年(4)+開催コード(6)+R(2)+MMDD(4)。真ん中6桁は日付順ではない。
+    → 並べ替えキーは ymd()＝年+MMDD。文字列そのままの比較は禁止。
+
+穴6 名前で引き当てる処理は、ずれても例外を出さない
+    馬名の欄に馬番が入っても Python は落ちない。ただ全件ヒットしなくなるだけ。
+    9/15はこれで上がり順位が全頭 None になり、しばらく気づかなかった。
+    → 取ったあとに **件数を必ず突き合わせる**（出馬表の頭数＝成績の頭数）。
+
+穴10 cookie を付けると【別のページが返る】ところがある
+    /db/uma/ は cookie 有りだと『完全データ』に化け、1走が1行の別形式になる。
+    既存のパーサは黙って0件を返し、履歴が全頭ゼロになる（例外は出ない）。
+    → uma()/sire() は nocookie=True で取る。
+      通過順つきの履歴が要るときは kyakushitsu()（完全データ側）を使う。
+
+穴9 馬場の種類（芝/ダート/障）を決め打ちしない
+    地方だけ見て meta() を「ダート・右外」前提で書いていた。中央は芝が来るので
+    dist も course も None になり、**芝のレースが丸ごと読めない**。
+    → surface を必ず持つ。パスも area() で中央/地方を見分ける（桁数で分かる）。
+
+穴8 HTML実体参照をほどかないと、見出しが見つからず全行が消える
+    中央（/cyuou/）は見出しが「馬&emsp;名」「騎&emsp;手」。ほどかないと "馬名" と
+    一致しない。地方（/chihou/）では出ないので、地方だけ見ていると気づけない。
+    → cells() が html.unescape する。
+
+穴7 通過順位・前半3F・中央のオッズは【cookie が要る】── 時間の問題ではない
+    2回まちがえた。最初「有料欄」と言い、次に README を読んで「開催直後だけ生値で、
+    時間が経つとマスクされる」と訂正した。**どちらも違う。**
+    2026-09-20 に cookie を入れたら、4日前(9/16)の大井11Rの通過順が
+    `1 2 1 1` と普通に返った。中央の単勝オッズ（出馬表で `※`）も同時に開いた。
+    → cookie が無いときだけ `****` / `※` になる。has_cookie() で分岐を書くこと。
+      取れない環境では「着順 − 上がり順位」で代用する
+      （マイナスなら前で粘った馬）。当日キャプチャ（capture.py）は
+      cookie が無い環境のための保険であって、必須ではない。
+
+cookie:
+    scripts/ana/kb.conf に curl の -K 形式で置く。**絶対にコミットしない**（.gitignore済み）。
+        header = "Cookie: ..."
+"""
+from __future__ import annotations
+
+import html as _html
+import os
+import re
+import subprocess
+import time
+import datetime as dt
+
+BASE = "https://p.keibabook.co.jp"
+HERE = os.path.dirname(os.path.abspath(__file__))
+CONF = os.path.join(HERE, "kb.conf")
+CACHE = os.environ.get("KB_CACHE", "/tmp/kbcache")
+
+WET = ("重", "不", "不良")              # 道悪＝重＋不良（★略記の「不」を必ず入れる）
+HEAVY = ("不", "不良")                  # 不良だけ
+DAMP = ("稍", "稍重")                   # 稍重
+
+_TAG = re.compile(r"<[^>]+>")
+_TR = re.compile(r"<tr[^>]*>(.*?)</tr>", re.S)
+_TD = re.compile(r"<t[dh][^>]*>(.*?)</t[dh]>", re.S)
+
+
+# ────────────────────────── 取得 ──────────────────────────
+
+def get(path: str, name: str, force: bool = False, minsize: int = 2000,
+        nocookie: bool = False) -> str:
+    """BASE+path を取って中身を返す。取れなければ空文字（例外を投げない）。
+
+    ★nocookie=True は「cookieを付けると別ページが返る」ところで使う（穴10）。
+      /db/uma/ は cookie 有りだと『完全データ』に化け、1走1行の別形式になる。
+      気づかずに使うと履歴が全頭ゼロになり、**例外は出ない**。
+    """
+    os.makedirs(CACHE, exist_ok=True)
+    out = os.path.join(CACHE, name)
+    if not force and os.path.exists(out) and os.path.getsize(out) > minsize:
+        return open(out, encoding="utf-8", errors="replace").read()
+    cmd = ["curl", "-s", "-L", "--max-time", "40", "--retry", "2"]
+    if os.path.exists(CONF) and not nocookie:
+        cmd += ["-K", CONF]                      # cookie があれば有料欄も開く
+    cmd += [BASE + path, "-o", out]
+    subprocess.run(cmd, check=False)
+    time.sleep(0.3)
+    if not os.path.exists(out):                  # curl がファイルを作らない場合がある
+        return ""
+    return open(out, encoding="utf-8", errors="replace").read()
+
+
+def has_cookie() -> bool:
+    return os.path.exists(CONF)
+
+
+# ────────────────────────── 素の解釈 ──────────────────────────
+
+def text(html: str) -> str:
+    """タグを消し、空白を1つに潰す。★潰さないと会場名の検索が外れる（穴3）。"""
+    return re.sub(r"\s+", " ", _TAG.sub(" ", html))
+
+
+def cells(tr: str) -> list[str]:
+    """1行ぶんのセル。★HTML実体参照を必ずほどく（穴8）。
+
+    中央（/cyuou/）の出馬表は見出しが「馬&emsp;名」「騎&emsp;手」と実体参照入り。
+    ほどかないと "馬名" と一致せず、見出しが見つからず **全行が黙って落ちる**。
+    2026-09-20 のWIN5 5鞍が「0頭」と出たのがこれ。例外は出ない。
+    """
+    return [re.sub(r"\s+", " ", _TAG.sub(" ", _html.unescape(x))).strip()
+            for x in _TD.findall(tr)]
+
+
+def rows(html: str):
+    for tr in _TR.finditer(html):
+        yield cells(tr.group(1))
+
+
+def masked(v: str) -> bool:
+    """有料欄が伏せられている値か（'****' '*' '※'）。"""
+    return not v or set(v) <= set("*※")
+
+
+def fnum(v: str):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def ymd(rid: str) -> str:
+    """rid の並べ替えキー。年(4)+MMDD(4)。★rid の文字列比較は日付順にならない（穴5）。"""
+    return rid[:4] + rid[12:16]
+
+
+# ────────────────────────── ページごと ──────────────────────────
+
+def prefix(date: str, venue: str) -> str | None:
+    """日程ページ → その日そのvenueの開催コード(10桁)。date は YYYYMMDD。"""
+    h = get(f"/chihou/nittei/{date}", f"nittei_{date}.html")
+    found = None
+    for rid in sorted(set(re.findall(r"/chihou/(?:syutuba|seiseki)/(\d{16})", h))):
+        pre = rid[:10]
+        j = h.find(pre)
+        if j < 0:
+            continue
+        if venue in text(h[max(0, j - 2600):j])[-120:]:
+            found = pre
+    return found
+
+
+def rid_of(pre: str, r: int, date: str) -> str:
+    return f"{pre}{r:02d}{date[4:]}"
+
+
+def area(rid: str) -> str:
+    """rid の桁数で 中央/地方 を見分ける。
+
+    地方 = 年(4)+開催コード(6)+R(2)+MMDD(4) = 16桁
+    中央 = 開催コード(10)+R(2)            = 12桁
+    ★どちらも同じ関数で読めるようにするため、パスはここだけで決める。
+    """
+    return "cyuou" if len(rid) == 12 else "chihou"
+
+
+def meta(html: str) -> dict:
+    """出馬表・成績ページの見出しから レース条件を取る。
+
+    ★馬場の種類（芝/ダート/障）を必ず持つ（穴9）。
+      地方だけ見ていたときは「ダート・右外」と決め打ちしていたが、
+      中央は「2200m (芝Ｃ・右外)」「1200m (芝Ｂ・右内)」のように芝が来る。
+      決め打ちのままだと dist も course も None になり、**芝のレースが丸ごと読めない**。
+      2026-09-20 のWIN5は5鞍中2鞍が芝だった。
+    """
+    t = text(html)
+    m = re.search(r"発走 (\d+:\d+) (.{0,140}?)(\d{3,4})m "
+                  r"\((芝[^・)]*|ダート|ダ|障[^・)]*)・([^)]+)\)(?: ([^ ]+))?", t)
+    ttl = re.search(r"<title>(.*?)</title>", html, re.S)
+    out = dict(start=None, dist=None, surface=None, course=None, baba=None,
+               cond=None, grade=None,
+               title=(ttl.group(1).strip() if ttl else ""))
+    if m:
+        sfc = m.group(4)
+        out.update(start=m.group(1), cond=m.group(2).strip(), dist=int(m.group(3)),
+                   surface=("芝" if sfc.startswith("芝")
+                            else "障" if sfc.startswith("障") else "ダ"),
+                   course=sfc + "・" + m.group(5),
+                   grade=grade_of(m.group(2)))
+        b = re.search(r"(良|稍重|重|不良)", m.group(6) or "")
+        out["baba"] = b.group(1) if b else None
+    if not out["baba"]:
+        b = re.search(r"(?:晴|曇|雨|小雨|雪)・(良|稍重|重|不良)", t)
+        out["baba"] = b.group(1) if b else None
+    return out
+
+
+def _header(html: str, must: str) -> tuple[list[str], int] | tuple[None, None]:
+    """表の見出し行を探して、正規化した列名の並びを返す。
+
+    ★列位置を決め打ちしてはいけない（穴2）。出馬表の予想家の欄（「大木尚」「善林浩」…）は
+      **開催や場によって本数が変わる**。決め打ちすると、ある日は通るのに別の日だけ
+      静かにずれる。見出しから引けば、増えても減っても勝手に合う。
+    """
+    for tr in _TR.finditer(html):
+        c = [re.sub(r"\s+", "", x) for x in cells(tr.group(1))]
+        if must in c:
+            return c, 0
+    return None, None
+
+
+def _idx(head: list[str], *names) -> int | None:
+    for n in names:
+        if n in head:
+            return head.index(n)
+    return None
+
+
+def syutuba(rid: str, force: bool = False) -> tuple[dict, list[dict]]:
+    """出馬表 → (レース条件, 出走馬)。馬体重は発走直前まで空欄なので force で取り直す。"""
+    h = get(f"/{area(rid)}/syutuba/{rid}", f"syu_{rid}.html", force=force)
+    head, _ = _header(h, "馬名")
+    if not head:
+        return meta(h), []
+    I = {k: _idx(head, *v) for k, v in dict(
+        waku=("枠番",), ub=("馬番",), name=("馬名",), sex=("性齢",), jk=("騎手",),
+        kin=("斤量",), stable=("厩舎",), w=("馬体重(kg)", "馬体重"), dw=("増減",),
+        odds=("単勝",), nin=("人気",), bli=("ブリンカ", "ブリンカー")).items()}
+    if I["ub"] is None or I["name"] is None:
+        return meta(h), []
+    out = []
+    for tr in _TR.finditer(h):
+        c = cells(tr.group(1))
+        m = re.search(r'/db/uma/(\w+)[^>]*>(?:<[^>]+>)*([^<]+)', tr.group(1))
+        if not m:
+            continue
+        # ★列数が足りない行を落としてはいけない（穴12・2026-10-08）。
+        #   枠番は2頭で1マスに結合される（rowspan）ので、**2頭目の行は1列少ない**。
+        #   len(c) < len(head) で弾くと、その馬が検討から丸ごと消える。
+        #   10/8 大井11R 東京盃で 14頭中6頭しか取れず、しかも例外は出なかった。
+        # ★馬名リンクの文字と、名前の列が一致するかを必ず確かめる（穴2）。
+        #   ずれていれば、ずれ幅を探して全列に同じだけ寄せる。
+        real = m.group(2).replace("★", "").strip()
+        off = 0
+        if real and not (I["name"] < len(c) and real in c[I["name"]]):
+            off = next((d for d in (-1, 1, -2, 2, -3, 3, -4, 4)
+                        if 0 <= I["name"] + d < len(c) and real in c[I["name"] + d]), None)
+            if off is None:
+                continue
+        g = lambda k: (c[I[k] + off] if I[k] is not None and 0 <= I[k] + off < len(c) else "")
+        if not g("ub").isdigit():
+            continue
+        # ★列数が合わない行でも、値は返す（穴14・2026-10-14）。
+        #   以前は bad のとき騎手・斤量・馬体重などを全部 None にしていた。
+        #   しかし枠番がrowspanでずれているだけの行が大半で、上で off を合わせれば値は正しい。
+        #   None にすると**出走の約1/3で騎手が読めず、乗り替わりの判定ができなくなる**。
+        #
+        # ★★ ただし「騎手と斤量が1マスに結合された行」がある（穴14b）★★
+        #   セルの中身が『御神本訓 55』のようになり、**それ以降の列がもう1つずれる**。
+        #   騎手だけ取って満足すると、馬体重・増減・オッズ・人気が隣の列の値になる。
+        #   → 結合を検知したら騎手と斤量を割って、後ろの列はさらに -1 して読む。
+        bad = len(c) != len(head)
+        jk_raw = g("jk")
+        mm = re.match(r"^(.+?)\s+(\d+(?:\.\d)?)$", jk_raw)
+        extra = 0
+        if mm:                       # 騎手＋斤量が1マス
+            jk_val, kin_val, extra = mm.group(1), mm.group(2), -1
+        else:
+            jk_val, kin_val = (jk_raw or None), (g("kin") or None)
+        def g2(k):                   # 斤量より右の列はさらに extra ぶんずらす
+            j = I[k]
+            if j is None:
+                return ""
+            j += off + extra
+            return c[j] if 0 <= j < len(c) else ""
+        out.append(dict(waku=g("waku"), ub=int(g("ub")), name=real,
+                        sex=g("sex"), bli=("B" in g("bli")),
+                        jk=(jk_val or None), kin=(kin_val or None),
+                        stable=(g2("stable") or None),
+                        w=(g2("w") or None), dw=(g2("dw") or None),
+                        odds=(g2("odds") or None), nin=(g2("nin") or None),
+                        partial=bad, umacd=m.group(1)))
+    return meta(h), out
+
+
+def seiseki(rid: str, force: bool = False) -> tuple[dict, list[dict]]:
+    """成績 → (レース条件, 着順どおりの行)。
+
+    ★成績の本文行には、見出しに無いセルが1つ入る（重量の直後の減量印）。
+      見出しから引いたうえで、重量より右の列だけ +1 する。
+    """
+    h = get(f"/{area(rid)}/seiseki/{rid}", f"sei_{rid}.html", force=force)
+    head, _ = _header(h, "馬名")
+    if not head:
+        return meta(h), []
+    I = {k: _idx(head, *v) for k, v in dict(
+        chaku=("着順",), waku=("枠番",), ub=("馬番",), name=("馬名",), sex=("性齢",),
+        kin=("重量",), jk=("騎手",), time=("タイム",), sa=("着差",), pas=("通過順位",),
+        first3=("前半3F",), agari=("上り3F",), nin=("単人気", "人気"),
+        odds=("単勝オッズ", "単勝"), w=("馬体重",), dw=("増減",)).items()}
+    if I["chaku"] is None or I["name"] is None:
+        return meta(h), []
+    kin = I["kin"] if I["kin"] is not None else 10**6
+    out = []
+    for tr in _TR.finditer(h):
+        c = cells(tr.group(1))
+        if len(c) != len(head) + 1 or not c[I["chaku"]].isdigit():
+            continue
+        def g(k):
+            j = I[k]
+            if j is None:
+                return ""
+            j += 1 if j > kin else 0
+            return c[j] if j < len(c) else ""
+        m = re.search(r"/db/uma/(\w+)", tr.group(1))
+        out.append(dict(chaku=int(g("chaku")), waku=g("waku"), ub=g("ub"),
+                        name=g("name"), sex=g("sex"), kin=g("kin"), jk=g("jk"),
+                        time=g("time"), sa=g("sa"),
+                        pas=None if masked(g("pas")) else g("pas"),
+                        first3=fnum(g("first3")), agari=fnum(g("agari")),
+                        nin=g("nin") or None, odds=fnum(g("odds")),
+                        w=g("w") or None, dw=g("dw") or None,
+                        umacd=m.group(1) if m else None))
+    return meta(h), out
+
+
+def uma(umacd: str, force: bool = False) -> list[dict]:
+    """馬ページ → 競走成績（古い順）。馬場欄は 良/稍/重/不 の1文字（★穴1）。"""
+    h = get(f"/db/uma/{umacd}", f"uma_{umacd}.html", force=force, nocookie=True)
+    out = []
+    for tr in _TR.finditer(h):
+        c = cells(tr.group(1))
+        if len(c) < 19 or not re.fullmatch(r"\d{4}/\d{2}/\d{2}", c[0]):
+            continue
+        out.append(dict(date=c[0], place=c[1], baba=c[2], klass=c[3], race=c[4],
+                        n=c[5], gate=c[6], nin=c[7], chaku=c[8], kin=c[10],
+                        jk=c[11], dist=c[12], time=c[13], sa=c[14],
+                        pas=None if masked(c[15]) else c[15],
+                        pace=c[16], rival=c[17], w=c[18]))
+    out.sort(key=lambda x: x["date"])
+    return out
+
+
+
+def ketto(umacd: str, force: bool = False) -> dict:
+    """馬ページから 父／母／母父／生産牧場／産地 を取る。★nocookie（穴10）。
+
+    見え方（タグを消したあと）:
+        … 父 レッドファルクス 平地 障害 中央総賞金 … 母 ダラステソーロ 本賞金 …
+          生産牧場 リョーケンファーム㈱ &nbsp;(日高) 母父 カイロ プリンス 総賞金 …
+
+    ★踏んだ穴が2つある（2026-09-21）
+      1) text() は実体参照をほどかない（ほどくのは cells()）。
+         生産牧場と産地のあいだに **&nbsp; が生で残る** ので \s* では届かない。
+         → ここで先に unescape する。
+      1b) ナビのメニューに「血統」「生産牧場」の語が並んでおり、本文より前にある。
+         素で探すと必ずナビ側を拾う。"end -->" より後ろだけを見ること。
+      1c) **長音符「ー」は ァ-ヴ の範囲外**（U+30FC）。文字クラスに入れ忘れると
+         長音を含む名前だけが静かに落ちる。例外は出ない。
+      2) 外国産の父・母父は「カイロ プリンス」「キャンディ ライド」と**間に空白**が入る。
+         空白で切ると名前が壊れる。止める語を並べて、そこまでを丸ごと取る。
+    """
+    import html as _h
+    t = _h.unescape(text(get(f"/db/uma/{umacd}", f"uma_{umacd}.html",
+                             force=force, nocookie=True)))
+    # ★ナビのメニューに「血統」「生産牧場」「馬主」の文字が並んでいる。
+    #   本文より前にあるので、素で探すと**必ずナビを拾う**（穴3・穴8と同じ型）。
+    #   ヘッダは "… clearfix end -->" で終わるので、そこから後ろだけを見る。
+    t = t.split("end -->")[-1]
+    STOP = r"(?=平地|障害|本賞金|総賞金|馬主|生産牧場|母父|付加賞|全成績|出走馬|\s母\s)"
+    # ★長音符「ー」は U+30FC で、ァ-ヴ(U+30A1-30F4) の**範囲外**。
+    #   入れ忘れると「ストロングリターン」だけが静かに None になり、
+    #   「クロフネ」「パイロ」は通るので気づきにくい（2026-09-21に踏んだ）。
+    NAME = r"[ァ-ヶーｰ・A-Za-zＡ-Ｚ０-９\s]{2,30}?"
+    def g(pat):
+        m = re.search(pat, t)
+        return re.sub(r"\s+", " ", m.group(1)).strip() if m else None
+    return dict(
+        # ★名前の後ろに ▶ が入る馬がいる（父 パイロ ▶ 平地）。\s* では届かない。
+        sire=g(r"[\s>]父\s+(" + NAME + r")[\s▶▷►>]*" + STOP),
+        dam=g(r"[\s>]母\s+(" + NAME + r")[\s▶▷►>]*" + STOP),
+        damsire=g(r"母父\s+(" + NAME + r")[\s▶▷►>]*" + STOP),
+        # ★牧場名に空白が入る（個人経営：生産牧場 山田 政宏 (日高)）。\S では跨げない。
+        #   括弧が無い馬もいる（産地の記載なし）。そのときは両方 None でよい。
+        farm=g(r"生産牧場\s+([^（()]{2,40}?)\s*[（(]"),
+        area=g(r"生産牧場\s+[^（()]{2,40}?\s*[（(]\s*([^）)]{1,12}?)\s*[）)]"),
+    )
+
+
+def sire(umacd: str) -> str | None:
+    h = get(f"/db/uma/{umacd}", f"uma_{umacd}.html", nocookie=True)
+    m = re.search(r"父\s*</t[dh]>\s*<t[dh][^>]*>(.*?)</t[dh]>", h, re.S)
+    return _TAG.sub("", m.group(1)).replace("▶", "").strip() if m else None
+
+
+# ────────────────────────── 履歴からの読み取り ──────────────────────────
+
+def dist_of(s: str | None):
+    m = re.search(r"(\d{3,4})", s or "")
+    return int(m.group(1)) if m else None
+
+
+GRADE = ["新馬", "未勝利", "1勝", "2勝", "3勝", "（Ｌ）", "OP", "G3", "G2", "G1"]
+_GI = {g: i for i, g in enumerate(GRADE)}
+
+
+def grade_of(klass: str | None) -> int | None:
+    """クラス欄を格の高さ（大きいほど上）に直す。中央のみ意味がある。
+
+    ★格を入れずに好走率だけで測ってはいけない（穴10）。
+      G1で7着と3勝クラスで7着は同じではない。2026-09-20 のオールカマーで、
+      好走率だけの条件は **有馬記念・エリザベス女王杯・前年オールカマーの
+      勝ち馬レガレイラを「消す」側に置いた**。格が無い道具は中央では害になる。
+    """
+    if not klass:
+        return None
+    k = (klass.replace("ＧⅠ", "G1").replace("ＧⅡ", "G2").replace("ＧⅢ", "G3")
+              .replace("ＧI", "G1").replace("ＧII", "G2").replace("ＧIII", "G3")
+              .replace("１勝", "1勝").replace("２勝", "2勝").replace("３勝", "3勝")
+              .strip())
+    for g in reversed(GRADE):
+        if g in k or (g == "OP" and "オープン" in k):
+            return _GI[g]
+    if "Jpn1" in k: return _GI["G1"]
+    if "Jpn2" in k: return _GI["G2"]
+    if "Jpn3" in k: return _GI["G3"]
+    return None
+
+
+def best_grade(hist, base=None, within=3):
+    """(最高格, その格での最高着順, 日付) ── within 着以内に限る。"""
+    best = None
+    for h in hist:
+        if base and to_date(h["date"]) >= base:
+            continue
+        g = grade_of(h.get("klass"))
+        if g is None or not h["chaku"].isdigit() or int(h["chaku"]) > within:
+            continue
+        cand = (g, -int(h["chaku"]))
+        if best is None or cand > (best[0], -best[1]):
+            best = (g, int(h["chaku"]), h["date"], h["race"])
+    return best
+
+
+_FULL = re.compile(r"(\d+)頭.*?([\d.]+)\((\d+)人気\).*?((?:[①-⑳]|\d+)(?:\s+(?:[①-⑳]|\d+))*)\s+\S*\s*(\d+)着")
+_CIR = {c: str(i + 1) for i, c in enumerate("①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳")}
+
+
+def kyakushitsu(umacd: str, force: bool = False, n: int = 6):
+    """近走の4角位置を取る。中身は zenso() に委譲している。
+
+    返すのは [{date, dist, surface, n, chaku, c4, rel, pas}]。rel は 0=先頭 1=最後方。
+
+    ★★★ 穴13（2026-10-14）の訂正 ★★★
+      もとは _FULL で通過順を拾い、**先頭を1つ落として**いた。
+      理由は _FULL の `.*?` が遅延マッチで、上りの小数の末尾
+      （'上り52.1-40.1' の '1'）を通過順の1つめとして吸うことがあるから。
+      だが**吸うかどうかは行によって違う**。吸っていない行で落とすと、
+      本物の1角が消える。
+          ルゼンチ 2026/04/12  落とすと [4,4,4] ／ 正しくは [4,4,4,4]
+      → 上りを食い切ってから捕まえる zenso() に寄せた。
+        検算: 2026/10/13 川崎 133頭、成績ページの通過順と1頭も違わない。
+      4角（末尾）はどちらでも同じなので、**これ以前の4角・rel の分析は無効に
+      ならない。** 影響があるのは 1角 と「1角→4角で何番上げたか」だけ。
+    """
+    out = []
+    for d in zenso(umacd, force=force, n=n):
+        if d["c4"] is None or d["chaku"] is None:
+            continue
+        out.append(dict(date=d["date"], dist=d["dist"], surface=d["surface"],
+                        n=d["n"], chaku=d["chaku"], c4=d["c4"],
+                        pas=d["pas"], rel=d["rel"]))
+    return out
+
+
+def surface_of(s: str | None) -> str | None:
+    """馬ページの距離欄（"ダ1200" "芝1400" "障2970"）から 芝/ダ/障 を取る。
+
+    ★芝とダートを混ぜて数えない（穴9）。中央は同じ馬が芝とダートを行き来する。
+    """
+    if not s:
+        return None
+    return "芝" if s.startswith("芝") else ("障" if s.startswith("障") else "ダ")
+
+
+def to_date(s: str) -> dt.date:
+    y, m, d = s.split("/")
+    return dt.date(int(y), int(m), int(d))
+
+
+def last_run(hist: list[dict], base: dt.date):
+    """基準日より前で最後の1走。★当日の行を必ず除く（穴4）。"""
+    past = [h for h in hist if to_date(h["date"]) < base]
+    return past[-1] if past else None
+
+
+def interval(hist: list[dict], base: dt.date):
+    l = last_run(hist, base)
+    return (base - to_date(l["date"])).days if l else None
+
+
+def record(hist: list[dict], pred) -> tuple[int, int, int]:
+    """(走数, 勝, 3着内)。pred は1走を受け取る関数。"""
+    s = [h for h in hist if pred(h)]
+    w = sum(1 for h in s if h["chaku"] == "1")
+    t = sum(1 for h in s if h["chaku"].isdigit() and int(h["chaku"]) <= 3)
+    return len(s), w, t
+
+
+def wet(hist, base=None):
+    """道悪（重＋不良）の成績。★WET を使う。文字列を自分で並べない。"""
+    f = lambda h: h["baba"] in WET and (base is None or to_date(h["date"]) < base)
+    return record(hist, f)
+
+
+def at(hist, place: str, dist: int, base=None, surface=None):
+    """同じ場・同じ距離（＋指定があれば同じ馬場種別）の成績。"""
+    f = lambda h: (place in (h["place"] or "") and dist_of(h["dist"]) == dist
+                   and (surface is None or surface_of(h["dist"]) == surface)
+                   and (base is None or to_date(h["date"]) < base))
+    return record(hist, f)
+
+
+def zone_of(d: int) -> str:
+    """距離帯。短(≦1200) / マ(1300-1700) / 長(≧1800)。"""
+    return "短" if d <= 1200 else ("マ" if d <= 1700 else "長")
+
+
+def at_zone(hist, dist: int, base=None, surface=None):
+    """同じ距離帯・**全場**の成績。
+
+    ★場で絞ってはいけない（穴9）。重賞路線の馬は場をまたぐ。
+      2026-09-16 東京記念（大井2400m）で、セラフィックコールを at() は
+      「大井2400m 0走」と出した。実際には船橋2400mのJpn2で2着(差0.1)がある。
+      リベイクフルシティも「+600m延長」と出たが、大井2600mを走って2着している。
+      場で絞ると、いちばん重い実績がまるごと消える。
+    """
+    z = zone_of(dist)
+    f = lambda h: (dist_of(h["dist"]) and zone_of(dist_of(h["dist"])) == z
+                   and (surface is None or surface_of(h["dist"]) == surface)
+                   and (base is None or to_date(h["date"]) < base))
+    return record(hist, f)
+
+
+def best_at_zone(hist, dist: int, base=None, surface=None):
+    """同じ距離帯・全場で、いちばん良かった1走を返す（重賞優先で新しいもの）。"""
+    z = zone_of(dist)
+    v = [h for h in hist
+         if dist_of(h["dist"]) and zone_of(dist_of(h["dist"])) == z
+         and (surface is None or surface_of(h["dist"]) == surface)
+         and (base is None or to_date(h["date"]) < base)
+         and h["chaku"].isdigit()]
+    if not v:
+        return None
+    return min(v, key=lambda h: (int(h["chaku"]), -int(h["n"] or 0)))
+
+
+# ★通し位置はこの5語しかない（2026-10-14、キャッシュ全体で検算）。
+#   最内 1369 / 内 1349 / 中 1101 / 外 618 / 大外 254。**『最外』は存在しない。**
+#   '最内'は'内'を、'大外'は'外'を含むので、**必ず長いほうから当てる**。
+_LANE = ("最内", "大外", "内", "中", "外")
+_IN = ("最内", "内")
+_OUT = ("外", "大外")
+
+
+def zenso(umacd: str, force: bool = False, n: int = 8) -> list[dict]:
+    """『完全データ』ページ1行を**全部**ほどく（cookie 必須）。
+
+    ★★★ 通し位置（最内/内/中/外/最外）が取れる（2026-10-14 発見）★★★
+      行の実物:
+        '12頭2ｹﾞｰﾄ 459K △ 12.7(5人気) 前39.3-後 39.5 Hペース
+         上り52.1-40.1 ⑦ 6 6 5 最内 3着'
+      読み方:
+        12頭2ｹﾞｰﾄ … 頭数とゲート番
+        459K      … 馬体重（増減はこのページには無い。成績ページで取る）
+        12.7(5人気)… 単勝オッズと人気
+        前39.3-後39.5 … **その馬自身**の前半と上がり3F
+        Hペース    … レースのペース判定
+        上り52.1-40.1 … **レース**の上がり4F・上がり3F
+        ⑦ 6 6 5   … 通過順（★先頭1つは通過順ではない。穴13参照）
+        最内       … **その馬が通ったところ**。ラチ沿いを通す馬かが分かる
+        3着        … 着順
+
+    ★当日はまだ埋まっていない。
+      レース直後は '14頭7ｹﾞｰﾄ 476K 73.9(8人気) 前-後39.9 10 9 11 8 1着' のように
+      **前半・ペース・レース上り・通し位置が空欄**で、通過順の位置もずれる。
+      → **その日のレースは成績ページ（seiseki）から取る。この関数は前走以前に使う。**
+
+    返すのは [{date, venue, baba, dist, n, gate, w, odds, nin, my_1st, my_ag,
+               race_4f, race_3f, pace, lane, pas, c1, c4, rel, chaku, edge}]。
+      edge = my_ag - race_3f。**マイナスほどその馬の上がりがレースより速い。**
+      ★edge は「小さいほど良い」ではない。前で粘った馬は edge がプラスに出る。
+        2026-10-14 川崎（1ヶ月あけ・全馬ズブい日）では
+        edge +0.5〜+1.5 の36頭が11鞍中9勝、±0.5以内と+1.5以上はともに3着内18%。
+        理由は notes/live/20261014_kawasaki.md。
+    """
+    h = get(f"/db/uma/{umacd}", f"umafull_{umacd}.html", force=force)
+    out = []
+    for tr in _TR.finditer(h):
+        c = cells(tr.group(1))
+        if len(c) < 6 or not re.match(r"\d{4}年\d+月\d+日", c[0]):
+            continue
+        head, blob = c[0], c[-1]
+        if "着" not in blob:
+            continue                      # 出走取消・除外の行
+        d: dict = {}
+        m = re.match(r"(\d{4})年(\d+)月(\d+)日", head)
+        d["date"] = f"{m.group(1)}/{int(m.group(2)):02d}/{int(m.group(3)):02d}"
+        mv = re.search(r"\((.*?)・(.*?)\)", head)
+        d["baba"] = mv.group(2) if mv else None
+        mp = re.search(r"\)\s*(\S+?)(\d+)R\((.*?)\s*(\d{3,4})m\)", head)
+        d["venue"] = mp.group(1) if mp else None
+        d["dist"] = int(mp.group(4)) if mp else None
+        # ★芝とダートを混ぜて数えない（穴9）。見出しの '(ダート・右 1800m)' /
+        #   '(芝Ｃ・右 1200m)' / '(障芝・右 2880m)' から種別を取る。
+        #   これを入れないと、芝の上がり33〜34秒台が砂の分析に混入する。
+        #   2026-10-14、サダージ32走で実際に混入して結論が逆に出た。
+        cond = mp.group(3) if mp else ""
+        d["surface"] = ("障" if "障" in cond else
+                        "芝" if "芝" in cond else
+                        "ダ" if "ダート" in cond or "ダ" in cond else None)
+        mn = re.search(r"(\d+)頭(\d+)ｹﾞｰﾄ", blob)
+        d["n"] = int(mn.group(1)) if mn else None
+        d["gate"] = int(mn.group(2)) if mn else None
+        mw = re.search(r"\b(\d{3})K", blob)
+        d["w"] = int(mw.group(1)) if mw else None
+        mo = re.search(r"([\d.]+)\((\d+)人気\)", blob)
+        d["odds"] = float(mo.group(1)) if mo else None
+        d["nin"] = int(mo.group(2)) if mo else None
+        ma = re.search(r"後\s*([\d.]+)", blob)
+        d["my_ag"] = float(ma.group(1)) if ma else None
+        mf = re.search(r"前\s*([\d.]+)-", blob)
+        d["my_1st"] = float(mf.group(1)) if mf else None
+        # ★820m など上がり4Fが存在しない鞍は '上り.-37.5' と出る。
+        #   [\d.]+ だと '.' を拾って float('.') で落ちる。必ず数字を含める。
+        mr = re.search(r"上り\s*([\d.]*\d[\d.]*|\.)-([\d.]*\d[\d.]*)", blob)
+        d["race_4f"] = fnum(mr.group(1)) if mr else None
+        d["race_3f"] = fnum(mr.group(2)) if mr else None
+        mc = re.search(r"([HMS])ペース", blob)
+        d["pace"] = mc.group(1) if mc else None
+        # ★通し位置。'最内' は '内' を含むので長いほうから先に当てる。
+        d["lane"] = next((w for w in _LANE
+                          if re.search(w + r"\s+\d+着", blob)), None)
+        # ★末尾の『(通し位置) N着』の手前で止める。止めないと着順を通過順として
+        #   吸い込む（当日行は レース上り が空欄なので特に起きる）。
+        # ★★★ ここでは先頭を落とさない（穴13との違い・2026-10-14）★★★
+        #   kyakushitsu() が使う _FULL は `.*?` が遅延マッチなので、上りの
+        #   小数の末尾（'40.1' の '1'）を通過順の1つめとして吸ってしまう。
+        #   だから あちらは pas[1:] が正しい。
+        #   こちらは `上り[\d.]+-[\d.]+` で上りを食い切ってから捕まえるので、
+        #   **先頭はもう本物の1角**。落とすと全部1つずれる。
+        #   検算: 2026/10/13 川崎 132頭、成績ページの通過順と1頭も違わない。
+        mq = re.search(r"(?:上り(?:[\d.]*\d[\d.]*|\.)-[\d.]*\d[\d.]*"
+                       r"|後\s*[\d.]*\d[\d.]*)"
+                       r"(?:\s*[HMS]ペース)?\s+"      # ← 上りが空欄だとペースが挟まる
+                       r"((?:[①-⑳]|\d+)(?:\s+(?:[①-⑳]|\d+))*?)"
+                       r"\s*(?:最内|大外|内|中|外)?\s*\d+着", blob)
+        pas = [int(_CIR.get(x, x)) for x in mq.group(1).split()] if mq else []
+        d["pas"] = pas
+        d["c1"] = pas[0] if pas else None
+        d["c4"] = pas[-1] if pas else None
+        d["rel"] = ((d["c4"] - 1) / (d["n"] - 1)
+                    if d["c4"] and d["n"] and d["n"] > 1 else None)
+        mk = re.search(r"(\d+)着\s*$", blob) or re.search(r"(\d+)着", blob)
+        d["chaku"] = int(mk.group(1)) if mk else None
+        d["edge"] = (d["my_ag"] - d["race_3f"]
+                     if d["my_ag"] is not None and d["race_3f"] is not None
+                     else None)
+        out.append(d)
+    out.sort(key=lambda z: z["date"])
+    return out[-n:]
+
+
+def rail(umacd: str, force: bool = False, n: int = 4) -> tuple[int, int]:
+    """直近n走で (内寄りを通した回数, 外寄りを通した回数) を返す。
+
+    内寄り = 最内・内 ／ 外寄り = 外・大外。『中』はどちらにも数えない。
+    2026-10-14 川崎では、直近4走で内寄り3回以上の58頭が8勝(3着内33%)、
+    外寄り2回以上の24頭は1勝(21%)。
+    """
+    # ★lane が空欄の行（当日ぶん）は数えない。埋まった行だけ後ろから n 走。
+    v = [z["lane"] for z in zenso(umacd, force=force, n=n + 4) if z["lane"]][-n:]
+    return (sum(1 for x in v if x in _IN), sum(1 for x in v if x in _OUT))
+
+
+def lane_gap(umacd: str, force: bool = False, nmin: int = 2):
+    """**同じ馬の中で**「外を回ったとき」と「内を通ったとき」の着順を比べる。
+
+    ★なぜ同じ馬の中で比べるのか（2026-10-14 川崎）★
+      コーナリングの上手さを近走から測ろうとして、2回外した。
+        ・近走の「3角→4角の順位変化」の平均 … 当日の動きとの相関 0.16
+        ・通し位置と位置帯で補正した edge 指数 … 相関 0.02（**悪化した**）
+      理由は2つ。
+        ① 順位変化は他馬次第。自分が同じ走りをしても前が止まれば上がる。
+        ② edge は「残り600m」をまとめて測るので、最終コーナーの出口と直線が
+           1つの数字に混ざる。コーナーだけ切り出せない。
+      **同じ馬の外と内を比べると地力が相殺され、通った場所の差だけが残る。**
+
+    返すのは (差, 外の走数, 内の走数)。差が取れないときは (None, n外, n内)。
+      差 = 外を回ったときの着順rel の平均 − 内を通ったときの着順rel の平均
+      着順rel = (着順-1)/(頭数-1)。0=1着 1=最下位。
+      **プラスほど「外だと崩れる」馬。マイナスは外でも落ちない馬。**
+      外寄り = 外・大外 ／ 内寄り = 最内・内（『中』は使わない）
+
+    2026-10-14 川崎 136頭での実測（判定できたのは70頭）:
+        +0.20以上（外だと崩れる） 12頭 → 1着ゼロ・3着内 8%
+        -0.10以下（外でも崩れない）14頭 → 3着内29%
+      **人気で固定しても残る**のがこの指標の値打ち:
+        1〜5人気 落ちない 11頭 55% / 落ちる 13頭 23%
+        6人気以下 落ちない 26頭 19% / 落ちる 20頭 10%
+      比較: 川崎適性（他場rel − 川崎rel）は 7% vs 43% と派手に出るが、
+      人気で固定すると差が6〜8ポイントに縮む＝**ほぼオッズに入っている**。
+      川崎の出走経験数は無関係（0〜2走26%/3〜7走28%/8〜14走22%/15走+32%）。
+
+    ★これは消しの道具で、拾いの道具ではない。
+      「外でも崩れない」側は29%で全体平均26%とほぼ同じ。効くのは消す側だけ。
+      消すと穴を落とすこともある（9R 3着ベルトネ 6人気22.8倍が該当した）。
+    詳細は notes/live/20261014_kawasaki.md。
+    """
+    h = [d for d in zenso(umacd, force=force, n=99)
+         if d["chaku"] and d["n"] and d["n"] > 1 and d["lane"]]
+    rel = lambda d: (d["chaku"] - 1) / (d["n"] - 1)
+    out = [rel(d) for d in h if d["lane"] in _OUT]
+    inn = [rel(d) for d in h if d["lane"] in _IN]
+    if len(out) < nmin or len(inn) < nmin:
+        return None, len(out), len(inn)
+    return (sum(out) / len(out) - sum(inn) / len(inn)), len(out), len(inn)
+
+
+def kawasaki_apt(umacd: str, force: bool = False, nmin: int = 2):
+    """他場より川崎で走る馬かどうか。(差, 川崎の走数, 他場の走数) を返す。
+
+    差 = 他場の着順rel平均 − 川崎の着順rel平均。**プラスほど川崎で走る。**
+
+    ★人気で固定するとほとんど消える（2026-10-14 川崎）。
+      生の数字は −0.12以下が3着内7%・+0.12以上が43%で派手だが、
+      適性マイナス31頭のうち22頭が6人気以下、適性プラス38頭のうち20頭が
+      1〜5人気。**市場がすでに織り込んでいる。**
+      人気で固定した差は6〜8ポイントしかない。lane_gap のほうが残る。
+    """
+    h = [d for d in zenso(umacd, force=force, n=99)
+         if d["chaku"] and d["n"] and d["n"] > 1]
+    rel = lambda d: (d["chaku"] - 1) / (d["n"] - 1)
+    kw = [rel(d) for d in h if d["venue"] == "川崎"]
+    ot = [rel(d) for d in h if d["venue"] != "川崎"]
+    if len(kw) < nmin or len(ot) < nmin:
+        return None, len(kw), len(ot)
+    return (sum(ot) / len(ot) - sum(kw) / len(kw)), len(kw), len(ot)

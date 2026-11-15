@@ -1,0 +1,80 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP","IPAPGothic",sans-serif;
+ background:#0c0c0e;color:#f2efe9;width:1260px;padding:40px 42px 30px;
+ background-image:repeating-linear-gradient(100deg,rgba(255,255,255,.022) 0 3px,transparent 3px 9px)}
+.bt{font-size:11.5px;letter-spacing:.18em;color:#9a9288;font-weight:800;margin-bottom:9px}
+h1{font-size:60px;font-weight:900;color:#e8362f;line-height:1.02;letter-spacing:-.02em}
+h1 small{display:block;font-size:27px;color:#6b645b;margin-bottom:5px}
+.sub{font-size:19px;font-weight:800;margin-top:12px}
+.sub span{color:#a39b90;font-size:15px;font-weight:700;margin-left:10px}
+.lead{font-size:14.5px;color:#cdc6bc;line-height:1.75;margin:15px 0 0;border-left:5px solid #f5d020;padding-left:14px}
+.lead b{color:#fff}
+.sh{font-size:20px;font-weight:900;margin:32px 0 13px;padding-left:13px;border-left:7px solid #e8362f}
+.sh span{font-size:13px;color:#8d867c;font-weight:700;margin-left:11px}
+.grid{display:flex;flex-wrap:wrap;gap:13px}
+.rc{background:#17161a;border:1px solid #39353d;border-radius:11px;padding:14px 16px 12px;width:calc(33.333% - 9px)}
+.rc.big{border-color:#8a2b26;box-shadow:inset 0 0 0 1px #5d201c}
+.rc.sml{background:#131216;border-color:#2b2930}
+.rh{display:flex;align-items:baseline;gap:9px;border-bottom:1px solid #2b2930;padding-bottom:8px;margin-bottom:8px}
+.rn{font-size:24px;font-weight:900;color:#f5d020}
+.sml .rn{font-size:20px;color:#8d867c}
+.rd{font-size:14px;font-weight:800}
+.rt{font-size:11.5px;color:#7e776e;font-weight:700}
+.rz{margin-left:auto;font-size:11.5px;color:#8d867c;font-weight:800}
+.rz b{color:#e8362f}
+.hr{display:flex;align-items:center;gap:8px;padding:3.5px 0}
+.mk{flex:none;width:17px;font-size:14px;color:#e8362f;font-weight:900}
+.hr.p2 .mk{color:#8d867c}.hr.p3 .mk{color:#4a4752}
+.ub{flex:none;width:21px;height:21px;line-height:21px;text-align:center;border-radius:4px;
+ background:#2b2930;font-size:12px;font-weight:900}
+.hr.p1 .ub{background:#e8362f;color:#fff}
+.sml .hr.p1 .ub{background:#4a4752}
+.nm{flex:1;font-size:15px;font-weight:900;letter-spacing:-.01em}
+.hr.p2 .nm{font-size:13.5px;font-weight:800;color:#c4bcb1}
+.hr.p3 .nm{font-size:13px;font-weight:700;color:#8d867c}
+.jk{flex:none;font-size:11px;color:#7e776e;font-weight:700}
+.sc{flex:none;width:26px;text-align:right;font-size:14px;font-weight:900;color:#f5d020}
+.hr.p2 .sc{color:#8d867c;font-size:12.5px}.hr.p3 .sc{color:#5d574f;font-size:12px}
+.sml .sc{color:#8d867c}
+.wy{font-size:11.5px;color:#ff8a52;font-weight:700;margin:2px 0 6px 25px;line-height:1.5}
+.hr.p2+.wy{color:#9a9288;font-size:11px}
+.sml .wy{color:#8d867c}
+.few{font-size:11px;color:#5d574f;font-weight:700;margin:6px 0 0 25px}
+table{width:100%;border-collapse:collapse;margin-top:4px}
+td{padding:8px 6px;font-size:14px;border-bottom:1px solid #222026}
+.ar{width:46px;color:#f5d020;font-weight:900;font-size:15px}
+.au{width:28px;text-align:center;background:#2b2930;border-radius:4px;font-weight:900;font-size:12.5px}
+.an{font-weight:900;font-size:15.5px;padding-left:12px}
+.aj{width:72px;color:#7e776e;font-weight:700;font-size:12px}
+.aw{color:#ff8a52;font-weight:700;font-size:12.5px;text-align:right}
+.note{font-size:12.5px;color:#8d867c;line-height:1.85;margin-top:12px}
+.note b{color:#ff6b63}
+.kill{background:#1b1512;border:1px solid #3a2a22;border-radius:11px;padding:16px 18px;margin-top:14px}
+.kill .kt{font-size:15px;font-weight:900;color:#ff6b63;margin-bottom:8px}
+.kill .kl{font-size:12.5px;color:#a39b90;font-weight:700;line-height:1.95}
+.tiles{display:flex;gap:13px}
+.tl{flex:1;background:#17161a;border:1px solid #39353d;border-radius:11px;padding:19px 21px 17px}
+.tn{font-size:46px;font-weight:900;color:#f5d020;line-height:1}
+.tn small{font-size:19px;color:#a39b90}
+.tc{font-size:16px;font-weight:900;color:#ff6b63;margin-top:6px}
+.tc b{font-size:22px}
+.tt{font-size:17px;font-weight:900;margin-top:11px}
+.ts{font-size:12.5px;color:#8d867c;font-weight:700;line-height:1.7;margin-top:6px}
+.sum{display:flex;align-items:center;gap:16px;background:#e8362f;color:#fff;border-radius:11px;
+ padding:16px 22px;margin-top:13px}
+.sl{font-size:19px;font-weight:900}
+.sl b{font-size:24px}
+.sr{margin-left:auto;font-size:13px;font-weight:800;color:#ffd9d7}
+.row{display:flex;align-items:center;gap:15px;padding:7px 0}
+.row .lb{flex:none;width:138px;text-align:right;font-size:16px;font-weight:900}
+.row .lb i{display:block;font-size:11.5px;color:#7e776e;font-weight:700;font-style:normal;margin-top:2px}
+.row .tr{flex:1;background:#1c1a20;border-radius:5px;height:30px}
+.row .fl{height:100%;border-radius:5px}
+.row .vv{flex:none;width:178px;font-size:18px;font-weight:900}
+.row .vv i{font-style:normal;font-size:12.5px;color:#7e776e;font-weight:700;margin-left:8px}
+.hot{background:linear-gradient(90deg,#ff8a52,#e8362f)}
+.cold{background:linear-gradient(90deg,#4a4752,#343139)}
+.bb{margin-top:22px;display:flex;justify-content:space-between;font-size:10.5px;
+ letter-spacing:.16em;color:#5d574f;font-weight:800;border-top:1px solid #222026;padding-top:11px}
+</style></head><body><div class="bt">変態か、変態以外か。</div><h1><small>10/15 川崎 前半</small>1R〜6R</h1><div class="sub">10/15（木）川崎　1R〜6R<span>67頭から18頭を消して、各レース上位5頭</span></div><div class="lead">消す基準は3つ。<b>前走が10頭以下／出走間隔75日以上／外を回ると崩れる馬。</b><br>点数は <b>前走2〜6着・脚を残している・いつも前にいる・最終コーナーで上げる・ラチ沿いを通す</b> の積み上げです。</div><div class="sh">1R〜6R<span>赤枠が勝負どころ</span></div><div class="grid"><div class="rc big"><div class="rh"><span class="rn">1R</span><span class="rd">1400m</span><span class="rt">14:45</span><span class="rz"><b>勝負</b>　10/12頭 残</span></div><div class="hr p1"><span class="mk">&#9678;</span><span class="ub">7</span><span class="nm">ブルーラジカル</span><span class="jk">和田譲</span><span class="sc">+6</span></div><div class="wy">前走2着 &middot; 脚を残す &middot; いつも前</div><div class="hr p2"><span class="mk">&#9675;</span><span class="ub">5</span><span class="nm">ハイウィルヘーズ</span><span class="jk">本田紀</span><span class="sc">+5</span></div><div class="wy">前走6着 &middot; 脚を残す &middot; ラチ沿い</div><div class="hr p2"><span class="mk">&#9650;</span><span class="ub">6</span><span class="nm">ミカエンブレイス</span><span class="jk">古岡勇</span><span class="sc">+3</span></div><div class="hr p3"><span class="mk">&#9651;</span><span class="ub">3</span><span class="nm">アンジェラカフェ</span><span class="jk">田中涼</span><span class="sc">+2</span></div><div class="hr p3"><span class="mk">&middot;</span><span class="ub">8</span><span class="nm">ナツハヤテ</span><span class="jk">神尾香</span><span class="sc">+2</span></div></div><div class="rc big"><div class="rh"><span class="rn">2R</span><span class="rd">1400m</span><span class="rt">15:15</span><span class="rz"><b>勝負</b>　3/8頭 残</span></div><div class="hr p1"><span class="mk">&#9678;</span><span class="ub">7</span><span class="nm">ラムールサンセール</span><span class="jk">櫻井光</span><span class="sc">+5</span></div><div class="wy">前走5着 &middot; 脚を残す &middot; 4角で上げる</div><div class="hr p2"><span class="mk">&#9675;</span><span class="ub">4</span><span class="nm">ブロードヒーロー</span><span class="jk">岡村裕</span><span class="sc">-2</span></div><div class="wy">4角で上げる</div><div class="hr p2"><span class="mk">&#9650;</span><span class="ub">1</span><span class="nm">クラリスマインド</span><span class="jk">西優哉</span><span class="sc">-4</span></div><div class="few">残り3頭。これで全部です</div></div><div class="rc sml"><div class="rh"><span class="rn">3R</span><span class="rd">900m</span><span class="rt">15:55</span><span class="rz">7/9頭 残</span></div><div class="hr p1"><span class="mk">&#9678;</span><span class="ub">3</span><span class="nm">コンバットイズモ</span><span class="jk">半澤慶</span><span class="sc">+2</span></div><div class="wy">脚を残す &middot; ラチ沿い</div><div class="hr p2"><span class="mk">&#9675;</span><span class="ub">9</span><span class="nm">レディーキューティ</span><span class="jk">中島良</span><span class="sc">+2</span></div><div class="wy">前走3着</div><div class="hr p2"><span class="mk">&#9650;</span><span class="ub">1</span><span class="nm">シェブロンウーマン</span><span class="jk">岡村裕</span><span class="sc">+1</span></div><div class="hr p3"><span class="mk">&#9651;</span><span class="ub">2</span><span class="nm">グスク</span><span class="jk">櫻井光</span><span class="sc">+1</span></div><div class="hr p3"><span class="mk">&middot;</span><span class="ub">5</span><span class="nm">ケリーアローズ</span><span class="jk">加藤雄</span><span class="sc">-1</span></div></div><div class="rc sml"><div class="rh"><span class="rn">4R</span><span class="rd">1400m</span><span class="rt">16:25</span><span class="rz">10/12頭 残</span></div><div class="hr p1"><span class="mk">&#9678;</span><span class="ub">4</span><span class="nm">レイワエポック</span><span class="jk">本橋孝</span><span class="sc">+4</span></div><div class="wy">前走2着 &middot; 4角で上げる &middot; ラチ沿い</div><div class="hr p2"><span class="mk">&#9675;</span><span class="ub">7</span><span class="nm">ソルテソーロ</span><span class="jk">七夕裕</span><span class="sc">+3</span></div><div class="wy">前走2着 &middot; 4角で上げる</div><div class="hr p2"><span class="mk">&#9650;</span><span class="ub">2</span><span class="nm">スコーレブロー</span><span class="jk">藤本現</span><span class="sc">+2</span></div><div class="hr p3"><span class="mk">&#9651;</span><span class="ub">3</span><span class="nm">セレナス</span><span class="jk">櫻井光</span><span class="sc">+2</span></div><div class="hr p3"><span class="mk">&middot;</span><span class="ub">6</span><span class="nm">マイネルモンブラン</span><span class="jk">野畑凌</span><span class="sc">+2</span></div></div><div class="rc sml"><div class="rh"><span class="rn">5R</span><span class="rd">1400m</span><span class="rt">16:55</span><span class="rz">9/12頭 残</span></div><div class="hr p1"><span class="mk">&#9678;</span><span class="ub">10</span><span class="nm">キッドストン</span><span class="jk">櫻井光</span><span class="sc">+4</span></div><div class="wy">前走4着 &middot; 脚を残す</div><div class="hr p2"><span class="mk">&#9675;</span><span class="ub">3</span><span class="nm">コンペティティブ</span><span class="jk">本橋孝</span><span class="sc">+3</span></div><div class="wy">前走2着 &middot; 4角で上げる</div><div class="hr p2"><span class="mk">&#9650;</span><span class="ub">8</span><span class="nm">キャットクィーン</span><span class="jk">ゴンサル</span><span class="sc">+3</span></div><div class="hr p3"><span class="mk">&#9651;</span><span class="ub">4</span><span class="nm">シェナマーブル</span><span class="jk">藤江渉</span><span class="sc">+1</span></div><div class="hr p3"><span class="mk">&middot;</span><span class="ub">9</span><span class="nm">クロスダイヤ</span><span class="jk">神尾香</span><span class="sc">+1</span></div></div><div class="rc big"><div class="rh"><span class="rn">6R</span><span class="rd">1500m</span><span class="rt">17:25</span><span class="rz"><b>勝負</b>　10/14頭 残</span></div><div class="hr p1"><span class="mk">&#9678;</span><span class="ub">13</span><span class="nm">キアラボヌール</span><span class="jk">所蛍</span><span class="sc">+6</span></div><div class="wy">前走5着 &middot; 脚を残す &middot; 4角で上げる &middot; ラチ沿い</div><div class="hr p2"><span class="mk">&#9675;</span><span class="ub">11</span><span class="nm">ダンシングハピリー</span><span class="jk">佐野遥</span><span class="sc">+5</span></div><div class="wy">前走5着 &middot; 脚を残す &middot; ラチ沿い</div><div class="hr p2"><span class="mk">&#9650;</span><span class="ub">12</span><span class="nm">フローラルロマンス</span><span class="jk">山本大</span><span class="sc">+5</span></div><div class="hr p3"><span class="mk">&#9651;</span><span class="ub">9</span><span class="nm">クルメミッチー</span><span class="jk">谷内貫</span><span class="sc">+4</span></div><div class="hr p3"><span class="mk">&middot;</span><span class="ub">7</span><span class="nm">ヤマトカチドキ</span><span class="jk">土田真</span><span class="sc">+2</span></div></div></div><div class="sh">穴で狙うなら<span>前走の着順は悪いが、最終コーナーで押し上げていた馬</span></div><table><tr><td class="ar">5R</td><td class="au">8</td><td class="an">キャットクィーン</td><td class="aj">ゴンサル</td><td class="aw">前走6着 &middot; 4角で上げる</td></tr><tr><td class="ar">6R</td><td class="au">9</td><td class="an">クルメミッチー</td><td class="aj">谷内貫</td><td class="aw">前走2着 &middot; 4角で上げる &middot; ラチ沿い</td></tr><tr><td class="ar">6R</td><td class="au">12</td><td class="an">フローラルロマンス</td><td class="aj">山本大</td><td class="aw">前走5着 &middot; 脚を残す &middot; ラチ沿い</td></tr></table><div class="kill"><div class="kt">&#10006;「外を回ると崩れる」で消えた4頭 &mdash; 人気でも切る</div><div class="kl">1R10 ジョーカイ　5R12 リコースチェッキン　6R1 スウィープレジーナ　6R3 コミックガール</div></div><div class="bb"><span>2026/10/15 川崎 1R〜6R &mdash; 買う馬リスト</span><span>変態か、変態以外か。</span></div></body></html>
