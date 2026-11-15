@@ -1431,7 +1431,7 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
     if ring:
         legend = ('<div class="klegend"><span class="lr"></span>赤丸＝狙い'
                   + ('<span class="lw"></span>白丸＝相手候補' if 'k2"' in ring else "") + '</div>')
-    return ('<div class="kboard"><div class="kdir">%s</div><div class="ktrack%s%s" style="height:%dpx"><div class="goal"></div>%s</div>%s</div>'
+    return ('<div class="kboard"><div class="kdir">%s</div><div class="ktrack%s%s" style="height:%dpx"><div class="goal"></div><div class="kin">内（ラチ側）</div><div class="kout">外</div>%s</div>%s</div>'
             % (first_corner_name(globals().get("_CUR_PLACE"), globals().get("_CUR_SURF"), globals().get("_CUR_DIST"))
                + ("　← 左が前（スタンドから見た向き）" if flip else "　右が前（スタンドから見た向き） →"), turf, " kflip" if flip else "",
                max(1, len(lanes)) * LN + 24, ring + "\n".join(hh), legend))
@@ -1850,6 +1850,8 @@ CSS_EXTRA = """
 .kn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
  font-size:10px;font-weight:900;box-shadow:0 0 0 1.5px rgba(0,0,0,.5)}
 .ktrack.kflip .goal{right:auto;left:24px}
+.kin,.kout{position:absolute;right:calc(100% + 1px);writing-mode:vertical-rl;font-size:10.5px;line-height:13px;font-weight:800;color:#c9c9d2;letter-spacing:1px;white-space:nowrap}
+.kin{top:2px}.kout{bottom:2px}
 .kdir{font-size:11px;color:#9a9aa6;margin:0 2px 4px;font-weight:700}
 .klegend{display:flex;align-items:center;gap:6px;margin:8px 4px 0;font-size:13px;font-weight:700;color:#f2f2f4}
 .klegend span{display:inline-block;width:26px;height:14px;border-radius:50%;margin-left:12px}
