@@ -273,26 +273,34 @@ CYK_LABEL = '調教☝'                 # 好調教の札の文字（☝が出�
 # 「調教☝とか」の指示で短い形に。☝は画像のフォントで出ないことがあるので矢印）。どれにも当たらなければ札なし。
 #   矢印 ↗↑ → 調教↑、↘↓ → 調教↓（矢印が先）
 #   次に 短評 → 最後の追い切りの短評 の順で、言葉で判定する（下向きの言葉を先に見る）
-CYK_DOWN = ('重め', '今ひと息', '今一息', '平凡', 'フラつ', '良化度合遅', '物足り', '案外', '鈍')
+CYK_DOWN = ('重め', '今ひと息', '今一息', '平凡', 'フラつ', '良化度合遅', '物足り', '案外', '鈍',
+            '見劣', 'もう一追い')
+CYK_HEDGE = ('多少', '幾分', '徐々に', 'まずまず')   # ぼかした言い方は好調教に数えない
 CYK_UP = ('良化', '上向', '素軽', 'キビキビ', '脚色に余裕', '先着', '好調', '絶好', '動き良',
           '軽快', '上々', '時計以上')   # 後ろ3つは 11/16 大井1R で足した
 
 
 def cyk_fuda(cz):
+    """★ 2026-11-15 大井9R・11Rで札が13頭中8頭・9頭中6頭に付いたので締めた。
+      ① 短評・最後の追い切りの短評の**どちらかに下向きの言葉**があれば、矢印が↗でも出さない
+         （11R⑧「徐々に良化見せる↗」でも最後が「脚いろ見劣る」）
+      ② 「多少上向く」「幾分上向くも」「徐々に良化見せる」「動きまずまず」のような
+         **ぼかした言い方は好調教に数えない**（HEDGE）"""
     if '手控え' in (cz.get('tanpyo') or ''):
         return '追切りなし'
+    last = [x.get('tanpyo') or '' for x in (cz.get('runs') or [])
+            if x.get('date') not in ('◇', '■')]   # ◇■は前回より前の調教
+    texts = [cz.get('tanpyo') or ''] + last[-1:]
     ya = cz.get('ya') or ''
+    if ya in ('↘', '↓') or any(w in t for t in texts for w in CYK_DOWN):
+        return '調教↓'
     if ya in ('↗', '↑'):
         return '調教↑'
-    if ya in ('↘', '↓'):
-        return '調教↓'
-    last = [x.get('tanpyo') or '' for x in (cz.get('runs') or []) if x.get('date') not in ('◇', '■')]   # ◇■は前回より前の調教
-    for t in [cz.get('tanpyo') or ''] + last[-1:]:
-        if any(w in t for w in CYK_DOWN):
-            return '調教↓'
-        if any(w in t for w in CYK_UP):
+    for t in texts:
+        if any(w in t for w in CYK_UP) and not any(w in t for w in CYK_HEDGE):
             return '調教↑'
     return None
+
 # ↑ SUITEI・DORO は main() の --no-suitei / --no-doro で止める
 JK = _load('jk_soto.json')
 SOTO = _load('soto.json')
