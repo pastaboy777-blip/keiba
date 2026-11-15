@@ -4,6 +4,12 @@
       --date "2026.11.10 TUE" --R 6-12 [--res res.json] [--odds odds.json] \
       --pace 6:S 7:M ... [--ana 6:7,1,8,13,5] [--swap 6:12-1] ["note:6=見解"]
 
+★ 「鞍:値」を並べる口（--pace / --ana / --ana2 / --swap / --soto / --uchi）は
+  **引用符でくくっても、空白で区切っても同じに効く**（2026-11-15 に直した。kv() の★★）。
+      --pace 1:S 2:M 3:H        ← これまでの書き方
+      --pace "1:S 2:M 3:H"      ← これも同じ（以前は**黙って全鞍Mに落ちていた**）
+  読めない指定（`--pace 1:X` など）は**黙って既定値にせず、どこが悪いか言って止まる**。
+
 ★ 人に見せる版は2つある（別の口。混ぜない）
 
   --no-pct  **説明のところだけ**を差し替える（2026-11-15、ユーザーの指示 ──
@@ -897,15 +903,55 @@ def ring(cells, ana, each=False, color=None, box=False):
                int(max(xs) - min(xs) + 160), int((max(ls) - min(ls) + 1) * LANE - 4)))
 
 
-def kv(a, key):
+# ★★ 2026-11-15 の事故 ──「**引用符でくくった --pace が黙って全鞍Mに落ちた**」。
+#   `--pace "5:S 6:M 7:S 8:M …"` のように**値を引用符でひとまとめ**にして渡すと、
+#   argv では1トークンになる。kv() は「空白で区切られた別トークン」しか見ていなかったので
+#   `{'5': 'S 6:M 7:S …'}` という辞書ができ、5Rは知らない記号（＝既定のM）、
+#   6R以降は指定なし（＝既定のM）で**12鞍すべてがM**になった。**エラーも出なかった。**
+#   （HTMLには `class="pace p-s 2:m 3:m …"` という壊れたクラスまで残っていた。）
+#   同じ理由で `--ana "1:3 5:6"` は `int('3 5:6')` で ValueError になって落ちていた。
+#
+#   直したのは2点だけ（図の中身は何も変えていない）。
+#     ① **トークンの中の空白もここで分解する。** 引用符あり／なしで同じ辞書になる。
+#        引用符なしの書き方の挙動は**1つも変わらない**（空白を含まないトークンは
+#        split() で1つに戻るだけ）。`tojitsu.py` 経由（`--` の後ろも含む）でも同じ。
+#     ② **読めない指定は黙って無視せず、どこが悪いかを言って止める。**
+#        `--pace 1:X` のような知らない記号を既定のMに落として進めたのが事故の本体。
+#   値の形は口ごとに違うので、`ok`（使える記号）／`nums`（馬番の並び）／
+#   `pairs`（馬番-馬番の並び）で渡す。どれも渡さなければ形は見ない（従来どおり）。
+def kv(a, key, ok=None, nums=False, pairs=False):
     out = {}
-    if key in a:
-        for tok in a[a.index(key) + 1:]:
-            if tok.startswith('--') or tok.startswith('note:') or ':' not in tok:
-                break
+    if key not in a:
+        return out
+    for raw in a[a.index(key) + 1:]:
+        toks = raw.split()
+        # 値の切れ目は**トークンの先頭**で決める（引用符なしのときとまったく同じ判定）
+        if (not toks or toks[0].startswith('--') or toks[0].startswith('note:')
+                or ':' not in toks[0]):
+            break
+        for tok in toks:                 # 引用符でくくった分はここで分解する
+            if ':' not in tok or tok.startswith('--') or tok.startswith('note:'):
+                kv_die(key, tok, '「鞍:値」の形になっていません')
             k, v = tok.split(':', 1)
+            if not k.isdigit():
+                kv_die(key, tok, '鞍の番号（`:` の左）が数字ではありません')
+            if ok is not None and v.lower() not in ok:
+                kv_die(key, tok, '`%s` は使えません。使えるのは %s です'
+                       % (v, ' / '.join(sorted(ok))))
+            if nums and not re.fullmatch(r'\d+(,\d+)*', v):
+                kv_die(key, tok, '`%s` が馬番の並びになっていません（例 7,1,8）' % v)
+            if pairs and not re.fullmatch(r'\d+-\d+(,\d+-\d+)*', v):
+                kv_die(key, tok, '`%s` が「馬番-馬番」の並びになっていません（例 12-1）' % v)
             out[k] = v
     return out
+
+
+def kv_die(key, tok, why):
+    """読めない指定で止める。**黙って既定値に落とさない**（2026-11-15 の事故）。"""
+    print('★ 止めました: %s の `%s` が読めません ── %s' % (key, tok, why), file=sys.stderr)
+    print('  書き方はどちらでもよい ── 空白で並べても、引用符でひとまとめにしても'
+          '同じに効きます（例 --pace 1:S 2:M ／ --pace "1:S 2:M"）', file=sys.stderr)
+    sys.exit(2)
 
 
 def main():
@@ -1014,9 +1060,12 @@ def main():
     #   ユーザーの見本に書いてあったので入れてある欄。**`--ana` / `--ana2` で丸を付けた鞍だけ**に
     #   出る（丸が1つも無い鞍には出さない）。`--plain` では出さない。
     maruleg = '--no-marulegend' not in a
-    pace = {k: v.lower() for k, v in kv(a, '--pace').items()}
-    ana_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--ana').items()}
-    swap_sp = {k: v.split(',') for k, v in kv(a, '--swap').items()}
+    # ★ 値の形はここで渡して kv() に見てもらう（上の★★）。
+    #   --pace は LAB の記号（s / m / h）だけ。知らない記号は止める。
+    pace = {k: v.lower() for k, v in kv(a, '--pace', ok=set(LAB)).items()}
+    ana_sp = {k: {int(x) for x in v.split(',') if x}
+              for k, v in kv(a, '--ana', nums=True).items()}
+    swap_sp = {k: v.split(',') for k, v in kv(a, '--swap', pairs=True).items()}
     # ★ 内外の手直し（2026-11-11 に追加・CLAUDE.md ルール26）
     #   --soto 10:3 でその馬を外に、--uchi 10:3 で内に寄せる。
     #   ユーザーは鞍ごとに馬番で指名してくる（shirushi.py の FORCE / DROP と同じ考え）。
@@ -1024,9 +1073,12 @@ def main():
     #   3枠＋加藤雄で内度.72 ＝ 中団のいちばん内に描かれた。ユーザーの指摘 ──「③　外じゃないの？？」。
     # ★ 2つめの囲い（2026-11-13、ユーザーの指示 ──「それで⑧⑪を赤丸で囲って一緒に」）。
     #   --ana2 は --ana とは別の色・形で重ねて描ける。既定は赤い楕円。
-    ana2_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--ana2').items()}
-    soto_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--soto').items()}
-    uchi_sp = {k: {int(x) for x in v.split(',') if x} for k, v in kv(a, '--uchi').items()}
+    ana2_sp = {k: {int(x) for x in v.split(',') if x}
+               for k, v in kv(a, '--ana2', nums=True).items()}
+    soto_sp = {k: {int(x) for x in v.split(',') if x}
+               for k, v in kv(a, '--soto', nums=True).items()}
+    uchi_sp = {k: {int(x) for x in v.split(',') if x}
+               for k, v in kv(a, '--uchi', nums=True).items()}
     note = {}
     for tok in a:
         if tok.startswith('note:'):
