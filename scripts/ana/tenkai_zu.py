@@ -86,7 +86,7 @@
   （1-2枠0.455 / 3-6枠0.500 / 7-8枠0.455）。
   **位置は「だいたい」。当てにしすぎない。**
 """
-import sys, os, json, re, html, base64, io, statistics as st
+import sys, os, json, re, html, base64, io, itertools, statistics as st
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -516,6 +516,64 @@ def _arrange(rows, swap=(), noswap=False):
     return rows
 
 
+# ★★ 2026-11-15、**斜めの縞を消す**（ユーザーの指示 ──「いろいろ検証して」
+#   「足りないところ学んで」。見本のJRAの展開図と見比べて出てきた話）。
+#
+#   測った事実 ── 11/16 大井の12鞍で、**連続3頭が等間隔・等段差（＝斜め一直線）**に
+#   なっている箇所は 1R（16頭）5か所／7R・8R・9R・10R・12R（13-14頭）4か所ずつ、合計25か所。
+#   2R〜6R・11R（7-12頭・2段）は0か所。
+#
+#   原因 ── `rankify()` で順位どおり等間隔にすると、14頭では間隔が **59px**。
+#   重なり避けの `GAP` は **136px** なので、**順位が3つ離れた馬がはじめて同じ段に入れる**。
+#   `place()` は空いている段を**若い番号から**取るので、段は 0→1→2→0→1→2… と
+#   **きれいに繰り返す**。段差が +1,+1,−2 の繰り返しになり、(+1,+1) の箇所が
+#   **必ず斜め一直線**になる。**13頭以上で必ず起きる。**
+#
+#   → **段のラベルを入れ替えるだけ**で消える。0→1→2 の代わりに **1→0→2** の順で配ると
+#     段差が −1,+2,−1,+2… と**交互**になり、連続する段差が等しくならない。
+#   ★ 段のラベルの入れ替えは**段の番号の付け替え（全単射）**なので、
+#     **横（left）も馬の順番も段の数も1つも変わらない**（＝重なりも作らない。
+#     同じ段に入る馬の組み合わせがそのままだから）。
+#   ★ 乱数は使わない。頭数ごとに**辞書順でいちばん早い入れ替え**を選ぶので、
+#     同じカードなら何度出しても同じ図になる。
+#   止める口（旧の 0→1→2 の順に戻す）は **`--dan-nama`**。
+DAN_NAMA = False
+
+
+def _nshima(xs, lns):
+    """斜め3頭の数。xs は横（この向きのまま連続3頭）、lns は段。
+
+    「x の差が等しく（±3px）かつ段差が等しくゼロでない」── 報告の測り方と同じ。"""
+    c = 0
+    for i in range(len(xs) - 2):
+        if (abs((xs[i + 1] - xs[i]) - (xs[i + 2] - xs[i + 1])) <= 3.0
+                and (lns[i + 1] - lns[i]) == (lns[i + 2] - lns[i + 1])
+                and lns[i + 1] != lns[i]):
+            c += 1
+    return c
+
+
+def shima(out, nl):
+    """段のラベルを入れ替えて斜めの縞を消す（上の★★）。
+
+    `out` は横の順（pos の昇順）。段の数 nl は変えない。
+    nl! 通り（nl は実際には1〜4）を辞書順に見て、斜め3頭がいちばん少ないものを採る。
+    0 が出たらそこで止める ── 辞書順の先頭なので**毎回同じ答え**。"""
+    if DAN_NAMA or nl < 3:
+        return out                       # 2段は 0,1,0,1… ＝すでに交互なので縞はできない
+    xs = [x for r, x, ln in out]
+    lns = [ln for r, x, ln in out]
+    best = None
+    for p in itertools.permutations(range(nl)):
+        c = _nshima(xs, [p[v] for v in lns])
+        if best is None or c < best[0]:
+            best = (c, p)
+        if c == 0:
+            break
+    p = best[1]
+    return [(r, x, p[ln]) for r, x, ln in out]
+
+
 def place(rows):
     """重なり避けで段を作る。
 
@@ -535,7 +593,8 @@ def place(rows):
         else:
             lanes.append(x)
             out.append((r, x, len(lanes) - 1))
-    return out, max(1, len(lanes))
+    nl = max(1, len(lanes))
+    return shima(out, nl), nl
 
 
 def ring(cells, ana, each=False, color=None, box=False):
@@ -637,7 +696,7 @@ def main():
     #     **MIRROR には足さない** ── 鏡にはしない（前は右）。上下だけ返す（内が下）。
     VFLIP = {('川崎', 2000), ('大井', 1200), ('大井', 1400), ('大井', 2400)}
     global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, NOPAST_CENTER
-    global POS_MAZERU, POS_NAMA
+    global POS_MAZERU, POS_NAMA, DAN_NAMA
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
     # ★ 2026-11-14 に入れた3つを旧に戻す口（ルール44）。
@@ -652,6 +711,8 @@ def main():
     # ★ 2026-11-15、**順位で等間隔に並べるのをやめて pos の値そのままで横を決める**口
     #   （上の rankify の★★）
     POS_NAMA = '--pos-nama' in a
+    # ★ 2026-11-15、**段のラベルの入れ替えをやめて 0→1→2 の順に戻す**口（shima の★★）
+    DAN_NAMA = '--dan-nama' in a
     # ★ 2026-11-15、ユーザーの指示 ──**両方の向きを本人が言っている**（迷ったらこの2つ）
     #     1R（大井**1200m**＝VFLIP）を見て  ──「**下がラチ沿いと書いて**」
     #     8R（大井**1600m**＝VFLIPでない）を見て ──「**上がラチ沿いと書いて**」
