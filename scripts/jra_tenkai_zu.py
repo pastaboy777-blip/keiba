@@ -265,7 +265,8 @@ KOUHO_OFF = False   # --no-kouho
 
 def mark_kouho(rows, *, place, dist, surface):
     """候補の札 r["kouho"](notes/live/jra_course_pos.md の 2・3)。予想(位置・ペース)は変えない。
-    終い候補: 芝16頭以上で、予想4角(pos)の鞍の中の順位が後ろ1/3、かつ ag ≤ 3。
+    終い候補: 芝16頭以上で、予想4角(pos)の鞍の中の順位が後ろ1/3、かつ ag ≤ 3。そのうち ag の小さい順に最大2頭
+              (同値は nag の多い順)。
     押上候補: そのコースの前1/3の3着内率 ≥ 0.40(前で決まりやすい場)で gain ≥ 0.20。"""
     known = sorted([r for r in rows if r.get("pos") is not None], key=lambda r: -r["pos"])
     nk = len(known)
@@ -276,13 +277,20 @@ def mark_kouho(rows, *, place, dist, surface):
     except Exception:  # noqa: BLE001  (表が無い環境では押上候補を出さない)
         cs = None
     front3 = cs["front3"] if cs else None
+    # 終い候補は 1鞍に最大2頭: 後ろ1/3 かつ ag≤3 の馬を ag の小さい順(同値は nag の多い順→馬番)に2頭まで。
+    # 3年分(芝16頭以上・後ろ1/3、584鞍)で ag≤3 全部: 1.36頭/鞍・3着内21%、上位2頭: 1.10頭/鞍・23%。
+    shimai = []
+    if surface == "芝" and len(rows) >= 16:
+        shimai = sorted([r for r in rows if third.get(r["ub"], 0) > 2 / 3
+                         and r.get("ag") is not None and r["ag"] <= 3],
+                        key=lambda r: (r["ag"], -(r.get("nag") or 0), r["ub"]))[:2]
+    shimai = {r["ub"] for r in shimai}
     for r in rows:
         q = third.get(r["ub"])
         r["_third"] = None if q is None else ("前" if q < 1 / 3 else "中" if q <= 2 / 3 else "後")
         r["_front3"] = front3
         k = []
-        if (surface == "芝" and len(rows) >= 16 and third.get(r["ub"], 0) > 2 / 3
-                and r.get("ag") is not None and r["ag"] <= 3):
+        if r["ub"] in shimai:
             k.append("終い候補")
         if front3 is not None and front3 >= 0.40 and r.get("gain") is not None and r["gain"] >= 0.20:
             k.append("押上候補")
