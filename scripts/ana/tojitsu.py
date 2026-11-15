@@ -33,7 +33,10 @@ CLAUDE.md ルール3 ──「**馬体重は発走30分前に取り直す**」�
 
   ★ `tenkai_zu.py` 側の口はそのまま通る ──
     `--pace 7:S` `--ana 7:3,5` `--ana2` `--swap` `--soto` `--uchi` `--flip` `--migi`
-    `--noswap` `--odds` `--res` `note:7=見解` 。
+    `--noswap` `--odds` `--res` `note:7=見解`
+    `--no-agari`（推定の括弧の「・上がり」を出さない）
+    `--no-baba-n`（道悪の札の回数 0/3 を出さない）
+    `--no-marulegend`（「●赤丸＝狙い」の凡例を出さない）。
     `--` のあとに書いたものも全部 `tenkai_zu.py` に渡す。
     図の向き（鏡にするか）は**距離から自動**（ルール39・43）。何も渡さなくてよい。
 
@@ -71,7 +74,13 @@ ZU_VAL = ('--pace', '--ana', '--ana2', '--swap', '--soto', '--uchi',
           #   `cyokyo.py --json` が出した json をそのまま流す。
           '--cyokyo')
 ZU_FLAG = ('--noswap', '--c4', '--nomb', '--old', '--svg',
-           '--no-cyokyo', '--cyokyo-hyo')
+           '--no-cyokyo', '--cyokyo-hyo',
+           # ★ 2026-11-15、他のプロジェクトの図に合わせて足した3つを止める口
+           #   （tenkai_zu.py の agari / baba_tag / leg の★★）。
+           #   --no-agari … 推定の括弧の「・上がり」を出さない
+           #   --no-baba-n … 道悪の札の回数（0/3）を出さない
+           #   --no-marulegend … 「●赤丸＝狙い」の凡例を出さない
+           '--no-agari', '--no-baba-n', '--no-marulegend')
 
 
 def die(msg, code=2):
