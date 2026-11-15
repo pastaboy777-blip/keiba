@@ -2,12 +2,13 @@
 /* ★ 2026-11-15、ユーザーの指示 ──「**砂の色をもう少し明るくして**」。
    変えたのは --d1 / --d2（.track の地色）だけ。**変更前の値を残しておく** ──
      --d1:#3b3027  --d2:#342a22   ← 前
-     --d1:#4e4034  --d2:#453a2e   ← 後（少しだけ明るく。色味は砂のまま＝茶系）
-   行きすぎならこの2つを前の値に戻すだけで元に戻る。
+     --d1:#4e4034  --d2:#453a2e   ← 1回目（少しだけ明るく。色味は砂のまま＝茶系）
+     --d1:#6b5948  --d2:#5f4f40   ← 2回目（11/15 同じ指示をもう一度。11/16 大井の図で）
+   行きすぎならこの2つを1つ前の値に戻すだけで元に戻る。
    見本の緑は芝の鞍なので真似しない（ユーザーの指示）。
    馬の位置・段・大きさは1pxも動かしていない（色だけ）。 */
 :root{--bg:#0c0c0e;--card:#16161a;--acc:#e8362f;--acc2:#3987e5;--gold:#d8a84a;--grn:#5fe07a;
- --tx:#f2f2f4;--dim:#8c8c96;--line:#2a2a31;--d1:#4e4034;--d2:#453a2e}
+ --tx:#f2f2f4;--dim:#8c8c96;--line:#2a2a31;--d1:#6b5948;--d2:#5f4f40}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--tx);width:1060px;padding:32px 38px 34px;
  font-family:"Noto Sans CJK JP","Hiragino Sans","Yu Gothic",sans-serif;-webkit-font-smoothing:antialiased}
