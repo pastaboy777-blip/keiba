@@ -21,6 +21,7 @@
   2 場×芝ダ: 3着内の馬の4角の位置(前1/3・中・後ろ)と、4角の組の外にいた割合(その日だけ)
   3 丸を付けた鞍(scripts/daily/marks_YYYYMMDD.json): 赤丸・白丸の馬の着順
   4 鞍ごとの一覧
+  5 候補の札(展開図の 終い候補・押上候補)の馬の3着内率と、札なしの同じ位置の馬の3着内率
 人気は表に「何番人気が来たか」を出すだけで、評価には使わない。過去の開催と比べる集計はしない。
 """
 from __future__ import annotations
@@ -226,6 +227,9 @@ def evaluate(d, pr):
                         "zone": zone_of(c4, n), "lane": lane_of(g4, x["umaban"]), "nin": x.get("popularity")})
     e["top"] = sorted(top, key=lambda t: (t["fin"], t["ub"]))
     e["fin"] = {x["umaban"]: x.get("finish_pos") for x in d["result"]}
+    # 候補の札(jra_tenkai_zu.mark_kouho): 札・予想4角の1/3・コースの前1/3の3着内率
+    e["horses"] = [{"ub": r["ub"], "kouho": list(r.get("kouho") or []), "third": r.get("_third"),
+                    "front3": r.get("_front3"), "fin": e["fin"].get(r["ub"])} for r in rows]
     return e
 
 
@@ -358,6 +362,37 @@ def report(date, E, marks, *, toujitsu, missing):
     w("\nハナ: 見解は見解の並び(pos1「前に行くのは」)の上位3頭、候補は見解の「ハナ候補」(ハナ専用モデル)の上位3頭"
       "(新馬は出さない)、実は1角先頭。◎=1頭目が当たり、○=上位3頭に入った。"
       "1〜3着は 馬番・4角の通過順位・組の中の位置(外/内/中)。人気は1着-2着-3着の順。")
+    w("")
+    # 5 候補の札
+    w("## 5. 候補の札(展開図の 終い候補・押上候補)\n")
+    hs = [(e, h) for e in E for h in e.get("horses", [])
+          if isinstance(h["fin"], int) and h["fin"] > 0]
+    t3 = lambda h: h["fin"] <= 3  # noqa: E731
+    w("| 札 | 付いた頭数 | うち3着内 | 3着内率 | 比べる馬(札なし) | その3着内 | 3着内率 |")
+    w("|---|---|---|---|---|---|---|")
+    for tag, base_lab, base in (
+        ("終い候補", "芝16頭以上・予想4角 後ろ1/3",
+         lambda e, h: e["surface"] == "芝" and e["n"] >= 16 and h["third"] == "後"),
+        ("押上候補", "前1/3の3着内率≥0.40のコース・同じ予想4角の1/3",
+         lambda e, h: (h["front3"] or 0) >= 0.40),
+    ):
+        on = [(e, h) for e, h in hs if tag in h["kouho"]]
+        if tag == "押上候補":   # 札の馬と同じ予想4角の1/3にいる札なしの馬
+            ths = collections.Counter(h["third"] for _, h in on)
+            off = [(e, h) for e, h in hs if base(e, h) and tag not in h["kouho"] and h["third"] in ths]
+        else:
+            off = [(e, h) for e, h in hs if base(e, h) and tag not in h["kouho"]]
+        a1, a2 = sum(t3(h) for _, h in on), sum(t3(h) for _, h in off)
+        w(f"| {tag} | {len(on)} | {a1} | {a1 / len(on):.0%} | {base_lab} {len(off)}頭 | {a2} | "
+          f"{(a2 / len(off)) if off else 0:.0%} |" if on else f"| {tag} | 0 | - | - | {base_lab} {len(off)}頭 | {a2} | "
+          f"{(a2 / len(off)) if off else 0:.0%} |")
+    for tag in ("終い候補", "押上候補"):
+        on = sorted([(e, h) for e, h in hs if tag in h["kouho"]], key=lambda x: (x[0]["place"], x[0]["R"], x[1]["ub"]))
+        if on:
+            w(f"\n- {tag}: " + "、".join(f"{e['place']}{e['R']}R{maru(h['ub'])}{h['fin']}着" + (f"(4角予想{h['third']})" if h["third"] else "")
+                                         for e, h in on))
+    w("\n押上候補の比べる馬は、札の馬がいる予想4角の1/3(前/中/後)と同じ区分の札なしの馬。2日程度では頭数が少ないので参考。\n")
+
     return "\n".join(L) + "\n"
 
 

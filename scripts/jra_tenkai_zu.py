@@ -13,7 +13,12 @@
   - 横 = 過去走の4コーナー位置の中央値。右が前。
   - 縦 = 重なりを避けて並べただけ。内外ではない(内外の帯は描かない)。
   - 青 ▲押し上げ = 1角→4角で位置を上げる馬 / ▼下がる = 下げる馬。
-  - 終い1〜3位 = 芝1800m以上の近走の上がり3F中央値が速い順(場・流れの補正なし)。
+  - 終い1〜3位 = ag(同じ芝ダ・距離±400m の過去走の「その鞍の上がり順位」の中央値、近5走)が小さい順。
+    距離帯の違う上がりは持ち込まない(CLAUDE.md ルール2)。その距離帯の走が無い馬は付けない。
+    ※上がり順位は集めたデータ(--from-data)の agari_rank から引く。馬柱HTMLからは取れないので付かない。
+  - 候補の札(notes/live/jra_course_pos.md の研究から。--no-kouho で消す)
+      終い候補 = 芝16頭以上・予想4角が後ろ1/3(鞍の中の順位)・ag ≤ 3
+      押上候補 = そのコースの「4角前1/3の3着内率」(models/course_pos.json)が 0.40 以上・gain ≥ 0.20
   - ペース = core/tenkai.forecast の pace_index(逃げ候補・先行勢・距離・単騎逃げ)。
 """
 
@@ -165,10 +170,12 @@ def from_data(data_path: str, race_id: str):
             hist.setdefault(x["horse_id"], []).append({
                 "race_id": d["race_id"], "date": d["date"], "place": d["place"], "surface": d.get("surface"), "dist": d["distance"],
                 "time": x.get("time"), "n": d["field_size"], "fin": x["finish_pos"],
-                "corner": x.get("corner_pos") or [], "agari": x.get("agari"), "baba": d.get("baba")})
-    past = {x["umaban"]: {"name": x["horse_name"], "runs": sorted(hist.get(x["horse_id"], []),
-                                                                   key=lambda r: r["date"], reverse=True)[:5]}
-            for x in me["result"]}
+                "corner": x.get("corner_pos") or [], "agari": x.get("agari"), "baba": d.get("baba"),
+                "agari_rank": x.get("agari_rank")})
+    past = {}
+    for x in me["result"]:
+        hs = sorted(hist.get(x["horse_id"], []), key=lambda r: r["date"], reverse=True)
+        past[x["umaban"]] = {"name": x["horse_name"], "runs": hs[:5], "hist": hs}   # hist は終い(ag)用
     waku = {x["umaban"]: x.get("waku") or waku_of(x["umaban"], me["field_size"]) for x in me["result"]}
     info = f"{me.get('surface')}{me['distance']}m {me.get('baba') or ''}"
     klass = {"race_class": me.get("race_class"), "race_type": me.get("race_type"), "grade": me.get("grade")}
@@ -240,9 +247,46 @@ def build(past: dict, waku: dict, *, place: str, dist: int, surface: str, baba: 
             "adv": fc.advantage.get(u, 0.0), "style": fc.styles[u].style,
             "nige": fc.styles[u].nige_rate, "last": v["runs"][0] if v["runs"] else None,
         })
-    rk = {r["ub"]: i + 1 for i, r in enumerate(sorted([r for r in rows if r["l"]], key=lambda r: r["l"]))}
+    # 終い: 同じ芝ダ・距離±400m の過去走の上がり順位の中央値(近5走)。jra_oshiage_kensho.py の ag と同じ
+    for r in rows:
+        v = past[r["ub"]]
+        ags = [x["agari_rank"] for x in (v.get("hist") or v["runs"])
+               if x.get("agari_rank") and x.get("surface") == surface and abs(x["dist"] - dist) <= 400][:5]
+        r["ag"], r["nag"] = (st.median(ags) if ags else None), len(ags)
+    rk = {r["ub"]: i + 1 for i, r in enumerate(sorted([r for r in rows if r["ag"] is not None],
+                                                     key=lambda r: (r["ag"], -r["nag"], r["ub"])))}
     apply_position_model(rows, field, fc, dist=dist, surface=surface)
+    mark_kouho(rows, place=place, dist=dist, surface=surface)
     return fc, rows, rk
+
+
+KOUHO_OFF = False   # --no-kouho
+
+
+def mark_kouho(rows, *, place, dist, surface):
+    """候補の札 r["kouho"](notes/live/jra_course_pos.md の 2・3)。予想(位置・ペース)は変えない。
+    終い候補: 芝16頭以上で、予想4角(pos)の鞍の中の順位が後ろ1/3、かつ ag ≤ 3。
+    押上候補: そのコースの前1/3の3着内率 ≥ 0.40(前で決まりやすい場)で gain ≥ 0.20。"""
+    known = sorted([r for r in rows if r.get("pos") is not None], key=lambda r: -r["pos"])
+    nk = len(known)
+    third = {r["ub"]: (i / max(1, nk - 1)) for i, r in enumerate(known)} if nk >= 3 else {}
+    try:
+        from jra_course_pos import lookup
+        _, cs = lookup(place, surface, dist)
+    except Exception:  # noqa: BLE001  (表が無い環境では押上候補を出さない)
+        cs = None
+    front3 = cs["front3"] if cs else None
+    for r in rows:
+        q = third.get(r["ub"])
+        r["_third"] = None if q is None else ("前" if q < 1 / 3 else "中" if q <= 2 / 3 else "後")
+        r["_front3"] = front3
+        k = []
+        if (surface == "芝" and len(rows) >= 16 and third.get(r["ub"], 0) > 2 / 3
+                and r.get("ag") is not None and r["ag"] <= 3):
+            k.append("終い候補")
+        if front3 is not None and front3 >= 0.40 and r.get("gain") is not None and r["gain"] >= 0.20:
+            k.append("押上候補")
+        r["kouho"] = k
 
 
 POSITION_MODEL = ROOT / "models" / "position_model.json"
@@ -1254,7 +1298,8 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
     def wid(r):   # 名前と札の幅の目安(札1つ +58px)。右隣の馬の名前に札がかからないように
         nt = (1 if kikou_tag(r["ub"]) else 0) + (1 if r.get(k) is None else 0) + (1 if lb0 else 0)
         nk = len(kb_list(r["ub"], r.get("name")))   # 厩舎の話の札(短いので 1つ +40px)
-        return G + 8 * max(0, len(r.get("name") or "") - 7) + 58 * nt + 40 * nk
+        nkh = 0 if KOUHO_OFF else len(r.get("kouho") or [])   # 候補の札(1つ +50px)
+        return G + 8 * max(0, len(r.get("name") or "") - 7) + 58 * nt + 40 * nk + 50 * nkh
     flip = front_is_left(globals().get("_CUR_PLACE"), globals().get("_CUR_SURF"), globals().get("_CUR_DIST"))
     span = W - 2 * P - 130
     lanes, cells = [], []
@@ -1300,6 +1345,8 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
             elif td["front"] <= td["front0"] - 0.15 and r["pos"] <= 1 / 2:
                 tag += '<span class="klane">差◎</span>'
         tag += kb_tag_html(r["ub"], r["name"])
+        if not KOUHO_OFF:
+            tag += "".join('<span class="kko">%s</span>' % t for t in r.get("kouho") or [])
         if r.get(k) is None:
             tag = '<span class="knd">過去走なし</span>' + tag
         chev = '<span class="kc" style="color:%s">%s</span>' % (cc, "&laquo;" if flip else "&raquo;")
@@ -1768,6 +1815,7 @@ CSS_EXTRA = """
 .klane{display:inline-block;font-size:8.5px;color:#0c0c0e;background:#ffb347;border-radius:3px;padding:0 4px;margin:0 0 0 3px;font-weight:800}
 .lanebias{margin-top:4px;font-size:12px;color:#ffb347;font-weight:700}
 .kbt{display:inline-block;font-size:8.5px;color:#e9e1d2;background:rgba(0,0,0,.28);border:1px solid #a89a84;border-radius:3px;padding:0 3px;margin:0 0 0 3px;line-height:1.25}
+.kko{display:inline-block;font-size:8.5px;color:#cfe0ea;background:rgba(80,130,160,.22);border:1px solid #6f97ad;border-radius:3px;padding:0 3px;margin:0 0 0 3px;line-height:1.25}
 .knd{display:inline-block;font-size:8.5px;color:#fff;background:#d9577a;border-radius:3px;padding:0 4px;margin:0 0 0 3px}
 .kh .kik{font-size:8.5px;padding:0 3px;margin:0 0 0 3px}
 .race.kawa .rd .st{color:#e8a33a;margin-right:8px;font-weight:700}
@@ -1813,8 +1861,8 @@ def page(date: str, place: str, rno: str, body: str, learned: bool = False) -> s
         '<div class="head"><div class="kicker">%s.%s.%s %s — %s</div><h1>展開予想 ／ %sR</h1>'
         '<div class="sub">%s<b>右が前</b>、馬番は枠の色'
         '(1白 2黒 3赤 4青 5黄 6緑 7橙 8桃)。</div></div>'
-        '<div class="note"><span class="sm">終い○位</span> は芝1800m以上の近走の上がり3F(中央値)が'
-        'この鞍で何番目に速いか(場・流れの補正なし)。<span class="q">青＝1角から4角で押し上げる馬</span>。'
+        '<div class="note"><span class="sm">終い○位</span> は同じ芝ダ・距離±400mの近5走の上がり順位(中央値)が'
+        'この鞍で何番目に良いか(距離帯の違う上がりは使わない)。<span class="q">青＝1角から4角で押し上げる馬</span>。'
         '%s</div>'
         '%s<div class="tail">印は買い目の保証ではありません。レース当日以降の走は使っていません。</div>'
         '</body></html>'
@@ -1859,11 +1907,14 @@ def main() -> None:
     ap.add_argument("--no-trend", action="store_true", help="盤面の下の「過去の傾向」欄を出さない(既定は出す)")
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
     ap.add_argument("--kb", help="競馬ブックの厩舎の話(kb_jra.py の JSONL)。省略時は data/kb/danwa_<日付>.jsonl があれば使う")
+    ap.add_argument("--no-kouho", action="store_true", help="候補の札(終い候補/押上候補)を出さない")
     ap.add_argument("--no-kb", action="store_true", help="厩舎の話の札(良◎/道悪○/道悪×/ハナ/控え)を出さない")
     ap.add_argument("--kb-debug", action="store_true", help="厩舎の話の札を、鞍ごとに「馬番: 札 ← 拾った語」で出す")
     a = ap.parse_args()
     global KB_PATH, KB_OFF, KB_DEBUG
     KB_PATH, KB_OFF, KB_DEBUG = a.kb, a.no_kb, a.kb_debug
+    global KOUHO_OFF
+    KOUHO_OFF = a.no_kouho
     global ZONE_FRONT, JOCKEY_STATS, STYLE
     STYLE = a.style
     global BASE_DAY, BASE_BABA, BASE_DAY_DIRT, BASE_BABA_DIRT, SHOW_KIKOU, CIRCLE_EACH
