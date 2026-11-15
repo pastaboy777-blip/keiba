@@ -34,8 +34,12 @@ out_*.log
 notes/onko/
 scripts/ana/ped_cache.json
 
-# harvest.py が集めた中間データ（他社サイトからの収集物）
-scripts/ana/harvest/
+# harvest.py が集めた中間データ
+# ★ 2026-11-15、無視をやめてコミットする方針に変えた。
+#   .gitignore に入れていたせいでコンテナが作り直されたときに**丸ごと消え**、
+#   soto.py / jk_soto.py / tenkai.py の --build が走らせられなくなった（ルール38）。
+#   取り直しに3.7時間かかる。242ファイル・8.9MB なのでリポジトリに置く。
+# scripts/ana/harvest/
 
 # soto.py の日付切り出し版（soto.py --build --before で再生成できる）
 scripts/ana/soto_[0-9][0-9][0-9][0-9].json
