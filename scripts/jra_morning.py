@@ -10,7 +10,8 @@
   --baba-dirt       同じ書式でダートの馬場(書かない場は芝と同じ)
   --refresh-shutuba 出馬表を取り直す(scripts/jra_shutuba.py)。当日は馬体重などが入る
   --config          手で決めた丸など(省略時 scripts/daily/marks_YYYYMMDD.json があれば読む)
-                    {"福島": {"circle": "7:11", "circle2": "7:15,10", "hide_pace": "7", "circle_each": false},
+                    {"福島": {"circle": "7:11", "circle2": "7:15,10", "hide_pace": "7", "circle_each": false,
+                          "no_arekata": false},
                      "split": [{"place": "京都", "race": 11, "yaya": "10,5,6", "omo": "10,5,9",
                                 "yaya_note": "…", "omo_note": "…"}]}
   --place           この場だけ作る(カンマで複数)
@@ -159,6 +160,8 @@ def kouho_line(k: dict) -> str:
     pb = "・".join(k.get("pos_buckets") or [])
     parts = ["位置 (過去走なし)" if not k.get("n_known", 1) else f"位置({pb}) {_m(k['pos'])}" if pb else "位置 (表なし)",
              f"終い候補 {_m(k['shimai'])}", f"押上 {_m(k['oshiage'])}", f"ハナ候補 {_m(k['hana'])}"]
+    if k.get("arekata"):
+        parts.append("荒れ方 " + "・".join(k["arekata"]))
     if k.get("kb_day"):
         parts.append("札 " + (" ".join(t + _m(v) for t, v in k["kb"].items()) or "なし"))
     return head + ": " + " ／ ".join(parts)
@@ -242,6 +245,8 @@ def main():
             extra += ["--base-time", c["base_time"]]
         if c.get("no_trend"):
             extra.append("--no-trend")
+        if c.get("no_arekata"):   # 見出しの荒れ方の札を消す(mark_args に入るので昼の jra_today.py にも持ち越す)
+            extra.append("--no-arekata")
         setting[p] = {"turf": t, "dirt": d, "base_args": bb, "mark_args": extra, "zu_args": bb + extra}
         out = ROOT / "scripts" / "daily" / f"zu_jra_{ymd}_{p}.html"
         print(f"[{p}] 展開図 …", flush=True)
@@ -279,7 +284,8 @@ def main():
                     html = work / f"{p}{r}_{key}.html"
                     run([sys.executable, str(ZU), "--from-data", "--race-id", me["race_id"], "--date", a.date,
                          "--race-no", str(r), "--place", p, "--pace-data", str(data), "--out", str(html),
-                         "--circle", f"{r}:{s[key]}", "--circle-each"] + bb)
+                         "--circle", f"{r}:{s[key]}", "--circle-each"] + bb
+                        + (["--no-arekata"] if cfg.get(p, {}).get("no_arekata") else []))
                     if not a.no_png:
                         shoot(html, work, f"{p}{key}")
                         pics[(r, key)] = work / f"{p}{key}_{r}R.png"

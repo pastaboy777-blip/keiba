@@ -801,14 +801,16 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
             if getattr(fc, "meeting_shift", None) is not None:
                 lvl += "　※今開催の馬場のずれ込み"
         start = (getattr(fc, "_start", "") or "")
+        fc.arekata = arekata_fuda(fc, rows, surface, n)
         return (
             '<div class="race kawa%s"><div class="rh"><span class="rn">%sR</span>'
-            '<span class="rd"><span class="st">%s</span>%s%dm ／ %d頭 ／ %s</span>'
+            '<span class="rd"><span class="st">%s</span>%s%dm ／ %d頭 ／ %s</span>%s'
             '<span class="pace p-%s"><b>%s</b> %s</span>%s</div>'
             '<div class="pbar p-%s"><div class="bar"><span>ゆっくり</span><span>ふつう</span><span>速い</span>'
             '<i style="left:%.1f%%"></i></div><div class="flow">→ <b>%s</b>　<small>%s</small></div>%s</div>'
             '%s%s<div class="kenkai"><div class="kt">見解</div><p>%s</p></div></div>'
-            % (" nopace" if globals().get("_CUR_RNO") in HIDE_PACE else "", rno, start, surface, dist, n, H.escape(name), pcls, ptag,
+            % (" nopace" if globals().get("_CUR_RNO") in HIDE_PACE else "", rno, start, surface, dist, n, H.escape(name),
+               arekata_html(fc.arekata), pcls, ptag,
                {"スロー": "スロー", "ミドル": "ミドル", "ハイ": "ハイ"}[fc.pace] + "想定",
                (('<span class="tbase"><b>%d:%04.1f</b> の時計をベースにしています%s</span>'
                  % (*divmod(est["time"], 60), _lap_text(est)))
@@ -1084,6 +1086,29 @@ def front_is_left(place, surface, dist):
 CIRCLE: dict = {}
 CIRCLE_EACH = False   # --circle-each: 赤丸も1頭ずつ(ユーザー指定 2026-11-14「全部○で囲って」)
 CIRCLE2: dict = {}  # 相手の丸(白)。--circle2 "7:15,10"。本命は --circle(赤)   # 手で丸を付ける馬 {R番号(int): {馬番}}。--circle "12:6,12,15;3:8"
+
+
+ARE_OFF = False   # --no-arekata で荒れ方の札を消す
+
+
+def arekata_fuda(fc, rows, surface, n) -> list:
+    """荒れ方の札(scripts/jra_arekata.py の fuda をそのまま使う。notes/live/jra_arekata.md §5)。
+    予想ペース版: A 先行過多・荒れ目 / B 前残り・堅め / C 差し届き・荒れ目。人気・オッズは使わない。
+    盤面を描いたあと(outer_score が jra_arekata の予想と同じく pos1 で付いたあと)に呼ぶ。
+    ペースは学習したペース(fc.q がある時)だけ使う。無いときは C(ペース不問)だけ判定。"""
+    if ARE_OFF:
+        return []
+    from jra_arekata import fuda
+    hs = [{"ub": r["ub"], "pos1": r.get("pos1"), "outer": r.get("outer_score"), "nige": r.get("nige"),
+           "kouho": r.get("kouho") or []} for r in rows]
+    return fuda(fc.pace if getattr(fc, "q", None) else None, hs, surface, n)
+
+
+def arekata_html(keys) -> str:
+    from jra_arekata import FUDA
+    return "".join('<span class="are are-%s"><b>%s</b><small>%s</small></span>'
+                   % ("hot" if FUDA[k][1] == "are" else "calm", FUDA[k][0], FUDA[k][2])
+                   for k in keys)
 
 
 SHOW_TREND = True   # --no-trend で消す。盤面の下・見解の上の「過去の傾向」欄
@@ -1872,6 +1897,11 @@ CSS_EXTRA = """
 .knd{display:inline-block;font-size:8.5px;color:#fff;background:#d9577a;border-radius:3px;padding:0 4px;margin:0 0 0 3px}
 .kh .kik{font-size:8.5px;padding:0 3px;margin:0 0 0 3px}
 .race.kawa .rd .st{color:#e8a33a;margin-right:8px;font-weight:700}
+.race.kawa .rh{flex-wrap:wrap;row-gap:8px}
+.are{display:inline-flex;flex-direction:column;align-items:flex-start;padding:4px 12px;border-radius:7px;line-height:1.25;white-space:nowrap}
+.are b{font-size:15px;font-weight:900;letter-spacing:.5px}.are small{font-size:10.5px;font-weight:700;margin-top:1px}
+.are.are-hot{background:#c8322b;border:2px solid #ff6a5c;color:#fff}.are.are-hot small{color:#ffe1dc}
+.are.are-calm{background:#1d2a36;border:2px solid #6f97ad;color:#cfe0ea}.are.are-calm small{color:#9fb6c6}
 .race.kawa .kenkai p{font-size:12px;line-height:1.7;margin:4px 0}
 .ktrend{margin:4px 16px 0;padding:6px 12px;background:#17171c;border-radius:6px;border-left:3px solid #8a8a96;font-size:11.5px;color:#c9c9d2;line-height:1.65}
 .ktrend p{margin:2px 0}.ktrend .ty{white-space:nowrap}.ktrend b{color:#f2f2f4}
@@ -1958,6 +1988,8 @@ def main() -> None:
     ap.add_argument("--circle2", default="", help='相手を白い丸で囲む馬。"7:15,10,8"')
     ap.add_argument("--circle", default="", help='手で赤丸を付ける馬。"12:6,12,15;3:8"(R:馬番)')
     ap.add_argument("--no-trend", action="store_true", help="盤面の下の「過去の傾向」欄を出さない(既定は出す)")
+    ap.add_argument("--no-arekata", action="store_true",
+                    help="見出しの荒れ方の札(先行過多・荒れ目/前残り・堅め/差し届き・荒れ目。scripts/jra_arekata.py)を出さない")
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
     ap.add_argument("--kb", help="競馬ブックの厩舎の話(kb_jra.py の JSONL)。省略時は data/kb/danwa_<日付>.jsonl があれば使う")
     ap.add_argument("--no-kouho", action="store_true", help="候補の札(終い候補/押上候補)を出さない")
@@ -1975,6 +2007,8 @@ def main() -> None:
     CIRCLE_EACH = a.circle_each
     global SHOW_TREND
     SHOW_TREND = not a.no_trend
+    global ARE_OFF
+    ARE_OFF = a.no_arekata
     SHOW_KIKOU = a.kikou
     BASE_DAY = set(a.base_day.split(",")) if a.base_day else None
     BASE_BABA = set(a.base_baba.split(",")) if a.base_baba else None
@@ -2057,6 +2091,8 @@ def kouho_of(fc, place) -> dict:
                     kb[t].append(r["ub"])
     out["kb"] = {t: kb[t] for t in KB_ORDER if t in kb}
     out["kb_day"] = bool(kb_load(globals().get("_CUR_DATE") or ""))
+    from jra_arekata import FUDA
+    out["arekata"] = [FUDA[k][0] for k in (getattr(fc, "arekata", None) or [])]
     return out
 
 

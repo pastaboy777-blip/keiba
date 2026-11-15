@@ -161,6 +161,50 @@ def rank_third(hs, key):
             for i, h in enumerate(kn)}
 
 
+def narabi(hs, surface, n):
+    """レース前に分かる並び(逃げ候補の数・前組の内外の生の値・先行の割合の生の値・終い候補)。
+    hs は馬ごとの dict(pos1, outer, nige, kouho, ub)。enrich と展開図の札(fuda)が同じものを使う。"""
+    nk = [h for h in hs if h.get("nige") is not None]
+    nc = sum(1 for h in nk if h["nige"] >= 0.3)
+    out = {"f_nige": "逃げ候補0" if nc == 0 else "逃げ候補1" if nc == 1 else "逃げ候補2" if nc == 2 else "逃げ候補3+"}
+    t1 = rank_third(hs, "pos1")
+    fr = [h["outer"] for h in hs if t1.get(h["ub"]) == "前" and h.get("outer") is not None]
+    al = [h["outer"] for h in hs if h.get("outer") is not None]
+    out["_fside"] = (st.mean(fr) - st.mean(al)) if fr and al else None
+    p1 = [h for h in hs if h.get("pos1") is not None]
+    out["_front"] = (sum(1 for h in p1 if h["pos1"] >= 0.67) / len(hs)) if len(p1) >= 0.6 * len(hs) else None
+    out["f_shimai"] = ("終い候補あり" if any("終い候補" in (h.get("kouho") or []) for h in hs) else "終い候補なし") \
+        if (surface == "芝" and n >= 16) else None
+    return out
+
+
+# 4000鞍(--n 4000、data/jra/arekata_rows.jsonl)の enrich が出した3等分の境。展開図の札はこの境で固定して切る
+CUT_4000 = {"fside": (-0.046483151670287104, 0.02850955932525867), "front": (0.25, 0.375)}
+
+# 予想ペース版の札(notes/live/jra_arekata.md §5)。(記号, 札, 荒れ/堅め, 補足)
+FUDA = {
+    "A": ("先行過多・荒れ目", "are", "穴は後ろから押し上げる外めの馬"),
+    "B": ("前残り・堅め", "kata", "穴は前の人気薄だけ"),
+    "C": ("差し届き・荒れ目", "are", "穴は終い候補"),
+}
+
+
+def fuda(pace, hs, surface, n, cut=CUT_4000):
+    """レース前の並びと予想ペースから札の記号のリスト(A/B/C)。人気・オッズは使わない。
+    A: 予想ハイ × 先行多 × 逃げ候補3+ / B: 予想スロー × 逃げ候補1 × 前組外寄り / C: 前組内寄り × 終い候補あり(芝16頭↑、ペース不問)"""
+    e = narabi(hs, surface, n)
+    fside = None if e["_fside"] is None else ("前組 内寄り", "前組 中", "前組 外寄り")[tert(e["_fside"], *cut["fside"])]
+    front = None if e["_front"] is None else ("先行少", "先行中", "先行多")[tert(e["_front"], *cut["front"])]
+    out = []
+    if pace == "ハイ" and front == "先行多" and e["f_nige"] == "逃げ候補3+":
+        out.append("A")
+    if pace == "スロー" and e["f_nige"] == "逃げ候補1" and fside == "前組 外寄り":
+        out.append("B")
+    if fside == "前組 内寄り" and e["f_shimai"] == "終い候補あり":
+        out.append("C")
+    return out
+
+
 def enrich(es):
     """鞍ごとの並び・展開・荒れ方を付ける"""
     out = []
@@ -174,18 +218,8 @@ def enrich(es):
         e["ana3"] = sum(1 for h in top if h["pop"] and h["pop"] >= ANA)
         e["ana_win"] = any(h["fin"] == 1 and h["pop"] and h["pop"] >= ANA for h in hs)
         e["big"] = e["trio"] >= BIG
-        nk = [h for h in hs if h.get("nige") is not None]
-        nc = sum(1 for h in nk if h["nige"] >= 0.3)
-        e["f_nige"] = "逃げ候補0" if nc == 0 else "逃げ候補1" if nc == 1 else "逃げ候補2" if nc == 2 else "逃げ候補3+"
+        e.update(narabi(hs, e["surface"], e["n"]))
         e["f_lone"] = "単騎逃げあり" if e["lone"] is not None else "単騎逃げなし"
-        t1 = rank_third(hs, "pos1")
-        fr = [h["outer"] for h in hs if t1.get(h["ub"]) == "前" and h.get("outer") is not None]
-        al = [h["outer"] for h in hs if h.get("outer") is not None]
-        e["_fside"] = (st.mean(fr) - st.mean(al)) if fr and al else None
-        p1 = [h for h in hs if h.get("pos1") is not None]
-        e["_front"] = (sum(1 for h in p1 if h["pos1"] >= 0.67) / len(hs)) if len(p1) >= 0.6 * len(hs) else None
-        e["f_shimai"] = ("終い候補あり" if any("終い候補" in h["kouho"] for h in hs) else "終い候補なし") \
-            if (e["surface"] == "芝" and e["n"] >= 16) else None
         e["f_oshi"] = "押上候補あり" if any("押上候補" in h["kouho"] for h in hs) else "押上候補なし"
         e["f_n"] = "〜11頭" if e["n"] <= 11 else "12〜15頭" if e["n"] <= 15 else "16頭〜"
         e["f_sf"] = e["surface"]
