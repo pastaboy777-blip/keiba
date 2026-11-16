@@ -1098,6 +1098,15 @@ def yon_wanted(rno) -> bool:
     return YON_ALL or (rno in YON)
 
 
+def inner_is_down(place, flip) -> bool:
+    """スタンドから見た盤面で、内(ラチ側)が下か(ユーザー指摘 2026-11-16「2000mスタート ラチ沿い下だ」)。
+    左回りは馬の左手が内: 左が前(右→左)なら左手はスタンド側=下、右が前なら上。右回りは逆。
+    → 内が上は (左回り かつ 右が前) か (右回り かつ 左が前) のときだけ。分からない場は今までどおり上。"""
+    if not place or place not in {p for p, _ in COURSE_LAP}:
+        return False
+    return flip if place in LEFT_TURN else not flip
+
+
 def yon_front_is_left(place):
     """4コーナーを回って直線を向いたところを、スタンドから見たとき左が前か。
     直線はスタンドの前を通るので front_is_left の「スタートが正面」と同じ向き:
@@ -1431,6 +1440,12 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
                 cells.append((r, x, i))
                 break
             i += 1
+    if inner_is_down(globals().get("_CUR_PLACE"), flip):   # 内が下の向き: 段の並びを上下に返すだけ(どの馬がどの段かは同じ)
+        nl = max(1, len(lanes))
+        cells = [(r, x, nl - 1 - i) for r, x, i in cells]
+        inv = True
+    else:
+        inv = False
     LN = 76
     hh = []
     for r, x, lane in cells:
@@ -1494,11 +1509,12 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
     if yon:
         legend += ('<div class="knote">前後＝位置モデルの4角の予想。内外＝4角の併走の内外を学んだモデル(ほぼ馬番と騎手)を'
                    '4角の前後で当て直したもので、1枚目と同じ物差し(4角専用に作り込んではいない)</div>')
-    return ('<div class="kboard%s"><div class="kdir">%s</div><div class="ktrack%s%s" style="height:%dpx"><div class="goal"></div><div class="kin">内（ラチ側）</div><div class="kout">外</div>%s</div>%s</div>'
+    return ('<div class="kboard%s"><div class="kdir">%s</div><div class="ktrack%s%s%s" style="height:%dpx"><div class="goal"></div><div class="kin">内（ラチ側）</div><div class="kout">外</div>%s</div>%s</div>'
             % (" kyon" if yon else "",
                ("4コーナー(直線を向いたところ)" if yon else
                 first_corner_name(globals().get("_CUR_PLACE"), globals().get("_CUR_SURF"), globals().get("_CUR_DIST")))
                + ("　← 左が前（スタンドから見た向き）" if flip else "　右が前（スタンドから見た向き） →"), turf, " kflip" if flip else "",
+               " kinv" if inv else "",
                max(1, len(lanes)) * LN + 24, ring + "\n".join(hh), legend))
 
 
@@ -1917,6 +1933,7 @@ CSS_EXTRA = """
 .ktrack.kflip .goal{right:auto;left:24px}
 .kin,.kout{position:absolute;right:calc(100% + 1px);writing-mode:vertical-rl;font-size:10.5px;line-height:13px;font-weight:800;color:#c9c9d2;letter-spacing:1px;white-space:nowrap}
 .kin{top:2px}.kout{bottom:2px}
+.ktrack.kinv{border-top:none;border-bottom:3px solid #ddd}.ktrack.kinv .kin{top:auto;bottom:2px}.ktrack.kinv .kout{bottom:auto;top:2px}
 .race.yon2{width:1984px}.kpair{display:flex;gap:16px;margin:8px 16px}.kpair .kboard{flex:1;min-width:0;margin:0}.knote{font-size:10.5px;color:#9a9aa6;margin:6px 4px 0;line-height:1.5}
 .kdir{font-size:11px;color:#9a9aa6;margin:0 2px 4px;font-weight:700}
 .klegend{display:flex;align-items:center;gap:6px;margin:8px 4px 0;font-size:13px;font-weight:700;color:#f2f2f4}
