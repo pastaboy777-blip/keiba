@@ -1204,7 +1204,7 @@ def main():
         #   MIRROR も VFLIP も見ない。**コーナーの図（--chokusen なし）は1つも変えていない。**
         if CHOKU:
             vf = False
-            flip.discard(R)
+            flip.add(R)
         if R in flip or vf:                # 前を左に回す（左右）／段の順を返す（上下）
             # ★ 2026-11-14、ユーザーの指示 ──「上下逆」「2000mスタート地点　内枠が下」。
             #   （川崎2000m 9Rで「⑫の方が下だね」＝先頭列にいた8枠の⑫が下に来る）
