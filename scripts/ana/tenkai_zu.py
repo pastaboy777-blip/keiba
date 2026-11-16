@@ -19,6 +19,15 @@
             先頭候補・騎手も消える）。2026-11-12 の「説明文いらない　小文字消して」
             「バレるじゃん」で作ったもの。**--no-pct とは独立で、挙動は変えていない。**
 
+★ 直線（4コーナー）の盤面 `--chokusen`（2026-11-16、ユーザーの言葉 ──
+  「直線だと左がゴールで上がラチ沿いだね」「２枚」）。
+  付けたときだけ、最初のコーナーの盤面の**代わりに**直線の盤面を描く（1鞍につき画像2枚 ＝
+  同じカードで2回実行して2つのHTMLを作る）。前後は pos4（過去走の4角相対の中央値）、
+  **左がゴール・上がラチ沿い**、馬の絵と矢印は左向き。段の並べ方・札はいまと同じ
+  （「先頭候補」だけ出さない）。`--no-pct` の1行は「直線（4コーナー）　← 左がゴール（スタンドから見た向き）」。
+  大井だけ（全距離同じ直線）。**大井以外は向きを聞いていないので描かずに止める。**
+  **付けないときの出力は1バイトも変わらない。**
+
 ★ 2026-11-15 に入れた2つ（どちらも**馬の位置・段・色・大きさを1つも動かさない**）
 
   「ラチ沿い」の文字 … ユーザーの指示「**下がラチ沿いと書いて**」。
@@ -431,6 +440,32 @@ def mikata(dist, rows):
     return ''.join(s)
 
 
+def mikata_chokusen(dist, rows):
+    """直線（4コーナー）の盤面の見解（2026-11-16・`--chokusen`）。
+
+    形は mikata() と同じで、地点だけ「4コーナー」に変えた短い版 ──
+      「ダ1200m、4コーナーで前にいるのは③①⑤。その後ろに⑦⑨②。終い一番手は⑤⑦。」
+    押し上げ型の文は入れる（数字なし）。「ハナ候補」は最初のコーナーの話なので入れない。
+    rows は直線の並び（pos に pos4 を入れて並べたもの）。"""
+    nm = lambda rs: ''.join(maru(r['ub']) for r in rs)
+    if rows and all(r['nopos'] for r in rows):
+        return 'ダ%dm、出走馬すべて過去走なし。4コーナーの隊列は過去走から読めない。' % dist
+    s = []
+    if rows:
+        s.append('ダ%dm、4コーナーで前にいるのは%s。' % (dist, nm(rows[:3])))
+    if len(rows) > 3:
+        s.append('その後ろに%s。' % nm(rows[3:6]))
+    for r in rows:
+        if (r['gain'] or 0) >= .20 and not r['nopos']:
+            s.append('%s%sは最初のコーナーから4コーナーまでに押し上げる型。'
+                     % (maru(r['ub']), html.escape(r['name'])))
+    shi = [r for r in sorted(rows, key=lambda r: (r['srank'] is None, r['srank'] or 99))
+           if r['srank']][:2]
+    if shi:
+        s.append('終い一番手は%s。' % nm(shi))
+    return ''.join(s)
+
+
 def row_of(h, dist, od, ven=None):
     """★ `ven` は 2026-11-15 に足した（地点をそろえるため・上の NCOR の★★）。
       渡さないと（`ninki.py` など外から3つで呼ぶ経路）**地点を混ぜる従来のまま**になる。"""
@@ -721,6 +756,19 @@ def main():
     #   `--plain`（宣伝用）でも出す ── 向きを示すだけで手の内ではない。
     #   止める口は **`--no-rachi`**。枠の中には何も足していないので馬は1pxも動かない。
     rachi = '--no-rachi' not in a
+    # ★ 2026-11-16、直線（4コーナー）の盤面（ユーザーの言葉 ──
+    #   「**直線だと左がゴールで上がラチ沿いだね**」「**２枚**」＝1鞍につき画像2枚）。
+    #   `--chokusen` を付けたときだけ、最初のコーナーの盤面の**代わりに**直線の盤面を描く。
+    #   同じカードで2回実行して2つのHTMLを作る運用。**付けないときの出力は1バイトも変えない。**
+    #     前後 … pos4（過去走の4角相対の中央値）。並べ方（重なり避けの段）はいまと同じ。
+    #     向き … **左がゴール・上がラチ沿い**（スタンドから見た向き）。馬の絵・矢印も左向き。
+    #             大井は全距離同じ直線なので距離によらずこの向き。MIRROR / VFLIP は効かせない。
+    #     札   … いまと同じ。ただし「先頭候補」は最初のコーナーの話なので出さない。
+    #   大井以外の直線の向きは**まだ聞いていない**ので、描かずに止める。
+    choku = '--chokusen' in a
+    if choku and ven != '大井':
+        print('この場の直線の向きは未確認（%s）。--chokusen は大井だけ描きます。' % ven)
+        sys.exit(1)
     global SUITEI, DORO, CYK, CYK_BUN
     CYK_BUN = '--cyokyo-bun' in a       # 短評の文をそのまま出す（有料欄の文言。既定は出さない）
     CYK = ({R_: {h['ub']: h for h in hs} for R_, hs in json.load(open(g('--cyokyo'))).items()}
@@ -771,6 +819,9 @@ def main():
         for r in rows:
             r.setdefault('srank', None)
         sw = [tuple(int(y) for y in p_.split('-')) for p_ in swap_sp.get(R, [])]
+        if choku:                           # 直線は4角の位置で並べる（無い馬は過去走なし扱い）
+            for r in rows:
+                r['pos'] = r['pos4']
         rows = arrange(rows, sw, '--noswap' in a)
         # ★ 先頭候補（2026-11-14、ユーザーの指示・CLAUDE.md ルール44）
         #   先頭2頭の pos が FUTATSU_DP(0.06) 未満しか離れていない鞍は、どちらが引くか
@@ -782,16 +833,16 @@ def main():
         #   過去走のない馬（pos が鞍の中央の仮置き）が先頭2頭に来た鞍は出さない
         #   ── その pos は測った値ではないので「候補」と書けない（ルール22）。
         sente = set()
-        if (FUTATSU and not plain and len(rows) >= 2
+        if (FUTATSU and not plain and not choku and len(rows) >= 2
                 and not rows[0]['nopos'] and not rows[1]['nopos']
                 and (rows[1]['pos'] - rows[0]['pos']) < FUTATSU_DP):
             sente = {rows[0]['ub'], rows[1]['ub']}
         cells, NL = place(rows)
-        if (ven, v['dist']) in MIRROR:
+        if (ven, v['dist']) in MIRROR or choku:   # 直線は左がゴール（鏡の鞍と同じ向き）
             flip.add(R)
         drawn.append(R)
         dists.append(v['dist'])
-        vf = (ven, v['dist']) in VFLIP     # 段の順も返すか（川崎2000m・大井1200m・1400m）
+        vf = (ven, v['dist']) in VFLIP and not choku   # 段の順も返すか（直線は返さない＝上がラチ沿い）
         if R in flip or vf:                # 前を左に回す（左右）／段の順を返す（上下）
             # ★ 2026-11-14、ユーザーの指示 ──「上下逆」「2000mスタート地点　内枠が下」。
             #   （川崎2000m 9Rで「⑫の方が下だね」＝先頭列にいた8枠の⑫が下に来る）
@@ -931,7 +982,9 @@ def main():
         #   `kado()` は**消していない** ── 既定の図（`--no-pct` なし）の見出しでは
         #   そのまま使っている（ルール45の記録）。**変えたのは `--no-pct` のときだけ。**
         cap = ''
-        if nopct:
+        if nopct and choku:
+            cap = '<div class="kd">直線（4コーナー）　← 左がゴール（スタンドから見た向き）</div>'
+        elif nopct:
             cap = ('<div class="kd">最初のコーナー　%s</div>'
                    % ('← 左が前（スタンドから見た向き）' if R in flip
                       else '→ 右が前（スタンドから見た向き）'))
@@ -974,7 +1027,8 @@ def main():
                '<div class="keiko"><h4>過去の傾向</h4><p><b>%s</b>　%s</p></div>'
                % (html.escape(K.head(ven, v['dist'])), html.escape(K.body(ven, v['dist']))))
         # C … 見解。**`note:R=` があればそちらが優先**（手で書いたものを自動で上書きしない）
-        vtx = note.get(R) or ('' if plain else mikata(v['dist'], rows))
+        vtx = note.get(R) or ('' if plain else
+                              (mikata_chokusen if choku else mikata)(v['dist'], rows))
         viw = ('<div class="view"><h4>見解</h4><p>%s</p></div>' % vtx) if vtx else ''
         tmpl = (
             '<div class="race"><div class="rh"><span class="rn">%dR</span>'
@@ -1040,6 +1094,11 @@ def main():
             #   「最初に記録された角 − 4角」なので、見出しと同じ言い方に揃える。
             #   具体の角は見出しに添えてあるので、ここでは繰り返さない。
 '<b>▼は最初の角から4コーナーまでに下がる馬</b>で、前にいないという意味ではありません。</div>')
+    if choku and not nopct:     # 直線の盤面の見出し（--no-pct では出さないのは同じ）
+        sub = ('<div class="sub"><b>直線（4コーナー）での隊列想定</b>　／　<b>左がゴール</b>、'
+               '上がラチ沿い（スタンドから見た向き）。'
+               + ('' if plain else '過去走の<b>4コーナーの通過順</b>で隊列を組んでいます。'
+                  '馬番は枠の色。<b>縦の並びは重なりを避けただけです。</b>') + '</div>')
     page = ('<!doctype html><html lang="ja"><head><meta charset="utf-8">'
             '<title>展開予想</title><style>@@CSS@@</style></head><body>'
             '<div class="head"><div class="kicker">@@DATE@@ — @@VEN@@@@BABA@@</div>'
