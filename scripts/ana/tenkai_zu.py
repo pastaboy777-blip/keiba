@@ -22,7 +22,9 @@
 ★ 直線（4コーナー）の盤面 `--chokusen`（2026-11-16、ユーザーの言葉 ──
   「直線だと左がゴールで上がラチ沿いだね」「２枚」）。
   付けたときだけ、最初のコーナーの盤面の**代わりに**直線の盤面を描く（1鞍につき画像2枚 ＝
-  同じカードで2回実行して2つのHTMLを作る）。前後は pos4（過去走の4角相対の中央値）、
+  同じカードで2回実行して2つのHTMLを作る）。前後は過去走の4角相対の**直近重みづけ(5,4,3,2,1)**
+  （2026-11-17、ユーザーの指示「近走 重み付けにして」。最初のコーナーの pos_of() と同じ。
+  中央値（pos4）に戻す口は `--choku-median`）、
   **左がゴール・上がラチ沿い**、馬の絵と矢印は左向き。段の並べ方・札はいまと同じ
   （「先頭候補」と「4角で代用」は出さない ── 直線は全馬が4角の位置なので代用の意味が通らない）。
   `--no-pct` の1行は「直線（4コーナー）　← 左がゴール（スタンドから見た向き）」。
@@ -447,7 +449,7 @@ def mikata_chokusen(dist, rows):
     形は mikata() と同じで、地点だけ「4コーナー」に変えた短い版 ──
       「ダ1200m、4コーナーで前にいるのは③①⑤。その後ろに⑦⑨②。終い一番手は⑤⑦。」
     押し上げ型の文は入れる（数字なし）。「ハナ候補」は最初のコーナーの話なので入れない。
-    rows は直線の並び（pos に pos4 を入れて並べたもの）。"""
+    rows は直線の並び（pos に pos4w（`--choku-median` なら pos4）を入れて並べたもの）。"""
     nm = lambda rs: ''.join(maru(r['ub']) for r in rs)
     if rows and all(r['nopos'] for r in rows):
         return 'ダ%dm、出走馬すべて過去走なし。4コーナーの隊列は過去走から読めない。' % dist
@@ -540,6 +542,10 @@ def row_of(h, dist, od, ven=None):
                 pos=((st.median(c4) if c4 else (st.median(c1) if c1 else None)) if OLD_C4
                      else (pos_of(c1) if c1 else pos_of(c4))),
                 pos4=(st.median(c4) if c4 else None), nopos=False, daiyo=daiyo,
+                # ★ 直線の盤面（--chokusen）の前後（2026-11-17、ユーザーの指示「近走 重み付けにして」）。
+                #   最初のコーナーの pos と同じ pos_of()（直近重みづけ 5,4,3,2,1）を4角相対に当てた値。
+                #   pos4（中央値）は ▲押し上げ判定・見解・ninki.py などが使うので**値を変えない**。
+                pos4w=pos_of(c4),
                 gain=(st.median(per) if per else None), l=l, runs=len(P),
                 soto=((s['out'] / s['grp']) if s and s['grp'] >= 3 else None),
                 tr=(h.get('tr') or o.get('tr')),
@@ -761,7 +767,8 @@ def main():
     #   「**直線だと左がゴールで上がラチ沿いだね**」「**２枚**」＝1鞍につき画像2枚）。
     #   `--chokusen` を付けたときだけ、最初のコーナーの盤面の**代わりに**直線の盤面を描く。
     #   同じカードで2回実行して2つのHTMLを作る運用。**付けないときの出力は1バイトも変えない。**
-    #     前後 … pos4（過去走の4角相対の中央値）。並べ方（重なり避けの段）はいまと同じ。
+    #     前後 … 過去走の4角相対の直近重みづけ（pos4w・2026-11-17「近走 重み付けにして」）。
+    #             `--choku-median` で中央値（pos4）に戻る。並べ方（重なり避けの段）はいまと同じ。
     #     向き … **左がゴール・上がラチ沿い**（スタンドから見た向き）。馬の絵・矢印も左向き。
     #             大井は全距離同じ直線なので距離によらずこの向き。MIRROR / VFLIP は効かせない。
     #     札   … いまと同じ。ただし「先頭候補」は最初のコーナーの話なので出さない。
@@ -821,8 +828,10 @@ def main():
             r.setdefault('srank', None)
         sw = [tuple(int(y) for y in p_.split('-')) for p_ in swap_sp.get(R, [])]
         if choku:                           # 直線は4角の位置で並べる（無い馬は過去走なし扱い）
+            # ★ 2026-11-17 から直近重みづけ（pos4w）。`--choku-median` で中央値（pos4）に戻る。
+            ck = 'pos4' if '--choku-median' in a else 'pos4w'
             for r in rows:
-                r['pos'] = r['pos4']
+                r['pos'] = r[ck]
         rows = arrange(rows, sw, '--noswap' in a)
         # ★ 先頭候補（2026-11-14、ユーザーの指示・CLAUDE.md ルール44）
         #   先頭2頭の pos が FUTATSU_DP(0.06) 未満しか離れていない鞍は、どちらが引くか
