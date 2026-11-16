@@ -745,7 +745,8 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
         board_html = kawa_board(rows, fc, n, rk)
         if yon_wanted(globals().get("_CUR_RNO")):   # --yon: 4コーナーの盤面をもう1枚(1枚目の値は変えない)
             keep = {r["ub"]: (r.get("outer_score"), r.get("lane")) for r in rows}
-            board_html += kawa_board(rows, fc, n, rk, yon=True)
+            # 横に並べる(ユーザー指定 2026-11-16「横に並べて」): 左に1角、右に4角。見出し・ペース欄・傾向・見解は共通で1つ
+            board_html = '<div class="kpair">%s%s</div>' % (board_html, kawa_board(rows, fc, n, rk, yon=True))
             for r in rows:
                 r["outer_score"], r["lane"] = keep[r["ub"]]
     elif stages and STYLE == "simple":
@@ -814,7 +815,8 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
             '<div class="pbar p-%s"><div class="bar"><span>ゆっくり</span><span>ふつう</span><span>速い</span>'
             '<i style="left:%.1f%%"></i></div><div class="flow">→ <b>%s</b>　<small>%s</small></div>%s</div>'
             '%s%s<div class="kenkai"><div class="kt">見解</div><p>%s</p></div></div>'
-            % (" nopace" if globals().get("_CUR_RNO") in HIDE_PACE else "", rno, start, surface, dist, n, H.escape(name),
+            % ((" nopace" if globals().get("_CUR_RNO") in HIDE_PACE else "")
+               + (" yon2" if yon_wanted(globals().get("_CUR_RNO")) else ""), rno, start, surface, dist, n, H.escape(name),
                arekata_html(fc.arekata), pcls, ptag,
                {"スロー": "スロー", "ミドル": "ミドル", "ハイ": "ハイ"}[fc.pace] + "想定",
                (('<span class="tbase"><b>%d:%04.1f</b> の時計をベースにしています%s</span>'
@@ -1915,7 +1917,7 @@ CSS_EXTRA = """
 .ktrack.kflip .goal{right:auto;left:24px}
 .kin,.kout{position:absolute;right:calc(100% + 1px);writing-mode:vertical-rl;font-size:10.5px;line-height:13px;font-weight:800;color:#c9c9d2;letter-spacing:1px;white-space:nowrap}
 .kin{top:2px}.kout{bottom:2px}
-.kboard.kyon{margin-top:18px}.knote{font-size:10.5px;color:#9a9aa6;margin:6px 4px 0;line-height:1.5}
+.race.yon2{width:1984px}.kpair{display:flex;gap:16px;margin:8px 16px}.kpair .kboard{flex:1;min-width:0;margin:0}.knote{font-size:10.5px;color:#9a9aa6;margin:6px 4px 0;line-height:1.5}
 .kdir{font-size:11px;color:#9a9aa6;margin:0 2px 4px;font-weight:700}
 .klegend{display:flex;align-items:center;gap:6px;margin:8px 4px 0;font-size:13px;font-weight:700;color:#f2f2f4}
 .klegend span{display:inline-block;width:26px;height:14px;border-radius:50%;margin-left:12px}
