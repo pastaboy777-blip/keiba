@@ -743,6 +743,11 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
                      NL * LANE + 24, "\n".join(hh)))
     if STYLE == "kawa":
         board_html = kawa_board(rows, fc, n, rk)
+        if yon_wanted(globals().get("_CUR_RNO")):   # --yon: 4コーナーの盤面をもう1枚(1枚目の値は変えない)
+            keep = {r["ub"]: (r.get("outer_score"), r.get("lane")) for r in rows}
+            board_html += kawa_board(rows, fc, n, rk, yon=True)
+            for r in rows:
+                r["outer_score"], r["lane"] = keep[r["ub"]]
     elif stages and STYLE == "simple":
         board_html = simple_board(rows, fc, n, rk)
     elif stages:
@@ -1083,6 +1088,23 @@ def front_is_left(place, surface, dist):
     return (not homestretch) if place in LEFT_TURN else homestretch
 
 
+YON: set = set()   # --yon: 4コーナーの盤面も出す R。"all" で全鞍
+YON_ALL = False
+
+
+def yon_wanted(rno) -> bool:
+    return YON_ALL or (rno in YON)
+
+
+def yon_front_is_left(place):
+    """4コーナーを回って直線を向いたところを、スタンドから見たとき左が前か。
+    直線はスタンドの前を通るので front_is_left の「スタートが正面」と同じ向き:
+    左回り(東京・新潟・中京)は左→右(右が前)、右回りは右→左(左が前)。分からない場は右が前。"""
+    if not place or place not in {p for p, _ in COURSE_LAP}:
+        return False
+    return place not in LEFT_TURN
+
+
 CIRCLE: dict = {}
 CIRCLE_EACH = False   # --circle-each: 赤丸も1頭ずつ(ユーザー指定 2026-11-14「全部○で囲って」)
 CIRCLE2: dict = {}  # 相手の丸(白)。--circle2 "7:15,10"。本命は --circle(赤)   # 手で丸を付ける馬 {R番号(int): {馬番}}。--circle "12:6,12,15;3:8"
@@ -1358,10 +1380,15 @@ def kb_debug(rows):
             print("  %2d: %s ← %s" % (r["ub"], t, w))
 
 
-def kawa_board(rows, fc, n, rk, key="pos1") -> str:
+def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
     """川崎の図(ユーザー指定 2026-11-13「こういう風に」「〇つけないで」)と同じ形。
     1コーナーでの隊列、右が前。小さな馬の絵(枠色・ゼッケンに馬番)の下に 丸数字＋馬名。赤い丸は付けない。
-    1角から4角で押し上げる馬は矢印を青くする。"""
+    1角から4角で押し上げる馬は矢印を青くする。
+    yon=True: 2枚目の「4コーナー」の盤面(--yon)。前後は位置モデルの4角予想(pos)、内外は同じ内外モデル
+    (もともと4角の併走の内外を学習したもの)を4角の前後で当て直した値。向きは直線を向いたところ(yon_front_is_left)。
+    r["outer_score"]/r["lane"] を書き換えるので、呼ぶ側で1枚目の値に戻す(render_race)。"""
+    if yon:
+        key = "pos"
     k = key if any(r.get(key) is not None for r in rows) else "pos"
     lateral_layout(rows, fc, n, key=k, band=0.07)
     hs = sorted([r for r in rows if r.get(k) is not None], key=lambda r: -r[k])
@@ -1372,11 +1399,14 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
     lb0 = (getattr(fc, "lane", None) or (None,))[0]
 
     def wid(r):   # 名前と札の幅の目安(札1つ +58px)。右隣の馬の名前に札がかからないように
+        if yon:   # 2枚目は札を付けない(番号と馬名だけ。過去走なしの札だけ残す)
+            return G + 8 * max(0, len(r.get("name") or "") - 7) + (58 if r.get(k) is None else 0)
         nt = (1 if kikou_tag(r["ub"]) else 0) + (1 if r.get(k) is None else 0) + (1 if lb0 else 0)
         nk = len(kb_list(r["ub"], r.get("name")))   # 厩舎の話の札(短いので 1つ +40px)
         nkh = 0 if KOUHO_OFF else len(r.get("kouho") or [])   # 候補の札(1つ +50px)
         return G + 8 * max(0, len(r.get("name") or "") - 7) + 58 * nt + 40 * nk + 50 * nkh
-    flip = front_is_left(globals().get("_CUR_PLACE"), globals().get("_CUR_SURF"), globals().get("_CUR_DIST"))
+    flip = (yon_front_is_left(globals().get("_CUR_PLACE")) if yon else
+            front_is_left(globals().get("_CUR_PLACE"), globals().get("_CUR_SURF"), globals().get("_CUR_DIST")))
     span = W - 2 * P - 130
     lanes, cells = [], []
     for r in hs:   # 前の馬から順に置く
@@ -1423,6 +1453,8 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
         tag += kb_tag_html(r["ub"], r["name"])
         if not KOUHO_OFF:
             tag += "".join('<span class="kko">%s</span>' % t for t in r.get("kouho") or [])
+        if yon:
+            tag = ""
         if r.get(k) is None:
             tag = '<span class="knd">過去走なし</span>' + tag
         chev = '<span class="kc" style="color:%s">%s</span>' % (cc, "&laquo;" if flip else "&raquo;")
@@ -1430,7 +1462,8 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
                   '<div class="kl"><span class="kn" style="background:%s;color:%s">%d</span>%s%s</div></div>'
                   % (x / W * 100, 10 + lane * LN, (chev + fig) if flip else (fig + chev), wc[0], wc[1], r["ub"],
                      H.escape(r["name"]), tag))
-    _, fc.zone_horses = draw_zone([(r, x, l) for r, x, l in cells], fc, ellipse=True)   # 見解用に計算だけ(描かない)
+    if not yon:
+        _, fc.zone_horses = draw_zone([(r, x, l) for r, x, l in cells], fc, ellipse=True)   # 見解用に計算だけ(描かない)
     ring = ""
     want = CIRCLE.get(globals().get("_CUR_RNO"), set())
     sel = [(x, lane) for r, x, lane in cells if r["ub"] in want]
@@ -1456,8 +1489,13 @@ def kawa_board(rows, fc, n, rk, key="pos1") -> str:
     if ring:
         legend = ('<div class="klegend"><span class="lr"></span>赤丸＝狙い'
                   + ('<span class="lw"></span>白丸＝相手候補' if 'k2"' in ring else "") + '</div>')
-    return ('<div class="kboard"><div class="kdir">%s</div><div class="ktrack%s%s" style="height:%dpx"><div class="goal"></div><div class="kin">内（ラチ側）</div><div class="kout">外</div>%s</div>%s</div>'
-            % (first_corner_name(globals().get("_CUR_PLACE"), globals().get("_CUR_SURF"), globals().get("_CUR_DIST"))
+    if yon:
+        legend += ('<div class="knote">前後＝位置モデルの4角の予想。内外＝4角の併走の内外を学んだモデル(ほぼ馬番と騎手)を'
+                   '4角の前後で当て直したもので、1枚目と同じ物差し(4角専用に作り込んではいない)</div>')
+    return ('<div class="kboard%s"><div class="kdir">%s</div><div class="ktrack%s%s" style="height:%dpx"><div class="goal"></div><div class="kin">内（ラチ側）</div><div class="kout">外</div>%s</div>%s</div>'
+            % (" kyon" if yon else "",
+               ("4コーナー(直線を向いたところ)" if yon else
+                first_corner_name(globals().get("_CUR_PLACE"), globals().get("_CUR_SURF"), globals().get("_CUR_DIST")))
                + ("　← 左が前（スタンドから見た向き）" if flip else "　右が前（スタンドから見た向き） →"), turf, " kflip" if flip else "",
                max(1, len(lanes)) * LN + 24, ring + "\n".join(hh), legend))
 
@@ -1877,6 +1915,7 @@ CSS_EXTRA = """
 .ktrack.kflip .goal{right:auto;left:24px}
 .kin,.kout{position:absolute;right:calc(100% + 1px);writing-mode:vertical-rl;font-size:10.5px;line-height:13px;font-weight:800;color:#c9c9d2;letter-spacing:1px;white-space:nowrap}
 .kin{top:2px}.kout{bottom:2px}
+.kboard.kyon{margin-top:18px}.knote{font-size:10.5px;color:#9a9aa6;margin:6px 4px 0;line-height:1.5}
 .kdir{font-size:11px;color:#9a9aa6;margin:0 2px 4px;font-weight:700}
 .klegend{display:flex;align-items:center;gap:6px;margin:8px 4px 0;font-size:13px;font-weight:700;color:#f2f2f4}
 .klegend span{display:inline-block;width:26px;height:14px;border-radius:50%;margin-left:12px}
@@ -1984,6 +2023,8 @@ def main() -> None:
     ap.add_argument("--base-day-dirt", help="ダートの鞍の基準の開催日(書式は --base-day。指定が無ければ芝と同じ、空文字なら日を絞らない)")
     ap.add_argument("--base-baba-dirt", help="ダートの鞍の基準の馬場(書式は --base-baba。指定が無ければ芝と同じ、空文字なら絞らない)")
     ap.add_argument("--hide-pace", default="", help='ペース想定の札(右上のS/M/H)を消す R。"12" や "3,12"')
+    ap.add_argument("--yon", nargs="?", const="all", default="",
+                    help='4コーナー(直線を向いたところ)の盤面をもう1枚出す R。"12" や "3,12"、値なしか "all" で全鞍(既定は出さない)')
     ap.add_argument("--circle-each", action="store_true", help="赤丸を1頭ずつ付ける(まとめて1つにしない)")
     ap.add_argument("--circle2", default="", help='相手を白い丸で囲む馬。"7:15,10,8"')
     ap.add_argument("--circle", default="", help='手で赤丸を付ける馬。"12:6,12,15;3:8"(R:馬番)')
@@ -2015,6 +2056,9 @@ def main() -> None:
     BASE_DAY_DIRT = _UNSET if a.base_day_dirt is None else (set(a.base_day_dirt.split(",")) if a.base_day_dirt else None)
     BASE_BABA_DIRT = _UNSET if a.base_baba_dirt is None else (set(a.base_baba_dirt.split(",")) if a.base_baba_dirt else None)
     HIDE_PACE.update(int(x) for x in a.hide_pace.split(",") if x.strip().isdigit())
+    global YON_ALL
+    YON_ALL = a.yon.strip() == "all"
+    YON.update(int(x) for x in a.yon.split(",") if x.strip().isdigit())
     for part in filter(None, a.circle2.split(";")):
         rr, uu = part.split(":")
         CIRCLE2[int(rr)] = {int(x) for x in uu.split(",") if x}

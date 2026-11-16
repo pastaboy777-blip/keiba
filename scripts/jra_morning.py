@@ -11,11 +11,13 @@
   --refresh-shutuba 出馬表を取り直す(scripts/jra_shutuba.py)。当日は馬体重などが入る
   --config          手で決めた丸など(省略時 scripts/daily/marks_YYYYMMDD.json があれば読む)
                     {"福島": {"circle": "7:11", "circle2": "7:15,10", "hide_pace": "7", "circle_each": false,
-                          "no_arekata": false},
+                          "no_arekata": false, "yon": "12"},
                      "split": [{"place": "京都", "race": 11, "yaya": "10,5,6", "omo": "10,5,9",
                                 "yaya_note": "…", "omo_note": "…"}]}
   --place           この場だけ作る(カンマで複数)
   --no-png          画像を作らない
+  --yon             4コーナー(直線を向いたところ)の盤面も出す R("12"・"3,12"・"all")。全場に効く。
+                    場ごとに決めるときは config の "yon"(mark_args に入るので昼の jra_today.py にも持ち越す)
 
 動き
   1) data/jra/all_YYYYMMDD.jsonl = 出馬表(先頭。行の馬場を --baba/--baba-dirt で埋める) + races.jsonl
@@ -196,6 +198,7 @@ def main():
     ap.add_argument("--config")
     ap.add_argument("--place", help="この場だけ(カンマで複数)")
     ap.add_argument("--no-png", action="store_true")
+    ap.add_argument("--yon", default="", help='4コーナーの盤面も出す R("12"・"3,12"・"all")')
     a = ap.parse_args()
     ymd = a.date.replace("-", "")
     turf, dirt = parse_baba(a.baba), parse_baba(a.baba_dirt)
@@ -239,6 +242,8 @@ def main():
         for k in ("circle", "circle2", "hide_pace"):
             if c.get(k):
                 extra += ["--" + k.replace("_", "-"), str(c[k])]
+        if c.get("yon") or a.yon:   # 4コーナーの盤面(場の config が先)
+            extra += ["--yon", str(c.get("yon") or a.yon)]
         if c.get("circle_each"):
             extra.append("--circle-each")
         if c.get("base_time"):
