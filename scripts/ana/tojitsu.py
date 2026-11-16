@@ -30,6 +30,13 @@ CLAUDE.md ルール3 ──「**馬体重は発走30分前に取り直す**」�
   --card <json> **出馬表を取り直さない**。既にある card.json で図と表を引き直すだけ。
                 楽天を叩かないので、図を描き直すだけのときはこちら
   --out <dir>   出力先
+  --ab          **同じ鞍を2枚出す**（CLAUDE.md ルール59）。
+                A版 … `--pos-mazeru` あり（地点を混ぜる・いまの既定）→ `<out>/a/`
+                B版 … `--pos-mazeru` なし（地点をそろえる）        → `<out>/b/`
+                **他の口は両版でまったく同じ**にするので、差は「地点をそろえたか」だけ。
+                **出馬表は1回だけ取る** ── A版で取った card.json をB版が `--card` で
+                読み直す（2回引くとオッズが動いて差が地点だけでなくなる）。
+                どちらを既定にするかは**ユーザーが決める**（ルール51・59）。
 
   ★ `tenkai_zu.py` 側の口はそのまま通る ──
     `--pace 7:S` `--ana 7:3,5` `--ana2` `--swap` `--soto` `--uchi` `--flip` `--migi`
@@ -214,6 +221,62 @@ def main():
         a, extra = a[:i], a[i + 1:]
     else:
         extra = []
+    if "--ab" in a:                    # 2枚出す（ルール59）。既定の挙動はこの下のまま
+        return run_ab(a, extra)
+    run(a, extra)
+
+
+def strip_val(a, keys):
+    """値を1つ取る口（--out / --card）を並びから抜く。`--ab` の中で差し替えるため。"""
+    out, i = [], 0
+    while i < len(a):
+        if a[i] in keys:
+            i += 2
+            continue
+        out.append(a[i])
+        i += 1
+    return out
+
+
+def run_ab(a, extra):
+    """同じ鞍をA版（地点を混ぜる＝`--pos-mazeru`）とB版（地点をそろえる）の2枚出す。
+
+    CLAUDE.md ルール59 ──「当面、図は鞍ごとに2枚出す。どちらを既定にするかは保留」。
+    **差が「地点をそろえたかどうか」だけになるように**、他の口は両版へそのまま同じ値で渡す。
+    **出馬表は1回だけ取る** ── A版で取った card.json をB版は `--card` で読み直すので、
+    楽天へ行くのは1回だけ（2回引くとオッズが動いて差が地点だけでなくなる）。
+    """
+    a = [t for t in a if t != "--ab"]
+    g = lambda k, d=None: a[a.index(k) + 1] if k in a and a.index(k) + 1 < len(a) else d
+    base = a[0] if a and not a[0].startswith("-") else None
+    card_in = g("--card")
+    # 出力先は `--out` の下に a/ と b/ を作る（`--out` 無しのときの決め方は run() と同じ）
+    root = (g("--out") or os.environ.get("TOJITSU_OUT")
+            or (os.path.dirname(os.path.abspath(card_in)) if card_in and not base
+                else os.path.join(DEF_OUT, (base or "card")[:8])))
+    rest = strip_val(a, ("--out", "--card"))
+    ex = [t for t in extra if t != "--pos-mazeru"]   # A版だけに付ける。重ねない
+    oa, ob = os.path.join(root, "a"), os.path.join(root, "b")
+
+    print("━━ 2枚出します（ルール59。どちらを既定にするかはユーザーが決める）")
+    print("   A版 地点を混ぜる（--pos-mazeru・いまの既定） → %s" % oa)
+    print("   B版 地点をそろえる                          → %s" % ob)
+    print("   ※ 他の口は両版でまったく同じ。出馬表は1回だけ取ります"
+          "（B版はA版の card.json を読み直す）")
+
+    print("\n══════════ A版（地点を混ぜる／--pos-mazeru） ══════════")
+    run(rest + (["--card", card_in] if card_in else []) + ["--out", oa],
+        ex + ["--pos-mazeru"])
+
+    print("\n══════════ B版（地点をそろえる） ══════════")
+    run(rest + ["--card", os.path.join(oa, "card.json"), "--out", ob], ex)
+
+    print("\n━━ 2枚そろいました")
+    print("   A版 %s" % os.path.join(oa, "zu.html"))
+    print("   B版 %s" % os.path.join(ob, "zu.html"))
+
+
+def run(a, extra):
     g = lambda k, d=None: a[a.index(k) + 1] if k in a and a.index(k) + 1 < len(a) else d
 
     base = a[0] if not a[0].startswith("-") else None
