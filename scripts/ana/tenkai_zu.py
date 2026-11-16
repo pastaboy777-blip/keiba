@@ -1312,10 +1312,13 @@ def main():
         #   角の名前を出さないほうが「秘密にしないと」（ルール47）にも合う。
         #   `kado()` は**消していない** ── 既定の図（`--no-pct` なし）の見出しでは
         #   そのまま使っている（ルール45の記録）。**変えたのは `--no-pct` のときだけ。**
+        # ★★ 2026-11-16、直線の図（`--chokusen`）では**角の名前を出さず「直線」**にする。
+        #   向きは全鞍とも「← 左が前（＝左がゴール）」になる（上の CHOKU の★★②）。
         cap = ''
         if nopct:
-            cap = ('<div class="kd">最初のコーナー　%s</div>'
-                   % ('← 左が前（スタンドから見た向き）' if R in flip
+            cap = ('<div class="kd">%s　%s</div>'
+                   % ('直線' if CHOKU else '最初のコーナー',
+                      '← 左が前（スタンドから見た向き）' if R in flip
                       else '→ 右が前（スタンドから見た向き）'))
         # ★ 2026-11-15、ユーザーの指示 ──「**下がラチ沿いと書いて**」。
         #   どちら側が内かを**枠の外**に小さく1語だけ。上下を返す鞍（VFLIP）は内が下なので下、
@@ -1358,7 +1361,7 @@ def main():
                '<div class="keiko"><h4>過去の傾向</h4><p><b>%s</b>　%s</p></div>'
                % (html.escape(K.head(ven, v['dist'])), html.escape(K.body(ven, v['dist']))))
         # C … 見解。**`note:R=` があればそちらが優先**（手で書いたものを自動で上書きしない）
-        vtx = note.get(R) or ('' if plain else mikata(v['dist'], rows))
+        vtx = note.get(R) or ('' if plain else mikata(v['dist'], rows, CHOKU))
         viw = ('<div class="view"><h4>見解</h4><p>%s</p></div>' % vtx) if vtx else ''
         tmpl = (
             '<div class="race"><div class="rh"><span class="rn">%dR</span>'
@@ -1409,11 +1412,19 @@ def main():
     #   枠の内率・騎手の基準線・ずれ0.21・母数は1つも写っていなかった）。
     #   代わりの1行（角の名前＋向き）は**鞍ごとに馬の枠のすぐ上**に出してあるので、
     #   **全体の見出しの下には何も置かない**。--plain の1行は1文字も変えていない。
+    # ★★ 2026-11-16、直線の図（`--chokusen`）の見出し。
+    #   「直線での隊列想定」にし、**角の名前（kline）は出さない**（直線に角はない）。
+    #   本文の「最初に記録された角の通過順」も「4コーナーの通過順」に替える。
+    #   ▼の説明（最初の角から4コーナーまでに下がる馬）は gain の意味そのままなので変えない。
+    #   **コーナーの図（--chokusen なし）の文は1バイトも変えていない。**
+    h_sou = '直線での隊列想定' if CHOKU else 'スタート後いちばん最初の角での隊列想定'
+    h_kline = '' if CHOKU else kline
+    h_tsuka = '4コーナーの通過順' if CHOKU else '最初に記録された角の通過順'
     sub = ('' if nopct else
-           '<div class="sub"><b>スタート後いちばん最初の角での隊列想定</b>%s　／　%s</div>'
-           % (kline, muki) if plain else
-           '<div class="sub"><b>スタート後いちばん最初の角での隊列想定</b>%s　／　'
-           '過去走の<b>最初に記録された角の通過順</b>で隊列を組み、' % kline +
+           '<div class="sub"><b>%s</b>%s　／　%s</div>'
+           % (h_sou, h_kline, muki) if plain else
+           '<div class="sub"><b>%s</b>%s　／　'
+           '過去走の<b>%s</b>で隊列を組み、' % (h_sou, h_kline, h_tsuka) +
             '<b>枠と騎手</b>で位置を直しています。' + mline + '<br>'
             '内外は枠と騎手から —— 1枠79.8% / 2枠71.1% / 3枠60.5% / 4枠50.9% / '
             '5枠45.0% / 6枠34.6% / 7枠30.8% / 8枠21.9%（4コーナーで併走したとき内にいた割合・'
