@@ -25,7 +25,10 @@ def parse_seiseki(h):
     track = tt.group(4).strip() if tt else None
     dm = re.search(r'racekyori">(\d+)', h); dist = int(dm.group(1)) if dm else None
     rows = []; any_real = False
-    for m in re.finditer(r"<tr>(.*?)</tr>", h, re.S):
+    # ★ 2026-11-16 ── 素の `<tr>` だけを見ていたので `<tr class="kugiri">` の行を落としていた。
+    #   大井11/16の11鞍で、欠けた馬は**すべて kugiri 行**（1R ④⑪⑮／2R ⑨／4R ②⑧ …）。
+    #   kugiri は競馬ブックが着順表に入れる区切りの行で、中身はふつうの馬の行と同じ。
+    for m in re.finditer(r"<tr[^>]*>(.*?)</tr>", h, re.S):
         body = m.group(1)
         cm = re.search(r"/db/uma/(\d+)", body)
         c = [_uncircle(re.sub(r"<[^>]+>", " ", x)).strip() for x in re.findall(r"<td[^>]*>(.*?)</td>", body, re.S)]
