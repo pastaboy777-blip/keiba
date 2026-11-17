@@ -1446,7 +1446,7 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
     W, P, G = 940, 22, 138    # 盤面の幅の目安(px)。置くときは % に直すので画面幅が違っても切れない
     lb0 = (getattr(fc, "lane", None) or (None,))[0]
     ANA = set(nk_ana(rows)) if NANKAN else set()   # --nankan: 穴 道中で下げない の札
-    pad = NK_PAD if NANKAN else 0
+    pad = NK_PAD if (NANKAN and OBI) else 0   # 帯ラベルの余白は --obi のときだけ
 
     def wid(r):   # 名前と札の幅の目安(札1つ +58px)。右隣の馬の名前に札がかからないように
         if yon:   # 2枚目は札を付けない(番号と馬名だけ。過去走なしの札だけ残す)
@@ -1557,13 +1557,14 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
                + ("　← 左が前（スタンドから見た向き）" if flip else "　右が前（スタンドから見た向き） →"), turf, " kflip" if flip else "",
                " kinv" if inv else "",
                max(1, len(lanes)) * LN + 24 + pad,
-               (nk_bands(cells, rows, flip, W, yon, max(1, len(lanes)), LN) if NANKAN else "") + ring + "\n".join(hh), legend))
+               (nk_bands(cells, rows, flip, W, yon, max(1, len(lanes)), LN) if (NANKAN and OBI) else "") + ring + "\n".join(hh), legend))
 
 
 # ---- --nankan: 南関の図と同じ見せ方(ユーザー了承 2026-11-17「よいと思う！」) ----------------------
 # 鞍の先頭に見出し(日付・場・馬場／展開予想／逃げ馬／道中で順位が上がる／上がり／穴 道中で下げない)、
-# 盤面を前・中・後ろの帯(頭数で3等分)に薄く塗る。--nankan なしの HTML は前と1バイトも変わらない。
+# --obi を付けたときだけ盤面を前・中・後ろの帯(頭数で3等分)に薄く塗る。--nankan なしの HTML は前と1バイトも変わらない。
 NANKAN = False
+OBI = False   # --obi: --nankan の盤面に前・中・後ろの帯を塗る(既定は出さない。ユーザー 2026-11-17「あんまり帯意味ないね」)
 NK_PAD = 20   # 盤面の上に帯のラベルを置く余白(px)。1角・4角の両方で同じだけ下げて高さを揃える
 
 
@@ -2209,7 +2210,9 @@ def main() -> None:
                     help="kawa の盤面を常に内(ラチ側)が上にする(507db35 より前の向き。既定は内外をスタンドから見た向きに合わせる)")
     ap.add_argument("--nankan", action="store_true",
                     help="南関の図と同じ見せ方(鞍の先頭に 逃げ馬/道中で順位が上がる/上がり/穴 道中で下げない の見出し、"
-                         "盤面を前・中・後ろの帯に塗る。--yon と組み合わせる想定。既定は出さない)")
+                         "--yon と組み合わせる想定。既定は出さない)")
+    ap.add_argument("--obi", action="store_true",
+                    help="--nankan の盤面を前・中・後ろの帯(頭数で3等分)に塗り、帯のラベルを付ける(既定は出さない)")
     ap.add_argument("--no-jiten", action="store_true",
                     help="各鞍の下の「データ: 11/15 東京 8Rまでの結果を反映」(当日の結果が何Rまで入っていたか)を出さない")
     ap.add_argument("--circle-each", action="store_true", help="赤丸を1頭ずつ付ける(まとめて1つにしない)")
@@ -2243,9 +2246,10 @@ def main() -> None:
     BASE_DAY_DIRT = _UNSET if a.base_day_dirt is None else (set(a.base_day_dirt.split(",")) if a.base_day_dirt else None)
     BASE_BABA_DIRT = _UNSET if a.base_baba_dirt is None else (set(a.base_baba_dirt.split(",")) if a.base_baba_dirt else None)
     HIDE_PACE.update(int(x) for x in a.hide_pace.split(",") if x.strip().isdigit())
-    global YON_ALL, UCHI_UE, JITEN_OFF, NANKAN
+    global YON_ALL, UCHI_UE, JITEN_OFF, NANKAN, OBI
     UCHI_UE = a.uchi_ue
     NANKAN = a.nankan
+    OBI = a.obi
     JITEN_OFF = a.no_jiten
     YON_ALL = a.yon.strip() == "all"
     YON.update(int(x) for x in a.yon.split(",") if x.strip().isdigit())

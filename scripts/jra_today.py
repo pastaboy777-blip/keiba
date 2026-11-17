@@ -74,6 +74,7 @@ def main():
     ap.add_argument("--yon", default="", help='4コーナーの盤面も出す R(jra_tenkai_zu.py --yon。"12"・"3,12"・"all")')
     ap.add_argument("--uchi-ue", action="store_true", help="盤面を常に内(ラチ側)が上にする(jra_tenkai_zu.py --uchi-ue)")
     ap.add_argument("--nankan", action="store_true", help="南関の図と同じ見せ方(jra_tenkai_zu.py --nankan)。朝の config の \"nankan\" は mark_args で持ち越す")
+    ap.add_argument("--obi", action="store_true", help="--nankan の盤面に前・中・後ろの帯を塗る(jra_tenkai_zu.py --obi)。朝の config の \"obi\" は mark_args で持ち越す")
     ap.add_argument("--no-fetch", action="store_true", help="結果を取りに行かず、作り直しだけ")
     a = ap.parse_args()
     ymd = a.date.replace("-", "")
@@ -161,6 +162,8 @@ def main():
             cmd.append("--uchi-ue")
         if a.nankan and "--nankan" not in cmd:   # 朝の mark_args に入っていれば二重に付けない
             cmd.append("--nankan")
+        if a.obi and "--obi" not in cmd:
+            cmd.append("--obi")
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode != 0:
             sys.stderr.write(r.stderr[-3000:])
