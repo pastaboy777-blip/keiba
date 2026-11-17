@@ -1090,6 +1090,7 @@ def front_is_left(place, surface, dist):
     return (not homestretch) if place in LEFT_TURN else homestretch
 
 
+UCHI_UE = False   # --uchi-ue: 盤面の上下を元に戻す(常に内が上。inner_is_down を使わない)
 YON: set = set()   # --yon: 4コーナーの盤面も出す R。"all" で全鞍
 YON_ALL = False
 
@@ -1102,7 +1103,7 @@ def inner_is_down(place, flip) -> bool:
     """スタンドから見た盤面で、内(ラチ側)が下か(ユーザー指摘 2026-11-16「2000mスタート ラチ沿い下だ」)。
     左回りは馬の左手が内: 左が前(右→左)なら左手はスタンド側=下、右が前なら上。右回りは逆。
     → 内が上は (左回り かつ 右が前) か (右回り かつ 左が前) のときだけ。分からない場は今までどおり上。"""
-    if not place or place not in {p for p, _ in COURSE_LAP}:
+    if UCHI_UE or not place or place not in {p for p, _ in COURSE_LAP}:   # --uchi-ue: 507db35 より前の向き(常に内が上)
         return False
     return flip if place in LEFT_TURN else not flip
 
@@ -1933,7 +1934,6 @@ CSS_EXTRA = """
 .ktrack.kflip .goal{right:auto;left:24px}
 .kin,.kout{position:absolute;right:calc(100% + 1px);writing-mode:vertical-rl;font-size:10.5px;line-height:13px;font-weight:800;color:#c9c9d2;letter-spacing:1px;white-space:nowrap}
 .kin{top:2px}.kout{bottom:2px}
-.ktrack.kinv{border-top:none;border-bottom:3px solid #ddd}.ktrack.kinv .kin{top:auto;bottom:2px}.ktrack.kinv .kout{bottom:auto;top:2px}
 .race.yon2{width:1984px}.kpair{display:flex;gap:16px;margin:8px 16px}.kpair .kboard{flex:1;min-width:0;margin:0}.knote{font-size:10.5px;color:#9a9aa6;margin:6px 4px 0;line-height:1.5}
 .kdir{font-size:11px;color:#9a9aa6;margin:0 2px 4px;font-weight:700}
 .klegend{display:flex;align-items:center;gap:6px;margin:8px 4px 0;font-size:13px;font-weight:700;color:#f2f2f4}
@@ -1983,6 +1983,17 @@ CSS_EXTRA = """
 """
 
 
+# 内が下の盤面(507db35)の CSS。--uchi-ue のときは入れない(507db35 より前と同じ HTML になるように)
+CSS_KINV = ".ktrack.kinv{border-top:none;border-bottom:3px solid #ddd}.ktrack.kinv .kin{top:auto;bottom:2px}.ktrack.kinv .kout{bottom:auto;top:2px}\n"
+
+
+def _css_extra() -> str:
+    if UCHI_UE:
+        return CSS_EXTRA
+    i = CSS_EXTRA.index(".race.yon2{")   # 507db35 で入れた位置(.kin,.kout の次の行)に差し込む
+    return CSS_EXTRA[:i] + CSS_KINV + CSS_EXTRA[i:]
+
+
 def page(date: str, place: str, rno: str, body: str, learned: bool = False) -> str:
     css_path = ROOT / "scripts" / "ana" / "zu.css"
     css = css_path.read_text(encoding="utf-8") if css_path.exists() else ""
@@ -1995,7 +2006,7 @@ def page(date: str, place: str, rno: str, body: str, learned: bool = False) -> s
                 '<div class="head"><div class="kicker">%s.%s.%s %s — %s</div><h1>展開予想</h1>'
                 '<div class="sub"><b>最初のコーナーでの隊列想定</b></div></div>%s'
                 '<div class="tail">印は買い目の保証ではありません。</div></body></html>'
-                % (date, place, css, CSS_EXTRA, y, m, d, wd, place, body))
+                % (date, place, css, _css_extra(), y, m, d, wd, place, body))
     return (
         '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>展開予想 %s %sR</title>'
         '<style>%s%s</style></head><body>'
@@ -2007,7 +2018,7 @@ def page(date: str, place: str, rno: str, body: str, learned: bool = False) -> s
         '%s</div>'
         '%s<div class="tail">印は買い目の保証ではありません。レース当日以降の走は使っていません。</div>'
         '</body></html>'
-        % (date, rno, css, CSS_EXTRA, y, m, d, wd, place, rno,
+        % (date, rno, css, _css_extra(), y, m, d, wd, place, rno,
            ("過去走の<b>4コーナー通過順</b>で隊列を組み、流れは<b>過去の中央の鞍から学習した"
             "「距離・直線・頭数・芝ダで決まる前後半差」</b>で読んだものです。" if learned else
             "過去走の<b>4コーナー通過順</b>で隊列を組み、<b>逃げ候補の数・先行勢の厚み・距離</b>と"
@@ -2044,6 +2055,8 @@ def main() -> None:
     ap.add_argument("--hide-pace", default="", help='ペース想定の札(右上のS/M/H)を消す R。"12" や "3,12"')
     ap.add_argument("--yon", nargs="?", const="all", default="",
                     help='4コーナー(直線を向いたところ)の盤面をもう1枚出す R。"12" や "3,12"、値なしか "all" で全鞍(既定は出さない)')
+    ap.add_argument("--uchi-ue", action="store_true",
+                    help="kawa の盤面を常に内(ラチ側)が上にする(507db35 より前の向き。既定は内外をスタンドから見た向きに合わせる)")
     ap.add_argument("--circle-each", action="store_true", help="赤丸を1頭ずつ付ける(まとめて1つにしない)")
     ap.add_argument("--circle2", default="", help='相手を白い丸で囲む馬。"7:15,10,8"')
     ap.add_argument("--circle", default="", help='手で赤丸を付ける馬。"12:6,12,15;3:8"(R:馬番)')
@@ -2075,7 +2088,8 @@ def main() -> None:
     BASE_DAY_DIRT = _UNSET if a.base_day_dirt is None else (set(a.base_day_dirt.split(",")) if a.base_day_dirt else None)
     BASE_BABA_DIRT = _UNSET if a.base_baba_dirt is None else (set(a.base_baba_dirt.split(",")) if a.base_baba_dirt else None)
     HIDE_PACE.update(int(x) for x in a.hide_pace.split(",") if x.strip().isdigit())
-    global YON_ALL
+    global YON_ALL, UCHI_UE
+    UCHI_UE = a.uchi_ue
     YON_ALL = a.yon.strip() == "all"
     YON.update(int(x) for x in a.yon.split(",") if x.strip().isdigit())
     for part in filter(None, a.circle2.split(";")):
