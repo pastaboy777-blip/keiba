@@ -156,3 +156,39 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
  padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
 .chy{display:block;font-size:9px;color:#15110d;background:#ded6c4;border-radius:3px;
  padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
+
+/* ★ 2026-11-17、ユーザーの指示（「これで作って！」）。
+   --obi / --nige / --age / --anatag を付けたときだけ使う指定。
+   付けないときは1つも出ないので、これまでの図は1pxも動かない。 */
+.obi{position:absolute;top:0;bottom:0;pointer-events:none}
+.obi.a{background:rgba(255,45,45,.10)}
+.obi.b{background:rgba(255,212,0,.09)}
+.obi.c{background:rgba(120,120,140,.14)}
+.obiL{position:absolute;top:0;bottom:0;width:0;
+ border-left:2px dashed rgba(255,255,255,.55);pointer-events:none}
+.obiT{position:absolute;top:4px;font:800 15px/1 system-ui,sans-serif;letter-spacing:.06em;
+ padding:3px 9px;border-radius:5px;color:#fff;pointer-events:none}
+.obiT.a{background:rgba(255,45,45,.85)}
+.obiT.b{background:rgba(190,150,0,.85)}
+.obiT.c{background:rgba(90,90,105,.85)}
+
+/* 見出しの下に出す行（--nige / --age / --anatag） */
+.hdl{margin:7px 0 2px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hdl .tag{color:#fff;font-weight:900;font-size:15px;padding:5px 14px;border-radius:7px;
+ letter-spacing:.06em;min-width:118px;text-align:center}
+.hdl .tag.nige{background:#1f6fd0}
+.hdl .tag.age{background:#ff2d2d}
+.hdl .tag.shi{background:#2aa057}
+.hdl .tag.ana{background:#ffb020;color:#2a1400}
+.hdl .nmx{font-weight:900;font-size:21px;letter-spacing:.05em;
+ text-shadow:0 1px 5px rgba(0,0,0,.8)}
+.hdl .nmx.nige{color:#8fc2ff}
+.hdl .nmx.age{color:#ff9a9a}
+.hdl .nmx.shi{color:#9fe8bb}
+.hdl .nmx.ana{color:#ffd77a}
+.hdl .non{color:#8a8a99;font-weight:700;font-size:19px}
+
+/* 穴の札（馬の下） */
+.anam{display:block;font-size:11.5px;color:#2a1400;background:#ffb020;border-radius:4px;
+ padding:1px 7px;font-weight:900;margin:2px auto 0;width:max-content;letter-spacing:.03em;
+ box-shadow:0 0 0 1.5px #fff3d0,0 1px 5px rgba(255,176,32,.6)}

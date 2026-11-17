@@ -463,6 +463,22 @@ POS_MAZERU = False       # True なら地点を混ぜる（直す前の挙動・
 #     どちらの図でも同じ量を指しているので、言い方も変えていない。
 CHOKU = False            # True なら直線の図（--chokusen）
 
+# ★★ 2026-11-17、ユーザーの指示（「これで作って！」）。
+#   それまで使い捨てのスクリプトで後から足していた3つを、本体の口にした。
+#   **どれも付けなければ出力はこれまでと1バイトも変わらない。**
+#     --obi     図を前から3等分して「前の帯／中の帯／後ろの帯」を敷く
+#     --nige    見出しの下に「逃げ馬」の行（最初の角の図で先頭に置いた馬）
+#     --age     見出しの下に「道中で順位が上がる（上げ幅つき）」と「上がり1・2・3位」
+#     --anatag  **穴の札**。人気薄で、近走で道中の位置を下げていない馬を目立たせる
+#               （ユーザーの見立て ──「近走 スタートしてから着順を落としていない馬が
+#                穴できてるよね」「7R⑭とか」「12R⑧とか」。11/17 大井の11鞍では
+#                6人気以下のうち gain>=0 が17.5%(57頭中10)、gain<0 が6.7%(30頭中2)）
+OBI = False              # --obi
+NIGE = False             # --nige
+AGE = False              # --age
+ANATAG = False           # --anatag
+ANA_NIN = 6              # 何番人気以下を穴とみなすか（--ana-nin で変える）
+
 # ★ 場×距離 → **結果ページに記録される角の数**。
 #   `harvest/*_res.json` の `corner_raw` の札の並びを数えて作った（推測ではない）。
 #   南関4場・2,896鞍で、**同じ場・距離は1つの形しか出てこなかった**（例外0）。
@@ -735,6 +751,10 @@ def row_of(h, dist, od, ven=None):
                 pos=((st.median(c4) if c4 else (st.median(c1) if c1 else None)) if OLD_C4
                      else (pos_of(c4) if c4 else pos_of(c1)) if CHOKU
                      else (pos_of(c1) if c1 else pos_of(c4))),
+                # ★ --age で2枚の図の順位を比べるために、両方の代表値を持たせる。
+                #   図のxを決めている式と同じ（pos の行の通り）。
+                pos_c1=(pos_of(c1) if c1 else (pos_of(c4) if c4 else None)),
+                pos_c4=(pos_of(c4) if c4 else (pos_of(c1) if c1 else None)),
                 pos4=(st.median(c4) if c4 else None), nopos=False, daiyo=daiyo,
                 gain=(st.median(per) if per else None), l=l, runs=len(P),
                 soto=((s['out'] / s['grp']) if s and s['grp'] >= 3 else None),
@@ -937,6 +957,44 @@ def place(rows):
     return shima(out, max(1, len(lanes)))
 
 
+def obi(cells, left_front):
+    """図を前から3等分して帯を敷く（--obi・2026-11-17）。
+
+    帯は**順番**で割る（頭数÷3）。相対位置の値で割らないのは、鞍によって
+    前が密集したり散ったりして人数が偏るため。境目は隣りあう2頭の中間に引く。
+    `left_front` は「前が左か」── 鏡の鞍と直線の図は左が前。"""
+    if not cells:
+        return ''
+    xs = sorted((x for _, x, _ in cells), reverse=not left_front)
+    n = len(xs)
+    n1 = sum(1 for i in range(n) if i < n / 3)
+    n2 = sum(1 for i in range(n) if n / 3 <= i < 2 * n / 3)
+    if n1 < 1 or n2 < 1 or n1 + n2 >= n:
+        return ''
+    # 馬の絵の幅ぶん(52px)ずらして中心で比べる
+    b1 = (xs[n1 - 1] + xs[n1]) / 2 + (52 if left_front else -52)
+    b2 = (xs[n1 + n2 - 1] + xs[n1 + n2]) / 2 + (52 if left_front else -52)
+    if left_front:
+        seg = [('a', 0, b1, '前の帯　%d頭' % n1), ('b', b1, b2, '中の帯　%d頭' % n2),
+               ('c', b2, None, '後ろの帯')]
+    else:
+        seg = [('a', b1, None, '前の帯　%d頭' % n1), ('b', b2, b1, '中の帯　%d頭' % n2),
+               ('c', 0, b2, '後ろの帯')]
+    h = ''
+    for cls, lo, hi, lab in seg:
+        if hi is None:
+            h += '<div class="obi %s" style="left:%dpx;right:0"></div>' % (cls, lo)
+        else:
+            h += ('<div class="obi %s" style="left:%dpx;width:%dpx"></div>'
+                  % (cls, lo, max(0, hi - lo)))
+    for x in (b1, b2):
+        h += '<div class="obiL" style="left:%dpx"></div>' % x
+    for cls, lo, hi, lab in seg:
+        lx = (lo + 10) if hi is None or left_front else (lo + 10)
+        h += '<div class="obiT %s" style="left:%dpx">%s</div>' % (cls, lx, lab)
+    return h
+
+
 def ring(cells, ana, each=False, color=None, box=False):
     """狙いを囲う。既定は**ひとつの〇**で一帯を囲う（ルール20）。
 
@@ -1077,11 +1135,17 @@ def main():
     VFLIP = {('川崎', 2000), ('大井', 1200), ('大井', 1400), ('大井', 2400)}
     global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, NOPAST_CENTER
     global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO, SAGARU
-    global AGARI, BABA_N, CHOKU
+    global AGARI, BABA_N, CHOKU, OBI, NIGE, AGE, ANATAG, ANA_NIN
     # ★★ 2026-11-16、**直線の図**（上の CHOKU の★★）。ユーザーの指示 ──
     #   「スタートから1コーナー」と「直線」の2枚。2枚目がこれ。
     #   4角で隊列を組み、鞍によらず「左がゴール・上がラチ」で描く。
     CHOKU = '--chokusen' in a
+    # ★ 2026-11-17 に足した4つ（上の OBI の★★）。付けなければ出力は変わらない。
+    OBI = '--obi' in a
+    NIGE = '--nige' in a
+    AGE = '--age' in a
+    ANATAG = '--anatag' in a
+    ANA_NIN = int(g('--ana-nin', '6'))
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
     # ★ 2026-11-14 に入れた3つを旧に戻す口（ルール44）。
@@ -1153,6 +1217,7 @@ def main():
             note[k] = t
     C = json.load(open(card))
     body, drawn = [], []     # drawn ＝ この図に入れた鞍（ヘッダーの向きの文に使う）
+    hdl = []                 # --nige / --age / --anatag で見出しの下に出す行
     dists = []               # この図に入れた鞍の距離（ヘッダーの地点名に使う・ルール45）
     for key in sorted(C, key=lambda x: C[x]['R']):
         v = C[key]
@@ -1240,6 +1305,15 @@ def main():
                  ('<span class="dn">▼4角までに下がる</span>'
                   if (SAGARU and (r['gain'] or 0) <= -.20) else ''))
             so = ''
+            # ★★ 2026-11-17、穴の札（--anatag。上の OBI の★★）。
+            #   ユーザーの見立て ──「近走 スタートしてから着順を落としていない馬が
+            #   穴できてるよね」。人気薄（ANA_NIN番人気以下）で、近走の gain が
+            #   マイナスでない馬に出す。**いちばん上**に置いて目立たせる。
+            #   人気が入っていない（前日のカード）鞍では何も出ない。
+            #   `--plain` では出さない。
+            if (ANATAG and not plain and r.get('nin') and r['nin'] >= ANA_NIN
+                    and r.get('gain') is not None and r['gain'] >= 0):
+                so += '<span class="anam">穴　道中で下げない</span>'
             # ★ 道悪の札（2026-11-15・baba_tag の★★）。見本に合わせて**いちばん上**
             #   （馬名のすぐ下）に置く。`--plain` では出さない。`--no-pct` では出す。
             #   ★★ 回数（3着内n/道悪m走）も添える（baba_tag の★★）。`--no-baba-n` で2文字だけに戻る。
@@ -1385,6 +1459,41 @@ def main():
         # C … 見解。**`note:R=` があればそちらが優先**（手で書いたものを自動で上書きしない）
         vtx = note.get(R) or ('' if plain else mikata(v['dist'], rows, CHOKU))
         viw = ('<div class="view"><h4>見解</h4><p>%s</p></div>' % vtx) if vtx else ''
+        # ★★ 2026-11-17、見出しの下に出す行（--nige / --age / --anatag。上の OBI の★★）。
+        #   .track の**外**（見出しの下）に出すので、馬の left/top は1pxも動かない。
+        #   `--plain` では出さない。
+        if (NIGE or AGE or ANATAG) and not plain:
+            def _mb(n):
+                return chr(0x2460 + n - 1) if 1 <= n <= 20 else '(%d)' % n
+
+            def _nm(r):
+                return '%s%s' % (_mb(r['ub']), html.escape(r['name']))
+            pr = [r for r in rows if not r.get('nopos')]
+            if NIGE:
+                q = [r for r in pr if r.get('pos_c1') is not None]
+                q.sort(key=lambda r: r['pos_c1'])
+                hdl.append((R, 'nige', '逃げ馬',
+                            _nm(q[0]) if q else ''))
+            if AGE:
+                q = [r for r in pr if r.get('pos_c1') is not None
+                     and r.get('pos_c4') is not None]
+                a1 = {r['ub']: i for i, r in enumerate(sorted(q, key=lambda r: r['pos_c1']))}
+                a2 = {r['ub']: i for i, r in enumerate(sorted(q, key=lambda r: r['pos_c4']))}
+                up = sorted(((a1[r['ub']] - a2[r['ub']], r) for r in q
+                             if a1[r['ub']] - a2[r['ub']] >= 1),
+                            key=lambda t: -t[0])
+                hdl.append((R, 'age', '▲ 道中で順位が上がる',
+                            '　　'.join('%s +%d' % (_nm(r), d) for d, r in up[:6])))
+                sh = sorted((r for r in rows if r.get('srank') and r['srank'] <= 3),
+                            key=lambda r: r['srank'])
+                hdl.append((R, 'shi', '上がり',
+                            '　　'.join('%d位 %s' % (r['srank'], _nm(r)) for r in sh)))
+            if ANATAG:
+                an = [r for r in rows if r.get('nin') and r['nin'] >= ANA_NIN
+                      and r.get('gain') is not None and r['gain'] >= 0]
+                an.sort(key=lambda r: (r.get('pos_c4') if r.get('pos_c4') is not None else 9))
+                hdl.append((R, 'ana', '穴　道中で下げない',
+                            '　　'.join('%s %d人気' % (_nm(r), r['nin']) for r in an)))
         tmpl = (
             '<div class="race"><div class="rh"><span class="rn">%dR</span>'
             '<span class="rt">%s</span>'
@@ -1402,7 +1511,8 @@ def main():
             % (v['R'], v.get('start') or '', v['dist'], len(v['horses']),
                html.escape(v.get('cls') or ''), pc, tag, nm, pc, GP.get(pc, 50), eff,
                pnum(pp, b, plain), kl2, cap,
-               NL * LANE + 24, (ring(cells, ana_sp.get(R, set()), '--each' in a,
+               NL * LANE + 24, (obi(cells, R in flip) if OBI else '')
+                + (ring(cells, ana_sp.get(R, set()), '--each' in a,
                      (a[a.index('--ring-color') + 1] if '--ring-color' in a else None),
                      '--ring-box' in a)
                 + ring(cells, ana2_sp.get(R, set()), '--each2' in a or '--each' in a,
@@ -1462,7 +1572,18 @@ def main():
             '<div class="head"><div class="kicker">@@DATE@@ — @@VEN@@@@BABA@@</div>'
             '<h1>展開予想</h1>@@SUB@@</div>'
             '@@BODY@@<div class="tail">印は買い目の保証ではありません。</div></body></html>')
-    page = (page.replace('@@SUB@@', sub).replace('@@CSS@@', CSS).replace('@@DATE@@', date).replace('@@VEN@@', ven)
+    # ★★ 2026-11-17、見出しの下の行を組み立てる（--nige / --age / --anatag）。
+    #   1鞍だけの図なら鞍番号は書かない。複数鞍なら「6R」を頭に付ける。
+    hsub = ''
+    if hdl:
+        many = len({R_ for R_, _, _, _ in hdl}) > 1
+        for R_, cls, tag, bodytx in hdl:
+            inner = ('<span class="nmx %s">%s</span>' % (cls, bodytx)) if bodytx.strip() \
+                else '<span class="non">なし</span>'
+            pre = ('<span class="non">%dR</span>' % R_) if many else ''
+            hsub += ('<div class="hdl">%s<span class="tag %s">%s</span>%s</div>'
+                     % (pre, cls, tag, inner))
+    page = (page.replace('@@SUB@@', sub + hsub).replace('@@CSS@@', CSS).replace('@@DATE@@', date).replace('@@VEN@@', ven)
             .replace('@@BABA@@', ('／馬場 ' + baba) if baba else '')
             .replace('@@BODY@@', '\n'.join(body)))
     open(out, 'w').write(page)
