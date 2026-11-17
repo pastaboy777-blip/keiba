@@ -44,7 +44,14 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
 .lab{margin-top:-1px;white-space:nowrap}
 .n{display:inline-block;min-width:23px;height:23px;line-height:23px;border-radius:50%;
  border:2px solid;font-size:13px;font-weight:800;vertical-align:middle;margin-right:3px}
-.nm{font-size:10.8px;color:#f6f1e8;font-weight:700;vertical-align:middle;text-shadow:0 1px 4px rgba(0,0,0,.95)}
+/* ★ 2026-11-17、ユーザーの指示 ──「馬名の文字もっとかっこよく」。
+   字そのもの（IPAゴシックしか入っていない）は変えられないので、
+   大きさ・太さ・字間と、芝の上で浮くような縁取りで見せ方を変えた。
+   位置は1pxも動かない（font-size を上げたぶん字幅は変わる）。*/
+.nm{font-size:12.4px;color:#fffaf0;font-weight:900;vertical-align:middle;
+ letter-spacing:.045em;
+ text-shadow:0 0 1px rgba(0,0,0,.9),0 1px 0 rgba(0,0,0,.9),1px 0 0 rgba(0,0,0,.75),
+  -1px 0 0 rgba(0,0,0,.75),0 2px 7px rgba(0,0,0,.95)}
 .upo{display:block;font-size:9.6px;color:#f0b48c;font-weight:800}
 .upi{display:block;font-size:9.6px;color:#5fe07a;font-weight:800}
 .upq{display:block;font-size:9.6px;color:#9fb6cf;font-weight:700}
