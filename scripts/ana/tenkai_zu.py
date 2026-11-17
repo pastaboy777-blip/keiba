@@ -30,6 +30,9 @@
   `--no-pct` の1行は「直線（4コーナー）　← 左がゴール（スタンドから見た向き）」。
   大井だけ（全距離同じ直線）。**大井以外は向きを聞いていないので描かずに止める。**
   **付けないときの出力は1バイトも変わらない。**
+  `--obi`（2026-11-17、ユーザーの指示「３つの帯に分けて見て」）… `--chokusen` と一緒のときだけ、
+  obi.py と同じ境目（pos4w = 1/3・2/3）に縦の点線2本と「前」「中」「後ろ」の小さな文字を描く
+  （馬の絵の下。馬の位置・段・札は動かない。`--obi` なし・`--chokusen` なしの出力は変わらない）。
 
 ★ 2026-11-15 に入れた2つ（どちらも**馬の位置・段・色・大きさを1つも動かさない**）
 
@@ -276,6 +279,7 @@ def ncor(ven, dist, tsuka=None):
     return None
 
 SUITEI = DORO = True
+OBI = False                         # --chokusen --obi で直線の盤面に3つの帯の境目を描く
 CYK = {}                            # --cyokyo で読む調教の短評
 CYK_BUN = False
 CYK_LABEL = '調教☝'                 # 好調教の札の文字（☝が出ない環境なら '調教↑'）
@@ -619,6 +623,27 @@ def _arrange(rows, swap=(), noswap=False):
     return rows
 
 
+def pos_x(p):
+    """pos（0が前）→ 盤面の横位置。鏡の鞍・直線の盤面は呼んだ側で `WID - x` に返す。
+    馬を置く place() と帯の境目（`--obi`）が**同じ式**を使うように1か所にしてある。"""
+    return PAD + (1 - p) * (WID - 2 * PAD)
+
+
+def obi_lines(fl):
+    """直線の盤面の3つの帯（`--chokusen --obi`、2026-11-17、ユーザーの指示「３つの帯に分けて見て」）。
+    境目は obi.py と同じ pos4w = 1/3・2/3。x は馬と同じ pos_x() ＋ 同じ鏡の返し方。
+    馬より先に置き z-index を付けないので、線と文字は馬の絵の下になる。馬は1pxも動かない。"""
+    X = lambda p: (WID - pos_x(p)) if fl else pos_x(p)
+    ln = ''.join('<div class="obiln" style="position:absolute;left:%dpx;top:0;bottom:0;width:0;'
+                 'border-left:1px dashed rgba(255,255,255,.35)"></div>' % int(X(p))
+                 for p in (1 / 3, 2 / 3))
+    lb = ''.join('<div class="obilb" style="position:absolute;left:%dpx;top:1px;'
+                 'transform:translateX(-50%%);font-size:11px;line-height:12px;'
+                 'color:rgba(255,255,255,.5);white-space:nowrap">%s</div>' % (int(X(p)), t)
+                 for p, t in ((1 / 6, '前'), (1 / 2, '中'), (5 / 6, '後ろ')))
+    return ln + lb
+
+
 def place(rows):
     """重なり避けで段を作る。
 
@@ -629,7 +654,7 @@ def place(rows):
       ずれている鞍は `--swap` で馬番を指定して直す。"""
     out, lanes = [], []
     for r in sorted(rows, key=lambda r: r['pos']):
-        x = PAD + (1 - r['pos']) * (WID - 2 * PAD)
+        x = pos_x(r['pos'])
         for i, last in enumerate(lanes):
             if x < last - GAP:
                 lanes[i] = x
@@ -774,6 +799,11 @@ def main():
     #     札   … いまと同じ。ただし「先頭候補」は最初のコーナーの話なので出さない。
     #   大井以外の直線の向きは**まだ聞いていない**ので、描かずに止める。
     choku = '--chokusen' in a
+    # ★ 2026-11-17、ユーザーの指示「３つの帯に分けて見て」。`--chokusen --obi` のときだけ、
+    #   直線の盤面に obi.py と同じ帯の境目（pos4w = 1/3・2/3 の点線）と「前」「中」「後ろ」を描く。
+    #   `--obi` だけ（直線なし）では何も変わらない。馬の位置・段・札は動かさない。
+    global OBI
+    OBI = '--obi' in a
     if choku and ven != '大井':
         print('この場の直線の向きは未確認（%s）。--chokusen は大井だけ描きます。' % ven)
         sys.exit(1)
@@ -1059,7 +1089,7 @@ def main():
             % (v['R'], v.get('start') or '', v['dist'], len(v['horses']),
                html.escape(v.get('cls') or ''), pc, tag, nm, pc, GP.get(pc, 50), eff,
                suitei(v, b), kl2, cap,
-               NL * LANE + 24, (ring(cells, ana_sp.get(R, set()), '--each' in a,
+               NL * LANE + 24, (obi_lines(R in flip) if (choku and OBI) else '') + (ring(cells, ana_sp.get(R, set()), '--each' in a,
                      (a[a.index('--ring-color') + 1] if '--ring-color' in a else None),
                      '--ring-box' in a)
                 + ring(cells, ana2_sp.get(R, set()), '--each2' in a or '--each' in a,
