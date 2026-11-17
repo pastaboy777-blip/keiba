@@ -349,6 +349,9 @@ def baba_tag(h):
 #   `--plain`（宣伝用）では出さない。`--no-pct` では出す（％も数字も含まない札なので）。
 #   止める口は **`--no-cyokyo`**。
 CYOKYO = True        # 調教の札を出すか（--no-cyokyo で止める）
+SAGARU = False       # ▼4角までに下がる の札を出すか
+                     # ★ 2026-11-17、ユーザーの指示 ──「4角までに下がるというのは
+                     #   いらない消して これから」。既定で出さない。--sagaru で戻る。
 CYO_HYO = False      # 総評の一言も札にするか（--cyokyo-hyo で出す）
 CYO = {}             # --cyokyo で読んだ調教（鞍 → 馬番 → 1頭ぶん）
 
@@ -1073,7 +1076,7 @@ def main():
     #     **MIRROR には足さない** ── 鏡にはしない（前は右）。上下だけ返す（内が下）。
     VFLIP = {('川崎', 2000), ('大井', 1200), ('大井', 1400), ('大井', 2400)}
     global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, NOPAST_CENTER
-    global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO
+    global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO, SAGARU
     global AGARI, BABA_N, CHOKU
     # ★★ 2026-11-16、**直線の図**（上の CHOKU の★★）。ユーザーの指示 ──
     #   「スタートから1コーナー」と「直線」の2枚。2枚目がこれ。
@@ -1108,6 +1111,7 @@ def main():
     #   データは `--cyokyo <json>` で**外から渡す**（図の中から競馬ブックを叩かない）。
     #   止める口は `--no-cyokyo`、総評の一言も出す口は `--cyokyo-hyo`。
     CYOKYO = '--no-cyokyo' not in a
+    SAGARU = '--sagaru' in a          # ▼の札を元に戻す口
     CYO_HYO = '--cyokyo-hyo' in a
     CYO = json.load(open(g('--cyokyo'))) if g('--cyokyo') else {}
     # ★ 2026-11-15、ユーザーの指示 ──**両方の向きを本人が言っている**（迷ったらこの2つ）
@@ -1229,8 +1233,12 @@ def main():
             # gain は 1角−4角。プラスが押し上げ、マイナスが4角までに下がる
             # ★ --plain では ▲押し上げ／▼下がる も出さない（2026-11-11、ユーザーの指示
             #   ──「馬の下の町田とか押上とか消して」）。残すのは馬番・馬名・過去走なしだけ。
+            # ★ 2026-11-17、ユーザーの指示 ──「4角までに下がるというのはいらない消して
+            #   これから」。▼の札は**既定で出さない**。`--sagaru` で元に戻る。
+            #   ▲押し上げはそのまま。
             t = '' if plain else ('<span class="upq">▲押し上げ</span>' if up else
-                 ('<span class="dn">▼4角までに下がる</span>' if (r['gain'] or 0) <= -.20 else ''))
+                 ('<span class="dn">▼4角までに下がる</span>'
+                  if (SAGARU and (r['gain'] or 0) <= -.20) else ''))
             so = ''
             # ★ 道悪の札（2026-11-15・baba_tag の★★）。見本に合わせて**いちばん上**
             #   （馬名のすぐ下）に置く。`--plain` では出さない。`--no-pct` では出す。
@@ -1448,7 +1456,7 @@ def main():
             # ★「1角から」も地点名が嘘になる（2026-11-14・ルール45）。gain は
             #   「最初に記録された角 − 4角」なので、見出しと同じ言い方に揃える。
             #   具体の角は見出しに添えてあるので、ここでは繰り返さない。
-'<b>▼は最初の角から4コーナーまでに下がる馬</b>で、前にいないという意味ではありません。</div>')
++ ('<b>▼は最初の角から4コーナーまでに下がる馬</b>で、前にいないという意味ではありません。' if SAGARU else '') + '</div>')
     page = ('<!doctype html><html lang="ja"><head><meta charset="utf-8">'
             '<title>展開予想</title><style>@@CSS@@</style></head><body>'
             '<div class="head"><div class="kicker">@@DATE@@ — @@VEN@@@@BABA@@</div>'
