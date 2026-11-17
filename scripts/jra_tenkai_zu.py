@@ -814,7 +814,7 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
             '<span class="pace p-%s"><b>%s</b> %s</span>%s</div>'
             '<div class="pbar p-%s"><div class="bar"><span>ゆっくり</span><span>ふつう</span><span>速い</span>'
             '<i style="left:%.1f%%"></i></div><div class="flow">→ <b>%s</b>　<small>%s</small></div>%s</div>'
-            '%s%s<div class="kenkai"><div class="kt">見解</div><p>%s</p></div></div>'
+            '%s%s<div class="kenkai"><div class="kt">見解</div><p>%s</p></div>%s</div>'
             % ((" nopace" if globals().get("_CUR_RNO") in HIDE_PACE else "")
                + (" yon2" if yon_wanted(globals().get("_CUR_RNO")) else ""), rno, start, surface, dist, n, H.escape(name),
                arekata_html(fc.arekata), pcls, ptag,
@@ -825,7 +825,7 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
                pcls, mark * 100, flow.split("→ ")[-1], lvl,
                (_today_line(fc) or (('<div class="lanebias">今開催は4角で%sが来ている(前の開催日の3着内 %d頭のうち外 %d%%、ふだん49%%) → %s◎の札</div>'
                  % (fc.lane[0], fc.lane[2], fc.lane[1] * 100, fc.lane[0])) if getattr(fc, "lane", (None,))[0] else "")),
-               board_html, getattr(fc, "trend", "") or "", kawa_memo(fc, rows, rk, dist, surface)))
+               board_html, getattr(fc, "trend", "") or "", kawa_memo(fc, rows, rk, dist, surface), jiten_html()))
     missing = [r for r in rows if r["pos"] is None]
     miss = ""
     if missing:
@@ -842,7 +842,41 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
         % (rno, H.escape(name), surface, dist, n, H.escape(baba or ""),
            pcls, ptag, {"スロー": "スロー", "ミドル": "平均", "ハイ": "ハイ"}[fc.pace] + "想定",
            pcls, mark * 100, flow, flow_sub, est_html, wind_html(fc),
-           board_html, memo, miss))
+           board_html, memo, miss + jiten_html()))
+
+
+JITEN_OFF = False   # --no-jiten: 図の下の「データ: 何Rまでの結果を反映」を出さない
+
+
+def jiten_line(data_path, date, place) -> str:
+    """読み込んだデータに、その日のその場の結果(着順の入った行)が何Rまで入っていたか。
+    ユーザー指定 2026-11-17「図には何Rまでの結果で作ったかを書く」(11/15東京12Rで後から結果が入り並びが変わった)。
+    出馬表の行(着順なし)は数えない。抜けている芝ダの鞍があれば「(4Rなし)」と添える。障害の鞍は結果が入らないので抜けに数えない。"""
+    if not date:
+        return "データ: 当日の結果なし"
+    md = "%d/%d" % (int(date[5:7]), int(date[8:10]))
+    rows = load_rows(data_path) if data_path else []
+    got, card = set(), set()
+    for d in rows:
+        if d.get("date") != date or d.get("place") != place:
+            continue
+        r = int(d["race_id"][-2:])
+        if any(x.get("finish_pos") for x in d.get("result") or []):
+            got.add(r)
+        elif d.get("surface") in ("芝", "ダ"):
+            card.add(r)
+    if not got:
+        return "データ: %s %s 当日の結果なし" % (md, place)
+    last = max(got)
+    miss = sorted(r for r in card if r < last and r not in got)
+    return "データ: %s %s %dRまでの結果を反映%s" % (md, place, last, ("(%sなし)" % "・".join("%dR" % r for r in miss)) if miss else "")
+
+
+def jiten_html() -> str:
+    if JITEN_OFF:
+        return ""
+    t = jiten_line(globals().get("_DATA_PATH"), globals().get("_CUR_DATE"), globals().get("_CUR_PLACE"))
+    return '<div class="knote" style="margin:4px 16px 8px">%s</div>' % H.escape(t)
 
 
 def _today_line(fc):
@@ -2057,6 +2091,8 @@ def main() -> None:
                     help='4コーナー(直線を向いたところ)の盤面をもう1枚出す R。"12" や "3,12"、値なしか "all" で全鞍(既定は出さない)')
     ap.add_argument("--uchi-ue", action="store_true",
                     help="kawa の盤面を常に内(ラチ側)が上にする(507db35 より前の向き。既定は内外をスタンドから見た向きに合わせる)")
+    ap.add_argument("--no-jiten", action="store_true",
+                    help="各鞍の下の「データ: 11/15 東京 8Rまでの結果を反映」(当日の結果が何Rまで入っていたか)を出さない")
     ap.add_argument("--circle-each", action="store_true", help="赤丸を1頭ずつ付ける(まとめて1つにしない)")
     ap.add_argument("--circle2", default="", help='相手を白い丸で囲む馬。"7:15,10,8"')
     ap.add_argument("--circle", default="", help='手で赤丸を付ける馬。"12:6,12,15;3:8"(R:馬番)')
@@ -2088,8 +2124,9 @@ def main() -> None:
     BASE_DAY_DIRT = _UNSET if a.base_day_dirt is None else (set(a.base_day_dirt.split(",")) if a.base_day_dirt else None)
     BASE_BABA_DIRT = _UNSET if a.base_baba_dirt is None else (set(a.base_baba_dirt.split(",")) if a.base_baba_dirt else None)
     HIDE_PACE.update(int(x) for x in a.hide_pace.split(",") if x.strip().isdigit())
-    global YON_ALL, UCHI_UE
+    global YON_ALL, UCHI_UE, JITEN_OFF
     UCHI_UE = a.uchi_ue
+    JITEN_OFF = a.no_jiten
     YON_ALL = a.yon.strip() == "all"
     YON.update(int(x) for x in a.yon.split(",") if x.strip().isdigit())
     for part in filter(None, a.circle2.split(";")):
