@@ -474,6 +474,7 @@ CHOKU = False            # True なら直線の図（--chokusen）
 #                穴できてるよね」「7R⑭とか」「12R⑧とか」。11/17 大井の11鞍では
 #                6人気以下のうち gain>=0 が17.5%(57頭中10)、gain<0 が6.7%(30頭中2)）
 OBI = False              # --obi
+OBI_NONAME = False       # --obi-noname（帯の名前を出さない。色と境目の線は残る）
 NIGE = False             # --nige
 AGE = False              # --age
 ANATAG = False           # --anatag
@@ -957,7 +958,7 @@ def place(rows):
     return shima(out, max(1, len(lanes)))
 
 
-def obi(cells, left_front):
+def obi(cells, left_front, label=True):
     """図を前から3等分して帯を敷く（--obi・2026-11-17）。
 
     帯は**順番**で割る（頭数÷3）。相対位置の値で割らないのは、鞍によって
@@ -989,9 +990,11 @@ def obi(cells, left_front):
                   % (cls, lo, max(0, hi - lo)))
     for x in (b1, b2):
         h += '<div class="obiL" style="left:%dpx"></div>' % x
-    for cls, lo, hi, lab in seg:
-        lx = (lo + 10) if hi is None or left_front else (lo + 10)
-        h += '<div class="obiT %s" style="left:%dpx">%s</div>' % (cls, lx, lab)
+    # ★ 2026-11-17、ユーザーの指示 ──「前の帯というのも消して」。
+    #   帯の色と境目の線は残して、名前（前の帯 5頭 …）だけ出さない口。
+    if label:
+        for cls, lo, hi, lab in seg:
+            h += '<div class="obiT %s" style="left:%dpx">%s</div>' % (cls, lo + 10, lab)
     return h
 
 
@@ -1135,13 +1138,14 @@ def main():
     VFLIP = {('川崎', 2000), ('大井', 1200), ('大井', 1400), ('大井', 2400)}
     global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, NOPAST_CENTER
     global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO, SAGARU
-    global AGARI, BABA_N, CHOKU, OBI, NIGE, AGE, ANATAG, ANA_NIN
+    global AGARI, BABA_N, CHOKU, OBI, OBI_NONAME, NIGE, AGE, ANATAG, ANA_NIN
     # ★★ 2026-11-16、**直線の図**（上の CHOKU の★★）。ユーザーの指示 ──
     #   「スタートから1コーナー」と「直線」の2枚。2枚目がこれ。
     #   4角で隊列を組み、鞍によらず「左がゴール・上がラチ」で描く。
     CHOKU = '--chokusen' in a
     # ★ 2026-11-17 に足した4つ（上の OBI の★★）。付けなければ出力は変わらない。
     OBI = '--obi' in a
+    OBI_NONAME = '--obi-noname' in a   # 帯の名前を出さない
     NIGE = '--nige' in a
     AGE = '--age' in a
     ANATAG = '--anatag' in a
@@ -1511,7 +1515,7 @@ def main():
             % (v['R'], v.get('start') or '', v['dist'], len(v['horses']),
                html.escape(v.get('cls') or ''), pc, tag, nm, pc, GP.get(pc, 50), eff,
                pnum(pp, b, plain), kl2, cap,
-               NL * LANE + 24, (obi(cells, R in flip) if OBI else '')
+               NL * LANE + 24, (obi(cells, R in flip, not OBI_NONAME) if OBI else '')
                 + (ring(cells, ana_sp.get(R, set()), '--each' in a,
                      (a[a.index('--ring-color') + 1] if '--ring-color' in a else None),
                      '--ring-box' in a)
