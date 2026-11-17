@@ -5,6 +5,7 @@
     python3 scripts/jra_today.py --date 2026-11-15 --place 福島 --extra '--circle 7:11 --circle2 7:15,10'
     python3 scripts/jra_today.py --date 2026-11-15 --place 東京 --yon 12 --png   # 12R に4コーナーの盤面も付ける
     python3 scripts/jra_today.py --date 2026-11-15 --uchi-ue --no-fetch   # 盤面を常に内が上に(朝の config の uchi_ue も持ち越す)
+    python3 scripts/jra_today.py --date 2026-11-15 --place 東京 --yon 12 --nankan --png   # 南関の図の見せ方(朝の config の nankan も持ち越す)
 
 1) 結果ページ(月 → 開催日 → レース)から、その日の終わった鞍を data/jra/races.jsonl に足す(3秒間隔、済みは飛ばす)
 2) data/jra/all_YYYYMMDD.jsonl = 出馬表(data/jra/shutuba_YYYYMMDD.jsonl。先頭) + 取り込み後の races.jsonl
@@ -72,6 +73,7 @@ def main():
     ap.add_argument("--png", action="store_true", help="1鞍ずつのPNGも作り直す")
     ap.add_argument("--yon", default="", help='4コーナーの盤面も出す R(jra_tenkai_zu.py --yon。"12"・"3,12"・"all")')
     ap.add_argument("--uchi-ue", action="store_true", help="盤面を常に内(ラチ側)が上にする(jra_tenkai_zu.py --uchi-ue)")
+    ap.add_argument("--nankan", action="store_true", help="南関の図と同じ見せ方(jra_tenkai_zu.py --nankan)。朝の config の \"nankan\" は mark_args で持ち越す")
     ap.add_argument("--no-fetch", action="store_true", help="結果を取りに行かず、作り直しだけ")
     a = ap.parse_args()
     ymd = a.date.replace("-", "")
@@ -157,6 +159,8 @@ def main():
             cmd += ["--yon", a.yon]
         if a.uchi_ue and "--uchi-ue" not in cmd:   # 朝の mark_args に入っていれば二重に付けない
             cmd.append("--uchi-ue")
+        if a.nankan and "--nankan" not in cmd:   # 朝の mark_args に入っていれば二重に付けない
+            cmd.append("--nankan")
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode != 0:
             sys.stderr.write(r.stderr[-3000:])

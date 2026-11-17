@@ -809,14 +809,16 @@ def render_race(rno, name, dist, surface, baba, n, fc, rows, rk) -> str:
         start = (getattr(fc, "_start", "") or "")
         fc.arekata = arekata_fuda(fc, rows, surface, n)
         return (
-            '<div class="race kawa%s"><div class="rh"><span class="rn">%sR</span>'
+            '<div class="race kawa%s">%s<div class="rh"><span class="rn">%sR</span>'
             '<span class="rd"><span class="st">%s</span>%s%dm ／ %d頭 ／ %s</span>%s'
             '<span class="pace p-%s"><b>%s</b> %s</span>%s</div>'
             '<div class="pbar p-%s"><div class="bar"><span>ゆっくり</span><span>ふつう</span><span>速い</span>'
             '<i style="left:%.1f%%"></i></div><div class="flow">→ <b>%s</b>　<small>%s</small></div>%s</div>'
             '%s%s<div class="kenkai"><div class="kt">見解</div><p>%s</p></div>%s</div>'
             % ((" nopace" if globals().get("_CUR_RNO") in HIDE_PACE else "")
-               + (" yon2" if yon_wanted(globals().get("_CUR_RNO")) else ""), rno, start, surface, dist, n, H.escape(name),
+               + (" yon2" if yon_wanted(globals().get("_CUR_RNO")) else ""),
+               nankan_head(fc, rows, rk, baba) if NANKAN else "",
+               rno, start, surface, dist, n, H.escape(name),
                arekata_html(fc.arekata), pcls, ptag,
                {"スロー": "スロー", "ミドル": "ミドル", "ハイ": "ハイ"}[fc.pace] + "想定",
                (('<span class="tbase"><b>%d:%04.1f</b> の時計をベースにしています%s</span>'
@@ -1443,6 +1445,8 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
     hs += nod
     W, P, G = 940, 22, 138    # 盤面の幅の目安(px)。置くときは % に直すので画面幅が違っても切れない
     lb0 = (getattr(fc, "lane", None) or (None,))[0]
+    ANA = set(nk_ana(rows)) if NANKAN else set()   # --nankan: 穴 道中で下げない の札
+    pad = NK_PAD if NANKAN else 0
 
     def wid(r):   # 名前と札の幅の目安(札1つ +58px)。右隣の馬の名前に札がかからないように
         if yon:   # 2枚目は札を付けない(番号と馬名だけ。過去走なしの札だけ残す)
@@ -1450,7 +1454,7 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
         nt = (1 if kikou_tag(r["ub"]) else 0) + (1 if r.get(k) is None else 0) + (1 if lb0 else 0)
         nk = len(kb_list(r["ub"], r.get("name")))   # 厩舎の話の札(短いので 1つ +40px)
         nkh = 0 if KOUHO_OFF else len(r.get("kouho") or [])   # 候補の札(1つ +50px)
-        return G + 8 * max(0, len(r.get("name") or "") - 7) + 58 * nt + 40 * nk + 50 * nkh
+        return G + 8 * max(0, len(r.get("name") or "") - 7) + 58 * nt + 40 * nk + 50 * nkh + (66 if r["ub"] in ANA else 0)
     flip = (yon_front_is_left(globals().get("_CUR_PLACE")) if yon else
             front_is_left(globals().get("_CUR_PLACE"), globals().get("_CUR_SURF"), globals().get("_CUR_DIST")))
     span = W - 2 * P - 130
@@ -1505,6 +1509,8 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
         tag += kb_tag_html(r["ub"], r["name"])
         if not KOUHO_OFF:
             tag += "".join('<span class="kko">%s</span>' % t for t in r.get("kouho") or [])
+        if r["ub"] in ANA:
+            tag += '<span class="kana">穴 下げない</span>'
         if yon:
             tag = ""
         if r.get(k) is None:
@@ -1512,7 +1518,7 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
         chev = '<span class="kc" style="color:%s">%s</span>' % (cc, "&laquo;" if flip else "&raquo;")
         hh.append('<div class="kh" style="left:%.2f%%;top:%dpx"><div class="kf">%s</div>'
                   '<div class="kl"><span class="kn" style="background:%s;color:%s">%d</span>%s%s</div></div>'
-                  % (x / W * 100, 10 + lane * LN, (chev + fig) if flip else (fig + chev), wc[0], wc[1], r["ub"],
+                  % (x / W * 100, 10 + pad + lane * LN, (chev + fig) if flip else (fig + chev), wc[0], wc[1], r["ub"],
                      H.escape(r["name"]), tag))
     if not yon:
         _, fc.zone_horses = draw_zone([(r, x, l) for r, x, l in cells], fc, ellipse=True)   # 見解用に計算だけ(描かない)
@@ -1550,7 +1556,113 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
                 first_corner_name(globals().get("_CUR_PLACE"), globals().get("_CUR_SURF"), globals().get("_CUR_DIST")))
                + ("　← 左が前（スタンドから見た向き）" if flip else "　右が前（スタンドから見た向き） →"), turf, " kflip" if flip else "",
                " kinv" if inv else "",
-               max(1, len(lanes)) * LN + 24, ring + "\n".join(hh), legend))
+               max(1, len(lanes)) * LN + 24 + pad,
+               (nk_bands(cells, rows, flip, W, yon, max(1, len(lanes)), LN) if NANKAN else "") + ring + "\n".join(hh), legend))
+
+
+# ---- --nankan: 南関の図と同じ見せ方(ユーザー了承 2026-11-17「よいと思う！」) ----------------------
+# 鞍の先頭に見出し(日付・場・馬場／展開予想／逃げ馬／道中で順位が上がる／上がり／穴 道中で下げない)、
+# 盤面を前・中・後ろの帯(頭数で3等分)に薄く塗る。--nankan なしの HTML は前と1バイトも変わらない。
+NANKAN = False
+NK_PAD = 20   # 盤面の上に帯のラベルを置く余白(px)。1角・4角の両方で同じだけ下げて高さを揃える
+
+
+def nk_ranks(rows):
+    """1角(pos1)と4角(pos)の鞍の中の順位(1=先頭)と、1角の順位の帯(0=前 1=中 2=後ろ、頭数で3等分)。両方そろう馬だけ。"""
+    kn = [r for r in rows if r.get("pos1") is not None and r.get("pos") is not None]
+    r1 = {r["ub"]: i + 1 for i, r in enumerate(sorted(kn, key=lambda r: (-r["pos1"], r["ub"])))}
+    r4 = {r["ub"]: i + 1 for i, r in enumerate(sorted(kn, key=lambda r: (-r["pos"], r["ub"])))}
+    band = {u: (v - 1) * 3 // max(1, len(kn)) for u, v in r1.items()}
+    return r1, r4, band
+
+
+def nk_ana(rows):
+    """穴 道中で下げない(前で粘れる型): 1角で前の帯 かつ 4角の順位が1角の順位より後ろにならない予想。4角の順位順。
+    人気は使わない(中央は人気を使わない決まり)。"""
+    r1, r4, band = nk_ranks(rows)
+    return sorted([u for u in r1 if band[u] == 0 and r4[u] <= r1[u]], key=lambda u: r4[u])
+
+
+def nankan_head(fc, rows, rk, baba) -> str:
+    """鞍の先頭の見出し。
+    逃げ馬 = ハナ専用モデル(r["hana"])の1位
+    道中で順位が上がる = 1角の順位 − 4角の順位(位置モデルの pos1・pos の鞍の中の順位)が正の馬、大きい順に5頭
+    上がり = rk(同じ芝ダ・距離±400m の近5走の上がり順位の中央値。見解の「終い一番手」と同じ)の1〜3位
+    穴 道中で下げない = nk_ana"""
+    import datetime as dt
+    circ = lambda u: "&#%d;" % (9311 + u) if 1 <= u <= 20 else str(u)  # noqa: E731
+    nm = {r["ub"]: H.escape(r["name"]) for r in rows}
+    date = globals().get("_CUR_DATE") or ""
+    kick = ""
+    if date:
+        y, m, d = date.split("-")
+        kick = "%s.%s.%s %s — %s／馬場 %s" % (y, m, d, WEEK[dt.date(int(y), int(m), int(d)).weekday()],
+                                           globals().get("_CUR_PLACE") or "", baba or "-")
+    r1, r4, band = nk_ranks(rows)
+    hn = sorted([r for r in rows if r.get("hana") is not None], key=lambda r: -r["hana"])
+    nige = ('<span class="nkh">%s%s</span>' % (circ(hn[0]["ub"]), nm[hn[0]["ub"]])) if hn else "—"
+    ups = sorted([u for u in r1 if r1[u] - r4[u] > 0], key=lambda u: (-(r1[u] - r4[u]), r4[u]))[:5]
+    up = "".join('<span class="nkh">%s%s <b>+%d</b></span>' % (circ(u), nm[u], r1[u] - r4[u]) for u in ups) or "—"
+    top = sorted((u for u, v in rk.items() if v <= 3), key=lambda u: rk[u])
+    ag = "".join('<span class="nkh"><i>%d位</i> %s%s</span>' % (rk[u], circ(u), nm[u]) for u in top) or "—"
+    ana = "".join('<span class="nkh">%s%s</span>' % (circ(u), nm[u]) for u in nk_ana(rows)) or "該当なし"
+    return ('<div class="nkhead"><div class="nkk">%s</div><div class="nkt">展開予想</div>'
+            '<div class="nkr"><span class="nkl nk-b">逃げ馬</span>%s</div>'
+            '<div class="nkr"><span class="nkl nk-r">▲ 道中で順位が上がる</span>%s</div>'
+            '<div class="nkr"><span class="nkl nk-g">上がり</span>%s</div>'
+            '<div class="nkr"><span class="nkl nk-y">穴 道中で下げない</span>%s</div></div>'
+            % (kick, nige, up, ag, ana))
+
+
+def nk_bands(cells, rows, flip, W, yon=False, nl=1, LN=76) -> str:
+    """盤面の前・中・後ろの帯(頭数で3等分。1角は1角の順位、4角は4角の順位)。
+    段(lane)ごとに境を置くので、同じ位置の馬が帯の境で切れない。境の目安は隣り合う帯の馬の絵の中心の中間で、
+    その段の馬の絵がまたがるときは絵の端まで寄せる(階段状になる)。"""
+    r1, r4, band = nk_ranks(rows)
+    if yon:
+        band = {u: (v - 1) * 3 // max(1, len(r4)) for u, v in r4.items()}
+    FW = 76   # 馬の絵(矢印込み)の幅の目安
+    cs = [(band[r["ub"]], x, l) for r, x, l in cells if r["ub"] in band]
+    grp = [[x + FW / 2 for b, x, _ in cs if b == bb] for bb in range(3)]
+    if not all(grp):
+        return ""
+    g = [((max(grp[b]) + min(grp[b + 1])) / 2 if flip else (min(grp[b]) + max(grp[b + 1])) / 2) for b in range(2)]
+    H_ = nl * LN + 24 + NK_PAD
+    out = []
+    for i in range(nl):
+        cuts = []
+        for b in range(2):
+            fr = [x for bb, x, l in cs if l == i and bb <= b]
+            bk = [x for bb, x, l in cs if l == i and bb > b]
+            if flip:   # 前が左
+                lo, hi = (max(fr) + FW if fr else -1e9), (min(bk) if bk else 1e9)
+            else:      # 前が右
+                lo, hi = (max(bk) + FW if bk else -1e9), (min(fr) if fr else 1e9)
+            cuts.append(min(max(g[b], lo), hi) if lo <= hi else (lo + hi) / 2)
+        spans = ([(0, cuts[0]), (cuts[0], cuts[1]), (cuts[1], W)] if flip
+                 else [(cuts[0], W), (cuts[1], cuts[0]), (0, cuts[1])])
+        y0 = 0 if i == 0 else 10 + NK_PAD + i * LN - 6
+        y1 = H_ if i == nl - 1 else 10 + NK_PAD + (i + 1) * LN - 6
+        for b, (a, z) in enumerate(spans):
+            lab = ('<span>%s %d頭</span>' % (("前の帯", "中の帯", "後ろの帯")[b], len(grp[b]))) if i == 0 else ""
+            edge = " nkr0" if (b < 2 and flip) or (b > 0 and not flip) else ""
+            out.append('<div class="nkband nkb%d%s" style="left:%.2f%%;width:%.2f%%;top:%dpx;height:%dpx">%s</div>'
+                       % (b, edge, a / W * 100, max(0, z - a) / W * 100, y0, y1 - y0, lab))
+    return "".join(out)
+
+
+CSS_NANKAN = """.nkhead{padding:18px 22px 14px;border-bottom:3px solid #e8384f;margin-bottom:6px}
+.nkk{color:#ff5a6e;font-size:13px;letter-spacing:.14em;font-weight:800}
+.nkt{font-size:34px;font-weight:900;margin:4px 0 10px;color:#f2f2f4}
+.nkr{display:flex;align-items:center;flex-wrap:wrap;gap:4px 18px;margin:6px 0;font-size:15px;font-weight:700;color:#f2f2f4}
+.nkl{display:inline-block;min-width:150px;padding:3px 10px;border-radius:5px;font-size:13px;font-weight:900;color:#0c0c0e;text-align:center}
+.nk-b{background:#5aa0ff}.nk-r{background:#ff5a6e}.nk-g{background:#56c271}.nk-y{background:#f2d231}
+.nkh b{color:#ff8a98;margin-left:2px}.nkh i{font-style:normal;color:#9fe0b0;margin-right:2px}
+.nkband{position:absolute;z-index:0;pointer-events:none}.nkband.nkr0{border-right:1px dashed rgba(255,255,255,.45)}
+.nkband span{position:absolute;top:3px;left:8px;font-size:11.5px;font-weight:900;color:#fff;background:rgba(0,0,0,.42);padding:1px 7px;border-radius:3px;white-space:nowrap}
+.nkb0{background:rgba(255,90,110,.16)}.nkb1{background:rgba(255,230,120,.10)}.nkb2{background:rgba(90,150,255,.16)}
+.kana{display:inline-block;font-size:8.5px;color:#0c0c0e;background:#f2d231;border-radius:3px;padding:0 4px;margin:0 0 0 3px;font-weight:900}
+"""
 
 
 def kawa_memo(fc, rows, rk, dist, surface) -> str:
@@ -2022,10 +2134,11 @@ CSS_KINV = ".ktrack.kinv{border-top:none;border-bottom:3px solid #ddd}.ktrack.ki
 
 
 def _css_extra() -> str:
+    nk = CSS_NANKAN if NANKAN else ""   # --nankan のときだけ末尾に足す
     if UCHI_UE:
-        return CSS_EXTRA
+        return CSS_EXTRA + nk
     i = CSS_EXTRA.index(".race.yon2{")   # 507db35 で入れた位置(.kin,.kout の次の行)に差し込む
-    return CSS_EXTRA[:i] + CSS_KINV + CSS_EXTRA[i:]
+    return CSS_EXTRA[:i] + CSS_KINV + CSS_EXTRA[i:] + nk
 
 
 def page(date: str, place: str, rno: str, body: str, learned: bool = False) -> str:
@@ -2037,10 +2150,13 @@ def page(date: str, place: str, rno: str, body: str, learned: bool = False) -> s
     if STYLE == "kawa":   # 川崎の図と同じ見出し
         return ('<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>展開予想 %s %s</title>'
                 '<style>%s%s</style></head><body>'
-                '<div class="head"><div class="kicker">%s.%s.%s %s — %s</div><h1>展開予想</h1>'
-                '<div class="sub"><b>最初のコーナーでの隊列想定</b></div></div>%s'
+                '%s%s'
                 '<div class="tail">印は買い目の保証ではありません。</div></body></html>'
-                % (date, place, css, _css_extra(), y, m, d, wd, place, body))
+                % (date, place, css, _css_extra(),
+                   "" if NANKAN else
+                   ('<div class="head"><div class="kicker">%s.%s.%s %s — %s</div><h1>展開予想</h1>'
+                    '<div class="sub"><b>最初のコーナーでの隊列想定</b></div></div>' % (y, m, d, wd, place)),
+                   body))
     return (
         '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>展開予想 %s %sR</title>'
         '<style>%s%s</style></head><body>'
@@ -2091,6 +2207,9 @@ def main() -> None:
                     help='4コーナー(直線を向いたところ)の盤面をもう1枚出す R。"12" や "3,12"、値なしか "all" で全鞍(既定は出さない)')
     ap.add_argument("--uchi-ue", action="store_true",
                     help="kawa の盤面を常に内(ラチ側)が上にする(507db35 より前の向き。既定は内外をスタンドから見た向きに合わせる)")
+    ap.add_argument("--nankan", action="store_true",
+                    help="南関の図と同じ見せ方(鞍の先頭に 逃げ馬/道中で順位が上がる/上がり/穴 道中で下げない の見出し、"
+                         "盤面を前・中・後ろの帯に塗る。--yon と組み合わせる想定。既定は出さない)")
     ap.add_argument("--no-jiten", action="store_true",
                     help="各鞍の下の「データ: 11/15 東京 8Rまでの結果を反映」(当日の結果が何Rまで入っていたか)を出さない")
     ap.add_argument("--circle-each", action="store_true", help="赤丸を1頭ずつ付ける(まとめて1つにしない)")
@@ -2124,8 +2243,9 @@ def main() -> None:
     BASE_DAY_DIRT = _UNSET if a.base_day_dirt is None else (set(a.base_day_dirt.split(",")) if a.base_day_dirt else None)
     BASE_BABA_DIRT = _UNSET if a.base_baba_dirt is None else (set(a.base_baba_dirt.split(",")) if a.base_baba_dirt else None)
     HIDE_PACE.update(int(x) for x in a.hide_pace.split(",") if x.strip().isdigit())
-    global YON_ALL, UCHI_UE, JITEN_OFF
+    global YON_ALL, UCHI_UE, JITEN_OFF, NANKAN
     UCHI_UE = a.uchi_ue
+    NANKAN = a.nankan
     JITEN_OFF = a.no_jiten
     YON_ALL = a.yon.strip() == "all"
     YON.update(int(x) for x in a.yon.split(",") if x.strip().isdigit())
