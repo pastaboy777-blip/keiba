@@ -39,6 +39,20 @@
   着順が無い馬（取消など）は数えから外す。
   渡すと各馬に着順を付け、鞍ごとに「軸候補・相手・消し・残り」から何頭3着内に来たかと、全鞍の合計を出す。
 
+★ `--pace R:S R:M R:H ...` と `--pace-obi`（2026-11-17 に足した**試しの口**。既定ではない）
+  --pace-obi は 2026-11-17 の1日だけを見て足した試しの口。既定ではない。使うかどうかはユーザーが決める。
+  `--pace` の書き方は tenkai_zu.py の --pace と同じ（大文字小文字どちらでも）。ペースは**前日に図で
+  付けた想定**を渡す（実際のペースは前日には分からない）。
+  `--pace-obi` が無いときは `--pace` を渡しても何も変わらない（出力は1バイトも変わらない）。
+  `--pace-obi` があるとき、鞍のペースで軸候補と相手の帯を入れ替える。
+    S（スロー想定）… 軸候補＝中の帯×終い3位以内、相手＝前の帯×終い3位以内
+    H（ハイ想定）  … 軸候補＝前の帯×終い3位以内、相手＝中の帯×終い3位以内（＝今の手順と同じ）
+    M・未指定      … 今の手順と同じ
+  消し（後の帯×終い札なし）はどのペースでも同じ。帯なしは消さない。
+  各鞍の見出しに「ペースS（ペース版：軸＝中の帯）」のように使ったペースを書く。
+  根拠は 11/17 大井1日の観察だけ（スローの鞍の1着は中の帯5・前の帯1、ハイの9〜12Rは不良の特別戦で
+  前の帯が9頭。馬場・クラスと分けられていない）。
+
 ※ 見るのは渡したカードの日だけ（CLAUDE.md 最優先ルール）。何日ぶんもまとめる道具ではない。
 """
 import sys, os, json
@@ -61,11 +75,11 @@ def obi_of(p):
     return '前' if p < 1 / 3 else ('中' if p < 2 / 3 else '後')
 
 
-def grp_of(o, sr):
+def grp_of(o, sr, jiku='前', aite='中'):
     shimai = sr is not None and sr <= 3
-    if o == '前' and shimai:
+    if o == jiku and shimai:
         return '軸候補'
-    if o == '中' and shimai:
+    if o == aite and shimai:
         return '相手'
     if o == '後' and not shimai:
         return '消し'
@@ -111,6 +125,9 @@ def main():
            if g('--cyokyo') else {})
     res = load_res(g('--res'))
     C = json.load(open(a[0]))
+    # --pace / --pace-obi（2026-11-17 の試しの口。--pace-obi が無ければ何もしない）
+    pace_obi = '--pace-obi' in a
+    pace = {k: v.upper() for k, v in Z.kv(a, '--pace').items()} if pace_obi else {}
 
     tot = {k: [0, 0] for k in GRP}          # [頭数, 3着内]
     tot_obi = {k: [0, 0] for k in ('前', '中', '後', 'なし')}
@@ -128,10 +145,12 @@ def main():
             r['srank'] = i
         rv = res.get(R, {})
         cz = cyk.get(R, {})
+        pc = pace.get(R)
+        jiku, aite = ('中', '前') if (pace_obi and pc == 'S') else ('前', '中')
         for r in rows:
             r.setdefault('srank', None)
             r['obi'] = obi_of(r['pos4w'])
-            r['grp'] = grp_of(r['obi'], r['srank'])
+            r['grp'] = grp_of(r['obi'], r['srank'], jiku, aite)
             c, n = rv.get(r['ub'], (None, None))
             r['chaku'] = c
             r['torikesi'] = bool(rv) and c is None
@@ -144,7 +163,16 @@ def main():
         n_kesi += sum(1 for r in live if r['grp'] == '消し')
 
         print('=' * 64)
-        print('%sR  %s%dm  %s  %d頭' % (R, ven, v['dist'], v.get('cls', ''), len(rows)))
+        if pace_obi:
+            if pc == 'S':
+                pz = 'ペースS（ペース版：軸＝中の帯・相手＝前の帯）'
+            elif pc in ('M', 'H'):
+                pz = 'ペース%s（ペース版：今の手順と同じ　軸＝前の帯・相手＝中の帯）' % pc
+            else:
+                pz = 'ペース%s（ペース版：未指定のため今の手順　軸＝前の帯・相手＝中の帯）' % (pc or 'なし')
+            print('%sR  %s%dm  %s  %d頭  %s' % (R, ven, v['dist'], v.get('cls', ''), len(rows), pz))
+        else:
+            print('%sR  %s%dm  %s  %d頭' % (R, ven, v['dist'], v.get('cls', ''), len(rows)))
         for gname in GRP:
             gs = sorted([r for r in rows if r['grp'] == gname],
                         key=lambda r: (r['pos4w'] is None, r['pos4w'] if r['pos4w'] is not None else 9))
@@ -172,7 +200,7 @@ def main():
             tot_obi[k][1] += bool(r['chaku'] and r['chaku'] <= 3)
 
     print('=' * 64)
-    print('合計（%d鞍・取消は除く）' % nR)
+    print('合計（%d鞍・取消は除く）' % nR + ('　※ --pace-obi（ペース版・試しの口）' if pace_obi else ''))
     print('  終い3位以内 %d頭（1鞍あたり %.2f頭）' % (n_shimai, n_shimai / nR if nR else 0))
     print('  消し       %d頭（1鞍あたり %.2f頭）' % (n_kesi, n_kesi / nR if nR else 0))
     for k in GRP:
