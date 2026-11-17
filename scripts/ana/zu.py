@@ -184,11 +184,27 @@ def main():
         print(__doc__); return
     i = a.index('--pace')
     pace = {}
-    for tok in a[i + 1:]:
-        if tok.startswith('--'):
+    # ★ 2026-11-15、`tenkai_zu.kv()` と同じ直し（あちらの★★）。
+    #   `--pace "1:S 2:M"` と引用符でくくって渡すと argv では1トークンになるので、
+    #   **トークンの中の空白もここで分解する**。引用符なしの挙動は何も変わらない
+    #   （空白を含まないトークンは split() で1つに戻るだけ）。
+    #   知らない記号は**黙って進めず止める**（`ZONE[pace[R]]` の KeyError まで待たない）。
+    for raw in a[i + 1:]:
+        toks = raw.split()
+        if not toks or toks[0].startswith('--'):
             break
-        r, p = tok.split(':')
-        pace[r] = p.upper()
+        for tok in toks:
+            if tok.count(':') != 1 or tok.startswith('--'):
+                print('★ 止めました: --pace の `%s` が「鞍:記号」の形になっていません'
+                      % tok, file=sys.stderr)
+                sys.exit(2)
+            r, p = tok.split(':')
+            if not r.isdigit() or p.upper() not in ZONE:
+                print('★ 止めました: --pace の `%s` が読めません。'
+                      '鞍は数字、記号は %s です'
+                      % (tok, ' / '.join(sorted(ZONE))), file=sys.stderr)
+                sys.exit(2)
+            pace[r] = p.upper()
     soto = a[a.index('--soto') + 1] if '--soto' in a else os.path.join(HERE, 'soto.json')
     # ★ 内外の帯は --zone を付けたときだけ。事前の図には引かない（縦は内外ではない）
     zone = '--zone' in a

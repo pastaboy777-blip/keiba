@@ -5,6 +5,7 @@
      --d1:#4e4034  --d2:#453a2e   ← 1回目（少しだけ明るく。色味は砂のまま＝茶系）
      --d1:#6b5948  --d2:#5f4f40   ← 2回目（11/15 同じ指示をもう一度。11/16 大井の図で）
    行きすぎならこの2つを1つ前の値に戻すだけで元に戻る。
+   ※ 2026-11-17 統合 ── 2回目の値は別セッション（elegant-hawking）で入れたもの。統合後もこちら。
    見本の緑は芝の鞍なので真似しない（ユーザーの指示）。
    馬の位置・段・大きさは1pxも動かしていない（色だけ）。 */
 :root{--bg:#0c0c0e;--card:#16161a;--acc:#e8362f;--acc2:#3987e5;--gold:#d8a84a;--grn:#5fe07a;
@@ -45,7 +46,14 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
 .lab{margin-top:-1px;white-space:nowrap}
 .n{display:inline-block;min-width:23px;height:23px;line-height:23px;border-radius:50%;
  border:2px solid;font-size:13px;font-weight:800;vertical-align:middle;margin-right:3px}
-.nm{font-size:10.8px;color:#f6f1e8;font-weight:700;vertical-align:middle;text-shadow:0 1px 4px rgba(0,0,0,.95)}
+/* ★ 2026-11-17、ユーザーの指示 ──「馬名の文字もっとかっこよく」。
+   字そのもの（IPAゴシックしか入っていない）は変えられないので、
+   大きさ・太さ・字間と、芝の上で浮くような縁取りで見せ方を変えた。
+   位置は1pxも動かない（font-size を上げたぶん字幅は変わる）。*/
+.nm{font-size:12.4px;color:#fffaf0;font-weight:900;vertical-align:middle;
+ letter-spacing:.045em;
+ text-shadow:0 0 1px rgba(0,0,0,.9),0 1px 0 rgba(0,0,0,.9),1px 0 0 rgba(0,0,0,.75),
+  -1px 0 0 rgba(0,0,0,.75),0 2px 7px rgba(0,0,0,.95)}
 .upo{display:block;font-size:9.6px;color:#f0b48c;font-weight:800}
 .upi{display:block;font-size:9.6px;color:#5fe07a;font-weight:800}
 .upq{display:block;font-size:9.6px;color:#9fb6cf;font-weight:700}
@@ -87,6 +95,15 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
 .daiyo{display:block;font-size:9px;color:#0c0c0e;background:#d9c7f0;border-radius:3px;
  padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
 
+/* 2026-11-15 追加 ── 道悪（重・不良）の札。ユーザーの見本（JRAの展開図）に
+   各馬へ `道悪○` `道悪×` が付いていたのに合わせたもの。
+   既存の札（.jin / .jout / .nopast / .sente / .daiyo）と同じ形・同じ大きさで、色だけ新しい。
+   既存の札の色は1つも変えていない。 */
+.bao{display:block;font-size:9px;color:#15110d;background:#f5c84a;border-radius:3px;
+ padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
+.bax{display:block;font-size:9px;color:#15110d;background:#c0c0cb;border-radius:3px;
+ padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
+
 /* 2026-11-15 追加 ── --no-pct（人に見せる版）で馬の枠のすぐ上に出す1行。
    ユーザーの見本の画像どおり、小さく・控えめ・左寄せ。
    .track の中には何も足していないので、馬の left/top は1pxも動かない。 */
@@ -109,21 +126,86 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
 /* 2026-11-15 追加 ── ユーザーの指示「**下がラチ沿いと書いて**」。
    どちら側が内（ラチ沿い）かを示す小さな文字。**.track の外**に置くだけなので
    馬の left/top は1pxも動かない（ルール20★・31★）。
-   .rachi    … 枠の上に出す（内が上の鞍）
-   .rachi.d  … 枠の下に出す（上下を返す鞍＝川崎2000m・大井1200m・1400m。ルール43）
-   ％も数字も書かない（ルール47）。止める口は --no-rachi。 */
-.rachi{margin:5px 18px -3px;font-size:10.5px;color:#bdb3a2;font-weight:700;letter-spacing:.1em}
-.rachi.d{margin:-6px 18px 10px}
+   .rachi    … 枠の上端にぴったり寄せる（内が上の鞍）
+   .rachi.d  … 枠の下端にぴったり寄せる（上下を返す鞍＝川崎2000m・大井1200m・1400m。ルール43）
+   ％も数字も書かない（ルール47）。止める口は --no-rachi。
 
-/* 2026-11-15 追加 ── 道悪の札（過去5走の重・不良での3着内）。.sente と同じ形・大きさで色だけ。
-   ○は青緑、×は灰。.track の中の札が1行増えるだけで、馬の left/top は動かない。 */
+   ★ 2026-11-15 に寄せ方を直した。ユーザーの指摘 ──「ラチ沿いの文字が『最初のコーナー
+     ← 左が前』の行の下に潜り込んでいて、**どちらの端を指しているのか分からない**」。
+     上の行（.kd）との間を開け、**枠との間は 0 にする**（.track の margin を打ち消す
+     負の margin。.track は margin:10px 16px 12px）。
+     これで文字が指している端が一目で分かる。**.track の中には何も足していないので
+     馬の left/top は1pxも動かない**（ルール20★・31★）。 */
+.rachi{margin:12px 18px -10px;font-size:10.5px;color:#bdb3a2;font-weight:700;
+ letter-spacing:.1em;line-height:1.25}
+.rachi.d{margin:-12px 18px 12px}
+
+/* 2026-11-15 追加 ── 調教の札（ユーザーの指示「調教も全レース取って」
+   「調子上向きとか　情報載せて」。CLAUDE.md ルール48）。
+   既存の札（.jin / .jout / .nopast / .sente / .daiyo / .bao / .bax）と
+   同じ形・同じ大きさで、色だけ新しい。既存の札の色は1つも変えていない。 */
+/* ★ 2026-11-15、ユーザーの指示 ──「調教上向きとか」
+   「**好調教の馬をわかるようにしたいんだよね**」。
+   他の札（9px・淡い地色）と同じ見た目だと鞍の中で埋もれるので、
+   **この札だけ**を大きく・濃く・縁取りで浮かせる。ひと鞍に1〜2頭しか付かない。
+   下降（.cdn）と追い切りなし（.cno）は地味なまま＝目が上向きに行く。 */
+.cup{display:block;font-size:10.5px;color:#2a1400;background:#ffb020;border-radius:4px;
+ padding:1px 6px;font-weight:900;margin:2px auto 0;width:max-content;
+ box-shadow:0 0 0 1.5px #fff3d0,0 1px 4px rgba(255,176,32,.55);letter-spacing:.02em}
+.cdn{display:block;font-size:9px;color:#0c0c0e;background:#f18fb0;border-radius:3px;
+ padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
+.cno{display:block;font-size:9px;color:#0c0c0e;background:#a9b8d8;border-radius:3px;
+ padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
+.chy{display:block;font-size:9px;color:#15110d;background:#ded6c4;border-radius:3px;
+ padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
+
+/* ★ 2026-11-17、ユーザーの指示（「これで作って！」）。
+   --obi / --nige / --age / --anatag を付けたときだけ使う指定。
+   付けないときは1つも出ないので、これまでの図は1pxも動かない。 */
+.obi{position:absolute;top:0;bottom:0;pointer-events:none}
+.obi.a{background:rgba(255,45,45,.10)}
+.obi.b{background:rgba(255,212,0,.09)}
+.obi.c{background:rgba(120,120,140,.14)}
+.obiL{position:absolute;top:0;bottom:0;width:0;
+ border-left:2px dashed rgba(255,255,255,.55);pointer-events:none}
+.obiT{position:absolute;top:4px;font:800 15px/1 system-ui,sans-serif;letter-spacing:.06em;
+ padding:3px 9px;border-radius:5px;color:#fff;pointer-events:none}
+.obiT.a{background:rgba(255,45,45,.85)}
+.obiT.b{background:rgba(190,150,0,.85)}
+.obiT.c{background:rgba(90,90,105,.85)}
+
+/* 見出しの下に出す行（--nige / --age / --anatag） */
+.hdl{margin:7px 0 2px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hdl .tag{color:#fff;font-weight:900;font-size:15px;padding:5px 14px;border-radius:7px;
+ letter-spacing:.06em;min-width:118px;text-align:center}
+.hdl .tag.nige{background:#1f6fd0}
+.hdl .tag.age{background:#ff2d2d}
+.hdl .tag.shi{background:#2aa057}
+.hdl .tag.ana{background:#ffb020;color:#2a1400}
+.hdl .nmx{font-weight:900;font-size:21px;letter-spacing:.05em;
+ text-shadow:0 1px 5px rgba(0,0,0,.8)}
+.hdl .nmx.nige{color:#8fc2ff}
+.hdl .nmx.age{color:#ff9a9a}
+.hdl .nmx.shi{color:#9fe8bb}
+.hdl .nmx.ana{color:#ffd77a}
+.hdl .non{color:#8a8a99;font-weight:700;font-size:19px}
+
+/* 穴の札（馬の下） */
+.anam{display:block;font-size:11.5px;color:#2a1400;background:#ffb020;border-radius:4px;
+ padding:1px 7px;font-weight:900;margin:2px auto 0;width:max-content;letter-spacing:.03em;
+ box-shadow:0 0 0 1.5px #fff3d0,0 1px 5px rgba(255,176,32,.6)}
+
+/* 2026-11-15 追加（2026-11-17 統合で別セッションから持ってきた）──
+   道悪の札の別判定（--doro-a）。.sente と同じ形・大きさで色だけ。○は青緑、×は灰。
+   既定の道悪の札は .bao / .bax（上）。馬の left/top は動かない。 */
 .doro{display:block;font-size:9px;color:#0c0c0e;background:#5fd6c8;border-radius:3px;
  padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
 .doro.x{background:#9a9aa4;color:#0c0c0e}
 
-/* 2026-11-15 追加 ── 調教の短評（--cyokyo を渡したときだけ）。.sente と同じ形・大きさで色だけ。 */
-/* 同日「調教の文字の大きさ同じにして」「大きくしないで」── 大きさは他の札（.sente）と同じ。色だけ黄。 */
-/* 同日「調教の文字　もう少し大きくして！」── 9px → 10.5px（最初の11.5pxより小さく）。 */
+/* 2026-11-15 追加（2026-11-17 統合で既定の調教の札にした）── 好調教の札「調教☝」。
+   「調教の文字の大きさ同じにして」「大きくしないで」→「調教の文字　もう少し大きくして！」
+   ── 9px → 10.5px（最初の11.5pxより小さく）。色は黄。
+   B の「調教↗ 好調」（.cup）は --cyokyo-b のときだけ。 */
 .cyk{display:block;font-size:10.5px;color:#0c0c0e;background:#ffd23f;border-radius:3px;
  padding:0 6px;font-weight:800;margin:1px auto 0;width:max-content}
 .cyk.x{font-size:9px;padding:0 5px;margin:1px auto 0;background:#9a9aa4;color:#0c0c0e;box-shadow:none;font-weight:800}

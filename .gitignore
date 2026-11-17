@@ -49,3 +49,6 @@ scripts/ana/pos_train.json
 
 # 払戻の取り出し（pay.js）の既定の出力。scratchpad に出すので要らない
 scripts/ana/pay.json
+
+# ワーカーが検証で置く一時コピー（元の版と突き合わせるためのもの。生成物）
+scripts/ana/_*_tmp.py

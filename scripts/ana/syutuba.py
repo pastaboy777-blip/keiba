@@ -71,6 +71,25 @@ PAST = re.compile(
     r"([\d.]+)\s+(\d+)k\s+(\d+)番\s+([\d\-]+)")
 
 
+#  ── 当日のオッズと人気（2026-11-16 に取りこぼしを直した）
+#
+#  楽天の書き方は2通りあって、**いまの大井は後者**。
+#
+#    旧 … 「22.5倍」「6番人気」
+#    今 … `<span class="rate">` のセルに 「22.5 （6人気）」
+#         **`倍` も `番人気` も付かない。括弧は全角。**
+#         1番人気は `<span class="hot">`、最高オッズは `<span class="dark">` で
+#         数字が包まれる（タグを落とせば同じ形になる）。
+#
+#  `倍`／`番人気` を待っていたので、11/16 の card.json が全頭 odds=null / nin=null
+#  になっていた。**両方読む。**
+RATE = re.compile(r'<(span|div)[^>]*class="rate"')
+R_ODDS = re.compile(r"^\s*([\d,]+\.\d+|[\d,]+)")
+R_NIN = re.compile(r"[（(]\s*(\d{1,2})\s*人気\s*[）)]")
+O_BAI = re.compile(r"(\d+\.\d)\s*倍")
+N_BAN = re.compile(r"(\d{1,2})\s*番人気")
+
+
 class Blocked(Exception):
     pass
 
@@ -131,6 +150,55 @@ def profile(blk):
     return jk, tr
 
 
+def inner(h, m):
+    """開始タグ `m` の中身だけを返す（同じ名前の入れ子を数える）。
+
+    `class="rate"` のセルは中に `<span class="hot">` が入ることがあるので、
+    最初の `</span>` で切ると数字が途中で切れる。"""
+    tag = m.group(1)
+    j = h.find(">", m.end())
+    if j < 0:
+        return ""
+    d, k = 1, j + 1
+    for x in re.finditer(r"<(/?)%s\b" % tag, h[k:k + 4000]):
+        d += -1 if x.group(1) else 1
+        if d == 0:
+            return h[k:k + x.start()]
+    return h[k:k + 300]
+
+
+def odds_nin(blk, fb):
+    """（単勝オッズ, 人気）。**前日は欄が空なので (None, None)。**
+
+    ★ 人気として拾ってよいのは出馬表の人気欄だけ（CLAUDE.md ルール34）。
+      同じブロックには過去走の表が並んでいて、そこには
+      そのときの人気「3人」・走破タイム「1:45.2」・馬体重「496k」・
+      着差「(1.6)」・増減「(+4)」が入っている。
+      だから**ブロック全体を数字で探しに行かない**。`class="rate"` のセルの中だけを見る。
+      旧の書き方だけは `倍`／`番人気` という字が付いていて過去走欄には出ないので、
+      そちらに限ってブロック全体から拾ってよい。
+    """
+    o = n = None
+    m = RATE.search(blk)
+    if m:
+        s = flat(inner(blk, m)).strip()
+        mo, mn = R_ODDS.match(s), R_NIN.search(s)
+        if mo:
+            try:
+                o = float(mo.group(1).replace(",", ""))
+            except ValueError:
+                o = None
+        if mn:
+            n = int(mn.group(1))
+    if o is None:                              # 旧「22.5倍」
+        mo = O_BAI.search(fb)
+        o = float(mo.group(1)) if mo else None
+    if n is None:                              # 旧「6番人気」
+        mn = N_BAN.search(fb)
+        n = int(mn.group(1)) if mn else None
+    return o, n
+
+
 def secs(s):
     """走破タイム「1:41.2」「41.2」を秒に。★ 自前半＝走破タイム−上がり3F。
        楽天は前半タイムを出さないが、引き算で出る。"""
@@ -174,13 +242,11 @@ def one(base, R):
         #   減量記号（△▲◇☆★◎）は付いたまま返す（照合側で外す ── CLAUDE.md ルール21★）。
         mjk, mtr = profile(blk)
         # ★ 当日だけ入る欄。前日は空
-        mo = re.search(r"(\d+\.\d)\s*倍", fb)
-        mnk = re.search(r"(\d{1,2})\s*番人気", fb)
+        od, nk = odds_nin(blk, fb)
         mww = re.search(r"\s(\d{3})k?\s*[（(]\s*([-+±]?\d+)\s*[）)]", fb)
         hs.append({"ub": int(mu.group(1)), "waku": int(mw[-1]) if mw else None,
                    "name": mn.group(1).strip(), "past": runs,
-                   "odds": float(mo.group(1)) if mo else None,
-                   "nin": int(mnk.group(1)) if mnk else None,
+                   "odds": od, "nin": nk,
                    "w": int(mww.group(1)) if mww else None,
                    "dw": mww.group(2).replace("±", "+") if mww else None,
                    "jk": mjk, "tr": mtr})

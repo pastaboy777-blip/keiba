@@ -13,8 +13,18 @@ CLAUDE.md ルール3 ──「**馬体重は発走30分前に取り直す**」�
 
   ① `syutuba.py`   出馬表＋過去5走を取る            → card.json
   ② `tenkai_zu.py` 1コーナーの隊列図               → zu.html
-  ③ Chromium       画像にして下の余白を切る         → zu.png（長ければ zu_1.png …）
+  ②' `tenkai_zu.py --chokusen` 直線の隊列図（2枚目）  → zu_choku.html
+  ③ Chromium       画像にして下の余白を切る         → zu.png / zu_choku.png（長ければ _1 _2 …）
   ④ `ninki.py`     1頭1行の表（標準出力にも出す）   → hyo.txt
+  ⑤ `obi.py`       直線の図の3つの帯で 本線／押さえ／消し → obi.txt
+
+  ★ 2026-11-17 統合で ②' と ⑤ を足した（どちらも止める口あり）。
+    --no-chokusen   2枚目（直線の図）を作らない。直線の向きが未確認の場・距離
+                    （tenkai_zu.CHOKU_MUKI に無いもの。いまは大井全距離と川崎2000mだけ）が
+                    範囲にあるときも、言ってから作らずに進む
+    --no-obi-py     ⑤ を走らせない（--no-chokusen でも ⑤ は走る。帯は図と同じ関数で切る）
+    obi.py に渡るもの … --odds --cyokyo --res --swap --pos-nama --choku-median --pos-median
+                        --wakeru（軸候補＝前・相手＝中に分ける形）--pace-obi（--wakeru のときだけ効く）
 
 既定の出力先は
   /tmp/claude-0/-home-user-keiba/<id>/scratchpad/tojitsu/<日付8桁>/
@@ -30,11 +40,24 @@ CLAUDE.md ルール3 ──「**馬体重は発走30分前に取り直す**」�
   --card <json> **出馬表を取り直さない**。既にある card.json で図と表を引き直すだけ。
                 楽天を叩かないので、図を描き直すだけのときはこちら
   --out <dir>   出力先
+  --ab          **同じ鞍を2枚出す**（CLAUDE.md ルール59）。
+                A版 … `--pos-mazeru` あり（地点を混ぜる・いまの既定）→ `<out>/a/`
+                B版 … `--pos-mazeru` なし（地点をそろえる）        → `<out>/b/`
+                **他の口は両版でまったく同じ**にするので、差は「地点をそろえたか」だけ。
+                **出馬表は1回だけ取る** ── A版で取った card.json をB版が `--card` で
+                読み直す（2回引くとオッズが動いて差が地点だけでなくなる）。
+                どちらを既定にするかは**ユーザーが決める**（ルール51・59）。
 
   ★ `tenkai_zu.py` 側の口はそのまま通る ──
     `--pace 7:S` `--ana 7:3,5` `--ana2` `--swap` `--soto` `--uchi` `--flip` `--migi`
-    `--noswap` `--odds` `--res` `note:7=見解` 。
+    `--noswap` `--odds` `--res` `note:7=見解`
+    `--no-agari`（推定の括弧の「・上がり」を出さない）
+    `--no-baba-n`（道悪の札の回数 0/3 を出さない）
+    `--no-marulegend`（「●赤丸＝狙い」の凡例を出さない）。
     `--` のあとに書いたものも全部 `tenkai_zu.py` に渡す。
+    ★ 「鞍:値」を並べる口は**引用符でくくっても空白で区切っても同じ**
+      （`--pace "1:S 2:M"` も `--pace 1:S 2:M` も同じ／2026-11-15 に直した。
+      　それまで引用符つきは**黙って全鞍Mに落ちていた**。`tenkai_zu.kv()` の★★）。
     図の向き（鏡にするか）は**距離から自動**（ルール39・43）。何も渡さなくてよい。
 
 ── 触っていないもの
@@ -66,8 +89,23 @@ CROP_PAD = 40         # 下の余白（背景色と違う最後の行 + これ�
 
 # tenkai_zu.py にそのまま流す口（値を1つ取るもの / 取らないもの）
 ZU_VAL = ('--pace', '--ana', '--ana2', '--swap', '--soto', '--uchi',
-          '--flip', '--migi', '--odds', '--res')
-ZU_FLAG = ('--noswap', '--c4', '--nomb', '--old', '--svg')
+          '--flip', '--migi', '--odds', '--res',
+          # ★ 2026-11-15、調教（CLAUDE.md ルール48・tenkai_zu.py の cyo_tags）。
+          #   `cyokyo.py --json` が出した json をそのまま流す。
+          '--cyokyo')
+ZU_FLAG = ('--noswap', '--c4', '--nomb', '--old', '--svg',
+           # ★ 2026-11-17 統合で足した口（tenkai_zu.py の docstring「統合」の★）
+           '--no-pct', '--no-suitei', '--suitei-agari', '--no-doro', '--doro-a',
+           '--cyokyo-b', '--cyokyo-bun', '--choku-median', '--choku-daiyo',
+           '--obi', '--obi-sen', '--obi-zure', '--nige', '--age', '--anatag', '--sagaru',
+           '--pos-nama', '--pos-median', '--pos-mazeru',
+           '--no-cyokyo', '--cyokyo-hyo',
+           # ★ 2026-11-15、他のプロジェクトの図に合わせて足した3つを止める口
+           #   （tenkai_zu.py の agari / baba_tag / leg の★★）。
+           #   --no-agari … 推定の括弧の「・上がり」を出さない
+           #   --no-baba-n … 道悪の札の回数（0/3）を出さない
+           #   --no-marulegend … 「●赤丸＝狙い」の凡例を出さない
+           '--no-agari', '--no-baba-n', '--no-marulegend')
 
 
 def die(msg, code=2):
@@ -142,13 +180,13 @@ def bottom_of(im):
     return 0
 
 
-def make_png(chrome, html, out_dir, nraces):
+def make_png(chrome, html, out_dir, nraces, name="zu"):
     """HTML → PNG。高さは当てずに、下まで入るまで広げる。8000px超は割る。"""
     from PIL import Image
     Image.MAX_IMAGE_PIXELS = None
-    raw = os.path.join(out_dir, "zu_raw.png")
-    for f in glob.glob(os.path.join(out_dir, "zu.png")) + \
-             glob.glob(os.path.join(out_dir, "zu_[0-9].png")):
+    raw = os.path.join(out_dir, name + "_raw.png")
+    for f in glob.glob(os.path.join(out_dir, name + ".png")) + \
+             glob.glob(os.path.join(out_dir, name + "_[0-9].png")):
         os.remove(f)                      # 前の回の割れた画像を残さない
     h = min(max(1400, 700 * max(1, nraces) + 700), 16000)
     im = None
@@ -169,14 +207,14 @@ def make_png(chrome, html, out_dir, nraces):
     w, ih = im.size
     outs = []
     if ih <= MAX_PNG:
-        p = os.path.join(out_dir, "zu.png")
+        p = os.path.join(out_dir, name + ".png")
         im.save(p)
         outs.append((p, w, ih))
     else:
         n = (ih + MAX_PNG - 1) // MAX_PNG
         for i in range(n):
             y0, y1 = i * MAX_PNG, min(ih, (i + 1) * MAX_PNG)
-            p = os.path.join(out_dir, "zu_%d.png" % (i + 1))
+            p = os.path.join(out_dir, name + "_%d.png" % (i + 1))
             im.crop((0, y0, w, y1)).save(p)
             outs.append((p, w, y1 - y0))
     try:
@@ -198,6 +236,62 @@ def main():
         a, extra = a[:i], a[i + 1:]
     else:
         extra = []
+    if "--ab" in a:                    # 2枚出す（ルール59）。既定の挙動はこの下のまま
+        return run_ab(a, extra)
+    run(a, extra)
+
+
+def strip_val(a, keys):
+    """値を1つ取る口（--out / --card）を並びから抜く。`--ab` の中で差し替えるため。"""
+    out, i = [], 0
+    while i < len(a):
+        if a[i] in keys:
+            i += 2
+            continue
+        out.append(a[i])
+        i += 1
+    return out
+
+
+def run_ab(a, extra):
+    """同じ鞍をA版（地点を混ぜる＝`--pos-mazeru`）とB版（地点をそろえる）の2枚出す。
+
+    CLAUDE.md ルール59 ──「当面、図は鞍ごとに2枚出す。どちらを既定にするかは保留」。
+    **差が「地点をそろえたかどうか」だけになるように**、他の口は両版へそのまま同じ値で渡す。
+    **出馬表は1回だけ取る** ── A版で取った card.json をB版は `--card` で読み直すので、
+    楽天へ行くのは1回だけ（2回引くとオッズが動いて差が地点だけでなくなる）。
+    """
+    a = [t for t in a if t != "--ab"]
+    g = lambda k, d=None: a[a.index(k) + 1] if k in a and a.index(k) + 1 < len(a) else d
+    base = a[0] if a and not a[0].startswith("-") else None
+    card_in = g("--card")
+    # 出力先は `--out` の下に a/ と b/ を作る（`--out` 無しのときの決め方は run() と同じ）
+    root = (g("--out") or os.environ.get("TOJITSU_OUT")
+            or (os.path.dirname(os.path.abspath(card_in)) if card_in and not base
+                else os.path.join(DEF_OUT, (base or "card")[:8])))
+    rest = strip_val(a, ("--out", "--card"))
+    ex = [t for t in extra if t != "--pos-mazeru"]   # A版だけに付ける。重ねない
+    oa, ob = os.path.join(root, "a"), os.path.join(root, "b")
+
+    print("━━ 2枚出します（ルール59。どちらを既定にするかはユーザーが決める）")
+    print("   A版 地点を混ぜる（--pos-mazeru・いまの既定） → %s" % oa)
+    print("   B版 地点をそろえる                          → %s" % ob)
+    print("   ※ 他の口は両版でまったく同じ。出馬表は1回だけ取ります"
+          "（B版はA版の card.json を読み直す）")
+
+    print("\n══════════ A版（地点を混ぜる／--pos-mazeru） ══════════")
+    run(rest + (["--card", card_in] if card_in else []) + ["--out", oa],
+        ex + ["--pos-mazeru"])
+
+    print("\n══════════ B版（地点をそろえる） ══════════")
+    run(rest + ["--card", os.path.join(oa, "card.json"), "--out", ob], ex)
+
+    print("\n━━ 2枚そろいました")
+    print("   A版 %s" % os.path.join(oa, "zu.html"))
+    print("   B版 %s" % os.path.join(ob, "zu.html"))
+
+
+def run(a, extra):
     g = lambda k, d=None: a[a.index(k) + 1] if k in a and a.index(k) + 1 < len(a) else d
 
     base = a[0] if not a[0].startswith("-") else None
@@ -292,6 +386,21 @@ def main():
     import tenkai_zu
     run_mod(tenkai_zu, zu_args)
 
+    # ②' 直線の図（2枚目・--chokusen）── 2026-11-17 統合で足した。--no-chokusen で止める
+    zu2 = os.path.join(out, "zu_choku.html")
+    do2 = "--no-chokusen" not in a
+    if do2:
+        nai = sorted({v["dist"] for v in C.values() if lo <= v["R"] <= hi
+                      and tenkai_zu.choku_muki(ven, v["dist"]) is None})
+        if nai:
+            print("\n②' 直線の図 … この場の直線の向きは未確認（%s %s）なので作りません"
+                  "（向きはユーザーに聞いてから tenkai_zu.CHOKU_MUKI に足す）"
+                  % (ven, "・".join("%dm" % d for d in nai)))
+            do2 = False
+        else:
+            print("\n②' 直線の図（--chokusen。向きは tenkai_zu.CHOKU_MUKI）")
+            run_mod(tenkai_zu, [zu2 if t == zu else t for t in zu_args] + ["--chokusen"])
+
     # ③ 画像 ───────────────────────────────────────
     pngs = []
     if no_img:
@@ -305,6 +414,8 @@ def main():
         else:
             print("\n③ 画像化（%s）" % chrome)
             pngs = make_png(chrome, zu, out, nraces)
+            if do2:
+                pngs += make_png(chrome, zu2, out, nraces, "zu_choku")
             for p, w, h in pngs:
                 print("   %s  %dx%d" % (p, w, h))
 
@@ -319,13 +430,39 @@ def main():
     open(hyo, "w").write(txt)
 
     # ⑤ どこに何ができたか ───────────────────────────
+    # ⑤ 帯（obi.py）── 2026-11-17 統合で足した。--no-obi-py で止める
+    obi_txt = os.path.join(out, "obi.txt")
+    if "--no-obi-py" not in a:
+        print("\n⑤ 直線の図の3つの帯（obi.py。既定は 本線／押さえ／消し／帯なし）\n")
+        import obi
+        oargs = [card, "--ven", ven, "--R", "%d-%d" % (lo, hi)]
+        for k in ("--odds", "--cyokyo", "--res"):
+            if g(k):
+                oargs += [k, g(k)]
+        for k in ("--swap", "--pace"):           # 鞍:値 を並べる口
+            if k in a:
+                oargs.append(k)
+                for tok in a[a.index(k) + 1:]:
+                    if tok.startswith("--") or tok.startswith("note:"):
+                        break
+                    oargs.append(tok)
+        oargs += [k for k in ("--pos-nama", "--choku-median", "--pos-median", "--pos-mazeru",
+                              "--noswap", "--wakeru", "--pace-obi") if k in a or k in extra]
+        otx = run_mod(obi, oargs, quiet=True)
+        print(otx, end="" if otx.endswith("\n") else "\n")
+        open(obi_txt, "w").write(otx)
+
     print("━━ できたもの")
     print("   出馬表   %s" % card)
     print("   図(HTML) %s" % zu)
+    if do2:
+        print("   直線(HTML) %s" % zu2)
     if pngs:
         for p, _, _ in pngs:
             print("   図(PNG)  %s" % p)
     print("   表       %s" % hyo)
+    if "--no-obi-py" not in a:
+        print("   帯       %s" % obi_txt)
     print("   ※ 馬場が出たら --baba を付けて引き直す（ルール27）。"
           "発走30分前にもう一度これを走らせる（ルール3）。")
 
