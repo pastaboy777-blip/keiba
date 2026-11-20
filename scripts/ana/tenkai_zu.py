@@ -361,6 +361,14 @@ CYO_KOTO = True      # 馬名の下の一言（総評）を出すか
 CYO = {}             # --cyokyo で読んだ調教（鞍 → 馬番 → 1頭ぶん）
 
 
+def _ana_nin(r):
+    """穴の札を出してよい人気か。人気が入っていなければ `--ana-nonin` のときだけ通す
+    （2026-11-20、ANA_NONIN の★）。"""
+    if r.get('nin'):
+        return r['nin'] >= ANA_NIN
+    return ANA_NONIN
+
+
 def cyo_tags(z):
     """調教1頭ぶんから札のHTMLを返す。渡されていなければ空（＝何も言わない）。"""
     if not (CYOKYO and z):
@@ -484,6 +492,12 @@ NIGE = False             # --nige
 AGE = False              # --age
 ANATAG = False           # --anatag
 ANA_NIN = 6              # 何番人気以下を穴とみなすか（--ana-nin で変える）
+ANA_NONIN = False        # 人気が入っていない馬にも穴の札を出すか（--ana-nonin）
+                         # ★ 2026-11-20、ユーザーの指摘 ──「穴連発中の」「出してないじゃん」。
+                         #   前日のカードは人気が空なので、人気の条件で全頭が落ちて
+                         #   札が1つも出なかった。この口を付けると、**人気が無い馬**は
+                         #   人気の条件を見ずに「近走の gain ≥ 0」だけで札を出す。
+                         #   人気が入っている馬の扱いは今までどおり（ANA_NIN番人気以下）。
 
 # ★ 場×距離 → **結果ページに記録される角の数**。
 #   `harvest/*_res.json` の `corner_raw` の札の並びを数えて作った（推測ではない）。
@@ -1145,6 +1159,7 @@ def main():
     global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO, SAGARU
     global CYO_KOTO
     global AGARI, BABA_N, CHOKU, OBI, OBI_NONAME, NIGE, AGE, ANATAG, ANA_NIN
+    global ANA_NONIN
     # ★★ 2026-11-16、**直線の図**（上の CHOKU の★★）。ユーザーの指示 ──
     #   「スタートから1コーナー」と「直線」の2枚。2枚目がこれ。
     #   4角で隊列を組み、鞍によらず「左がゴール・上がラチ」で描く。
@@ -1156,6 +1171,7 @@ def main():
     AGE = '--age' in a
     ANATAG = '--anatag' in a
     ANA_NIN = int(g('--ana-nin', '6'))
+    ANA_NONIN = '--ana-nonin' in a   # 人気が空の馬にも穴の札を出す（2026-11-20）
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
     # ★ 2026-11-14 に入れた3つを旧に戻す口（ルール44）。
@@ -1322,7 +1338,7 @@ def main():
             #   マイナスでない馬に出す。**いちばん上**に置いて目立たせる。
             #   人気が入っていない（前日のカード）鞍では何も出ない。
             #   `--plain` では出さない。
-            if (ANATAG and not plain and r.get('nin') and r['nin'] >= ANA_NIN
+            if (ANATAG and not plain and _ana_nin(r)
                     and r.get('gain') is not None and r['gain'] >= 0):
                 so += '<span class="anam">穴　道中で下げない</span>'
             # ★ 道悪の札（2026-11-15・baba_tag の★★）。見本に合わせて**いちばん上**
@@ -1500,11 +1516,12 @@ def main():
                 hdl.append((R, 'shi', '上がり',
                             '　　'.join('%d位 %s' % (r['srank'], _nm(r)) for r in sh)))
             if ANATAG:
-                an = [r for r in rows if r.get('nin') and r['nin'] >= ANA_NIN
+                an = [r for r in rows if _ana_nin(r)
                       and r.get('gain') is not None and r['gain'] >= 0]
                 an.sort(key=lambda r: (r.get('pos_c4') if r.get('pos_c4') is not None else 9))
                 hdl.append((R, 'ana', '穴　道中で下げない',
-                            '　　'.join('%s %d人気' % (_nm(r), r['nin']) for r in an)))
+                            '　　'.join(('%s %d人気' % (_nm(r), r['nin'])) if r.get('nin')
+                                        else _nm(r) for r in an)))
         tmpl = (
             '<div class="race"><div class="rh"><span class="rn">%dR</span>'
             '<span class="rt">%s</span>'
