@@ -1342,7 +1342,8 @@ KB_PAT = [
              r"|降雨があっても|雨が降っても|雨(予報)?(が|は|も)?(歓迎|苦にしない|降ってほしい|降れば)|脚抜きの(いい|良い)馬場(に|なら|が|は|を)"),
     ("良◎", r"良馬場(で|なら|が|の|を|希望|向き|ベスト|理想)|パンパン|乾いた馬場|良(い)?馬場で(走|競馬|や)"),
     ("ハナ", r"ハナ(を|に|へ|は|が|で|だ|主張|切|立|奪|を切|を主張|を取)|先手(を)?(取|主張|奪|必勝)|単騎(逃げ|で逃|の逃|で行)"
-             r"|逃げ(たい|る競馬|の手|に出|て(粘|しぶと|マイペース|淡々)|が理想|が?ベスト|切りたい|れれば|られれば|が決ま|を打|が持ち味|てこそ|に徹)"),
+             r"|逃げ(たい|る競馬|の手|に出|て(粘|しぶと|マイペース|淡々)|が理想|が?ベスト|切りたい|れれば|られれば|が決ま|を打|が持ち味|てこそ|に徹)"
+             r"|(?<![がをもに])逃げ(る|の)(形|競馬|作戦|手)"),   # 「現状は逃げる形がベター」。他馬が逃げる話(が・を・も・に の後)は拾わない
     ("控え", r"控え(たい|て|る形|る競馬|た方|ても|る作戦|させ)|脚を?(ため|溜め|貯め)|溜めて|ためて(の|から|直線|運|弾け|伸び)"
              r"|差し(が利|が決ま|に回|に徹|の形|脚を|て(くる|きた|きまし|伸び)|を生か|馬|で(勝|来|伸))|後方から|追い込み|後ろから"),
 ]
@@ -1516,10 +1517,13 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
         if r.get(k) is None:
             tag = '<span class="knd">過去走なし</span>' + tag
         chev = '<span class="kc" style="color:%s">%s</span>' % (cc, "&laquo;" if flip else "&raquo;")
-        hh.append('<div class="kh" style="left:%.2f%%;top:%dpx"><div class="kf">%s</div>'
-                  '<div class="kl"><span class="kn" style="background:%s;color:%s">%d</span>%s%s</div></div>'
-                  % (x / W * 100, 10 + pad + lane * LN, (chev + fig) if flip else (fig + chev), wc[0], wc[1], r["ub"],
-                     H.escape(r["name"]), tag))
+        # 盤面の右端に近くて札が長い馬だけ、幅の上限を付けて札を折り返す(右端からはみ出さない)。
+        # 目安で外れていない馬は今までと同じ HTML(上限が効かない幅なら見た目も同じ)
+        mw = (';max-width:%.2f%%' % (100 - x / W * 100 - 0.5)) if x + wid(r) - 90 > W else ""
+        hh.append('<div class="kh" style="left:%.2f%%;top:%dpx%s"><div class="kf">%s</div>'
+                  '<div class="kl"%s><span class="kn" style="background:%s;color:%s">%d</span>%s%s</div></div>'
+                  % (x / W * 100, 10 + pad + lane * LN, mw, (chev + fig) if flip else (fig + chev), ' style="flex-wrap:wrap;row-gap:1px"' if mw else "",
+                     wc[0], wc[1], r["ub"], H.escape(r["name"]), tag))
     if not yon:
         _, fc.zone_horses = draw_zone([(r, x, l) for r, x, l in cells], fc, ellipse=True)   # 見解用に計算だけ(描かない)
     ring = ""
