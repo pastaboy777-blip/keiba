@@ -353,6 +353,11 @@ SAGARU = False       # ▼4角までに下がる の札を出すか
                      # ★ 2026-11-17、ユーザーの指示 ──「4角までに下がるというのは
                      #   いらない消して これから」。既定で出さない。--sagaru で戻る。
 CYO_HYO = False      # 総評の一言も札にするか（--cyokyo-hyo で出す）
+CYO_KOTO = True      # 馬名の下の一言（総評）を出すか
+                     # ★ 2026-11-20、ユーザーの指示 ──「1R馬名コメントなしで出して」。
+                     #   `--no-hitokoto` で、矢印が付いた馬に添えていた一言
+                     #   （「単走の割に動く」など）を出さない。矢印（調教↗ 好調）・
+                     #   追い切りなし の札はそのまま残る。既定は今までどおり出す。
 CYO = {}             # --cyokyo で読んだ調教（鞍 → 馬番 → 1頭ぶん）
 
 
@@ -375,7 +380,7 @@ def cyo_tags(z):
     #   総評の一言は**矢印が付いた馬（↗／↓）にだけ**小さく添える。
     #   → （平行）の馬には何も出さない ── 全頭に札が付くと「ひと目で」が消えるため。
     #   `--cyokyo-hyo` を付けたときだけ全頭に出す（短評や各ハロンの数字は出さない）。
-    if z.get('tanpyo') and (CYO_HYO or yaji):
+    if z.get('tanpyo') and CYO_KOTO and (CYO_HYO or yaji):
         s += '<span class="chy">%s</span>' % html.escape(z['tanpyo'])
     return s
 
@@ -1138,6 +1143,7 @@ def main():
     VFLIP = {('川崎', 2000), ('大井', 1200), ('大井', 1400), ('大井', 2400)}
     global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, NOPAST_CENTER
     global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO, SAGARU
+    global CYO_KOTO
     global AGARI, BABA_N, CHOKU, OBI, OBI_NONAME, NIGE, AGE, ANATAG, ANA_NIN
     # ★★ 2026-11-16、**直線の図**（上の CHOKU の★★）。ユーザーの指示 ──
     #   「スタートから1コーナー」と「直線」の2枚。2枚目がこれ。
@@ -1181,6 +1187,7 @@ def main():
     CYOKYO = '--no-cyokyo' not in a
     SAGARU = '--sagaru' in a          # ▼の札を元に戻す口
     CYO_HYO = '--cyokyo-hyo' in a
+    CYO_KOTO = '--no-hitokoto' not in a   # 馬名の下の一言を出さない口（2026-11-20）
     CYO = json.load(open(g('--cyokyo'))) if g('--cyokyo') else {}
     # ★ 2026-11-15、ユーザーの指示 ──**両方の向きを本人が言っている**（迷ったらこの2つ）
     #     1R（大井**1200m**＝VFLIP）を見て  ──「**下がラチ沿いと書いて**」
