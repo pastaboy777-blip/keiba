@@ -50,7 +50,8 @@ def fetch(path, cache=None):
     body = body[:m.start()] if m else body
     if code != "200":
         raise Stop(f"HTTP {code} {path}")
-    if cache:
+    # 「まだ提供を開始していない」ページは残さない(残すと公開後の再実行でも空のまま読まれる)
+    if cache and "指定されたページは存在しません" not in body:
         os.makedirs(os.path.dirname(cache), exist_ok=True)
         with open(cache, "w", encoding="utf-8") as f:
             f.write(body)
