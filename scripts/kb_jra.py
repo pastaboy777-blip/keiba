@@ -79,7 +79,8 @@ def races_from_nittei(h):
     """日程ページから [(kb_id, place)]。場名は直前の『◯◯N日目』見出しで決める。"""
     heads = [(m.start(), m.group(1)) for m in re.finditer(r"(%s)\d+日目" % "|".join(PLACES), h)]
     code2place = {}
-    for m in re.finditer(r"/cyuou/cyokuzen/(\d{12})", h):
+    # 直前ページ(cyokuzen)は当日にならないと載らない。前日は出馬表・調教(syutuba/cyokyo)のリンクで場を決める
+    for m in re.finditer(r"/cyuou/[a-z]+(?:/\d+)*/(\d{12})", h):
         rid = m.group(1)
         prev = [p for pos, p in heads if pos < m.start()]
         if prev and rid[6:8] not in code2place:
