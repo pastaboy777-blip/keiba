@@ -1155,6 +1155,12 @@ def main():
     #     最初に記録される角が「１周３角」でスタート直後（ルール45の6段コース）。
     #     **MIRROR には足さない** ── 鏡にはしない（前は右）。上下だけ返す（内が下）。
     VFLIP = {('川崎', 2000), ('大井', 1200), ('大井', 1400), ('大井', 2400)}
+    #   ★ 2026-11-21、**浦和を足した**。この図で初めて浦和を描くので向きを聞いた。
+    #     ユーザーの答え ──「**全距離とも右が前**」「**ラチ沿いが下**」。
+    #     左右は返さない（MIRROR に入れない＝前は右）。上下だけ返す（内が下）。
+    #     大井1200m・1400m・2400mと同じ扱い。**距離ごとではなく場ぜんぶ**なので
+    #     VFLIP_VEN で持つ（11/24 は 800m・1400m・1500m・2000m の4つ）。
+    VFLIP_VEN = {'浦和'}
     global OLD_C4, OLD_NOMB, POS_MEDIAN, FUTATSU, SWAPDU, NOPAST_CENTER
     global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO, SAGARU
     global CYO_KOTO
@@ -1292,7 +1298,8 @@ def main():
             flip.add(R)
         drawn.append(R)
         dists.append(v['dist'])
-        vf = (ven, v['dist']) in VFLIP     # 段の順も返すか（川崎2000m・大井1200m・1400m）
+        # 段の順も返すか（川崎2000m・大井1200m・1400m・2400m。浦和は全距離＝VFLIP_VEN）
+        vf = ((ven, v['dist']) in VFLIP) or (ven in VFLIP_VEN)
         # ★★ 2026-11-16、**直線の図は鞍によらず「右がゴール・上がラチ」で固定**
         #   （ユーザーの言葉 ──「向き逆ね右がゴールでラチ沿いが上」。上の CHOKU の★★②）。
         #   左右は**鏡にしない**（＝前が右・赤い線が右端・馬の絵と矢印は右向き）、
