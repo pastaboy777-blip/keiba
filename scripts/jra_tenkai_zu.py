@@ -256,8 +256,39 @@ def build(past: dict, waku: dict, *, place: str, dist: int, surface: str, baba: 
     rk = {r["ub"]: i + 1 for i, r in enumerate(sorted([r for r in rows if r["ag"] is not None],
                                                      key=lambda r: (r["ag"], -r["nag"], r["ub"])))}
     apply_position_model(rows, field, fc, dist=dist, surface=surface)
+    if not JOUKEN_USHIRO and mark_jouken_nashi(rows, past, dist=dist, surface=surface):
+        rk = {r["ub"]: i + 1 for i, r in enumerate(sorted([r for r in rows if r["ag"] is not None],
+                                                         key=lambda r: (r["ag"], -r["nag"], r["ub"])))}
     mark_kouho(rows, place=place, dist=dist, surface=surface)
     return fc, rows, rk
+
+
+JOUKEN_USHIRO = False   # --jouken-ushiro: 条件の材料なしの馬を特別扱いしない(前の置き方・判定に戻す)
+
+
+def mark_jouken_nashi(rows, past, *, dist, surface):
+    """条件の材料なし(ユーザー了承 2026-11-22): 過去走はあるが、今日と同じ芝ダ・距離±400m(上がりの距離帯と同じ物差し)の
+    過去走が近5走(位置モデルが使う走と同じ)に1走もない馬(例 11/21 福島12R ⑭ 近5走はダ1700のみで芝1200)。
+    障害の走は芝ダが違うので数えない。
+    前後の予想(pos1・pos・pos3)・gain・hana・ag(上がり) を r["_raw"] に退避して None にする → 盤面では過去走なしと同じく中団に置き、
+    見出し・荒れ方・候補の判定からは外れる。他馬の pos1・pos の値は変えない(引き伸ばし直さない)。
+    条件の材料もある馬が2頭未満の鞍では付けない(中団の基準が取れない)。"""
+    cand = []
+    for r in rows:
+        if r.get("pos") is None:
+            continue
+        v = past[r["ub"]]
+        if not any(x.get("surface") == surface and abs(x["dist"] - dist) <= 400 for x in v["runs"]):
+            cand.append(r)
+    if not cand or sum(1 for r in rows if r.get("pos") is not None) - len(cand) < 2:
+        return False
+    for r in cand:
+        r["jnashi"] = True
+        r["_raw"] = {key: r.get(key) for key in ("pos1", "pos", "pos3", "gain", "hana", "ag")}
+        r["pos"] = r["gain"] = r["ag"] = None   # 元から必ずある鍵は None に
+        for key in ("pos1", "pos3", "hana"):   # 「"pos1" in r」で見る所があるので鍵ごと外す
+            r.pop(key, None)
+    return True
 
 
 KOUHO_OFF = False   # --no-kouho
@@ -671,6 +702,15 @@ def lateral_layout(rows, fc, n, *, band=0.10, min_gap=104, key="pos"):
         if js:
             out[r["ub"]] += 0.74 * (js["outer_rate"] - 0.431)
         r["outer_score"] = out[r["ub"]]
+    for r in rows:   # 条件の材料なしの馬: 内外は退避した前後の値で今と同じ内外モデルから(盤面の並びの組には入れない)
+        raw = r.get("_raw") or {}
+        if r.get(key) is None and raw.get(key) is not None:
+            f = {"1": 1.0, "gate": (r["ub"] - 1) / max(1, n - 1), "out_rate": 0.43, "n_lat": 0.0,
+                 "nige": fc.styles[r["ub"]].nige_rate, "front": raw[key], "field": n / 18}
+            r["outer_score"] = sum(w[k] * f[k] for k in w)
+            js = jockey_stat(r.get("jockey"))
+            if js:
+                r["outer_score"] += 0.74 * (js["outer_rate"] - 0.431)
     groups, cur, head = [], [], None
     for r in hs:
         if head is None or head - r[key] <= band:
@@ -1451,8 +1491,8 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
 
     def wid(r):   # 名前と札の幅の目安(札1つ +58px)。右隣の馬の名前に札がかからないように
         if yon:   # 2枚目は札を付けない(番号と馬名だけ。過去走なしの札だけ残す)
-            return G + 8 * max(0, len(r.get("name") or "") - 7) + (58 if r.get(k) is None else 0)
-        nt = (1 if kikou_tag(r["ub"]) else 0) + (1 if r.get(k) is None else 0) + (1 if lb0 else 0)
+            return G + 8 * max(0, len(r.get("name") or "") - 7) + ((80 if r.get("jnashi") else 58) if r.get(k) is None else 0)
+        nt = (1 if kikou_tag(r["ub"]) else 0) + (1 if r.get(k) is None else 0) + (1 if lb0 else 0) + (0.4 if r.get("jnashi") else 0)
         nk = len(kb_list(r["ub"], r.get("name")))   # 厩舎の話の札(短いので 1つ +40px)
         nkh = 0 if KOUHO_OFF else len(r.get("kouho") or [])   # 候補の札(1つ +50px)
         return G + 8 * max(0, len(r.get("name") or "") - 7) + 58 * nt + 40 * nk + 50 * nkh + (66 if r["ub"] in ANA else 0)
@@ -1462,23 +1502,27 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
     # 過去走が無い馬(nod)の前後: 既定は、過去走のある馬が2頭以上いれば その鞍の他馬の予想位置(k)の中央値=中団に
     # 「材料なし」の札で置く(11/22 マイルCS①エルデナリを最後方に置いて勝たれた)。
     # --nashi-ushiro か、過去走のある馬が2頭未満(新馬戦など)なら前のまま(横に散らす。1頭なら最後方)。
+    # 条件の材料なし(r["jnashi"]、mark_jouken_nashi)の馬も同じく中団に置く(--jouken-ushiro なら印が付かず前のまま)。
     known_k = [r[k] for r in rows if r.get(k) is not None]
-    naka = (not NASHI_USHIRO) and len(known_k) >= 2 and bool(nod)
+    to_mid = lambda r: bool(r.get("jnashi")) or not NASHI_USHIRO  # noqa: E731
+    naka = len(known_k) >= 2 and any(to_mid(r) for r in nod)
 
     def place(mid):
         lanes, cells = [], []
         order = hs
+        spread = [r for r in nod if not (mid and to_mid(r))]   # 横に散らす馬(前の置き方)
         if mid:   # 中団の馬も前から順に置く(段の詰め方が前から順なので)。同じ値なら過去走のある馬が先
             fv = st.median(known_k)
-            order = sorted(hs, key=lambda r: (-(r[k] if r.get(k) is not None else fv), r.get(k) is None))
+            order = sorted(hs, key=lambda r: ((0, -r[k], 0) if r.get(k) is not None else
+                                             (0, -fv, 1) if to_mid(r) else (1, spread.index(r), 0)))
         for r in order:   # 前の馬から順に置く
             if r.get(k) is not None:
                 f = r[k]
-            elif mid:
+            elif mid and to_mid(r):
                 f = fv
             else:   # 過去走が無い馬は並びが読めないので、横に散らして置く(馬番順)
-                j = nod.index(r)
-                f = (0.9 - 0.8 * j / max(1, len(nod) - 1)) if len(nod) > 1 else 0.0
+                j = spread.index(r)
+                f = (0.9 - 0.8 * j / max(1, len(spread) - 1)) if len(spread) > 1 else 0.0
             x = P + (1 - f) * span if flip else P + f * span   # flip: 左が前(スタンドから見て右→左に走る)
             i = 0 if r.get("outer_score", 0) <= med else 1
             while True:
@@ -1535,7 +1579,8 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
         if yon:
             tag = ""
         if r.get(k) is None:
-            tag = (('<span class="knd" style="%s">材料なし</span>' % NASHI_STYLE) if naka
+            tag = (('<span class="knd" style="%s">条件の材料なし</span>' % NASHI_STYLE) if r.get("jnashi") else
+                   ('<span class="knd" style="%s">材料なし</span>' % NASHI_STYLE) if (naka and to_mid(r))
                    else '<span class="knd">過去走なし</span>') + tag
         chev = '<span class="kc" style="color:%s">%s</span>' % (cc, "&laquo;" if flip else "&raquo;")
         # 盤面の右端に近くて札が長い馬だけ、幅の上限を付けて札を折り返す(右端からはみ出さない)。
@@ -1717,9 +1762,12 @@ def kawa_memo(fc, rows, rk, dist, surface) -> str:
     top = sorted((u for u, v in rk.items() if v <= 2), key=lambda u: rk[u])
     if top:
         out.append("終い一番手は%s" % "".join(circ(u) for u in top))
-    nodata = [r for r in rows if r.get(k) is None]
+    nodata = [r for r in rows if r.get(k) is None and not r.get("jnashi")]
     if nodata:
         out.append("%sは過去走が無く材料が薄い" % "".join(circ(r["ub"]) for r in nodata))
+    jn = [r for r in rows if r.get("jnashi")]
+    if jn:
+        out.append("%sは近5走に今日の芝ダ・距離帯(±400m)の走が無い(条件の材料なし)" % "".join(circ(r["ub"]) for r in jn))
     return "。".join(out) + "。"
 
 
@@ -2244,6 +2292,9 @@ def main() -> None:
     ap.add_argument("--nashi-ushiro", action="store_true",
                     help="過去走のない馬を最後方(横に散らす)に置き、札を「過去走なし」にする(前の置き方に戻す。"
                          "既定は過去走のある馬が2頭以上いれば中団に「材料なし」で置く)")
+    ap.add_argument("--jouken-ushiro", action="store_true",
+                    help="条件の材料なし(同じ芝ダ・距離±400mの過去走が無い馬)を特別扱いしない(前の置き方・判定に戻す。"
+                         "既定は中団に「条件の材料なし」で置き、見出し・荒れ方・候補の判定から外す)")
     ap.add_argument("--no-jiten", action="store_true",
                     help="各鞍の下の「データ: 11/15 東京 8Rまでの結果を反映」(当日の結果が何Rまで入っていたか)を出さない")
     ap.add_argument("--circle-each", action="store_true", help="赤丸を1頭ずつ付ける(まとめて1つにしない)")
@@ -2277,8 +2328,9 @@ def main() -> None:
     BASE_DAY_DIRT = _UNSET if a.base_day_dirt is None else (set(a.base_day_dirt.split(",")) if a.base_day_dirt else None)
     BASE_BABA_DIRT = _UNSET if a.base_baba_dirt is None else (set(a.base_baba_dirt.split(",")) if a.base_baba_dirt else None)
     HIDE_PACE.update(int(x) for x in a.hide_pace.split(",") if x.strip().isdigit())
-    global YON_ALL, UCHI_UE, JITEN_OFF, NANKAN, OBI, NASHI_USHIRO
+    global YON_ALL, UCHI_UE, JITEN_OFF, NANKAN, OBI, NASHI_USHIRO, JOUKEN_USHIRO
     NASHI_USHIRO = a.nashi_ushiro
+    JOUKEN_USHIRO = a.jouken_ushiro
     UCHI_UE = a.uchi_ue
     NANKAN = a.nankan
     OBI = a.obi
