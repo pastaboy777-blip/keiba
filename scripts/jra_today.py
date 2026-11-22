@@ -6,6 +6,7 @@
     python3 scripts/jra_today.py --date 2026-11-15 --place 東京 --yon 12 --png   # 12R に4コーナーの盤面も付ける
     python3 scripts/jra_today.py --date 2026-11-15 --uchi-ue --no-fetch   # 盤面を常に内が上に(朝の config の uchi_ue も持ち越す)
     python3 scripts/jra_today.py --date 2026-11-15 --place 東京 --yon 12 --nankan --png   # 南関の図の見せ方(朝の config の nankan も持ち越す)
+    python3 scripts/jra_today.py --date 2026-11-23 --no-fetch --nashi-ushiro   # 過去走のない馬を前のとおり最後方に(朝の config の nashi_ushiro も持ち越す)
 
 1) 結果ページ(月 → 開催日 → レース)から、その日の終わった鞍を data/jra/races.jsonl に足す(3秒間隔、済みは飛ばす)
 2) data/jra/all_YYYYMMDD.jsonl = 出馬表(data/jra/shutuba_YYYYMMDD.jsonl。先頭) + 取り込み後の races.jsonl
@@ -75,6 +76,7 @@ def main():
     ap.add_argument("--uchi-ue", action="store_true", help="盤面を常に内(ラチ側)が上にする(jra_tenkai_zu.py --uchi-ue)")
     ap.add_argument("--nankan", action="store_true", help="南関の図と同じ見せ方(jra_tenkai_zu.py --nankan)。朝の config の \"nankan\" は mark_args で持ち越す")
     ap.add_argument("--obi", action="store_true", help="--nankan の盤面に前・中・後ろの帯を塗る(jra_tenkai_zu.py --obi)。朝の config の \"obi\" は mark_args で持ち越す")
+    ap.add_argument("--nashi-ushiro", action="store_true", help="過去走のない馬を前のとおり最後方に置く(jra_tenkai_zu.py --nashi-ushiro)。朝の config の \"nashi_ushiro\" は mark_args で持ち越す")
     ap.add_argument("--no-fetch", action="store_true", help="結果を取りに行かず、作り直しだけ")
     a = ap.parse_args()
     ymd = a.date.replace("-", "")
@@ -164,6 +166,8 @@ def main():
             cmd.append("--nankan")
         if a.obi and "--obi" not in cmd:
             cmd.append("--obi")
+        if a.nashi_ushiro and "--nashi-ushiro" not in cmd:
+            cmd.append("--nashi-ushiro")
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode != 0:
             sys.stderr.write(r.stderr[-3000:])

@@ -1442,7 +1442,7 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
     lateral_layout(rows, fc, n, key=k, band=0.07)
     hs = sorted([r for r in rows if r.get(k) is not None], key=lambda r: -r[k])
     med = st.median(r.get("outer_score", 0) for r in hs) if hs else 0
-    nod = [r for r in rows if r.get(k) is None]          # 過去走が無い馬も描く(後方に置いて札)
+    nod = [r for r in rows if r.get(k) is None]          # 過去走が無い馬も描く(既定は中団に「材料なし」の札。--nashi-ushiro で後方)
     hs += nod
     W, P, G = 940, 22, 138    # 盤面の幅の目安(px)。置くときは % に直すので画面幅が違っても切れない
     lb0 = (getattr(fc, "lane", None) or (None,))[0]
@@ -1459,30 +1459,50 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
     flip = (yon_front_is_left(globals().get("_CUR_PLACE")) if yon else
             front_is_left(globals().get("_CUR_PLACE"), globals().get("_CUR_SURF"), globals().get("_CUR_DIST")))
     span = W - 2 * P - 130
-    lanes, cells = [], []
-    for r in hs:   # 前の馬から順に置く
-        if r.get(k) is not None:
-            f = r[k]
-        else:   # 過去走が無い馬は並びが読めないので、横に散らして置く(馬番順)
-            j = nod.index(r)
-            f = (0.9 - 0.8 * j / max(1, len(nod) - 1)) if len(nod) > 1 else 0.0
-        x = P + (1 - f) * span if flip else P + f * span   # flip: 左が前(スタンドから見て右→左に走る)
-        i = 0 if r.get("outer_score", 0) <= med else 1
-        while True:
-            while len(lanes) <= i:
-                lanes.append(None)
-            if flip:   # 前の馬(左)の名前の右端より右に置く
-                ok = lanes[i] is None or x > lanes[i] - 4
-            else:      # 前の馬(右)の左端より、自分の名前の右端が左
-                ok = lanes[i] is None or x + wid(r) < lanes[i] + 4
-            if ok:
-                lanes[i] = x + wid(r) if flip else x
-                cells.append((r, x, i))
-                break
-            i += 1
+    # 過去走が無い馬(nod)の前後: 既定は、過去走のある馬が2頭以上いれば その鞍の他馬の予想位置(k)の中央値=中団に
+    # 「材料なし」の札で置く(11/22 マイルCS①エルデナリを最後方に置いて勝たれた)。
+    # --nashi-ushiro か、過去走のある馬が2頭未満(新馬戦など)なら前のまま(横に散らす。1頭なら最後方)。
+    known_k = [r[k] for r in rows if r.get(k) is not None]
+    naka = (not NASHI_USHIRO) and len(known_k) >= 2 and bool(nod)
+
+    def place(mid):
+        lanes, cells = [], []
+        order = hs
+        if mid:   # 中団の馬も前から順に置く(段の詰め方が前から順なので)。同じ値なら過去走のある馬が先
+            fv = st.median(known_k)
+            order = sorted(hs, key=lambda r: (-(r[k] if r.get(k) is not None else fv), r.get(k) is None))
+        for r in order:   # 前の馬から順に置く
+            if r.get(k) is not None:
+                f = r[k]
+            elif mid:
+                f = fv
+            else:   # 過去走が無い馬は並びが読めないので、横に散らして置く(馬番順)
+                j = nod.index(r)
+                f = (0.9 - 0.8 * j / max(1, len(nod) - 1)) if len(nod) > 1 else 0.0
+            x = P + (1 - f) * span if flip else P + f * span   # flip: 左が前(スタンドから見て右→左に走る)
+            i = 0 if r.get("outer_score", 0) <= med else 1
+            while True:
+                while len(lanes) <= i:
+                    lanes.append(None)
+                if flip:   # 前の馬(左)の名前の右端より右に置く
+                    ok = lanes[i] is None or x > lanes[i] - 4
+                else:      # 前の馬(右)の左端より、自分の名前の右端が左
+                    ok = lanes[i] is None or x + wid(r) < lanes[i] + 4
+                if ok:
+                    lanes[i] = x + wid(r) if flip else x
+                    cells.append((r, x, i))
+                    break
+                i += 1
+        return lanes, cells
+    lanes, cells = place(naka)
+    # 見解用の帯(draw_zone)は前の置き方で計算する(中団に置いた馬で他馬の判定が変わらないように)
+    zone_cells = place(False)[1] if naka else None
     if inner_is_down(globals().get("_CUR_PLACE"), flip):   # 内が下の向き: 段の並びを上下に返すだけ(どの馬がどの段かは同じ)
         nl = max(1, len(lanes))
         cells = [(r, x, nl - 1 - i) for r, x, i in cells]
+        if zone_cells is not None:
+            nl0 = max(1, max((i for _, _, i in zone_cells), default=0) + 1)
+            zone_cells = [(r, x, nl0 - 1 - i) for r, x, i in zone_cells]
         inv = True
     else:
         inv = False
@@ -1515,7 +1535,8 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
         if yon:
             tag = ""
         if r.get(k) is None:
-            tag = '<span class="knd">過去走なし</span>' + tag
+            tag = (('<span class="knd" style="%s">材料なし</span>' % NASHI_STYLE) if naka
+                   else '<span class="knd">過去走なし</span>') + tag
         chev = '<span class="kc" style="color:%s">%s</span>' % (cc, "&laquo;" if flip else "&raquo;")
         # 盤面の右端に近くて札が長い馬だけ、幅の上限を付けて札を折り返す(右端からはみ出さない)。
         # 目安で外れていない馬は今までと同じ HTML(上限が効かない幅なら見た目も同じ)
@@ -1525,7 +1546,8 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
                   % (x / W * 100, 10 + pad + lane * LN, mw, (chev + fig) if flip else (fig + chev), ' style="flex-wrap:wrap;row-gap:1px"' if mw else "",
                      wc[0], wc[1], r["ub"], H.escape(r["name"]), tag))
     if not yon:
-        _, fc.zone_horses = draw_zone([(r, x, l) for r, x, l in cells], fc, ellipse=True)   # 見解用に計算だけ(描かない)
+        _, fc.zone_horses = draw_zone([(r, x, l) for r, x, l in (cells if zone_cells is None else zone_cells)],
+                                      fc, ellipse=True)   # 見解用に計算だけ(描かない)
     ring = ""
     want = CIRCLE.get(globals().get("_CUR_RNO"), set())
     sel = [(x, lane) for r, x, lane in cells if r["ub"] in want]
@@ -1568,6 +1590,8 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
 # 鞍の先頭に見出し(日付・場・馬場／展開予想／逃げ馬／道中で順位が上がる／上がり／穴 道中で下げない)、
 # --obi を付けたときだけ盤面を前・中・後ろの帯(頭数で3等分)に薄く塗る。--nankan なしの HTML は前と1バイトも変わらない。
 NANKAN = False
+NASHI_USHIRO = False   # --nashi-ushiro: 過去走のない馬を前のとおり最後方(横に散らす)に置き、札も「過去走なし」に戻す
+NASHI_STYLE = "background:#ff9f1a;color:#111;font-weight:900;font-size:10px;padding:1px 5px"   # 「材料なし」の札
 OBI = False   # --obi: --nankan の盤面に前・中・後ろの帯を塗る(既定は出さない。ユーザー 2026-11-17「あんまり帯意味ないね」)
 NK_PAD = 20   # 盤面の上に帯のラベルを置く余白(px)。1角・4角の両方で同じだけ下げて高さを揃える
 
@@ -2217,6 +2241,9 @@ def main() -> None:
                          "--yon と組み合わせる想定。既定は出さない)")
     ap.add_argument("--obi", action="store_true",
                     help="--nankan の盤面を前・中・後ろの帯(頭数で3等分)に塗り、帯のラベルを付ける(既定は出さない)")
+    ap.add_argument("--nashi-ushiro", action="store_true",
+                    help="過去走のない馬を最後方(横に散らす)に置き、札を「過去走なし」にする(前の置き方に戻す。"
+                         "既定は過去走のある馬が2頭以上いれば中団に「材料なし」で置く)")
     ap.add_argument("--no-jiten", action="store_true",
                     help="各鞍の下の「データ: 11/15 東京 8Rまでの結果を反映」(当日の結果が何Rまで入っていたか)を出さない")
     ap.add_argument("--circle-each", action="store_true", help="赤丸を1頭ずつ付ける(まとめて1つにしない)")
@@ -2250,7 +2277,8 @@ def main() -> None:
     BASE_DAY_DIRT = _UNSET if a.base_day_dirt is None else (set(a.base_day_dirt.split(",")) if a.base_day_dirt else None)
     BASE_BABA_DIRT = _UNSET if a.base_baba_dirt is None else (set(a.base_baba_dirt.split(",")) if a.base_baba_dirt else None)
     HIDE_PACE.update(int(x) for x in a.hide_pace.split(",") if x.strip().isdigit())
-    global YON_ALL, UCHI_UE, JITEN_OFF, NANKAN, OBI
+    global YON_ALL, UCHI_UE, JITEN_OFF, NANKAN, OBI, NASHI_USHIRO
+    NASHI_USHIRO = a.nashi_ushiro
     UCHI_UE = a.uchi_ue
     NANKAN = a.nankan
     OBI = a.obi
