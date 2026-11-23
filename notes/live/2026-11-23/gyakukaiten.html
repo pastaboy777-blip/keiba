@@ -1,0 +1,203 @@
+<!doctype html><html lang=ja><head><meta charset=utf-8>
+<title>逆回転 支点の入れ替わり</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0a;color:#e8e6e3;width:1440px;padding:46px 54px 38px;
+ font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1{font-size:44px;font-weight:800;letter-spacing:.01em}
+h1 .ac{color:#d95926}
+.lead{margin-top:20px;font-size:21px;line-height:1.95;color:#cfccc8;max-width:1300px}
+.lead b{color:#fff}
+h2.sec{font-size:30px;font-weight:800;margin:40px 0 4px}
+h2.sec small{font-size:17px;font-weight:500;color:#8e8a84;margin-left:16px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:18px}
+.panel{background:#0e0e0d;border:1px solid #232320;border-radius:14px;padding:24px 26px 20px}
+.panel h3{font-size:25px;font-weight:800;margin-bottom:3px}
+.panel .sub{font-size:16px;color:#8e8a84;margin-bottom:8px}
+.panel.us h3{color:#5ba3d9} .panel.eu h3{color:#ff8a5c}
+.cap{margin-top:12px;font-size:19px;line-height:1.85;color:#cfccc8}
+.cap b{color:#fff}
+.key{display:inline-block;font-size:14px;font-weight:700;padding:4px 11px;border-radius:5px;
+ margin-right:8px;vertical-align:2px}
+.key.fix{background:#d95926;color:#fff}
+.key.mov{background:#1d3f57;color:#9ed0f5}
+.key.mov2{background:#4a2a18;color:#ffb48a}
+.box{background:#0e0e0d;border:1px solid #232320;border-radius:14px;padding:24px 28px;margin-top:18px}
+.box .note{font-size:16px;color:#8e8a84;margin-bottom:14px;line-height:1.8}
+table{width:100%;border-collapse:collapse}
+td{padding:13px 14px;border-bottom:1px solid #1d1d1a;font-size:20px;
+ font-variant-numeric:tabular-nums}
+td.k{font-weight:800;color:#fff;width:400px}
+td.v{font-weight:800;font-size:27px;width:140px;text-align:right}
+td.c{color:#a5a19b;font-size:17px}
+tr.hl td.v{color:#ff8a5c} tr.hl td.k{color:#ff8a5c}
+tr.dim td{color:#8e8a84} tr.dim td.v{color:#8e8a84;font-size:24px}
+footer{margin-top:30px;padding-top:22px;border-top:1px solid #262622;
+ font-size:18px;line-height:1.95;color:#a5a19b}
+footer b{color:#fff} footer .hl{color:#ff8a5c;font-weight:700}
+.sig{text-align:right;color:#6f6b66;font-size:15px;margin-top:22px}
+</style></head><body>
+
+<h1>なぜ追い方が<span class=ac>逆回転</span>になるのか</h1>
+
+<p class=lead>
+脚は「股関節 — 膝 — 足首 — 鐙」とつながった棒。<b>どこを固定するかで、どこが回るかが決まる。</b><br>
+支点が下腿という1本の骨の、反対の端へ移る。だから同じように押しても、骨の回る向きが反対になる。
+</p>
+
+<h2 class=sec>① 支点がどこにあるか<small>脚全体で見る</small></h2>
+
+<div class=pair>
+
+ <div class="panel us">
+  <h3>アメリカン</h3>
+  <div class=sub>鐙を踏んで追う ── 支点は足</div>
+  <svg width="600" height="310" viewBox="0 0 600 310">
+   <path d="M50 258 Q300 228 560 258" stroke="#232320" stroke-width="2" fill="none"/>
+   <text x="50" y="282" fill="#55524e" font-size="15" font-family="Hiragino Sans">鞍・馬体</text>
+   <path d="M186 186 A116 116 0 0 1 292 90" stroke="#5ba3d9" stroke-width="2.5"
+     fill="none" stroke-dasharray="7 6" opacity=".85"/>
+   <path d="M292 90 l-13 -3 l5 12 z" fill="#5ba3d9"/>
+   <line x1="186" y1="90" x2="292" y2="174" stroke="#e8e6e3" stroke-width="11" stroke-linecap="round"/>
+   <line x1="292" y1="174" x2="240" y2="258" stroke="#e8e6e3" stroke-width="11" stroke-linecap="round"/>
+   <circle cx="186" cy="90" r="15" fill="#5ba3d9"/>
+   <circle cx="292" cy="174" r="11" fill="#0a0a0a" stroke="#e8e6e3" stroke-width="4"/>
+   <rect x="226" y="244" width="29" height="29" rx="4" fill="#d95926"/>
+   <text x="136" y="64" fill="#9ed0f5" font-size="20" font-weight="700" font-family="Hiragino Sans">体 ← 回る</text>
+   <text x="314" y="180" fill="#8e8a84" font-size="18" font-family="Hiragino Sans">膝</text>
+   <text x="178" y="304" fill="#ffb48a" font-size="18" font-weight="700" font-family="Hiragino Sans">足 ■ 固定</text>
+  </svg>
+  <p class=cap>
+   <span class="key fix">固定</span>足<span style="color:#55524e"> ／ </span>
+   <span class="key mov">回る</span>体<br>
+   足を踏ん張って、その上で体を動かす。<b>足首とかかとはほとんど動かない。</b>
+  </p>
+ </div>
+
+ <div class="panel eu">
+  <h3>ヨーロピアン</h3>
+  <div class=sub>膝で押し込む ── 支点は膝</div>
+  <svg width="600" height="310" viewBox="0 0 600 310">
+   <path d="M50 258 Q300 228 560 258" stroke="#232320" stroke-width="2" fill="none"/>
+   <text x="50" y="282" fill="#55524e" font-size="15" font-family="Hiragino Sans">鞍・馬体</text>
+   <path d="M240 258 A102 102 0 0 1 196 168" stroke="#ff8a5c" stroke-width="2.5"
+     fill="none" stroke-dasharray="7 6" opacity=".9"/>
+   <path d="M196 168 l-2 13 l12 -6 z" fill="#ff8a5c"/>
+   <line x1="186" y1="90" x2="292" y2="174" stroke="#e8e6e3" stroke-width="11" stroke-linecap="round"/>
+   <line x1="292" y1="174" x2="240" y2="258" stroke="#e8e6e3" stroke-width="11" stroke-linecap="round"/>
+   <line x1="292" y1="174" x2="204" y2="178" stroke="#ff8a5c" stroke-width="9"
+     stroke-linecap="round" opacity=".3"/>
+   <circle cx="186" cy="90" r="13" fill="#0a0a0a" stroke="#e8e6e3" stroke-width="4"/>
+   <rect x="278" y="160" width="29" height="29" rx="4" fill="#d95926"/>
+   <circle cx="240" cy="258" r="14" fill="#ff8a5c"/>
+   <text x="146" y="64" fill="#8e8a84" font-size="18" font-family="Hiragino Sans">体</text>
+   <text x="322" y="180" fill="#ffb48a" font-size="19" font-weight="700" font-family="Hiragino Sans">膝 ■ 固定</text>
+   <text x="228" y="304" fill="#ffb48a" font-size="20" font-weight="700" font-family="Hiragino Sans">足 ← 回る</text>
+  </svg>
+  <p class=cap>
+   <span class="key fix">固定</span>膝<span style="color:#55524e"> ／ </span>
+   <span class="key mov2">回る</span>膝から下<br>
+   膝を締めて押し込む。<b>反作用でかかとが後ろに跳ね上がる。</b>
+  </p>
+ </div>
+
+</div>
+
+<h2 class=sec>② なぜ向きが反対になるのか<small>下腿という1本の骨だけを見ると分かる</small></h2>
+
+<div class=box>
+ <div class=note>
+  同じ1本の骨でも、<b style="color:#fff">固定される端が入れ替わると、押す向きが同じでも回る向きが反対になる</b>。テコの性質そのもの。
+ </div>
+ <svg width="1330" height="360" viewBox="0 0 1330 360">
+  <!-- 左：足首を固定 -->
+  <text x="112" y="30" fill="#9ed0f5" font-size="22" font-weight="700" font-family="Hiragino Sans">足首を固定すると</text>
+  <text x="112" y="58" fill="#8e8a84" font-size="17" font-family="Hiragino Sans">骨の上の端（膝）が後ろへ動く</text>
+  <path d="M248 118 A128 128 0 0 0 150 86" stroke="#5ba3d9" stroke-width="2.5"
+    fill="none" stroke-dasharray="7 6" opacity=".9"/>
+  <path d="M150 86 l11 -7 l1 13 z" fill="#5ba3d9"/>
+  <line x1="178" y1="212" x2="152" y2="106" stroke="#5ba3d9" stroke-width="10"
+    stroke-linecap="round" opacity=".42"/>
+  <line x1="248" y1="110" x2="178" y2="212" stroke="#e8e6e3" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="248" cy="110" r="14" fill="#5ba3d9"/>
+  <rect x="164" y="198" width="28" height="28" rx="4" fill="#d95926"/>
+  <text x="274" y="116" fill="#9ed0f5" font-size="19" font-weight="700" font-family="Hiragino Sans">膝 ← 動く</text>
+  <text x="104" y="250" fill="#ffb48a" font-size="18" font-weight="700" font-family="Hiragino Sans">足首 ■ 固定</text>
+  <!-- 回る向き -->
+  <path d="M201 330 A30 30 0 1 0 171 326" stroke="#5ba3d9" stroke-width="3.5" fill="none"/>
+  <path d="M171 326 l12 -6 l-1 14 z" fill="#5ba3d9"/>
+  <text x="232" y="328" fill="#9ed0f5" font-size="22" font-weight="800" font-family="Hiragino Sans">左まわり</text>
+
+  <!-- 中央の説明 -->
+  <text x="512" y="150" fill="#55524e" font-size="56" font-weight="300" font-family="Hiragino Sans">／</text>
+  <text x="474" y="212" fill="#cfccc8" font-size="20" font-family="Hiragino Sans">同じ骨</text>
+  <text x="462" y="244" fill="#cfccc8" font-size="20" font-family="Hiragino Sans">反対の端</text>
+
+  <!-- 右：膝を固定 -->
+  <text x="716" y="30" fill="#ffb48a" font-size="22" font-weight="700" font-family="Hiragino Sans">膝を固定すると</text>
+  <text x="716" y="58" fill="#8e8a84" font-size="17" font-family="Hiragino Sans">骨の下の端（かかと）が後ろへ動く</text>
+  <path d="M826 212 A126 126 0 0 1 736 128" stroke="#ff8a5c" stroke-width="2.5"
+    fill="none" stroke-dasharray="7 6" opacity=".9"/>
+  <path d="M736 128 l-4 13 l13 -6 z" fill="#ff8a5c"/>
+  <line x1="896" y1="110" x2="790" y2="134" stroke="#ff8a5c" stroke-width="10"
+    stroke-linecap="round" opacity=".42"/>
+  <line x1="896" y1="110" x2="826" y2="212" stroke="#e8e6e3" stroke-width="12" stroke-linecap="round"/>
+  <rect x="882" y="96" width="28" height="28" rx="4" fill="#d95926"/>
+  <circle cx="826" cy="212" r="14" fill="#ff8a5c"/>
+  <text x="924" y="116" fill="#ffb48a" font-size="18" font-weight="700" font-family="Hiragino Sans">膝 ■ 固定</text>
+  <text x="716" y="250" fill="#ffb48a" font-size="19" font-weight="700" font-family="Hiragino Sans">かかと ← 動く</text>
+  <!-- 回る向き -->
+  <path d="M800 330 A30 30 0 1 1 830 326" stroke="#ff8a5c" stroke-width="3.5" fill="none"/>
+  <path d="M830 326 l-12 -6 l1 14 z" fill="#ff8a5c"/>
+  <text x="858" y="328" fill="#ffb48a" font-size="22" font-weight="800" font-family="Hiragino Sans">右まわり</text>
+
+  <!-- 右端のまとめ -->
+  <text x="1070" y="150" fill="#cfccc8" font-size="19" font-family="Hiragino Sans">どちらも</text>
+  <text x="1070" y="182" fill="#fff" font-size="20" font-weight="700" font-family="Hiragino Sans">自由な端は</text>
+  <text x="1070" y="212" fill="#fff" font-size="20" font-weight="700" font-family="Hiragino Sans">後ろへ動く</text>
+  <text x="1070" y="252" fill="#cfccc8" font-size="19" font-family="Hiragino Sans">それでも骨の</text>
+  <text x="1070" y="282" fill="#d95926" font-size="20" font-weight="800" font-family="Hiragino Sans">回る向きは反対</text>
+ </svg>
+</div>
+
+<h2 class=sec>③ なぜわざわざ逆にするのか<small>動かす部分を軽く短くして、馬のリズムに近づけるため</small></h2>
+
+<div class=box>
+ <div class=note>
+  振り子の周期は長さで決まる。短いほど速く振れる。<br>
+  下は重力だけの自由振動を仮定した見積もりで、実測ではない。
+ </div>
+ <table><tbody>
+ <tr class=hl><td class=k>膝から下だけを振る（膝支点）</td><td class=v>549</td>
+  <td class=c>ms ／ 下腿＋足 45cm ── いちばん速く振れる</td></tr>
+ <tr class=dim><td class=k>脚全体を動かす（鐙支点）</td><td class=v>655</td>
+  <td class=c>ms ／ 膝を畳んだ足首〜股関節 64cm</td></tr>
+ <tr class=dim><td class=k>上体まで動かす（鐙支点）</td><td class=v>798</td>
+  <td class=c>ms ／ 足首〜体の重心 95cm</td></tr>
+ </tbody></table>
+</div>
+
+<h2 class=sec>④ それでも馬のリズムには届かない<small>だから馬によって合う合わないが出る</small></h2>
+
+<div class=box>
+ <table><tbody>
+ <tr><td class=k>大きくダイナミックに走る馬</td><td class=v>446</td>
+  <td class=c>ms ／ 完歩頻度 2.24 Hz</td></tr>
+ <tr><td class=k>日本の競走の平均</td><td class=v>424</td>
+  <td class=c>ms ／ 完歩頻度 2.36 Hz（921頭・1,189走の実測）</td></tr>
+ <tr><td class=k>完歩の小さい馬</td><td class=v>403</td>
+  <td class=c>ms ／ 完歩頻度 2.48 Hz</td></tr>
+ <tr class=hl><td class=k>膝から下の片振り（いちばん速い形）</td><td class=v>549</td>
+  <td class=c>ms ── どの馬の1完歩よりも長い</td></tr>
+ </tbody></table>
+</div>
+
+<footer>
+片振りだけで549ms。<b>どの馬の1完歩よりも長い。</b>
+だから重力に任せては戻らず、筋力で引き戻してタイミングを合わせることになる。<br>
+そして馬が変わると使える時間が <span class=hl>43ms</span> 動く。
+もともと余裕がないので、ここで間に合う馬と間に合わない馬に分かれる。<br>
+<b>完歩の小さい馬でぶらせないのは、技術ではなく時間の問題。</b>
+</footer>
+<div class=sig>変態か、変態以外か。</div>
+</body></html>
