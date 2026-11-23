@@ -1,0 +1,124 @@
+<!doctype html><html lang=ja><head><meta charset=utf-8>
+<title>間に合うか 間に合わないか</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0a;color:#e8e6e3;width:1440px;padding:46px 54px 38px;
+ font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1{font-size:44px;font-weight:800}
+h1 .ac{color:#d95926}
+.lead{margin-top:20px;font-size:21px;line-height:1.95;color:#cfccc8;max-width:1300px}
+.lead b{color:#fff}
+.eq{margin-top:22px;background:#0e0e0d;border:1px solid #232320;border-radius:12px;
+ padding:20px 26px;font-size:22px;color:#cfccc8;line-height:1.9}
+.eq b{color:#fff;font-weight:800}
+.eq .sm{font-size:18px;color:#8e8a84}
+.box{background:#0e0e0d;border:1px solid #232320;border-radius:14px;padding:26px 28px 20px;margin-top:26px}
+h2.sec{font-size:29px;font-weight:800;margin:36px 0 2px}
+h2.sec small{font-size:17px;font-weight:500;color:#8e8a84;margin-left:14px}
+.legend{display:flex;gap:28px;margin:4px 0 18px;font-size:17px;color:#8e8a84;align-items:center}
+.sw{display:inline-block;width:30px;height:14px;border-radius:3px;margin-right:9px;vertical-align:-1px}
+footer{margin-top:30px;padding-top:22px;border-top:1px solid #262622;
+ font-size:18px;line-height:1.95;color:#a5a19b}
+footer b{color:#fff} footer .hl{color:#ff8a5c;font-weight:700}
+.sig{text-align:right;color:#6f6b66;font-size:15px;margin-top:22px}
+</style></head><body>
+
+<h1>間に合うか、<span class=ac>間に合わないか</span></h1>
+
+<p class=lead>
+ヨーロピアンの追い方は「膝から下を後ろにぶらす」動作。<b>その動作は、馬の1完歩の中で終わらないといけない。</b><br>
+次の一歩が来たら、もう次の動作に入らないといけないから。
+</p>
+
+<div class=eq>
+ <b>速度 ＝ 歩幅 × 完歩頻度</b>　　<span class=sm>同じ速度を出すのに2通りある</span><br>
+ <span class=sm>ピッチ型は短い歩幅を速く回す。ストライド型は長い歩幅をゆっくり回す。
+ 速く回すほど、1完歩に使える時間が短くなる</span>
+</div>
+
+<h2 class=sec>1完歩の時間と、ぶらすのに要る時間<small>横軸はミリ秒。同じ縮尺で並べてある</small></h2>
+
+<div class=legend>
+ <span><span class=sw style="background:#2a3f52"></span>馬の1完歩</span>
+ <span><span class=sw style="background:#8a4420"></span>騎手のぶらし（収まっている部分）</span>
+ <span><span class=sw style="background:#d95926"></span>はみ出している部分</span>
+</div>
+
+<svg width="1330" height="470" viewBox="0 0 1330 470">
+ <!-- 目盛り -->
+ <line x1="250" y1="30" x2="250" y2="446" stroke="#333330" stroke-width="1.5"/>
+ <text x="250" y="22" fill="#55524e" font-size="14" font-family="Hiragino Sans" text-anchor="middle">0</text>
+ <line x1="480" y1="30" x2="480" y2="446" stroke="#1d1d1a" stroke-width="1"/>
+ <text x="480" y="22" fill="#55524e" font-size="14" font-family="Hiragino Sans" text-anchor="middle">200ms</text>
+ <line x1="710" y1="30" x2="710" y2="446" stroke="#1d1d1a" stroke-width="1"/>
+ <text x="710" y="22" fill="#55524e" font-size="14" font-family="Hiragino Sans" text-anchor="middle">400ms</text>
+ <line x1="940" y1="30" x2="940" y2="446" stroke="#1d1d1a" stroke-width="1"/>
+ <text x="940" y="22" fill="#55524e" font-size="14" font-family="Hiragino Sans" text-anchor="middle">600ms</text>
+ <line x1="1170" y1="30" x2="1170" y2="446" stroke="#1d1d1a" stroke-width="1"/>
+ <text x="1170" y="22" fill="#55524e" font-size="14" font-family="Hiragino Sans" text-anchor="middle">800ms</text>
+
+ <!-- ───── ストライド型 ───── -->
+ <text x="0" y="62" fill="#9ed0f5" font-size="22" font-weight="800" font-family="Hiragino Sans">ストライド型</text>
+ <text x="0" y="86" fill="#8e8a84" font-size="16" font-family="Hiragino Sans">完歩頻度 2.24 Hz</text>
+ <text x="0" y="108" fill="#8e8a84" font-size="16" font-family="Hiragino Sans">1完歩 446 ms</text>
+ <!-- 馬の完歩 -->
+ <rect x="250" y="46" width="513" height="34" rx="4" fill="#2a3f52" stroke="#4a7a9e" stroke-width="2"/>
+ <rect x="763" y="46" width="513" height="34" rx="4" fill="#1b2a36" stroke="#2f4e63" stroke-width="2"/>
+ <text x="506" y="69" fill="#cfe4f5" font-size="17" font-weight="700" font-family="Hiragino Sans" text-anchor="middle">1完歩</text>
+ <text x="1019" y="69" fill="#6e8ea5" font-size="17" font-family="Hiragino Sans" text-anchor="middle">次の完歩</text>
+ <!-- 騎手 -->
+ <rect x="250" y="90" width="513" height="30" rx="4" fill="#8a4420"/>
+ <rect x="763" y="90" width="118" height="30" rx="4" fill="#d95926"/>
+ <text x="506" y="111" fill="#ffd9c4" font-size="16" font-weight="700" font-family="Hiragino Sans" text-anchor="middle">ぶらす</text>
+ <text x="898" y="111" fill="#ff8a5c" font-size="17" font-weight="800" font-family="Hiragino Sans">103 ms はみ出す</text>
+
+ <!-- ───── 平均 ───── -->
+ <text x="0" y="192" fill="#e8e6e3" font-size="22" font-weight="800" font-family="Hiragino Sans">日本の競走の平均</text>
+ <text x="0" y="216" fill="#8e8a84" font-size="16" font-family="Hiragino Sans">完歩頻度 2.36 Hz</text>
+ <text x="0" y="238" fill="#8e8a84" font-size="16" font-family="Hiragino Sans">1完歩 424 ms</text>
+ <rect x="250" y="176" width="488" height="34" rx="4" fill="#2a3f52" stroke="#4a7a9e" stroke-width="2"/>
+ <rect x="738" y="176" width="488" height="34" rx="4" fill="#1b2a36" stroke="#2f4e63" stroke-width="2"/>
+ <text x="494" y="199" fill="#cfe4f5" font-size="17" font-weight="700" font-family="Hiragino Sans" text-anchor="middle">1完歩</text>
+ <text x="982" y="199" fill="#6e8ea5" font-size="17" font-family="Hiragino Sans" text-anchor="middle">次の完歩</text>
+ <rect x="250" y="220" width="488" height="30" rx="4" fill="#8a4420"/>
+ <rect x="738" y="220" width="143" height="30" rx="4" fill="#d95926"/>
+ <text x="494" y="241" fill="#ffd9c4" font-size="16" font-weight="700" font-family="Hiragino Sans" text-anchor="middle">ぶらす</text>
+ <text x="898" y="241" fill="#ff8a5c" font-size="17" font-weight="800" font-family="Hiragino Sans">125 ms はみ出す</text>
+
+ <!-- ───── ピッチ型 ───── -->
+ <text x="0" y="322" fill="#ffb48a" font-size="22" font-weight="800" font-family="Hiragino Sans">ピッチ型</text>
+ <text x="0" y="346" fill="#8e8a84" font-size="16" font-family="Hiragino Sans">完歩頻度 2.48 Hz</text>
+ <text x="0" y="368" fill="#8e8a84" font-size="16" font-family="Hiragino Sans">1完歩 403 ms</text>
+ <rect x="250" y="306" width="463" height="34" rx="4" fill="#2a3f52" stroke="#4a7a9e" stroke-width="2"/>
+ <rect x="713" y="306" width="463" height="34" rx="4" fill="#1b2a36" stroke="#2f4e63" stroke-width="2"/>
+ <text x="481" y="329" fill="#cfe4f5" font-size="17" font-weight="700" font-family="Hiragino Sans" text-anchor="middle">1完歩</text>
+ <text x="944" y="329" fill="#6e8ea5" font-size="17" font-family="Hiragino Sans" text-anchor="middle">次の完歩</text>
+ <rect x="250" y="350" width="463" height="30" rx="4" fill="#8a4420"/>
+ <rect x="713" y="350" width="168" height="30" rx="4" fill="#d95926"/>
+ <text x="481" y="371" fill="#ffd9c4" font-size="16" font-weight="700" font-family="Hiragino Sans" text-anchor="middle">ぶらす</text>
+ <text x="898" y="371" fill="#ff8a5c" font-size="17" font-weight="800" font-family="Hiragino Sans">146 ms はみ出す</text>
+
+ <!-- ぶらし全体の長さ -->
+ <line x1="250" y1="412" x2="881" y2="412" stroke="#8e8a84" stroke-width="1.5"/>
+ <line x1="250" y1="406" x2="250" y2="418" stroke="#8e8a84" stroke-width="1.5"/>
+ <line x1="881" y1="406" x2="881" y2="418" stroke="#8e8a84" stroke-width="1.5"/>
+ <text x="565" y="438" fill="#8e8a84" font-size="17" font-family="Hiragino Sans" text-anchor="middle">ぶらすのに要る時間 549 ms（重力だけで振らせたときの見積もり）</text>
+</svg>
+
+<div class=box>
+ <p class=lead style="margin-top:0;font-size:20px">
+ <b>どの馬でもはみ出している。</b>重力に任せては戻らないので、筋力で無理やり速く振っている。<br>
+ ストライド型とピッチ型の差は <b style="color:#ff8a5c">43 ms</b>。
+ その43msぶん、ピッチ型のほうが無理が大きい。<br>
+ だから<b>「できる／できない」ではなく「どこまで無理が利くか」</b>で、馬によって分かれる。
+ </p>
+</div>
+
+<footer>
+<b>ヨーロピアンが合う馬は、1完歩に時間がある馬 ＝ 完歩頻度が低い馬 ＝ ストライド型。</b><br>
+武史騎手の「体が大きくてダイナミックに走る馬はやりやすい」がストライド型、
+「完歩の小さいピッチ走法の馬は足をぶらせない」がピッチ型。<br>
+<span class=hl>完歩頻度は日本の競走の実測（921頭・1,189走）。ぶらしの549msは振り子としての見積もりで、実測ではない。</span>
+</footer>
+<div class=sig>変態か、変態以外か。</div>
+</body></html>
