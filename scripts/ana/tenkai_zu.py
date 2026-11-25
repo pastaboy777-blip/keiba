@@ -369,6 +369,31 @@ def _ana_nin(r):
     return ANA_NONIN
 
 
+def ana_pick(rows):
+    """その鞍で穴の札を出す馬を選ぶ。
+
+    ★ 2026-11-25、ユーザーの指摘 ──「穴馬推奨が」「多すぎる」「3頭くらいにして」
+      「位置を下げない馬　推奨多すぎるわ」。
+      条件（人気 × 近走 gain が0以上）に当てはまる馬を**全部**出していたので、
+      11/25 浦和では12鞍で46頭に札が付いていた（1鞍4〜5頭）。
+      **ANA_MAX 頭まで**に絞る。
+
+    ★★ 選び方は**内度の高い順**（2026-11-25、ユーザーの指示 ──「内の馬 3頭にして」）。
+      内度は 枠 → 騎手 → 馬の偏り で出している値（ルール21・25）。
+      浦和は 11/24 に 1-4枠 40.0% 対 5-8枠 20.3% と内が倍だった
+      （11/25 は 25.0% 対 25.8% で差が消えている。ルール12）。
+    ★ 4角で前に行ける順（ルール52の並べ方）に戻す口は `--ana-mae`。
+    ★ 札の条件そのものは変えていない。数を切って並べ替えるだけ。
+      `--ana-max 0` で昔どおり全部出る。"""
+    an = [r for r in rows if _ana_nin(r)
+          and r.get('gain') is not None and r['gain'] >= 0]
+    if ANA_MAE:
+        an.sort(key=lambda r: (r.get('pos4') if r.get('pos4') is not None else 9))
+    else:
+        an.sort(key=lambda r: -(r.get('uchi') if r.get('uchi') is not None else 0))
+    return an if ANA_MAX <= 0 else an[:ANA_MAX]
+
+
 def cyo_tags(z):
     """調教1頭ぶんから札のHTMLを返す。渡されていなければ空（＝何も言わない）。"""
     if not (CYOKYO and z):
@@ -492,6 +517,10 @@ NIGE = False             # --nige
 AGE = False              # --age
 ANATAG = False           # --anatag
 ANA_NIN = 6              # 何番人気以下を穴とみなすか（--ana-nin で変える）
+ANA_MAE = False          # 穴の札を4角の位置順で選ぶか（--ana-mae）。既定は内度の高い順
+ANA_MAX = 3              # 穴の札を1鞍に何頭まで出すか（--ana-max。0で全部）
+                         # ★ 2026-11-25、ユーザーの指示 ──「3頭くらいにして」。
+                         #   選び方は ana_pick()（4角で前に行ける順）。
 ANA_NONIN = False        # 人気が入っていない馬にも穴の札を出すか（--ana-nonin）
                          # ★ 2026-11-20、ユーザーの指摘 ──「穴連発中の」「出してないじゃん」。
                          #   前日のカードは人気が空なので、人気の条件で全頭が落ちて
@@ -1181,7 +1210,7 @@ def main():
     global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO, SAGARU
     global CYO_KOTO
     global AGARI, BABA_N, CHOKU, OBI, OBI_NONAME, NIGE, AGE, ANATAG, ANA_NIN
-    global ANA_NONIN
+    global ANA_NONIN, ANA_MAX, ANA_MAE
     # ★★ 2026-11-16、**直線の図**（上の CHOKU の★★）。ユーザーの指示 ──
     #   「スタートから1コーナー」と「直線」の2枚。2枚目がこれ。
     #   4角で隊列を組み、鞍によらず「左がゴール・上がラチ」で描く。
@@ -1194,6 +1223,8 @@ def main():
     ANATAG = '--anatag' in a
     ANA_NIN = int(g('--ana-nin', '6'))
     ANA_NONIN = '--ana-nonin' in a   # 人気が空の馬にも穴の札を出す（2026-11-20）
+    ANA_MAX = int(g('--ana-max', '3'))   # 穴の札の頭数の上限（2026-11-25）
+    ANA_MAE = '--ana-mae' in a           # 内度順をやめて4角の位置順にする
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
     # ★ 2026-11-14 に入れた3つを旧に戻す口（ルール44）。
@@ -1309,6 +1340,7 @@ def main():
                 and not rows[0]['nopos'] and not rows[1]['nopos']
                 and (rows[1]['pos0'] - rows[0]['pos0']) < FUTATSU_DP):
             sente = {rows[0]['ub'], rows[1]['ub']}
+        anaset = {r['ub'] for r in ana_pick(rows)} if ANATAG else set()
         cells, NL = place(rows)
         if (ven, v['dist']) in MIRROR:
             flip.add(R)
@@ -1376,8 +1408,9 @@ def main():
             #   マイナスでない馬に出す。**いちばん上**に置いて目立たせる。
             #   人気が入っていない（前日のカード）鞍では何も出ない。
             #   `--plain` では出さない。
-            if (ANATAG and not plain and _ana_nin(r)
-                    and r.get('gain') is not None and r['gain'] >= 0):
+            #   ★ 2026-11-25、ユーザーの指示「3頭くらいにして」で ana_pick() が選んだ
+            #     馬だけに出す（4角で前に行ける順に ANA_MAX 頭まで）。
+            if ANATAG and not plain and r['ub'] in anaset:
                 so += '<span class="anam">穴　道中で下げない</span>'
             # ★ 道悪の札（2026-11-15・baba_tag の★★）。見本に合わせて**いちばん上**
             #   （馬名のすぐ下）に置く。`--plain` では出さない。`--no-pct` では出す。
@@ -1554,9 +1587,7 @@ def main():
                 hdl.append((R, 'shi', '上がり',
                             '　　'.join('%d位 %s' % (r['srank'], _nm(r)) for r in sh)))
             if ANATAG:
-                an = [r for r in rows if _ana_nin(r)
-                      and r.get('gain') is not None and r['gain'] >= 0]
-                an.sort(key=lambda r: (r.get('pos_c4') if r.get('pos_c4') is not None else 9))
+                an = ana_pick(rows)
                 hdl.append((R, 'ana', '穴　道中で下げない',
                             '　　'.join(('%s %d人気' % (_nm(r), r['nin'])) if r.get('nin')
                                         else _nm(r) for r in an)))
