@@ -388,7 +388,7 @@ def ana_pick(rows):
     an = [r for r in rows if _ana_nin(r)
           and r.get('gain') is not None and r['gain'] >= 0]
     if ANA_MAE:
-        an.sort(key=lambda r: (r.get('pos4') if r.get('pos4') is not None else 9))
+        an.sort(key=lambda r: (r.get('pos_c4') if r.get('pos_c4') is not None else 9))
     else:
         an.sort(key=lambda r: -(r.get('uchi') if r.get('uchi') is not None else 0))
     return an if ANA_MAX <= 0 else an[:ANA_MAX]
@@ -442,6 +442,10 @@ POS_MEDIAN = False   # True なら pos を中央値に戻す（--pos-median）
 FUTATSU = True       # 「先頭候補」の札を出すか（--no-futatsu で止める）
 SWAPDU = False       # True なら内度による前後の入れ替えを復活させる（--swapdu）
 FUTATSU_DP = 0.06    # 先頭2頭の pos 差がこれ未満なら「先頭候補」を2頭に出す
+                     # ★ 2026-11-26、`--futatsu-dp` で外から変えられるようにした。
+                     #   既定の0.06はルール44（120鞍）で出した値なので動かしていない。
+                     #   11/26 浦和の12鞍では 0.06〜0.15 の7鞍のほうが当たっていたが、
+                     #   1日で既定を動かすには母数が足りない。
 
 # ★ 2026-11-15、ユーザーの指摘 ──「**5R ②④⑦⑧ 1直線にならぶのは不自然**」。
 #   過去走なしの馬は pos が「鞍の中央（全馬の中央値）」で**全頭まったく同じ値**になるので、
@@ -728,9 +732,13 @@ def mikata(dist, rows, choku=False):
     for r in ([] if choku else rows):
         # ★ 数字は**測った値**（pos0）を書く。pos は図の横を決めるための順位になっている
         #   （2026-11-15・rankify の★★）。`--pos-nama` では両方同じ値。
-        if (r['gain'] or 0) >= .20 and r.get('pos0') is not None and r['pos4'] is not None:
+        # ★ 2026-11-26、**4コーナーの値を pos_c4（直近重みづけ）に直した**。
+        #   それまで pos4（中央値）を書いていて、**図が描いている位置と別の数字**だった
+        #   （ルール65と同じ「図と説明が食い違う」形）。pos_c4 は --age の順位の動きと
+        #   直線の図の横位置を決めている値そのもの。
+        if (r['gain'] or 0) >= .20 and r.get('pos0') is not None and r.get('pos_c4') is not None:
             s.append('%s%sは最初のコーナー%.2fから4コーナー%.2fまで押し上げる型。'
-                     % (maru(r['ub']), html.escape(r['name']), r['pos0'], r['pos4']))
+                     % (maru(r['ub']), html.escape(r['name']), r['pos0'], r['pos_c4']))
     shi = [r for r in sorted(rows, key=lambda r: (r['srank'] is None, r['srank'] or 99))
            if r['srank']][:2]
     if shi:
@@ -1214,7 +1222,7 @@ def main():
     global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO, SAGARU
     global CYO_KOTO
     global AGARI, BABA_N, CHOKU, OBI, OBI_NONAME, NIGE, AGE, ANATAG, ANA_NIN
-    global ANA_NONIN, ANA_MAX, ANA_MAE
+    global ANA_NONIN, ANA_MAX, ANA_MAE, FUTATSU_DP
     # ★★ 2026-11-16、**直線の図**（上の CHOKU の★★）。ユーザーの指示 ──
     #   「スタートから1コーナー」と「直線」の2枚。2枚目がこれ。
     #   4角で隊列を組み、鞍によらず「左がゴール・上がラチ」で描く。
@@ -1229,6 +1237,7 @@ def main():
     ANA_NONIN = '--ana-nonin' in a   # 人気が空の馬にも穴の札を出す（2026-11-20）
     ANA_MAX = int(g('--ana-max', '3'))   # 穴の札の頭数の上限（2026-11-25）
     ANA_MAE = '--ana-mae' in a           # 内度順をやめて4角の位置順にする
+    FUTATSU_DP = float(g('--futatsu-dp', '0.06'))   # 「先頭候補」を2頭出す pos 差（2026-11-26）
     OLD_C4 = ('--c4' in a) or ('--old' in a)      # 当時の形：4角で隊列を組む
     OLD_NOMB = ('--nomb' in a) or ('--old' in a)  # 当時の形：馬の実績を内度に入れない
     # ★ 2026-11-14 に入れた3つを旧に戻す口（ルール44）。
