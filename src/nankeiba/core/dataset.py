@@ -117,34 +117,49 @@ def save_races(races: Iterable[Race], path: str | Path) -> None:
 # ---------------------------------------------------------------------------
 
 def derive_conn_stats(
-    races: Sequence[Race], *, pseudo: float = 20.0
+    races: Sequence[Race],
+    *,
+    pseudo: float = 20.0,
+    metric: str = "place",
+    place_k: int = 3,
 ) -> tuple[ConnStats, ConnStats]:
-    """レース群から騎手・厩舎の勝率を推定する。
+    """レース群から騎手・厩舎の成績率を推定する(騎手=追える力/厩舎=仕上げ手腕の代理)。
 
+    metric:
+        "place" (既定) … 好走率(place_k 着以内に入る率)。三連系に直結し、
+                          単勝より安定して「追える力/仕上げ手腕」を捉える。
+        "win"           … 勝率(1着率)。
     少サンプルの偏りを抑えるため、全体平均へ pseudo 件ぶん縮約する
-    (ベイズ的スムージング)。返り値の default は全体勝率。
+    (ベイズ的スムージング)。返り値の default は全体率。
 
     注意: 未来の情報を使わないため、学習区間のレースだけを渡すこと。
     """
+    def _success(pos: int | None, field_size: int) -> int:
+        if pos is None:
+            return 0
+        if metric == "win":
+            return 1 if pos == 1 else 0
+        return 1 if pos <= place_k else 0  # "place": 好走(place_k 着以内)
+
     def _stats(get_name) -> ConnStats:
         starts: dict[str, int] = {}
-        wins: dict[str, int] = {}
+        hits: dict[str, int] = {}
         total_starts = 0
-        total_wins = 0
+        total_hits = 0
         for race in races:
             pos_of = {um: i + 1 for i, um in enumerate(race.result_order)}
             for e in race.entries:
                 name = get_name(e)
                 if name is None:
                     continue
-                won = 1 if pos_of.get(e.num()) == 1 else 0
+                s = _success(pos_of.get(e.num()), race.field_size)
                 starts[name] = starts.get(name, 0) + 1
-                wins[name] = wins.get(name, 0) + won
+                hits[name] = hits.get(name, 0) + s
                 total_starts += 1
-                total_wins += won
-        prior = total_wins / total_starts if total_starts else 0.08
+                total_hits += s
+        prior = total_hits / total_starts if total_starts else 0.08
         rates = {
-            n: (wins[n] + pseudo * prior) / (starts[n] + pseudo)
+            n: (hits[n] + pseudo * prior) / (starts[n] + pseudo)
             for n in starts
         }
         return ConnStats(rates=rates, default=prior)
@@ -152,3 +167,50 @@ def derive_conn_stats(
     jockeys = _stats(lambda e: e.jockey)
     trainers = _stats(lambda e: e.trainer)
     return jockeys, trainers
+
+
+def derive_conn_uplift(
+    races: Sequence[Race], *, pseudo: float = 20.0
+) -> tuple[ConnStats, ConnStats]:
+    """騎手・厩舎の「上積み力」を推定する(追える力/仕上げ手腕のより直接的な指標)。
+
+    好走率は「良い馬に乗る/預かる」だけでも上がってしまう。ここでは各出走について
+    「その馬のそれまでの平均的な走り(過去走の finish_strength 平均)」を基準に、
+    今回それをどれだけ上回ったか(uplift = 今回 − 過去平均)を関係者ごとに平均する。
+    正なら「馬を自身の水準より走らせた」= 追える/仕上げが効いた、と読める。
+    リーク防止のため基準は過去走のみ。時系列に履歴を積みながら計算する。
+
+    返り値は `ConnStats`(default=0.0、rates[name]=上積み)。
+    `horse_features` の jockey_power / trainer 特徴量(= get(name) − default)に
+    そのまま上積み値として乗る。学習区間のレースだけを渡すこと。
+    """
+    history: dict[object, list[float]] = {}  # horse_id -> 過去 finish_strength 列
+
+    j_tot, j_cnt = {}, {}
+    t_tot, t_cnt = {}, {}
+    for race in sorted(races, key=lambda r: r.date):
+        pos_of = {um: i + 1 for i, um in enumerate(race.result_order)}
+        for e in race.entries:
+            pos = pos_of.get(e.num(), race.field_size)
+            fs = (race.field_size - pos) / max(1, race.field_size - 1)
+            past = history.get(e.horse_id, [])
+            if past:  # 過去走がある馬だけ上積みを測れる
+                base = sum(past) / len(past)
+                uplift = fs - base
+                if e.jockey is not None:
+                    j_tot[e.jockey] = j_tot.get(e.jockey, 0.0) + uplift
+                    j_cnt[e.jockey] = j_cnt.get(e.jockey, 0) + 1
+                if e.trainer is not None:
+                    t_tot[e.trainer] = t_tot.get(e.trainer, 0.0) + uplift
+                    t_cnt[e.trainer] = t_cnt.get(e.trainer, 0) + 1
+            history.setdefault(e.horse_id, []).append(fs)
+
+    def _finalize(tot, cnt) -> ConnStats:
+        # 0(=上積みなし)へ pseudo 件縮約
+        rates = {
+            n: (tot[n] / cnt[n]) * (cnt[n] / (cnt[n] + pseudo))
+            for n in tot
+        }
+        return ConnStats(rates=rates, default=0.0)
+
+    return _finalize(j_tot, j_cnt), _finalize(t_tot, t_cnt)
