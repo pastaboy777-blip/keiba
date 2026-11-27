@@ -288,7 +288,43 @@ def mark_jouken_nashi(rows, past, *, dist, surface):
         r["pos"] = r["gain"] = r["ag"] = None   # 元から必ずある鍵は None に
         for key in ("pos1", "pos3", "hana"):   # 「"pos1" in r」で見る所があるので鍵ごと外す
             r.pop(key, None)
+        if not FURUI_NASHI:
+            mark_furui(r, past[r["ub"]], dist=dist, surface=surface)
     return True
+
+
+FURUI_NASHI = False   # --furui-nashi: 古い材料を使わない(条件の材料なしの馬はみな中団に置く。前の置き方に戻す)
+
+
+def mark_furui(r, v, *, dist, surface):
+    """古い材料(ユーザー指示 2026-11-27「止まらずに進化させて」): 条件の材料なしの馬で、近5走より前に、
+    今日から730日以内・同じ芝ダ・距離±400m(障害は除く)・通過順のある走があれば、その走の実際の1角・4角の
+    相対位置(通過順−1)÷(頭数−1) の平均を、盤面に置く位置として r["furui"] = {"pos1","pos","pos3","runs"} に入れる。
+    位置モデル(apply_position_model)には渡さない: 特徴量が近5走の脚質(fc.styles)と鞍全体の引き伸ばしに
+    結びついていて、1頭だけ古い走で入れ替えると他馬の値も動くため。
+    r["pos"] などは None のまま(見出し・荒れ方・候補の判定は条件の材料なしと同じく外したまま)。盤面の置き場所だけ変わる。"""
+    import datetime as dt
+    hist = v.get("hist") or []
+    today = (ME_RACE or {}).get("date")
+    if not hist or not today:
+        return
+    t0 = dt.date.fromisoformat(today)
+    old = []
+    for i, x in enumerate(hist):
+        if i < 5 or x.get("surface") != surface or x.get("surface") == "障" or abs(x["dist"] - dist) > 400:
+            continue
+        if (t0 - dt.date.fromisoformat(x["date"])).days > 730:
+            continue
+        if not x.get("corner") or (x.get("n") or 0) < 2:
+            continue
+        old.append((i, x))
+    if not old:
+        return
+    c1 = st.mean((x["corner"][0] - 1) / (x["n"] - 1) for _, x in old)
+    c4 = st.mean((x["corner"][-1] - 1) / (x["n"] - 1) for _, x in old)
+    r["furui"] = {"pos1": 1 - c1, "pos": 1 - c4, "pos3": 1 - (c1 + c4) / 2,
+                  "runs": [{"ago": i + 1, "date": x["date"], "place": x["place"], "surface": x["surface"],
+                            "dist": x["dist"], "corner": x["corner"], "n": x["n"]} for i, x in old]}
 
 
 KOUHO_OFF = False   # --no-kouho
@@ -1507,6 +1543,8 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
     known_k = [r[k] for r in rows if r.get(k) is not None]
     to_mid = lambda r: bool(r.get("jnashi")) or not NASHI_USHIRO  # noqa: E731
     naka = len(known_k) >= 2 and any(to_mid(r) for r in nod)
+    # 古い材料(r["furui"]、mark_furui)の馬は中央値でなく、2年以内の古い走の実際の位置に置く(--furui-nashi なら付かない)
+    furui_f = lambda r, fv: r["furui"].get(k, fv) if r.get("furui") else fv  # noqa: E731
 
     def place(mid):
         lanes, cells = [], []
@@ -1515,12 +1553,12 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
         if mid:   # 中団の馬も前から順に置く(段の詰め方が前から順なので)。同じ値なら過去走のある馬が先
             fv = st.median(known_k)
             order = sorted(hs, key=lambda r: ((0, -r[k], 0) if r.get(k) is not None else
-                                             (0, -fv, 1) if to_mid(r) else (1, spread.index(r), 0)))
+                                             (0, -furui_f(r, fv), 1) if to_mid(r) else (1, spread.index(r), 0)))
         for r in order:   # 前の馬から順に置く
             if r.get(k) is not None:
                 f = r[k]
             elif mid and to_mid(r):
-                f = fv
+                f = furui_f(r, fv)
             else:   # 過去走が無い馬は並びが読めないので、横に散らして置く(馬番順)
                 j = spread.index(r)
                 f = (0.9 - 0.8 * j / max(1, len(spread) - 1)) if len(spread) > 1 else 0.0
@@ -1580,7 +1618,8 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
         if yon:
             tag = ""
         if r.get(k) is None:
-            tag = (('<span class="knd" style="%s">条件の材料なし</span>' % NASHI_STYLE) if r.get("jnashi") else
+            tag = (('<span class="knd" style="%s">古い材料</span>' % NASHI_STYLE) if (r.get("furui") and naka) else
+                   ('<span class="knd" style="%s">条件の材料なし</span>' % NASHI_STYLE) if r.get("jnashi") else
                    ('<span class="knd" style="%s">材料なし</span>' % NASHI_STYLE) if (naka and to_mid(r))
                    else '<span class="knd">過去走なし</span>') + tag
         chev = '<span class="kc" style="color:%s">%s</span>' % (cc, "&laquo;" if flip else "&raquo;")
@@ -1766,9 +1805,13 @@ def kawa_memo(fc, rows, rk, dist, surface) -> str:
     nodata = [r for r in rows if r.get(k) is None and not r.get("jnashi")]
     if nodata:
         out.append("%sは過去走が無く材料が薄い" % "".join(circ(r["ub"]) for r in nodata))
-    jn = [r for r in rows if r.get("jnashi")]
+    jn = [r for r in rows if r.get("jnashi") and not r.get("furui")]
     if jn:
         out.append("%sは近5走に今日の芝ダ・距離帯(±400m)の走が無い(条件の材料なし)" % "".join(circ(r["ub"]) for r in jn))
+    fu = [r for r in rows if r.get("furui")]
+    if fu:
+        out.append("%sは近5走に今日の芝ダ・距離帯(±400m)の走が無く、2年以内のそれより前の走の位置で置いた(古い材料)"
+                   % "".join(circ(r["ub"]) for r in fu))
     return "。".join(out) + "。"
 
 
@@ -2296,6 +2339,9 @@ def main() -> None:
     ap.add_argument("--jouken-ushiro", action="store_true",
                     help="条件の材料なし(同じ芝ダ・距離±400mの過去走が無い馬)を特別扱いしない(前の置き方・判定に戻す。"
                          "既定は中団に「条件の材料なし」で置き、見出し・荒れ方・候補の判定から外す)")
+    ap.add_argument("--furui-nashi", action="store_true",
+                    help="古い材料を使わない(条件の材料なしの馬を、2年以内の近5走より前の同条件の走があっても中団に置く。"
+                         "既定はその走の実際の1角・4角の位置に「古い材料」の札で置く)")
     ap.add_argument("--no-jiten", action="store_true",
                     help="各鞍の下の「データ: 11/15 東京 8Rまでの結果を反映」(当日の結果が何Rまで入っていたか)を出さない")
     ap.add_argument("--aite-label", default="相手候補", help="白丸の凡例の言葉(既定「相手候補」)")
@@ -2330,11 +2376,12 @@ def main() -> None:
     BASE_DAY_DIRT = _UNSET if a.base_day_dirt is None else (set(a.base_day_dirt.split(",")) if a.base_day_dirt else None)
     BASE_BABA_DIRT = _UNSET if a.base_baba_dirt is None else (set(a.base_baba_dirt.split(",")) if a.base_baba_dirt else None)
     HIDE_PACE.update(int(x) for x in a.hide_pace.split(",") if x.strip().isdigit())
-    global YON_ALL, UCHI_UE, JITEN_OFF, NANKAN, OBI, NASHI_USHIRO, JOUKEN_USHIRO
+    global YON_ALL, UCHI_UE, JITEN_OFF, NANKAN, OBI, NASHI_USHIRO, JOUKEN_USHIRO, FURUI_NASHI
     global AITE_LABEL
     AITE_LABEL = a.aite_label
     NASHI_USHIRO = a.nashi_ushiro
     JOUKEN_USHIRO = a.jouken_ushiro
+    FURUI_NASHI = a.furui_nashi
     UCHI_UE = a.uchi_ue
     NANKAN = a.nankan
     OBI = a.obi

@@ -12,7 +12,8 @@
   --config          手で決めた丸など(省略時 scripts/daily/marks_YYYYMMDD.json があれば読む)
                     {"福島": {"circle": "7:11", "circle2": "7:15,10", "hide_pace": "7", "circle_each": false,
                           "no_arekata": false, "yon": "12", "uchi_ue": false, "nankan": false, "obi": false,
-                          "nashi_ushiro": false, "jouken_ushiro": false},
+                          "nashi_ushiro": false, "jouken_ushiro": false,
+                          "furui_nashi": false},
                      "split": [{"place": "京都", "race": 11, "yaya": "10,5,6", "omo": "10,5,9",
                                 "yaya_note": "…", "omo_note": "…"}]}
   --place           この場だけ作る(カンマで複数)
@@ -30,6 +31,9 @@
                     全場に効く。場ごとに決めるときは config の "nashi_ushiro": true(mark_args に入るので昼にも持ち越す)
   --jouken-ushiro   条件の材料なし(近5走に同じ芝ダ・距離±400mの走が無い馬)を特別扱いしない(jra_tenkai_zu.py --jouken-ushiro。
                     既定は中団に「条件の材料なし」で置き見出し等の判定から外す)。場ごとは config の "jouken_ushiro": true
+  --furui-nashi     古い材料(条件の材料なしの馬の、近5走より前・2年以内の同じ芝ダ・距離±400mの走)を使わない
+                    (jra_tenkai_zu.py --furui-nashi。既定はその走の実際の1角・4角の位置に「古い材料」で置く)。
+                    場ごとは config の "furui_nashi": true
 
 動き
   1) data/jra/all_YYYYMMDD.jsonl = 出馬表(先頭。行の馬場を --baba/--baba-dirt で埋める) + races.jsonl
@@ -216,6 +220,7 @@ def main():
     ap.add_argument("--obi", action="store_true", help="--nankan の盤面に前・中・後ろの帯を塗る(jra_tenkai_zu.py --obi)")
     ap.add_argument("--nashi-ushiro", action="store_true", help="過去走のない馬を前のとおり最後方に置く(jra_tenkai_zu.py --nashi-ushiro)")
     ap.add_argument("--jouken-ushiro", action="store_true", help="条件の材料なしの馬を特別扱いしない(jra_tenkai_zu.py --jouken-ushiro)")
+    ap.add_argument("--furui-nashi", action="store_true", help="古い材料を使わない(jra_tenkai_zu.py --furui-nashi)")
     a = ap.parse_args()
     ymd = a.date.replace("-", "")
     turf, dirt = parse_baba(a.baba), parse_baba(a.baba_dirt)
@@ -279,6 +284,8 @@ def main():
             extra.append("--nashi-ushiro")
         if c.get("jouken_ushiro") or a.jouken_ushiro:   # 条件の材料なしを特別扱いしない(mark_args に入るので昼にも持ち越す)
             extra.append("--jouken-ushiro")
+        if c.get("furui_nashi") or a.furui_nashi:   # 古い材料を使わない(mark_args に入るので昼にも持ち越す)
+            extra.append("--furui-nashi")
         setting[p] = {"turf": t, "dirt": d, "base_args": bb, "mark_args": extra, "zu_args": bb + extra}
         out = ROOT / "scripts" / "daily" / f"zu_jra_{ymd}_{p}.html"
         print(f"[{p}] 展開図 …", flush=True)
@@ -322,7 +329,8 @@ def main():
                         + (["--nankan"] if (cfg.get(p, {}).get("nankan") or a.nankan) else [])
                         + (["--obi"] if (cfg.get(p, {}).get("obi") or a.obi) else [])
                         + (["--nashi-ushiro"] if (cfg.get(p, {}).get("nashi_ushiro") or a.nashi_ushiro) else [])
-                        + (["--jouken-ushiro"] if (cfg.get(p, {}).get("jouken_ushiro") or a.jouken_ushiro) else []))
+                        + (["--jouken-ushiro"] if (cfg.get(p, {}).get("jouken_ushiro") or a.jouken_ushiro) else [])
+                        + (["--furui-nashi"] if (cfg.get(p, {}).get("furui_nashi") or a.furui_nashi) else []))
                     if not a.no_png:
                         shoot(html, work, f"{p}{key}")
                         pics[(r, key)] = work / f"{p}{key}_{r}R.png"
