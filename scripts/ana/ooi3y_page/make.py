@@ -12,7 +12,7 @@ P = {
   'cfrom': d['choku_from'], 'sfrom': d['start_from'],
   'lap': d['lap'], 'combo': d['combo'], 'side': d['side'], 'waku': d['waku'],
   'jk': {k: v for k, v in d['jockey'].items() if v['n'] >= 300},
-  'year': d['year_choku'], 'nin': d['ninki_3nai'], 'nobi': d['ninki_obi'], 'dist': DIST, 'baba': BABA,
+  'year': d['year_choku'], 'nin': d['ninki_3nai'], 'nobi': d['ninki_obi'], 'wm': d['waku_maeushiro'], 'dist': DIST, 'baba': BABA,
 }
 html = open(__file__.replace('make.py', 'tmpl.html')).read()
 html = html.replace('/*DATA*/null', json.dumps(P, ensure_ascii=False, separators=(',', ':')))

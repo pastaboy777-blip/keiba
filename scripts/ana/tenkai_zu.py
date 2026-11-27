@@ -530,6 +530,7 @@ ANATAG = False           # --anatag
 #                 ±2.0ポイント以上の騎手に札。元は jk_ninhi_ooi.json（ooi_keikou.py --jkjson）。
 #                 大井で300鞍以上の騎手だけ。**馬の力の差は分けていない**（ルール80）。
 FURYO_SOTO = False       # --furyo-soto
+FURYO_ALL = False        # --furyo-soto-all（4角前半に絞らない）
 JK_NINHI = False         # --jk-ninhi
 JKN = {}
 ANA_NIN = 6              # 何番人気以下を穴とみなすか（--ana-nin で変える）
@@ -1234,7 +1235,7 @@ def main():
     global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO, SAGARU
     global CYO_KOTO
     global AGARI, BABA_N, CHOKU, OBI, OBI_NONAME, NIGE, AGE, ANATAG, ANA_NIN
-    global ANA_NONIN, ANA_MAX, ANA_MAE, FUTATSU_DP, FURYO_SOTO, JK_NINHI, JKN
+    global ANA_NONIN, ANA_MAX, ANA_MAE, FUTATSU_DP, FURYO_SOTO, FURYO_ALL, JK_NINHI, JKN
     # ★★ 2026-11-16、**直線の図**（上の CHOKU の★★）。ユーザーの指示 ──
     #   「スタートから1コーナー」と「直線」の2枚。2枚目がこれ。
     #   4角で隊列を組み、鞍によらず「左がゴール・上がラチ」で描く。
@@ -1245,7 +1246,8 @@ def main():
     NIGE = '--nige' in a
     AGE = '--age' in a
     ANATAG = '--anatag' in a
-    FURYO_SOTO = '--furyo-soto' in a
+    FURYO_SOTO = ('--furyo-soto' in a) or ('--furyo-soto-all' in a)
+    FURYO_ALL = '--furyo-soto-all' in a
     JK_NINHI = '--jk-ninhi' in a
     if JK_NINHI:
         try:
@@ -1452,7 +1454,13 @@ def main():
             if ANATAG and not plain and r['ub'] in anaset:
                 so += '<span class="anam">穴　道中で下げない</span>'
             # ★★ 2026-11-27（上の FURYO_SOTO / JK_NINHI の★★）。`--plain` では出さない。
-            if FURYO_SOTO and not plain and baba == '不良' and r['waku'] >= 7:
+            # ★ 2026-11-27（同じ日の2回目）、**4角で前半に来そうな馬だけ**に絞った。
+            #   大井3年分の不良で、4角前半の3着内は 7-8枠47.4%（867頭）／1-2枠40.2%／3-6枠40.8%、
+            #   4角後半は 7-8枠8.7%／3-6枠8.5% で**差がない**。外枠が効くのは前にいるときだけ。
+            #   「前半」は図の4角の予想（pos_c4）が0.5未満。予想が無い馬には出さない。
+            #   `--furyo-soto-all` で絞る前（7-8枠全部）に戻る。
+            if FURYO_SOTO and not plain and baba == '不良' and r['waku'] >= 7 and (
+                    FURYO_ALL or (r.get('pos_c4') is not None and r['pos_c4'] < .5)):
                 so += '<span class="fsoto">不良・外</span>'
             if JK_NINHI and not plain and ven == '大井':
                 jv = JKN.get(r.get('jk') or '')

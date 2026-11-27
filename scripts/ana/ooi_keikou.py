@@ -341,6 +341,17 @@ def main():
                 keys.append("%d枠" % r["waku"])
                 for kk in keys:
                     c = nk_[(cell, b, kk)]; c[0] += 1; c[1] += t3
+    # ── 2026-11-27、枠 × 4角の前半/後半（馬場ごと）。外枠が効くのは前にいるときだけか。
+    wm = collections.defaultdict(lambda: [0, 0])
+    for rc in races:
+        for r in rc["rows"]:
+            if r.get("_r4") is None:
+                continue
+            g = "7-8枠" if r["waku"] >= 7 else ("1-2枠" if r["waku"] <= 2 else "3-6枠")
+            h = "前半" if r["_r4"] < 0.5 else "後半"
+            for bb in (rc["baba"], "全"):
+                c = wm[(bb, g, h)]; c[0] += 1; c[1] += r["chaku"] <= 3
+    R["waku_maeushiro"] = {"%s|%s|%s" % k: [n, rate(w, n)] for k, (n, w) in wm.items()}
     R["ninki_obi"] = {}
     for (cell, b, kk), (n, w) in nk_.items():
         R["ninki_obi"].setdefault(cell, {}).setdefault(b, {})[kk] = [n, rate(w, n)]
