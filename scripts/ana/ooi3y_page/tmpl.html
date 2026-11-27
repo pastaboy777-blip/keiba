@@ -1,0 +1,258 @@
+<title>大井 展開隊列 3年分</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* 夜の大井（トゥインクル）：ダートの砂色とナイター照明の琥珀。上から「2枚の図 → 決まり手 → ラップ → 馬場 → 枠 → 騎手」 */
+:root{
+  --bg:#f2f4f3; --panel:#ffffff; --ink:#18222b; --mute:#5d6b74; --line:#d5dcdf;
+  --sand:#c9a76b; --sand2:#e9dcc0; --accent:#b86e00; --good:#1f7a4d; --bad:#b23a3a; --rail:#7a8790;
+  --f-disp:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",sans-serif;
+  --f-body:"Noto Sans JP","Hiragino Sans","Yu Gothic",sans-serif;
+  --f-num:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1419; --panel:#151d24; --ink:#e6ebee; --mute:#93a1aa; --line:#2a3640;
+  --sand:#8a7345; --sand2:#3a3222; --accent:#f0a830; --good:#4cc38a; --bad:#ef7070; --rail:#6b7a84; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1419; --panel:#151d24; --ink:#e6ebee; --mute:#93a1aa; --line:#2a3640;
+  --sand:#8a7345; --sand2:#3a3222; --accent:#f0a830; --good:#4cc38a; --bad:#ef7070; --rail:#6b7a84; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);line-height:1.7;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 64px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:40px}
+h1,h2,h3{font-family:var(--f-disp);text-wrap:balance;margin:0;line-height:1.35}
+h1{font-size:clamp(1.7rem,4vw,2.4rem);font-weight:900}
+h2{font-size:1.35rem;font-weight:700;display:flex;align-items:baseline;gap:.6em;flex-wrap:wrap}
+h2 small{font-family:var(--f-body);font-size:.8rem;color:var(--mute);font-weight:500}
+h3{font-size:1rem;font-weight:700}
+p{margin:0;max-width:68ch}
+.lead{color:var(--mute);font-size:.95rem}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+section{display:flex;flex-direction:column;gap:14px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:.85rem;color:var(--mute)}
+.meta b{color:var(--ink);font-family:var(--f-num)}
+.note{font-size:.82rem;color:var(--mute);border-left:3px solid var(--line);padding-left:10px;max-width:72ch}
+.ctrl{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ctrl span{font-size:.78rem;color:var(--mute);margin-right:4px;letter-spacing:.05em}
+.ctrl button{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+  border-radius:999px;padding:3px 12px;cursor:pointer}
+.ctrl button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.ctrl button:focus-visible,th button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sticky{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;
+  display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.sheets{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:760px){.sheets{grid-template-columns:1fr}}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.sheet .dir{font-size:.8rem;color:var(--mute)}
+.sheet svg{width:100%;height:auto;display:block}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;font-size:.85rem;width:100%}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{font-weight:500;color:var(--mute);font-size:.78rem}
+th:first-child,td:first-child{text-align:left}
+td{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+td.l{font-family:var(--f-body);text-align:left}
+th button{font:inherit;background:none;border:0;color:inherit;cursor:pointer;padding:0}
+.hi{color:var(--good);font-weight:600}.lo{color:var(--bad)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.card .big{font-family:var(--f-num);font-size:1.6rem;font-weight:600}
+.card .lbl{font-size:.82rem;color:var(--mute)}
+.heat td{text-align:center}
+ul.pts{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;max-width:72ch}
+.wakubar{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;align-items:end;height:150px}
+.wakubar div{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;height:100%;font-size:.72rem}
+.wakubar i{display:block;width:100%;background:var(--sand);border-radius:4px 4px 0 0}
+.wakubar b{font-family:var(--f-num);font-weight:600;font-size:.78rem}
+</style>
+
+<div class="wrap">
+<header style="display:flex;flex-direction:column;gap:10px">
+  <h1>大井 展開隊列 3年分</h1>
+  <div class="meta" id="meta"></div>
+  <p class="lead">スタート（最初に記録される角）と直線（4コーナー）の2枚で、3着内に来た馬がどこにいたかを集計したページです。位置はすべてそのレースの通過順から出しています。</p>
+  <p class="note">このページは「3着内に来た馬がどこにいたか」を数えたもので、レース前の予想がどれだけ当たるかとは別物です。人気（元データの該当列が人気ではなかったため）と回収率は入れていません。相対位置は（何番手−1）÷（頭数−1）で、0が先頭、1が最後方です。</p>
+</header>
+
+<div class="sticky">
+  <div class="ctrl" id="cDist"><span>距離</span></div>
+  <div class="ctrl" id="cBaba"><span>馬場</span></div>
+</div>
+
+<section>
+  <h2>2枚の隊列図 <small id="selLbl"></small></h2>
+  <div class="sheets">
+    <div class="sheet"><h3>スタート（最初に記録される角）</h3><div class="dir" id="dirS"></div><svg id="svgS" viewBox="0 0 480 250" role="img" aria-label="スタートの位置別3着内率"></svg></div>
+    <div class="sheet"><h3>直線（4コーナー）</h3><div class="dir" id="dirC"></div><svg id="svgC" viewBox="0 0 480 250" role="img" aria-label="直線の位置別3着内率"></svg></div>
+  </div>
+  <p class="note">棒の高さはその帯にいた馬の3着内率、帯の上の「3着内の◯%」は、3着内に来た馬のうちその帯にいた割合です（馬場を「全」にしたときだけ出ます）。距離を「全距離」にしたときは、どちらの図も左を前にして並べています。</p>
+</section>
+
+<section>
+  <h2>決まり手のパターン <small id="comboLbl"></small></h2>
+  <div class="cards" id="combo"></div>
+  <h3>流れ別（直線の位置 → 3着内率）</h3>
+  <div class="tw"><table id="pace"></table></div>
+  <p class="note">流れは、同じ距離・同じ馬場の前3F中央値より0.5秒以上速いか遅いかで分けています。速い流れでも前の帯がいちばん上で、後ろの帯はほとんど来ません。</p>
+</section>
+
+<section>
+  <h2>ラップ <small>前3F・上がり3F・走破タイムは中央値（秒）</small></h2>
+  <div class="tw"><table id="lap"></table></div>
+</section>
+
+<section>
+  <h2>馬場状態ごとの狙い</h2>
+  <ul class="pts" id="babaPts"></ul>
+  <div class="tw"><table id="babaT"></table></div>
+  <h3>直線で前2割にいた馬の3着内率（距離 × 馬場）</h3>
+  <div class="tw"><table class="heat" id="heat"></table></div>
+</section>
+
+<section>
+  <h2>枠 <small id="wakuLbl"></small></h2>
+  <div class="wakubar" id="waku"></div>
+  <p class="note">枠ごとの3着内率です。頭数が少ない鞍ほど外枠の頭数が減るので、1-2枠は母数が少なめです。</p>
+</section>
+
+<section>
+  <h2>騎手の傾向 <small>大井で300鞍以上の38人。列名を押すと並べ替え</small></h2>
+  <div class="tw"><table id="jk"></table></div>
+  <p class="note">「最初の角で前」はスタートの図で前2割にいた率、「押し上げ」は最初の角から4角までの相対位置の動きの平均（プラスが前へ）、「併走で外」は4角で併走したときに外にいた割合（基準はおよそ45%）です。馬の力の差は分けていないので、騎手の腕だけの数字ではありません。</p>
+</section>
+
+<section>
+  <h2>年ごとの形 <small>直線の位置 → 3着内率（全距離）</small></h2>
+  <div class="tw"><table id="year"></table></div>
+  <p class="note">2023年は12月だけです。2024年から2026年まで形はほとんど変わっていません。</p>
+</section>
+</div>
+
+<script>
+const D=/*DATA*/null;
+const BANDS=['0〜0.2','0.2〜0.4','0.4〜0.6','0.6〜0.8','0.8〜1'];
+const MIRROR=new Set(['1600m','1800m','2000m']);
+let dist='全距離', baba='全';
+const $=id=>document.getElementById(id);
+const f1=x=>x==null?'—':x.toFixed(1);
+$('meta').innerHTML=`<span><b>${D.days}</b>日</span><span><b>${D.races.toLocaleString()}</b>鞍</span><span><b>${D.span[0].replace(/(\d{4})(\d\d)(\d\d)/,'$1/$2/$3')}</b> 〜 <b>${D.span[1].replace(/(\d{4})(\d\d)(\d\d)/,'$1/$2/$3')}</b></span><span>大井のみ</span>`;
+
+function mkBtns(el,list,get,set){
+  list.forEach(v=>{const b=document.createElement('button');b.type='button';b.textContent=v;b.id='b_'+el+'_'+v;
+    b.onclick=()=>{set(v);render()};$(el).appendChild(b)});
+}
+mkBtns('cDist',['全距離',...D.dist],()=>dist,v=>dist=v);
+mkBtns('cBaba',['全',...D.baba],()=>baba,v=>baba=v);
+
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+function sheet(svg,pos,from,frontLeft){
+  const W=480,H=250,x0=10,w=(W-20)/5,top=34,bot=196;
+  const ink=css('--ink'),mute=css('--mute'),sand=css('--sand'),sand2=css('--sand2'),acc=css('--accent'),rail=css('--rail');
+  let s=`<rect x="${x0}" y="${top-6}" width="${W-20}" height="${bot-top+12}" rx="8" fill="${sand2}"/>`;
+  s+=`<line x1="${x0}" y1="${top-6}" x2="${W-10}" y2="${top-6}" stroke="${rail}" stroke-width="3"/>`;
+  if(!pos){svg.innerHTML=s+`<text x="${W/2}" y="120" text-anchor="middle" fill="${mute}" font-size="14">この組み合わせはデータがありません</text>`;return}
+  const mx=Math.max(70,...pos.map(p=>p[1]||0));
+  pos.forEach((p,i)=>{
+    const col=frontLeft?i:4-i, x=x0+col*w;
+    const h=(p[1]||0)/mx*(bot-top-24), y=bot-h;
+    s+=`<rect x="${x+8}" y="${y}" width="${w-16}" height="${h}" rx="4" fill="${i==0?acc:sand}"/>`;
+    s+=`<text x="${x+w/2}" y="${y-6}" text-anchor="middle" fill="${ink}" font-size="15" font-weight="600" font-family="JetBrains Mono,monospace">${f1(p[1])}%</text>`;
+    s+=`<text x="${x+w/2}" y="${bot+22}" text-anchor="middle" fill="${mute}" font-size="11">${BANDS[i]}</text>`;
+    s+=`<text x="${x+w/2}" y="${bot+38}" text-anchor="middle" fill="${mute}" font-size="11" font-family="JetBrains Mono,monospace">${p[0].toLocaleString()}頭</text>`;
+    if(from) s+=`<text x="${x+w/2}" y="${top+12}" text-anchor="middle" fill="${mute}" font-size="11">3着内の${f1(from[i+1])}%</text>`;
+  });
+  const fx=frontLeft?x0+6:W-16, anc=frontLeft?'start':'end';
+  s+=`<text x="${fx}" y="20" text-anchor="${anc}" fill="${ink}" font-size="12" font-weight="700">${frontLeft?'← 前':'前 →'}</text>`;
+  s+=`<text x="${frontLeft?W-16:x0+6}" y="20" text-anchor="${frontLeft?'end':'start'}" fill="${mute}" font-size="11">ラチ沿いが上</text>`;
+  svg.innerHTML=s;
+}
+
+function render(){
+  document.querySelectorAll('#cDist button').forEach(b=>b.setAttribute('aria-pressed',b.textContent==dist));
+  document.querySelectorAll('#cBaba button').forEach(b=>b.setAttribute('aria-pressed',b.textContent==baba));
+  const k=dist+'|'+baba, kf=dist+'|全';
+  $('selLbl').textContent=`${dist}・${baba=='全'?'全馬場':baba}`;
+  const all=dist=='全距離';
+  const sLeft=all?true:MIRROR.has(dist), cLeft=all?true:dist!='1650m';
+  $('dirS').textContent=all?'全距離は左を前に並べています':(sLeft?'左が前（向正面から1コーナーへ）':'右が前（スタンドから見た向き）');
+  $('dirC').textContent=all?'全距離は左を前に並べています':(cLeft?'左が前（ゴールは左）':'右がゴール（大井で左回りは1650mだけ）');
+  sheet($('svgS'),D.start[k],baba=='全'?D.sfrom[kf]:null,sLeft);
+  sheet($('svgC'),D.choku[k],baba=='全'?D.cfrom[kf]:null,cLeft);
+
+  const c=D.combo[k]; $('comboLbl').textContent=`${dist}・${baba=='全'?'全馬場':baba}`;
+  const CK=[['4角0.2以内×上がり3位以内','4角で前2割 × 上がり3位以内'],['4角0.2以内×上がり4位以下','4角で前2割 × 上がり4位以下'],
+    ['4角0.2超×上がり3位以内','4角で前2割より後ろ × 上がり3位以内'],['4角0.2超×上がり4位以下','4角で前2割より後ろ × 上がり4位以下'],
+    ['gain:押し上げ(0.2以上)','道中で0.2以上押し上げた'],['gain:下げた(0.2以上)','道中で0.2以上下げた']];
+  $('combo').innerHTML=c?CK.map(([a,l])=>{const v=c[a];return `<div class="card"><span class="lbl">${l}</span><span class="big">${v?f1(v[1])+'%':'—'}</span><span class="lbl num">${v?v[0].toLocaleString()+'頭':''}</span></div>`}).join(''):'<p class="lead">この組み合わせはデータがありません</p>';
+
+  let ph='<tr><th>流れ</th>'+BANDS.map(b=>`<th>${b}</th>`).join('')+'</tr>';
+  ['ペース速い','ペースふつう','ペース遅い'].forEach(p=>{const v=D.choku[dist+'|'+p];
+    ph+=`<tr><td class="l">${p.replace('ペース','')}</td>`+(v?v.map(x=>`<td>${f1(x[1])}<span style="color:var(--mute);font-size:.72rem"> (${x[0]})</span></td>`).join(''):'<td colspan="5">—</td>')+'</tr>'});
+  $('pace').innerHTML=ph;
+
+  const w=D.waku[k]; $('wakuLbl').textContent=`${dist}・${baba=='全'?'全馬場':baba}　3着内率`;
+  if(w){const mx=Math.max(...w.map(x=>x[1]),35);
+    $('waku').innerHTML=w.map((x,i)=>`<div><b>${f1(x[1])}</b><i style="height:${x[1]/mx*110}px"></i><span>${i+1}枠</span><span class="num" style="color:var(--mute)">${x[0]}</span></div>`).join('')}
+  else $('waku').innerHTML='<p class="lead">データがありません</p>';
+}
+
+/* ラップ表 */
+(function(){
+  let h='<tr><th>距離</th><th>鞍</th><th>走破</th><th>前3F</th><th>上がり3F</th><th>ハロンごと（中央値）</th></tr>';
+  [...D.dist,'1700m','2600m'].forEach(di=>{const v=D.lap[di+'|全'];if(!v)return;
+    const t=v.t>=60?Math.floor(v.t/60)+':'+(v.t%60).toFixed(1).padStart(4,'0'):v.t.toFixed(1);
+    h+=`<tr><td class="l">${di}</td><td>${v.n}</td><td>${t}</td><td>${f1(v.f3)}</td><td>${f1(v.a3)}</td><td style="text-align:left">${v.lap?v.lap.map(f1).join(' - '):''}</td></tr>`});
+  $('lap').innerHTML=h;
+})();
+
+/* 馬場表・ヒートマップ */
+(function(){
+  let h='<tr><th>馬場</th><th>直線 前2割</th><th>直線 後ろ2割</th><th>前2割×上がり3位内</th><th>併走 外</th><th>併走 内</th><th>1枠</th><th>8枠</th></tr>';
+  ['全',...D.baba].forEach(b=>{const k='全距離|'+b,c=D.choku[k],s=D.side[k],w=D.waku[k],m=D.combo[k];
+    h+=`<tr><td class="l">${b=='全'?'全馬場':b}</td><td>${f1(c[0][1])}</td><td>${f1(c[4][1])}</td><td>${f1(m['4角0.2以内×上がり3位以内'][1])}</td><td>${f1(s['外'][1])}</td><td>${f1(s['内'][1])}</td><td>${f1(w[0][1])}</td><td>${f1(w[7][1])}</td></tr>`});
+  $('babaT').innerHTML=h;
+  const vs=[];D.dist.forEach(di=>D.baba.forEach(b=>{const v=D.choku[di+'|'+b];if(v&&v[0][0]>=30)vs.push(v[0][1])}));
+  const lo=Math.min(...vs),hi=Math.max(...vs);
+  let t='<tr><th>距離</th>'+D.baba.map(b=>`<th>${b}</th>`).join('')+'</tr>';
+  D.dist.forEach(di=>{t+=`<tr><td class="l">${di}</td>`+D.baba.map(b=>{const v=D.choku[di+'|'+b];
+    if(!v||v[0][0]<30)return '<td style="color:var(--mute)">—</td>';
+    const a=((v[0][1]-lo)/(hi-lo||1));return `<td style="background:color-mix(in srgb,var(--accent) ${Math.round(a*55)}%,transparent)">${f1(v[0][1])}<span style="color:var(--mute);font-size:.7rem"> ${v[0][0]}</span></td>`}).join('')+'</tr>'});
+  $('heat').innerHTML=t;
+  $('babaPts').innerHTML=[
+    `<li><b>不良は前がさらに残ります。</b>直線で前2割の3着内率は良${f1(D.choku['全距離|良'][0][1])}%に対して不良${f1(D.choku['全距離|不良'][0][1])}%。1600m不良は${f1(D.choku['1600m|不良'][0][1])}%で、後ろ2割は${f1(D.choku['1600m|不良'][4][1])}%です。</li>`,
+    `<li><b>稍重と不良は「併走するなら外」。</b>4角で併走した馬の3着内率は、稍重で外${f1(D.side['全距離|稍重']['外'][1])}%／内${f1(D.side['全距離|稍重']['内'][1])}%、不良で外${f1(D.side['全距離|不良']['外'][1])}%／内${f1(D.side['全距離|不良']['内'][1])}%。1400m不良は外${f1(D.side['1400m|不良']['外'][1])}%／内${f1(D.side['1400m|不良']['内'][1])}%まで開きます。</li>`,
+    `<li><b>重は内外の差がほぼありません</b>（外${f1(D.side['全距離|重']['外'][1])}%／内${f1(D.side['全距離|重']['内'][1])}%）。1600m重は内${f1(D.side['1600m|重']['内'][1])}%のほうが上です。</li>`,
+    `<li><b>良は内枠がわずかに有利、不良は外枠。</b>1枠の3着内率は良${f1(D.waku['全距離|良'][0][1])}%、不良${f1(D.waku['全距離|不良'][0][1])}%。不良の7-8枠は${f1(D.waku['全距離|不良'][6][1])}%／${f1(D.waku['全距離|不良'][7][1])}%です。</li>`,
+    `<li><b>道中で押し上げた馬は、不良でいちばん来ます</b>（良${f1(D.combo['全距離|良']['gain:押し上げ(0.2以上)'][1])}% → 不良${f1(D.combo['全距離|不良']['gain:押し上げ(0.2以上)'][1])}%）。</li>`
+  ].join('');
+})();
+
+/* 騎手表 */
+const JC=[['name','騎手'],['n','鞍'],['1着','1着%'],['3着内','3着内%'],['1角先行','最初の角で前%'],['4角0.2以内','4角で前%'],['押し上げ平均','押し上げ'],['併走で外','併走で外%'],['良','良'],['稍重','稍重'],['重・不良','重・不良']];
+let jSort='3着内',jDir=-1;
+function jval(r,c){const v=c=='name'?r[0]:r[1][c];return Array.isArray(v)?v[1]:v}
+function renderJ(){
+  const rows=Object.entries(D.jk).sort((a,b)=>{const x=jval(a,jSort),y=jval(b,jSort);return (x>y?1:x<y?-1:0)*jDir});
+  let h='<tr>'+JC.map(([c,l])=>`<th><button type="button" data-c="${c}">${l}${jSort==c?(jDir<0?' ▼':' ▲'):''}</button></th>`).join('')+'</tr>';
+  rows.forEach(([n,v])=>{
+    const bb=['良','稍重','重・不良'].map(b=>v[b]),base=v['3着内'];
+    h+=`<tr><td class="l">${n}</td><td>${v.n}</td><td>${f1(v['1着'])}</td><td>${f1(v['3着内'])}</td><td>${f1(v['1角先行'])}</td><td>${f1(v['4角0.2以内'])}</td>`+
+      `<td class="${v['押し上げ平均']>=0.04?'hi':v['押し上げ平均']<=-0.04?'lo':''}">${(v['押し上げ平均']>0?'+':'')+v['押し上げ平均'].toFixed(3)}</td>`+
+      `<td class="${v['併走で外']>=53?'hi':v['併走で外']<=37?'lo':''}">${f1(v['併走で外'])}</td>`+
+      bb.map(x=>`<td class="${x[0]>=60&&x[1]-base>=4?'hi':x[0]>=60&&base-x[1]>=4?'lo':''}">${f1(x[1])}</td>`).join('')+'</tr>'});
+  $('jk').innerHTML=h;
+  $('jk').querySelectorAll('th button').forEach(b=>b.onclick=()=>{const c=b.dataset.c;if(jSort==c)jDir=-jDir;else{jSort=c;jDir=c=='name'?1:-1}renderJ()});
+}
+renderJ();
+
+/* 年 */
+(function(){
+  let h='<tr><th>年</th>'+BANDS.map(b=>`<th>${b}</th>`).join('')+'</tr>';
+  ['2023','2024','2025','2026'].forEach(y=>{const v=D.year[y+'|全'];if(v)h+=`<tr><td class="l">${y}</td>`+v.map(x=>`<td>${f1(x[1])}</td>`).join('')+'</tr>'});
+  $('year').innerHTML=h;
+})();
+render();
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change',render);
+new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+</script>
