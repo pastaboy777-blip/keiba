@@ -1194,6 +1194,7 @@ def yon_front_is_left(place):
 
 
 CIRCLE: dict = {}
+AITE_LABEL = "相手候補"   # --aite-label: 白丸の凡例の言葉(既定「相手候補」。11/28 の狙いの図は「相手」)
 CIRCLE_EACH = False   # --circle-each: 赤丸も1頭ずつ(ユーザー指定 2026-11-14「全部○で囲って」)
 CIRCLE2: dict = {}  # 相手の丸(白)。--circle2 "7:15,10"。本命は --circle(赤)   # 手で丸を付ける馬 {R番号(int): {馬番}}。--circle "12:6,12,15;3:8"
 
@@ -1617,7 +1618,7 @@ def kawa_board(rows, fc, n, rk, key="pos1", yon=False) -> str:
     legend = ""
     if ring:
         legend = ('<div class="klegend"><span class="lr"></span>赤丸＝狙い'
-                  + ('<span class="lw"></span>白丸＝相手候補' if 'k2"' in ring else "") + '</div>')
+                  + ('<span class="lw"></span>白丸＝%s' % AITE_LABEL if 'k2"' in ring else "") + '</div>')
     if yon:
         legend += ('<div class="knote">前後＝位置モデルの4角の予想。内外＝4角の併走の内外を学んだモデル(ほぼ馬番と騎手)を'
                    '4角の前後で当て直したもので、1枚目と同じ物差し(4角専用に作り込んではいない)</div>')
@@ -2297,6 +2298,7 @@ def main() -> None:
                          "既定は中団に「条件の材料なし」で置き、見出し・荒れ方・候補の判定から外す)")
     ap.add_argument("--no-jiten", action="store_true",
                     help="各鞍の下の「データ: 11/15 東京 8Rまでの結果を反映」(当日の結果が何Rまで入っていたか)を出さない")
+    ap.add_argument("--aite-label", default="相手候補", help="白丸の凡例の言葉(既定「相手候補」)")
     ap.add_argument("--circle-each", action="store_true", help="赤丸を1頭ずつ付ける(まとめて1つにしない)")
     ap.add_argument("--circle2", default="", help='相手を白い丸で囲む馬。"7:15,10,8"')
     ap.add_argument("--circle", default="", help='手で赤丸を付ける馬。"12:6,12,15;3:8"(R:馬番)')
@@ -2329,6 +2331,8 @@ def main() -> None:
     BASE_BABA_DIRT = _UNSET if a.base_baba_dirt is None else (set(a.base_baba_dirt.split(",")) if a.base_baba_dirt else None)
     HIDE_PACE.update(int(x) for x in a.hide_pace.split(",") if x.strip().isdigit())
     global YON_ALL, UCHI_UE, JITEN_OFF, NANKAN, OBI, NASHI_USHIRO, JOUKEN_USHIRO
+    global AITE_LABEL
+    AITE_LABEL = a.aite_label
     NASHI_USHIRO = a.nashi_ushiro
     JOUKEN_USHIRO = a.jouken_ushiro
     UCHI_UE = a.uchi_ue
