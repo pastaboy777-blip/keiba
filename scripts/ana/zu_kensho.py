@@ -66,6 +66,89 @@ def bars(title, pairs):
         print('    %.1f-%.1f  %5.1f%%  (%d頭中%d)' % (a, b, 100 * k / n if n else 0, n, k))
 
 
+BN = [(0, 1 / 3, '前'), (1 / 3, 2 / 3, '中'), (2 / 3, 1.01, '後')]
+
+
+def erabu(card, rs, ven, Rs):
+    """**どちらの図のどこから3着内が出たか**（＝印をどの図で選ぶか）。
+
+    ★ 2026-11-27 に足した。浦和4日（46鞍）で測ったら、**直線の図のほうが桁ちがいに割れた**。
+
+        前の3分の1   1枚目 36.5%  ／ 直線 **43.5%**
+        後ろの3分の1 1枚目 17.2%  ／ 直線 **10.2%**
+        開き         1枚目 19.3pt ／ 直線 **33.3pt**
+
+      上位2頭は 直線 58.7% / 55.6%（勝率26.1% / 24.4%）に対し 1枚目 50.0% / 34.8%。
+      **直線の上位2頭のどちらかが3着内 39/46鞍＝84.8%、勝ち馬が入ったのが50.0%。**
+      さらに CLAUDE.md ルール66 では「前の帯と中の帯は分けない」だったが、
+      **直線の図だと分かれる**（前×終い3位以内 57.1% 対 中×終い3位以内 20.5%）。
+      ルール66は1枚目の帯で測った話なので、取り消さずに**図ごとに分ける**。"""
+    cnt = {k: collections.Counter() for k in 'sz'}
+    hit = {k: collections.Counter() for k in 'sz'}
+    rk = {k: collections.Counter() for k in 'sz'}
+    rh = {k: collections.Counter() for k in 'sz'}
+    rw = {k: collections.Counter() for k in 'sz'}
+    cc = collections.Counter(); chh = collections.Counter()
+    t2 = [0, 0, 0, 0]
+    for R in Rs:
+        d = rs[R]
+        ch = {int(u): v['chaku'] for u, v in d['horses'].items() if v.get('chaku')}
+        o = {}
+        for k, cho in (('s', False), ('z', True)):
+            o[k] = sorted([r for r in rows_of(card, R, ven, cho) if r.get('pos') is not None],
+                          key=lambda r: r['pos'])
+        if len(o['z']) < 4:
+            continue
+        for k in 'sz':
+            N = len(o[k])
+            for i, r in enumerate(o[k]):
+                c = ch.get(r['ub'])
+                if c is None:
+                    continue
+                for a, b, nm in BN:
+                    if a <= i / (N - 1) < b:
+                        cnt[k][nm] += 1; hit[k][nm] += c <= 3
+                        break
+                if i < 3:
+                    rk[k][i] += 1; rh[k][i] += c <= 3; rw[k][i] += c == 1
+        ed = sorted([r for r in o['z'] if r.get('l') is not None], key=lambda r: r['l'])
+        er = {r['ub']: i + 1 for i, r in enumerate(ed)}
+        N = len(o['z'])
+        for i, r in enumerate(o['z']):
+            c = ch.get(r['ub'])
+            if c is None:
+                continue
+            bd = next(nm for a, b, nm in BN if a <= i / (N - 1) < b)
+            sm = '終い3位以内' if er.get(r['ub'], 99) <= 3 else '札なし'
+            cc[(bd, sm)] += 1; chh[(bd, sm)] += c <= 3
+        tt = [r['ub'] for r in o['z'][:2]]
+        g = [u for u in tt if ch.get(u, 99) <= 3]
+        t2[0] += 1; t2[1] += len(g) == 2; t2[2] += len(g) >= 1
+        t2[3] += any(ch.get(u) == 1 for u in tt)
+    if not t2[0]:
+        return
+    print('  ■ 図の位置 → 3着内率（印をどちらの図で選ぶか）')
+    print('              1枚目（最初の角）        直線の図（4角）')
+    for _, _, nm in BN:
+        if cnt['s'][nm] and cnt['z'][nm]:
+            print('    %s3分の1  %5.1f%% (%3d頭中%2d)     %5.1f%% (%3d頭中%2d)' % (
+                nm, 100 * hit['s'][nm] / cnt['s'][nm], cnt['s'][nm], hit['s'][nm],
+                100 * hit['z'][nm] / cnt['z'][nm], cnt['z'][nm], hit['z'][nm]))
+    for i in range(3):
+        if rk['s'][i] and rk['z'][i]:
+            print('    %d番目    %5.1f%% / 勝%4.1f%%          %5.1f%% / 勝%4.1f%%' % (
+                i + 1, 100 * rh['s'][i] / rk['s'][i], 100 * rw['s'][i] / rk['s'][i],
+                100 * rh['z'][i] / rk['z'][i], 100 * rw['z'][i] / rk['z'][i]))
+    print('  ■ 直線の図の位置 × 終いの札')
+    for bd in ('前', '中', '後'):
+        for sm in ('終い3位以内', '札なし'):
+            if cc[(bd, sm)]:
+                print('    %s3分の1 × %-10s %5.1f%%  (%3d頭中%2d)' % (
+                    bd, sm, 100 * chh[(bd, sm)] / cc[(bd, sm)], cc[(bd, sm)], chh[(bd, sm)]))
+    print('  ■ 直線の図の上位2頭（%d鞍）  どちらかが3着内 %d鞍 %.1f%% ／ 勝ち馬 %d鞍 %.1f%% ／ 2頭とも %d鞍' % (
+        t2[0], t2[2], 100 * t2[2] / t2[0], t2[3], 100 * t2[3] / t2[0], t2[1]))
+
+
 def run(card, rs, ven, Rs, lab):
     if not Rs:
         return
@@ -188,6 +271,8 @@ def run(card, rs, ven, Rs, lab):
         print('    1枚目の先頭 %d/%d（上位2頭 %d/%d）  ずれ %.4f' % (h1, n2, t1, n2, sum(e1) / len(e1)))
         print('    直線の先頭   %d/%d                ずれ %.4f' % (h2, n2, sum(e2) / len(e2)))
         print('    図で隣どうしが3着内 … %d/%d鞍' % (ton, n2))
+
+    erabu(card, rs, ven, Rs)
 
     w1 = i3 = nn = 0
     for R in Rs:
