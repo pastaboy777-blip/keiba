@@ -439,6 +439,10 @@ OLD_NOMB = False    # True なら馬自身の併走実績を内度に入れな�
 #   旧の形に戻す口は `--pos-median` / `--no-futatsu` / `--swapdu`。この3つを付けると
 #   直す前とまったく同じHTMLが出る（2026-11-14 に大井10/26の12鞍でバイト一致を確認）。
 POS_MEDIAN = False   # True なら pos を中央値に戻す（--pos-median）
+POS_TRIM = True      # 1枚目の pos から**いちばん後ろの1走を落とす**（--no-pos-trim で止める）
+                     # ★ 2026-11-27 に既定にした。中身と測った値は pos_of1() の docstring。
+                     #   浦和44鞍で先頭的中 25.0% → 34.1%（4鞍勝ち・0鞍負け）、ずれは +0.001。
+                     #   **4角（直線の図）には効かせない**（同じ4日で悪化したため）。
 FUTATSU = True       # 「先頭候補」の札を出すか（--no-futatsu で止める）
 SWAPDU = False       # True なら内度による前後の入れ替えを復活させる（--swapdu）
 FUTATSU_DP = 0.06    # 先頭2頭の pos 差がこれ未満なら「先頭候補」を2頭に出す
@@ -652,6 +656,40 @@ def pos_of(xs):
     return st.median(xs) if POS_MEDIAN else wmean(xs)
 
 
+def pos_of1(xs):
+    """**1枚目（最初の角）だけ**の代表値。直近重みづけから
+    **いちばん後ろだった1走を落とす**（3走以上あるときだけ）。`--no-pos-trim` で止まる。
+
+    ★ 2026-11-27、浦和4日（11/24-11/27・44鞍）で確かめて既定にした。
+      理由はルール46★★に書いてある実害 ── 11/13 川崎9R ⑫ジンガブリッツは
+      1角相対が新しい順に 0.40 / **1.00** / 0.36 / 0.27 / 0.27 で、**実際に逃げて1着**なのに
+      直近重みづけだと 2走前の1.00 に重み4が乗って **0.526（図の3番手）**に落ちていた。
+      いちばん後ろの1走を落とすと **0.349** で先頭に戻る。
+      出遅れ・不利の1走が「どこにいるか」より「**誰が行くか**」を壊す、という形。
+
+      浦和44鞍（1枚目）
+
+        いまの既定            先頭 11/44 25.0%  上位2頭 21/44  ずれ 0.2092
+        **後ろ1走を落とす**    先頭 15/44 34.1%  上位2頭 21/44  ずれ 0.2102
+
+      食い違った鞍は **4鞍すべてこちらが正解**（11/24 11R・11/25 2R・11/27 10R・11/27 11R）。
+      既定が勝った鞍は**0**。ずれは +0.001 で実質動かない（上位2頭も同じ）。
+      閾値は要らなかった ── 「中央値より◯◯以上後ろなら落とす」を 0.15/0.25/0.35 で試すと
+      どれも 14/44 に下がる。**無条件に1走落とすのがいちばん良い。**
+
+    ★★ **4角（2枚目・直線の図）には使わない。** 同じ4日で逆に悪化した
+      （先頭 15/44 → 12/44、6鞍負けて3鞍勝ち、ずれ 0.2418 → 0.2538）。
+      4角の位置は出遅れも含めた「そのレースの結果」なので、落とすと読みが鈍る。
+      落としてよいのは**スタート直後の位置**だけ。
+    ★ `--pos-median` / `--c4` / `--old` の経路は**素通り**（旧の図を1バイトも変えない）。"""
+    if not xs:
+        return None
+    if POS_MEDIAN or OLD_C4 or not POS_TRIM or len(xs) < 3:
+        return pos_of(xs)
+    j = max(range(len(xs)), key=lambda i: xs[i])
+    return wmean([xs[i] for i in range(len(xs)) if i != j])
+
+
 # ★ 見出しに出す地点名（2026-11-14・CLAUDE.md ルール45）。
 #   最初に記録される角は場と距離でちがう（大井1000m・1200mは3角／大井1400mは2角／川崎900mは3角）。
 #   見出しを「1コーナーでの隊列想定」と決め打ちしていたが、120鞍中49鞍で実際の地点と違っていた。
@@ -807,10 +845,10 @@ def row_of(h, dist, od, ven=None):
                 #   OLD_C4 を先に見ているので `--c4` / `--old` の経路は1バイトも変わらない。
                 pos=((st.median(c4) if c4 else (st.median(c1) if c1 else None)) if OLD_C4
                      else (pos_of(c4) if c4 else pos_of(c1)) if CHOKU
-                     else (pos_of(c1) if c1 else pos_of(c4))),
+                     else (pos_of1(c1) if c1 else pos_of(c4))),
                 # ★ --age で2枚の図の順位を比べるために、両方の代表値を持たせる。
                 #   図のxを決めている式と同じ（pos の行の通り）。
-                pos_c1=(pos_of(c1) if c1 else (pos_of(c4) if c4 else None)),
+                pos_c1=(pos_of1(c1) if c1 else (pos_of(c4) if c4 else None)),
                 pos_c4=(pos_of(c4) if c4 else (pos_of(c1) if c1 else None)),
                 pos4=(st.median(c4) if c4 else None), nopos=False, daiyo=daiyo,
                 gain=(st.median(per) if per else None), l=l, runs=len(P),
@@ -1222,7 +1260,7 @@ def main():
     global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO, SAGARU
     global CYO_KOTO
     global AGARI, BABA_N, CHOKU, OBI, OBI_NONAME, NIGE, AGE, ANATAG, ANA_NIN
-    global ANA_NONIN, ANA_MAX, ANA_MAE, FUTATSU_DP
+    global ANA_NONIN, ANA_MAX, ANA_MAE, FUTATSU_DP, POS_TRIM
     # ★★ 2026-11-16、**直線の図**（上の CHOKU の★★）。ユーザーの指示 ──
     #   「スタートから1コーナー」と「直線」の2枚。2枚目がこれ。
     #   4角で隊列を組み、鞍によらず「左がゴール・上がラチ」で描く。
@@ -1245,6 +1283,8 @@ def main():
     POS_MEDIAN = '--pos-median' in a              # pos を中央値に戻す
     FUTATSU = '--no-futatsu' not in a             # 「先頭候補」の札を出さない
     SWAPDU = '--swapdu' in a                      # 内度による前後の入れ替えを復活させる
+    # ★ 2026-11-27、1枚目の pos から「いちばん後ろの1走」を落とすのをやめる口（pos_of1 の★）
+    POS_TRIM = '--no-pos-trim' not in a
     # ★ 2026-11-15、過去走なしを中央に重ねる旧の形に戻す口（上の NOPAST_* の★）
     NOPAST_CENTER = '--nopast-center' in a
     # ★ 2026-11-15、**地点をそろえるのをやめて混ぜる**旧の形に戻す口（上の POS_MAZERU の★★）
