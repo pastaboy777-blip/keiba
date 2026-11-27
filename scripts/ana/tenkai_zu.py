@@ -520,6 +520,18 @@ OBI_NONAME = False       # --obi-noname（帯の名前を出さない。色と�
 NIGE = False             # --nige
 AGE = False              # --age
 ANATAG = False           # --anatag
+# ★★ 2026-11-27、ユーザーの指示「３つ全部」（大井3年分の集計から出した提案）。
+#   **付けなければ出力は1バイトも変わらない**（CSSにクラスが2つ増えるだけ）。
+#   --furyo-soto  馬場が「不良」の鞍だけ、7-8枠の馬に「不良・外」の札。
+#                 （内度 .35以下も足すと 11/20 の12鞍で 44頭→56頭。多すぎるので枠だけにした）
+#                 大井3年分の不良で 1枠21.6% 対 7-8枠29.7%/28.8%、
+#                 4角で併走したとき 外32.0% 対 内21.1%（ルール80）。
+#   --jk-ninhi    大井の鞍だけ、騎手の「人気比」（乗った馬の人気から見込む3着内率との差）が
+#                 ±2.0ポイント以上の騎手に札。元は jk_ninhi_ooi.json（ooi_keikou.py --jkjson）。
+#                 大井で300鞍以上の騎手だけ。**馬の力の差は分けていない**（ルール80）。
+FURYO_SOTO = False       # --furyo-soto
+JK_NINHI = False         # --jk-ninhi
+JKN = {}
 ANA_NIN = 6              # 何番人気以下を穴とみなすか（--ana-nin で変える）
 ANA_MAE = False          # 穴の札を4角の位置順で選ぶか（--ana-mae）。既定は内度の高い順
 ANA_MAX = 3              # 穴の札を1鞍に何頭まで出すか（--ana-max。0で全部）
@@ -1222,7 +1234,7 @@ def main():
     global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO, SAGARU
     global CYO_KOTO
     global AGARI, BABA_N, CHOKU, OBI, OBI_NONAME, NIGE, AGE, ANATAG, ANA_NIN
-    global ANA_NONIN, ANA_MAX, ANA_MAE, FUTATSU_DP
+    global ANA_NONIN, ANA_MAX, ANA_MAE, FUTATSU_DP, FURYO_SOTO, JK_NINHI, JKN
     # ★★ 2026-11-16、**直線の図**（上の CHOKU の★★）。ユーザーの指示 ──
     #   「スタートから1コーナー」と「直線」の2枚。2枚目がこれ。
     #   4角で隊列を組み、鞍によらず「左がゴール・上がラチ」で描く。
@@ -1233,6 +1245,13 @@ def main():
     NIGE = '--nige' in a
     AGE = '--age' in a
     ANATAG = '--anatag' in a
+    FURYO_SOTO = '--furyo-soto' in a
+    JK_NINHI = '--jk-ninhi' in a
+    if JK_NINHI:
+        try:
+            JKN = json.load(open(os.path.join(HERE, 'jk_ninhi_ooi.json')))
+        except Exception:
+            JKN = {}
     ANA_NIN = int(g('--ana-nin', '6'))
     ANA_NONIN = '--ana-nonin' in a   # 人気が空の馬にも穴の札を出す（2026-11-20）
     ANA_MAX = int(g('--ana-max', '3'))   # 穴の札の頭数の上限（2026-11-25）
@@ -1432,6 +1451,14 @@ def main():
             #     馬だけに出す（4角で前に行ける順に ANA_MAX 頭まで）。
             if ANATAG and not plain and r['ub'] in anaset:
                 so += '<span class="anam">穴　道中で下げない</span>'
+            # ★★ 2026-11-27（上の FURYO_SOTO / JK_NINHI の★★）。`--plain` では出さない。
+            if FURYO_SOTO and not plain and baba == '不良' and r['waku'] >= 7:
+                so += '<span class="fsoto">不良・外</span>'
+            if JK_NINHI and not plain and ven == '大井':
+                jv = JKN.get(r.get('jk') or '')
+                if jv and jv[1] is not None and abs(jv[1]) >= 2.0:
+                    so += ('<span class="jknp">%s 人気以上 +%.1f</span>' if jv[1] > 0 else
+                           '<span class="jknm">%s 人気以下 %.1f</span>') % (html.escape(r['jk']), jv[1])
             # ★ 道悪の札（2026-11-15・baba_tag の★★）。見本に合わせて**いちばん上**
             #   （馬名のすぐ下）に置く。`--plain` では出さない。`--no-pct` では出す。
             #   ★★ 回数（3着内n/道悪m走）も添える（baba_tag の★★）。`--no-baba-n` で2文字だけに戻る。

@@ -345,6 +345,13 @@ def main():
     for (cell, b, kk), (n, w) in nk_.items():
         R["ninki_obi"].setdefault(cell, {}).setdefault(b, {})[kk] = [n, rate(w, n)]
 
+    # ── 2026-11-27、図の札（tenkai_zu.py --jk-ninhi）用に騎手の人気比だけ書き出す。
+    #   300鞍以上の騎手だけ。値は「乗った馬の人気から見込む3着内率」との差（ポイント）。
+    if "--jkjson" in a:
+        out = {j: [v["n"], v["人気比"]] for j, v in R["jockey"].items()
+               if v["n"] >= 300 and v["人気比"] is not None}
+        json.dump(out, open(a[a.index("--jkjson") + 1], "w"), ensure_ascii=False, indent=0)
+
     if "--json" in a:
         json.dump(R, open(a[a.index("--json") + 1], "w"), ensure_ascii=False, indent=1)
     print("大井 %d日・%d鞍（%s … %s）" % (R["days"], R["races"], *(R["span"] or ["-", "-"])))

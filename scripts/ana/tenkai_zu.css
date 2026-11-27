@@ -192,3 +192,10 @@ h1{font-size:32px;font-weight:800;margin:5px 0 6px}
 .anam{display:block;font-size:11.5px;color:#2a1400;background:#ffb020;border-radius:4px;
  padding:1px 7px;font-weight:900;margin:2px auto 0;width:max-content;letter-spacing:.03em;
  box-shadow:0 0 0 1.5px #fff3d0,0 1px 5px rgba(255,176,32,.6)}
+/* 2026-11-27 --furyo-soto / --jk-ninhi の札。既存の札と同じ形・同じ大きさで、色だけ新しい。 */
+.fsoto{display:block;font-size:9px;color:#fff;background:#3b6fb0;border-radius:3px;
+ padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
+.jknp{display:block;font-size:9px;color:#08210f;background:#7fd49a;border-radius:3px;
+ padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
+.jknm{display:block;font-size:9px;color:#fff;background:#8a5a5a;border-radius:3px;
+ padding:0 5px;font-weight:800;margin:1px auto 0;width:max-content}
