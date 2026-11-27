@@ -72,7 +72,7 @@ ul.pts{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;ma
   <h1>大井 展開隊列 3年分</h1>
   <div class="meta" id="meta"></div>
   <p class="lead">スタート（最初に記録される角）と直線（4コーナー）の2枚で、3着内に来た馬がどこにいたかを集計したページです。位置はすべてそのレースの通過順から出しています。</p>
-  <p class="note">このページは「3着内に来た馬がどこにいたか」を数えたもので、レース前の予想がどれだけ当たるかとは別物です。人気（元データの該当列が人気ではなかったため）と回収率は入れていません。相対位置は（何番手−1）÷（頭数−1）で、0が先頭、1が最後方です。</p>
+  <p class="note">このページは「3着内に来た馬がどこにいたか」を数えたもので、レース前の予想がどれだけ当たるかとは別物です。回収率は入れていません。人気は結果ページの単勝人気で、取消や同着で並びが崩れた鞍（全体の4%）は人気の集計から外しています。相対位置は（何番手−1）÷（頭数−1）で、0が先頭、1が最後方です。</p>
 </header>
 
 <div class="sticky">
@@ -87,6 +87,13 @@ ul.pts{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;ma
     <div class="sheet"><h3>直線（4コーナー）</h3><div class="dir" id="dirC"></div><svg id="svgC" viewBox="0 0 480 250" role="img" aria-label="直線の位置別3着内率"></svg></div>
   </div>
   <p class="note">棒の高さはその帯にいた馬の3着内率、帯の上の「3着内の◯%」は、3着内に来た馬のうちその帯にいた割合です（馬場を「全」にしたときだけ出ます）。距離を「全距離」にしたときは、どちらの図も左を前にして並べています。</p>
+</section>
+
+<section>
+  <h2>人気と位置 <small id="ninLbl"></small></h2>
+  <p class="lead">人気ごとに、直線の位置・道中の動き・4角で併走したときの内外で3着内率を分けました。穴（6番人気以下）がどこから来るかを見る表です。</p>
+  <div class="tw"><table id="nin"></table></div>
+  <p class="note">かっこ内は頭数。50頭未満の欄は薄く表示しています。「押し上げ」「下げた」は最初の角から4角までに相対位置が0.2以上動いた馬です。</p>
 </section>
 
 <section>
@@ -119,7 +126,7 @@ ul.pts{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;ma
 <section>
   <h2>騎手の傾向 <small>大井で300鞍以上の38人。列名を押すと並べ替え</small></h2>
   <div class="tw"><table id="jk"></table></div>
-  <p class="note">「最初の角で前」はスタートの図で前2割にいた率、「押し上げ」は最初の角から4角までの相対位置の動きの平均（プラスが前へ）、「併走で外」は4角で併走したときに外にいた割合（基準はおよそ45%）です。馬の力の差は分けていないので、騎手の腕だけの数字ではありません。</p>
+  <p class="note">「最初の角で前」はスタートの図で前2割にいた率、「押し上げ」は最初の角から4角までの相対位置の動きの平均（プラスが前へ）、「併走で外」は4角で併走したときに外にいた割合（基準はおよそ45%）、「人気比」は乗った馬の人気から見込まれる3着内率との差（ポイント）です。馬の力の差は分けていないので、騎手の腕だけの数字ではありません。</p>
 </section>
 
 <section>
@@ -191,6 +198,14 @@ function render(){
     ph+=`<tr><td class="l">${p.replace('ペース','')}</td>`+(v?v.map(x=>`<td>${f1(x[1])}<span style="color:var(--mute);font-size:.72rem"> (${x[0]})</span></td>`).join(''):'<td colspan="5">—</td>')+'</tr>'});
   $('pace').innerHTML=ph;
 
+  const NB=['1番人気','2-3番人気','4-5番人気','6-9番人気','10番人気以下'];
+  const NC=[['全','全体'],...BANDS.map((b,i)=>['直線'+['0.0-0.2','0.2-0.4','0.4-0.6','0.6-0.8','0.8-1.0'][i],'直線 '+b]),['gain押し上げ','押し上げ'],['gain下げた','下げた'],['併走外','併走 外'],['併走内','併走 内']];
+  const no=D.nobi[k]; $('ninLbl').textContent=`${dist}・${baba=='全'?'全馬場':baba}　3着内率`;
+  let nh='<tr><th>人気</th>'+NC.map(c=>`<th>${c[1]}</th>`).join('')+'</tr>';
+  if(no) NB.forEach(b=>{const v=no[b]||{};nh+=`<tr><td class="l">${b}</td>`+NC.map(([c])=>{const x=v[c];
+    if(!x)return '<td>—</td>';return `<td style="${x[0]<50?'opacity:.45':''}">${f1(x[1])}<span style="color:var(--mute);font-size:.7rem"> (${x[0]})</span></td>`}).join('')+'</tr>'});
+  $('nin').innerHTML=nh;
+
   const w=D.waku[k]; $('wakuLbl').textContent=`${dist}・${baba=='全'?'全馬場':baba}　3着内率`;
   if(w){const mx=Math.max(...w.map(x=>x[1]),35);
     $('waku').innerHTML=w.map((x,i)=>`<div><b>${f1(x[1])}</b><i style="height:${x[1]/mx*110}px"></i><span>${i+1}枠</span><span class="num" style="color:var(--mute)">${x[0]}</span></div>`).join('')}
@@ -229,7 +244,7 @@ function render(){
 })();
 
 /* 騎手表 */
-const JC=[['name','騎手'],['n','鞍'],['1着','1着%'],['3着内','3着内%'],['1角先行','最初の角で前%'],['4角0.2以内','4角で前%'],['押し上げ平均','押し上げ'],['併走で外','併走で外%'],['良','良'],['稍重','稍重'],['重・不良','重・不良']];
+const JC=[['name','騎手'],['n','鞍'],['1着','1着%'],['3着内','3着内%'],['1角先行','最初の角で前%'],['4角0.2以内','4角で前%'],['押し上げ平均','押し上げ'],['併走で外','併走で外%'],['人気比','人気比'],['良','良'],['稍重','稍重'],['重・不良','重・不良']];
 let jSort='3着内',jDir=-1;
 function jval(r,c){const v=c=='name'?r[0]:r[1][c];return Array.isArray(v)?v[1]:v}
 function renderJ(){
@@ -240,6 +255,7 @@ function renderJ(){
     h+=`<tr><td class="l">${n}</td><td>${v.n}</td><td>${f1(v['1着'])}</td><td>${f1(v['3着内'])}</td><td>${f1(v['1角先行'])}</td><td>${f1(v['4角0.2以内'])}</td>`+
       `<td class="${v['押し上げ平均']>=0.04?'hi':v['押し上げ平均']<=-0.04?'lo':''}">${(v['押し上げ平均']>0?'+':'')+v['押し上げ平均'].toFixed(3)}</td>`+
       `<td class="${v['併走で外']>=53?'hi':v['併走で外']<=37?'lo':''}">${f1(v['併走で外'])}</td>`+
+      `<td class="${v['人気比']>=2?'hi':v['人気比']<=-2?'lo':''}">${v['人気比']==null?'—':(v['人気比']>0?'+':'')+f1(v['人気比'])}</td>`+
       bb.map(x=>`<td class="${x[0]>=60&&x[1]-base>=4?'hi':x[0]>=60&&base-x[1]>=4?'lo':''}">${f1(x[1])}</td>`).join('')+'</tr>'});
   $('jk').innerHTML=h;
   $('jk').querySelectorAll('th button').forEach(b=>b.onclick=()=>{const c=b.dataset.c;if(jSort==c)jDir=-jDir;else{jSort=c;jDir=c=='name'?1:-1}renderJ()});

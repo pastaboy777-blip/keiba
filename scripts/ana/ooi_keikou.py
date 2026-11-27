@@ -63,6 +63,30 @@ def dist_key(d):
     return "%dm" % d
 
 
+def fix_nin(rows):
+    """harvest の nk を人気（nin）に直す。2026-11-27 に確かめた。
+    nk は行のいちばん最後の数字で、**最後の行（最下位の馬）以外は単勝人気そのもの**。
+    最後の行だけは、うしろに続く「払戻金 … ◯番人気」まで切らずに拾っていて、
+    払戻の最後の「◯番人気」が入っている。
+    → 最後の行以外が 1〜n のうち1つだけ欠けた並びなら、欠けた番号が最後の行の人気。
+      それ以外の形（取消・同着などで並びが崩れた鞍）は、その鞍ごと None にする。
+    大井3年分 3,414鞍のうち 3,289鞍（96%）で人気が戻る。"""
+    n = len(rows)
+    ks = [r.get("nk") for r in rows]
+    full = set(range(1, n + 1))
+    if sorted(k for k in ks if k) == sorted(full) and None not in ks:
+        nin = ks
+    else:
+        head = ks[:-1]
+        miss = full - set(head)
+        if None not in head and len(set(head)) == n - 1 and len(miss) == 1:
+            nin = head + [miss.pop()]
+        else:
+            nin = [None] * n
+    for r, k in zip(rows, nin):
+        r["nin"] = k
+
+
 def load(folder):
     races = []
     for f in sorted(glob.glob(os.path.join(folder, "ooi*_res.json"))):
@@ -73,6 +97,7 @@ def load(folder):
         except Exception:
             continue
         for k, v in D.items():
+            fix_nin(v.get("rows", []))
             rows = [r for r in v.get("rows", []) if r.get("chaku")]
             if len(rows) < 5 or not v.get("dist") or not v.get("baba"):
                 continue
@@ -123,8 +148,8 @@ def main():
     pop = collections.Counter(); pop3 = collections.Counter()
     for rc in races:
         for r in rc["rows"]:
-            if r.get("nk"):
-                pop[r["nk"]] += 1; pop3[r["nk"]] += r["chaku"] <= 3
+            if r.get("nin"):
+                pop[r["nin"]] += 1; pop3[r["nin"]] += r["chaku"] <= 3
     exp3 = {k: pop3[k] / pop[k] for k in pop}
     R["ninki_3nai"] = {k: [pop[k], rate(pop3[k], pop[k])] for k in sorted(pop)}
 
@@ -245,8 +270,8 @@ def main():
                 continue
             c = J[j]; t3 = r["chaku"] <= 3
             c["n"] += 1; c["w3"] += t3; c["w1"] += r["chaku"] == 1
-            if r.get("nk") in exp3:
-                c["e3"] += exp3[r["nk"]]; c["ne"] += 1; c["w3e"] += t3
+            if r.get("nin") in exp3:
+                c["e3"] += exp3[r["nin"]]; c["ne"] += 1; c["w3e"] += t3
             if r.get("_r1") is not None:
                 c["n1"] += 1; c["mae1"] += r["_r1"] <= 0.2
             if r.get("_r1") is not None and r.get("_r4") is not None:
@@ -283,6 +308,42 @@ def main():
                     yr[c][b][0] += 1; yr[c][b][1] += r["chaku"] <= 3
     R["year_choku"] = {c: [[n, rate(w, n)] for n, w in v] for c, v in yr.items()
                        if sum(n for n, _ in v) >= 50}
+
+    # ── 人気の帯ごと（2026-11-27 足した。人気は fix_nin で戻したもの）
+    #   人気帯 × 直線の位置 / スタートの位置 / 押し上げ / 併走の内外 / 枠 → 3着内率
+    #   「穴（6人気以下）はどこから来るか」を見るため。
+    def nb(k):
+        return None if not k else ("1番人気" if k == 1 else "2-3番人気" if k <= 3 else
+                                   "4-5番人気" if k <= 5 else "6-9番人気" if k <= 9 else "10番人気以下")
+    def gcls(r):
+        if r.get("_r1") is None or r.get("_r4") is None:
+            return None
+        g = r["_r1"] - r["_r4"]
+        return "押し上げ" if g >= 0.2 else "下げた" if g <= -0.2 else "ほぼ同じ"
+    nk_ = collections.defaultdict(lambda: [0, 0])
+    for rc in races:
+        for r in rc["rows"]:
+            b = nb(r.get("nin"))
+            if not b:
+                continue
+            t3 = r["chaku"] <= 3
+            for cell in (dist_key(rc["dist"]) + "|" + rc["baba"], dist_key(rc["dist"]) + "|全",
+                         "全距離|" + rc["baba"], "全距離|全"):
+                keys = ["全"]
+                if r.get("_r4") is not None:
+                    keys.append("直線" + BL[bucket(r["_r4"])])
+                if r.get("_r1") is not None:
+                    keys.append("スタート" + BL[bucket(r["_r1"])])
+                if gcls(r):
+                    keys.append("gain" + gcls(r))
+                if r.get("_side"):
+                    keys.append("併走" + r["_side"])
+                keys.append("%d枠" % r["waku"])
+                for kk in keys:
+                    c = nk_[(cell, b, kk)]; c[0] += 1; c[1] += t3
+    R["ninki_obi"] = {}
+    for (cell, b, kk), (n, w) in nk_.items():
+        R["ninki_obi"].setdefault(cell, {}).setdefault(b, {})[kk] = [n, rate(w, n)]
 
     if "--json" in a:
         json.dump(R, open(a[a.index("--json") + 1], "w"), ensure_ascii=False, indent=1)
