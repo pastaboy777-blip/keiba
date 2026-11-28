@@ -228,7 +228,7 @@ def run(card, rs, ven, Rs, lab):
             st.median(dt), sum(1 for x in dt if x < 0), len(dt)))
 
     # ── 図の精度。**図と同じ関数から値を取る**（この取り違えで一度まちがえた）
-    h1 = h2 = t1 = n2 = ton = 0
+    h1 = h2 = t1 = n2 = ton = tonz = 0
     e1 = []; e2 = []
     detail = []
     for R in Rs:
@@ -255,22 +255,28 @@ def run(card, rs, ven, Rs, lab):
         for i, r in enumerate(p4):
             if r['ub'] in r4:
                 e2.append(abs(i / (len(p4) - 1) - r4[r['ub']]))
-        idx = {r['ub']: i for i, r in enumerate(p1)}
+        # ★ 隣どうし（ルール76）は**2枚それぞれ**で数える。
+        #   2026-11-27 に浦和4日で数えたら **直線 30/46＝65.2% 対 1枚目 50.0%** で、
+        #   4日とも直線が上（8/10・8/12・6/12・8/12）。1枚目だけ出していたので取り違えていた。
         in3 = {int(u) for u, v in d['horses'].items() if v.get('chaku') and v['chaku'] <= 3}
-        ad = [(x, y) for x, y in itertools.combinations(in3, 2)
-              if x in idx and y in idx and abs(idx[x] - idx[y]) == 1]
-        ton += bool(ad)
-        detail.append('%2dR 1枚目 %2d→%2d %s  直線 %2d→%2d %s  隣 %s' % (
+        ads = []
+        for pp in (p1, p4):
+            idx = {r['ub']: i for i, r in enumerate(pp)}
+            ads.append([(x, y) for x, y in itertools.combinations(in3, 2)
+                        if x in idx and y in idx and abs(idx[x] - idx[y]) == 1])
+        ton += bool(ads[0]); tonz += bool(ads[1])
+        detail.append('%2dR 1枚目 %2d→%2d %s  直線 %2d→%2d %s  隣 1枚目 %-7s 直線 %s' % (
             R, p1[0]['ub'], f[0], '○' if ok1 else '×',
             p4[0]['ub'], l[0], '○' if ok2 else '×',
-            ' '.join('%d-%d' % p for p in ad) or 'なし'))
+            ' '.join('%d-%d' % p for p in ads[0]) or 'なし',
+            ' '.join('%d-%d' % p for p in ads[1]) or 'なし'))
     if n2:
         print('  ■ 図の精度')
         for x in detail:
             print('    ' + x)
         print('    1枚目の先頭 %d/%d（上位2頭 %d/%d）  ずれ %.4f' % (h1, n2, t1, n2, sum(e1) / len(e1)))
         print('    直線の先頭   %d/%d                ずれ %.4f' % (h2, n2, sum(e2) / len(e2)))
-        print('    図で隣どうしが3着内 … %d/%d鞍' % (ton, n2))
+        print('    隣どうしが3着内 … 1枚目 %d/%d鞍 ／ **直線 %d/%d鞍**' % (ton, n2, tonz, n2))
 
     erabu(card, rs, ven, Rs)
 
