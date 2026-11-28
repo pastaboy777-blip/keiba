@@ -364,7 +364,7 @@ def main():
         json.dump(out, open(a[a.index("--jkjson") + 1], "w"), ensure_ascii=False, indent=0)
 
     if "--json" in a:
-        json.dump(R, open(a[a.index("--json") + 1], "w"), ensure_ascii=False, indent=1)
+        json.dump(R, open(a[a.index("--json") + 1], "w"), ensure_ascii=False, indent=1, sort_keys=True)
     print("大井 %d日・%d鞍（%s … %s）" % (R["days"], R["races"], *(R["span"] or ["-", "-"])))
     for c in ("全距離|全", "1200m|全", "1400m|全", "1600m|全"):
         if c in R["choku_pos"]:
