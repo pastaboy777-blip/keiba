@@ -13,7 +13,7 @@
                     {"福島": {"circle": "7:11", "circle2": "7:15,10", "hide_pace": "7", "circle_each": false,
                           "no_arekata": false, "yon": "12", "uchi_ue": false, "nankan": false, "obi": false,
                           "nashi_ushiro": false, "jouken_ushiro": false,
-                          "furui_nashi": false},
+                          "furui_nashi": false, "kako_old": false},
                      "split": [{"place": "京都", "race": 11, "yaya": "10,5,6", "omo": "10,5,9",
                                 "yaya_note": "…", "omo_note": "…"}]}
   --place           この場だけ作る(カンマで複数)
@@ -34,6 +34,8 @@
   --furui-nashi     古い材料(条件の材料なしの馬の、近5走より前・2年以内の同じ芝ダ・距離±400mの走)を使わない
                     (jra_tenkai_zu.py --furui-nashi。既定はその走の実際の1角・4角の位置に「古い材料」で置く)。
                     場ごとは config の "furui_nashi": true
+  --kako-old        「過去の傾向」の「過去の回」を前のとおりレース名の部分一致だけで拾う(jra_tenkai_zu.py --kako-old。
+                    既定は同じ場・芝ダ・距離・同じレース名の回だけ。冠名の付け外しはクラスが同じなら拾い、G1 は名前の完全一致)。場ごとは config の "kako_old": true
 
 動き
   1) data/jra/all_YYYYMMDD.jsonl = 出馬表(先頭。行の馬場を --baba/--baba-dirt で埋める) + races.jsonl
@@ -221,6 +223,7 @@ def main():
     ap.add_argument("--nashi-ushiro", action="store_true", help="過去走のない馬を前のとおり最後方に置く(jra_tenkai_zu.py --nashi-ushiro)")
     ap.add_argument("--jouken-ushiro", action="store_true", help="条件の材料なしの馬を特別扱いしない(jra_tenkai_zu.py --jouken-ushiro)")
     ap.add_argument("--furui-nashi", action="store_true", help="古い材料を使わない(jra_tenkai_zu.py --furui-nashi)")
+    ap.add_argument("--kako-old", action="store_true", help="「過去の回」を前のとおり名前の部分一致だけで拾う(jra_tenkai_zu.py --kako-old)")
     a = ap.parse_args()
     ymd = a.date.replace("-", "")
     turf, dirt = parse_baba(a.baba), parse_baba(a.baba_dirt)
@@ -286,6 +289,8 @@ def main():
             extra.append("--jouken-ushiro")
         if c.get("furui_nashi") or a.furui_nashi:   # 古い材料を使わない(mark_args に入るので昼にも持ち越す)
             extra.append("--furui-nashi")
+        if c.get("kako_old") or a.kako_old:   # 過去の回を前の拾い方で(mark_args に入るので昼にも持ち越す)
+            extra.append("--kako-old")
         setting[p] = {"turf": t, "dirt": d, "base_args": bb, "mark_args": extra, "zu_args": bb + extra}
         out = ROOT / "scripts" / "daily" / f"zu_jra_{ymd}_{p}.html"
         print(f"[{p}] 展開図 …", flush=True)
@@ -330,7 +335,8 @@ def main():
                         + (["--obi"] if (cfg.get(p, {}).get("obi") or a.obi) else [])
                         + (["--nashi-ushiro"] if (cfg.get(p, {}).get("nashi_ushiro") or a.nashi_ushiro) else [])
                         + (["--jouken-ushiro"] if (cfg.get(p, {}).get("jouken_ushiro") or a.jouken_ushiro) else [])
-                        + (["--furui-nashi"] if (cfg.get(p, {}).get("furui_nashi") or a.furui_nashi) else []))
+                        + (["--furui-nashi"] if (cfg.get(p, {}).get("furui_nashi") or a.furui_nashi) else [])
+                        + (["--kako-old"] if (cfg.get(p, {}).get("kako_old") or a.kako_old) else []))
                     if not a.no_png:
                         shoot(html, work, f"{p}{key}")
                         pics[(r, key)] = work / f"{p}{key}_{r}R.png"

@@ -1259,6 +1259,11 @@ def arekata_html(keys) -> str:
 
 
 SHOW_TREND = True   # --no-trend で消す。盤面の下・見解の上の「過去の傾向」欄
+# --kako-old: 「過去の回」を前のとおり名前の部分一致だけで拾う(場・芝ダ・距離を見ない)。
+# 既定は同じ場・芝ダ・距離で、レース名(第◯回・括弧を除いた主要部分)が完全に一致する回。冠名の付け外しの部分一致は
+# クラスが今日と同じときだけ拾い、過去の同名の回に G1 があれば完全一致のみ。
+# 11/29 東京12R ジャパンカップに「ジャパンカップ2025年ロンジンワールドベストレース受賞記念」(東京芝2000)が前年の回として出ていた。
+KAKO_OLD = False
 _GENERIC_NAME = re.compile(r"(障害)?\d歳(以上)?(未勝利|新馬|\d勝クラス|オープン)|メイクデビュー.*|新馬.*|")
 _BABA3 = {"良": "良", "稍": "稍重", "重": "重以上", "不": "重以上"}
 
@@ -1341,9 +1346,21 @@ def trend_html(data_path, date, place, surface, dist, name, baba=None):
     key = _race_key_name(name)
     if key:
         same = []
-        for d in past:
+        if not KAKO_OLD:
+            # 同じ場・芝ダ・距離だけ。名前は完全一致。冠名が付いた/外れた回(「フランスギャロ賞キャピタルステークス」
+            # と「キャピタルステークス」)は部分一致でも拾うが、クラスが今日と同じときだけ。過去の同名の回に G1 があれば完全一致のみ
+            # (「ジャパンカップ2023年ロンジン…受賞記念」は 3勝クラス・同じ東京芝2400 なので、クラスでも名前でも落ちる)
+            cond_ok = [d for d in past if (d.get("place"), d.get("surface"), d.get("distance")) == (place, surface, dist)]
+            today = next((d for d in load_rows(data_path) if d.get("date") == date and d.get("place") == place
+                          and d.get("name") == name), None)
+            klass = (today or {}).get("race_class")
+            g1 = any(d.get("grade") == "G1" for d in cond_ok if _race_key_name(d.get("name")) == key)
+        for d in (past if KAKO_OLD else cond_ok):
             k2 = _race_key_name(d.get("name"))
-            if k2 and (key in k2 or k2 in key):
+            if KAKO_OLD:   # 前の拾い方: 名前の部分一致だけ(場・芝ダ・距離を見ない)
+                if k2 and (key in k2 or k2 in key):
+                    same.append(d)
+            elif k2 == key or (k2 and not g1 and klass and d.get("race_class") == klass and (key in k2 or k2 in key)):
                 same.append(d)
         same.sort(key=lambda d: d["date"], reverse=True)
         parts = []
@@ -2349,6 +2366,9 @@ def main() -> None:
     ap.add_argument("--circle2", default="", help='相手を白い丸で囲む馬。"7:15,10,8"')
     ap.add_argument("--circle", default="", help='手で赤丸を付ける馬。"12:6,12,15;3:8"(R:馬番)')
     ap.add_argument("--no-trend", action="store_true", help="盤面の下の「過去の傾向」欄を出さない(既定は出す)")
+    ap.add_argument("--kako-old", action="store_true",
+                    help="「過去の傾向」の「過去の回」を前のとおりレース名の部分一致だけで拾う(場・芝ダ・距離を見ない)。"
+                         "既定は同じ場・芝ダ・距離・同じレース名の回だけ。冠名の付け外しはクラスが同じなら拾い、G1 は名前の完全一致")
     ap.add_argument("--no-arekata", action="store_true",
                     help="見出しの荒れ方の札(先行過多・荒れ目/前残り・堅め/差し届き・荒れ目。scripts/jra_arekata.py)を出さない")
     ap.add_argument("--pace-data", help="jra_harvest の JSONL。指定すると学習したペースで描く")
@@ -2366,8 +2386,9 @@ def main() -> None:
     STYLE = a.style
     global BASE_DAY, BASE_BABA, BASE_DAY_DIRT, BASE_BABA_DIRT, SHOW_KIKOU, CIRCLE_EACH
     CIRCLE_EACH = a.circle_each
-    global SHOW_TREND
+    global SHOW_TREND, KAKO_OLD
     SHOW_TREND = not a.no_trend
+    KAKO_OLD = a.kako_old
     global ARE_OFF
     ARE_OFF = a.no_arekata
     SHOW_KIKOU = a.kikou

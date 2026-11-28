@@ -9,6 +9,7 @@
     python3 scripts/jra_today.py --date 2026-11-23 --no-fetch --nashi-ushiro   # 過去走のない馬を前のとおり最後方に(朝の config の nashi_ushiro も持ち越す)
     python3 scripts/jra_today.py --date 2026-11-23 --no-fetch --jouken-ushiro  # 条件の材料なしの馬を特別扱いしない(config の jouken_ushiro も持ち越す)
     python3 scripts/jra_today.py --date 2026-11-28 --no-fetch --furui-nashi    # 古い材料(近5走より前・2年以内の同条件の走)を使わない(config の furui_nashi も持ち越す)
+    python3 scripts/jra_today.py --date 2026-11-29 --no-fetch --kako-old       # 「過去の回」を前のとおり名前の部分一致だけで拾う(config の kako_old も持ち越す)
 
 1) 結果ページ(月 → 開催日 → レース)から、その日の終わった鞍を data/jra/races.jsonl に足す(3秒間隔、済みは飛ばす)
 2) data/jra/all_YYYYMMDD.jsonl = 出馬表(data/jra/shutuba_YYYYMMDD.jsonl。先頭) + 取り込み後の races.jsonl
@@ -81,6 +82,7 @@ def main():
     ap.add_argument("--nashi-ushiro", action="store_true", help="過去走のない馬を前のとおり最後方に置く(jra_tenkai_zu.py --nashi-ushiro)。朝の config の \"nashi_ushiro\" は mark_args で持ち越す")
     ap.add_argument("--jouken-ushiro", action="store_true", help="条件の材料なしの馬を特別扱いしない(jra_tenkai_zu.py --jouken-ushiro)。朝の config の \"jouken_ushiro\" は mark_args で持ち越す")
     ap.add_argument("--furui-nashi", action="store_true", help="古い材料を使わない(jra_tenkai_zu.py --furui-nashi)。朝の config の \"furui_nashi\" は mark_args で持ち越す")
+    ap.add_argument("--kako-old", action="store_true", help="「過去の回」を前のとおりレース名の部分一致だけで拾う(jra_tenkai_zu.py --kako-old)。朝の config の \"kako_old\" は mark_args で持ち越す")
     ap.add_argument("--no-fetch", action="store_true", help="結果を取りに行かず、作り直しだけ")
     a = ap.parse_args()
     ymd = a.date.replace("-", "")
@@ -176,6 +178,8 @@ def main():
             cmd.append("--jouken-ushiro")
         if a.furui_nashi and "--furui-nashi" not in cmd:
             cmd.append("--furui-nashi")
+        if a.kako_old and "--kako-old" not in cmd:
+            cmd.append("--kako-old")
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode != 0:
             sys.stderr.write(r.stderr[-3000:])
