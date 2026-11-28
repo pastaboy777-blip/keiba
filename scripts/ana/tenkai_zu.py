@@ -439,6 +439,8 @@ OLD_NOMB = False    # True なら馬自身の併走実績を内度に入れな�
 #   旧の形に戻す口は `--pos-median` / `--no-futatsu` / `--swapdu`。この3つを付けると
 #   直す前とまったく同じHTMLが出る（2026-11-14 に大井10/26の12鞍でバイト一致を確認）。
 POS_MEDIAN = False   # True なら pos を中央値に戻す（--pos-median）
+NCOR_REAL = True     # 過去走の角の数を tsuka の本数で見る（--ncor-table で表に戻す）
+                     # ★ 中身と測った値は ncor() の docstring（2026-11-28）
 POS_TRIM = True      # 1枚目の pos から**いちばん後ろの1走を落とす**（--no-pos-trim で止める）
                      # ★ 2026-11-27 に既定にした。中身と測った値は pos_of1() の docstring。
                      #   浦和44鞍で先頭的中 25.0% → 34.1%（4鞍勝ち・0鞍負け）、ずれは +0.001。
@@ -600,8 +602,31 @@ def ncor(ven, dist, tsuka=None):
     """その鞍で記録される角の数。分からなければ None（＝地点をそろえない）。
 
     表に無い場（笠松・佐賀・門別・盛岡…）の過去走は `len(tsuka)` で代用する。
-    6段の鞍は `tsuka` が4本なので**南関以外の6段は4段と区別できない**が、
-    南関4場は上の表で引けるので、ふだんの鞍はこれで足りる。"""
+
+    ★★ 2026-11-28、**`tsuka` があるときは表より実データを優先する**ように直した
+      （`--ncor-table` で旧に戻る）。ユーザーの指示 ──
+      「とにかく隊列図の精度を上げて！！」「ポジションさえ合っていれば」。
+
+      過去走の `tsuka` は**出馬表にその走で実際に記録された通過順がそのまま入っている**のに、
+      表（NCOR）の値を先に見ていたので、**データと食い違う場合に表のほうを採っていた**。
+      浦和4日の過去走2,186本のうち**116本（5.3%）が食い違っていた**。
+
+        川崎900m   … 実3本 対 表2本  60件
+        川崎2000m  … 実4本 対 表6本  38件
+        船橋2200m  … 実4本 対 表6本  10件
+        川崎2100m  … 実4本 対 表6本   7件
+        船橋2400m  … 実4本 対 表6本   1件
+
+      川崎900mの走は3本記録されているのに「2本の鞍」として扱われ、**浦和800m（本当に2本）の
+      鞍と突き合わされていた**。6段の鞍（川崎2000mなど）は逆に、出馬表側が4本しか持たないのに
+      「6本」とされ、**4本の鞍と突き合わされなくなっていた**。
+
+      直した結果（浦和 11/24-11/27・44鞍）── **位置のずれ 0.2137 → 0.2112。**
+      先頭的中 15/44・上位2頭 21/44 は変わらない。**559頭中57頭（10.2%）の pos が動く。**
+
+    ★ 今日の鞍は `tsuka` が無いので表のまま。表に無い場・距離も今までどおり。"""
+    if tsuka and NCOR_REAL:
+        return len(tsuka)
     n = NCOR.get((ven, dist))
     if n:
         return n
@@ -1260,7 +1285,7 @@ def main():
     global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO, SAGARU
     global CYO_KOTO
     global AGARI, BABA_N, CHOKU, OBI, OBI_NONAME, NIGE, AGE, ANATAG, ANA_NIN
-    global ANA_NONIN, ANA_MAX, ANA_MAE, FUTATSU_DP, POS_TRIM
+    global ANA_NONIN, ANA_MAX, ANA_MAE, FUTATSU_DP, POS_TRIM, NCOR_REAL
     # ★★ 2026-11-16、**直線の図**（上の CHOKU の★★）。ユーザーの指示 ──
     #   「スタートから1コーナー」と「直線」の2枚。2枚目がこれ。
     #   4角で隊列を組み、鞍によらず「左がゴール・上がラチ」で描く。
@@ -1288,6 +1313,8 @@ def main():
     T.L_WMEAN = '--shimai-wmean' in a
     # ★ 2026-11-27、1枚目の pos から「いちばん後ろの1走」を落とすのをやめる口（pos_of1 の★）
     POS_TRIM = '--no-pos-trim' not in a
+    # ★ 2026-11-28、過去走の角の数を表で見る旧の挙動に戻す口（ncor() の★★）
+    NCOR_REAL = '--ncor-table' not in a
     # ★ 2026-11-15、過去走なしを中央に重ねる旧の形に戻す口（上の NOPAST_* の★）
     NOPAST_CENTER = '--nopast-center' in a
     # ★ 2026-11-15、**地点をそろえるのをやめて混ぜる**旧の形に戻す口（上の POS_MAZERU の★★）
