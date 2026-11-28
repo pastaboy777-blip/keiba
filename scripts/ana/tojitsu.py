@@ -225,6 +225,8 @@ def main():
         extra = []
     if "--ab" in a:                    # 2枚出す（ルール59）。既定の挙動はこの下のまま
         return run_ab(a, extra)
+    if "--hyojun" in a:                # ユーザーと決めた「いつもの形」（CLAUDE.md ルール85）
+        return run_hyojun(a, extra)
     run(a, extra)
 
 
@@ -276,6 +278,42 @@ def run_ab(a, extra):
     print("\n━━ 2枚そろいました")
     print("   A版 %s" % os.path.join(oa, "zu.html"))
     print("   B版 %s" % os.path.join(ob, "zu.html"))
+
+
+def parse_R(r):
+    lo, _, hi = str(r).partition("-")
+    return int(lo), int(hi or lo)
+
+
+# ★★ 2026-11-28、ユーザーの指示 ──「ちゃんと見習って」「学習して」「隊列図」（CLAUDE.md ルール85）。
+#   「隊列図出して」と言われたら**この形**。1鞍ずつ、スタートと直線の2枚。
+HYOJUN_1 = ["--pos-nama", "--obi", "--nige", "--anatag", "--no-pct"]
+HYOJUN_2 = ["--pos-nama", "--chokusen", "--obi", "--age", "--anatag", "--no-pct"]
+
+
+def run_hyojun(a, extra):
+    """`--hyojun` … 鞍ごとに `<out>/<R>R_1start/` と `<out>/<R>R_2choku/` を作る。
+    出馬表は最初の1回だけ取り、あとは card.json を読み直す（オッズが途中で動かないように）。"""
+    a = [t for t in a if t != "--hyojun"]
+    g = lambda k, d=None: a[a.index(k) + 1] if k in a and a.index(k) + 1 < len(a) else d
+    base = a[0] if a and not a[0].startswith("-") else None
+    lo, hi = parse_R(g("--R", "1-12"))
+    root = (g("--out") or os.environ.get("TOJITSU_OUT")
+            or os.path.join(DEF_OUT, (base or "card")[:8]))
+    rest = strip_val(a, ("--out", "--R"))
+    card = g("--card")
+    if not card:                       # 出馬表は1回だけ
+        run(rest + ["--R", "%d-%d" % (lo, hi), "--out", os.path.join(root, "_card"), "--no-img"],
+            list(HYOJUN_1))
+        card = os.path.join(root, "_card", "card.json")
+    rest = strip_val(rest, ("--card",))
+    if base:
+        rest = rest[1:]
+    for R in range(lo, hi + 1):
+        for tag, fl in (("1start", HYOJUN_1), ("2choku", HYOJUN_2)):
+            run(["--card", card, "--R", "%d-%d" % (R, R),
+                 "--out", os.path.join(root, "%dR_%s" % (R, tag))] + rest, fl + extra)
+    print("\n━━ いつもの形（ルール85）── %s の下に %dR〜%dR × 2枚" % (root, lo, hi))
 
 
 def run(a, extra):
