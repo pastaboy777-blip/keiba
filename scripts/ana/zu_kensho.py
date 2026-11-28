@@ -20,6 +20,7 @@
   ⑥ **図の精度** … 1枚目／直線それぞれの先頭的中・上位2頭・位置のずれ
   ⑦ 図で隣どうしの2頭が3着内だった鞍（CLAUDE.md ルール76）
   ⑧ 1番人気
+  ⑨ **残り600mでの差** と **後3F−前3Fのペース3分類**（2026-11-28 に取り込んだ。nokori の★）
   ★ `--half` を付けると **前半と後半に割って出す**。
     2026-11-27 は10鞍まで前有利だったのに **11R・12Rで後ろから決まり**、
     10鞍ぶんの傾向をそのまま最終に当てたのがこの日いちばんの失点だった。
@@ -209,6 +210,83 @@ def erabu(card, rs, ven, Rs):
         t2[0], t2[2], 100 * t2[2] / t2[0], t2[3], 100 * t2[3] / t2[0], t2[1]))
 
 
+def nokori(rs, Rs):
+    """**残り600mでの差** と **後3F−前3Fのペース3分類**。
+
+    2026-11-28、ユーザーが別スレッドで作った「11/27 浦和 全12R 好走理由の解析」
+    （`notes/live/20261127_urawa_kousou.md`）から取り込んだ2つの物差し。
+    ユーザーの言葉 ──「取り込んで！」「**これを次の開催に活かすよ**」。
+
+      残り600mでの差 = （走破 − 上がり3F） − その鞍の最小値
+        ＝ 残り600m地点で先頭から何秒後ろにいたか。
+        元の解析は「逃げ馬がそのまま先頭」とみなしているが、ここは
+        **最小値（実際にいちばん早くその地点を通った馬）**を0に置く。同じ量になる。
+
+      ペース = 後3F − 前3F（800mは 後半400m − 前半400m）。
+        **+1.5以上をハイ、−0.5以下をスロー**、あいだをミドル。
+        ★ ルール30の「前半3F−後半3F」と**符号が逆**。こちらは**プラスが大きいほど前半が速い**。
+          ルール37の「前3F 対 前3Fの水準」とも別の量。**3つを混ぜない。**
+
+    11/27 浦和で元の解析が読み取ったこと（次の開催で確かめる）
+      - ミドル以下では前が止まらない（1R・3R・7R・8R・10R は逃げ馬か2番手が勝ち）
+      - ハイで逃げが残ったのは3鞍だけ（力上位の2R と、テンの速さがそのままの800m 5R・6R）
+      - **1400m以上でハイになると差しが届く**（9R・11R・12R の勝ち馬は
+        残り600mで先頭から1.0〜1.5秒後ろ＋上がりメンバー最速か2位）
+    """
+    PB = [(-9, -0.5, 'スロー'), (-0.5, 1.5, 'ミドル'), (1.5, 99, 'ハイ')]
+    NB = [(0, .5, '0.0-0.5'), (.5, 1.0, '0.5-1.0'), (1.0, 1.5, '1.0-1.5'),
+          (1.5, 2.5, '1.5-2.5'), (2.5, 99, '2.5以上')]
+    cn = collections.Counter(); chh = collections.Counter()
+    xc = collections.Counter(); xh = collections.Counter()
+    pl = []
+    for R in Rs:
+        d = rs[R]
+        hs = [v for v in d['horses'].values() if v.get('chaku') and v.get('t') and v.get('agari')]
+        if len(hs) < 4:
+            continue
+        base = min(v['t'] - v['agari'] for v in hs)
+        ag = sorted(hs, key=lambda v: v['agari'])
+        ar = {v['ub']: i + 1 for i, v in enumerate(ag)}
+        lap = d.get('lap') or []
+        pc = None
+        if d['dist'] <= 1000 and len(lap) >= 4:
+            pc = round(sum(lap[len(lap) // 2:]) - sum(lap[:len(lap) // 2]), 1)
+        elif len(lap) >= 6:
+            f3 = sum(lap[1:4]) if lap[0] < 8 else sum(lap[:3])
+            pc = round(sum(lap[-3:]) - f3, 1)
+        nm = next((n for a, b, n in PB if pc is not None and a <= pc < b), None)
+        w = min(hs, key=lambda v: v['chaku'])
+        if nm:
+            pl.append((R, d['dist'], nm, pc, w['ub'], w.get('c4'),
+                       round((w['t'] - w['agari']) - base, 1), ar.get(w['ub'])))
+        for v in hs:
+            z = (v['t'] - v['agari']) - base
+            bd = next(n for a, b, n in NB if a <= z < b)
+            cn[bd] += 1; chh[bd] += v['chaku'] <= 3
+            if nm:
+                k = (nm, '差1.0秒以上' if z >= 1.0 else '差1.0秒未満')
+                xc[k] += 1; xh[k] += v['chaku'] <= 3
+    if not cn:
+        return
+    print('  ■ 残り600mでの差 → 3着内率（取り込んだ物差し・nokori の★）')
+    for _, _, n in [(0, 0, x[2]) for x in NB]:
+        if cn[n]:
+            print('    %-8s %5.1f%%  (%3d頭中%2d)' % (n, 100 * chh[n] / cn[n], cn[n], chh[n]))
+    if xc:
+        print('  ■ ペース（後3F−前3F） × 残り600mでの差')
+        for nm in ('スロー', 'ミドル', 'ハイ'):
+            for z in ('差1.0秒未満', '差1.0秒以上'):
+                k = (nm, z)
+                if xc[k]:
+                    print('    %-5s × %-10s %5.1f%%  (%3d頭中%2d)' % (
+                        nm, z, 100 * xh[k] / xc[k], xc[k], xh[k]))
+    if pl:
+        print('  ■ 鞍ごと（勝ち馬）')
+        for R, ds, nm, pc, ub, c4, z, a in pl:
+            print('    %2dR %5dm %-4s(%+.1f)  勝ち %2d番  4角%s  残り600m %+.1f秒  上がり%s位'
+                  % (R, ds, nm, pc, ub, c4 if c4 else '-', z, a if a else '-'))
+
+
 def run(card, rs, ven, Rs, lab, CY=None):
     if not Rs:
         return
@@ -339,6 +417,7 @@ def run(card, rs, ven, Rs, lab, CY=None):
         print('    隣どうしが3着内 … 1枚目 %d/%d鞍 ／ **直線 %d/%d鞍**' % (ton, n2, tonz, n2))
 
     erabu(card, rs, ven, Rs)
+    nokori(rs, Rs)
     if CY:
         cyokyo(card, rs, ven, Rs, CY)
 
