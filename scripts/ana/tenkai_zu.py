@@ -190,6 +190,11 @@ W = {1: ('#ffffff', '#111'), 2: ('#1b1b1b', '#fff'), 3: ('#e03a30', '#fff'),
      4: ('#2d6fd0', '#fff'), 5: ('#f2d231', '#111'), 6: ('#2f9e57', '#fff'),
      7: ('#f08a24', '#111'), 8: ('#f29ab8', '#111')}
 WK = {1: .798, 2: .711, 3: .605, 4: .509, 5: .450, 6: .346, 7: .308, 8: .219}
+# ★★ 2026-11-28、**大井の鞍は大井だけで数えた枠の内率を使う**（ユーザーの指示「どんどん進化させて」
+#   「許可取らないで良い」）。harvest_ooi3y（大井3年分・4角で併走した9,893頭・基準46.5%）から。
+#   南関全体（上の WK）より 1-2枠が4ポイント高く、7-8枠がやや低い（内外の差が少し大きい）。
+#   順番は同じ。`--nankan-waku` で南関全体の値に戻る（＝2026-11-27 までの図とバイト単位で同じ）。
+WK_OOI = {1: .841, 2: .755, 3: .635, 4: .542, 5: .455, 6: .360, 7: .279, 8: .206}
 JK_BASE, JK_MIN = .447, 60
 WID, LANE, PAD, GAP = 900, 92, 64, 136
 SWAP_DP, SWAP_DU = 0.12, 0.15     # pos がこれだけ近く、内度がこれだけ違えば入れ替える
@@ -520,6 +525,10 @@ OBI_NONAME = False       # --obi-noname（帯の名前を出さない。色と�
 NIGE = False             # --nige
 AGE = False              # --age
 ANATAG = False           # --anatag
+# ★★ 2026-11-28、--keikou  大井の鞍だけ、見出しの下に「この距離・この馬場の3年分の形」を1行出す。
+#   元は ooi3y_page/keikou.json（ooi_keikou.py --json）。％が入るので `--plain` / `--no-pct` では出さない。
+KEIKOU = False
+KK = None
 # ★★ 2026-11-27、ユーザーの指示「３つ全部」（大井3年分の集計から出した提案）。
 #   **付けなければ出力は1バイトも変わらない**（CSSにクラスが2つ増えるだけ）。
 #   --furyo-soto  馬場が「不良」の鞍だけ、7-8枠の馬に「不良・外」の札。
@@ -1175,6 +1184,8 @@ def main():
     #              ペースの帯と「この鞍の前3Fの水準 39.5秒」（秒は見本にも出ている）。
     #   --plain（宣伝用）は**1文字も変えていない**。別の口。
     nopct = '--no-pct' in a
+    if ven == '大井' and '--nankan-waku' not in a:
+        WK.update(WK_OOI)     # 大井の枠の内率（上の WK_OOI の★★）
     # ★ 鞍ごとに左右を反転する（2026-11-13、ユーザーの指示 ──
     #   「1200 1400はそのまま」「1600は向き変えて」「向きあってる？？」）。
     #   大井1600m・1650mは2コーナー付近から出るので、1コーナーは反対側にある。
@@ -1235,7 +1246,7 @@ def main():
     global POS_MAZERU, POS_NAMA, DAN_NAMA, SUITEI, BABA_TAG, CYOKYO, CYO_HYO, CYO, SAGARU
     global CYO_KOTO
     global AGARI, BABA_N, CHOKU, OBI, OBI_NONAME, NIGE, AGE, ANATAG, ANA_NIN
-    global ANA_NONIN, ANA_MAX, ANA_MAE, FUTATSU_DP, FURYO_SOTO, FURYO_ALL, JK_NINHI, JKN
+    global ANA_NONIN, ANA_MAX, ANA_MAE, FUTATSU_DP, FURYO_SOTO, FURYO_ALL, JK_NINHI, JKN, KEIKOU, KK
     # ★★ 2026-11-16、**直線の図**（上の CHOKU の★★）。ユーザーの指示 ──
     #   「スタートから1コーナー」と「直線」の2枚。2枚目がこれ。
     #   4角で隊列を組み、鞍によらず「左がゴール・上がラチ」で描く。
@@ -1248,6 +1259,12 @@ def main():
     ANATAG = '--anatag' in a
     FURYO_SOTO = ('--furyo-soto' in a) or ('--furyo-soto-all' in a)
     FURYO_ALL = '--furyo-soto-all' in a
+    KEIKOU = '--keikou' in a
+    if KEIKOU:
+        try:
+            KK = json.load(open(os.path.join(HERE, 'ooi3y_page', 'keikou.json')))
+        except Exception:
+            KK = None
     JK_NINHI = '--jk-ninhi' in a
     if JK_NINHI:
         try:
@@ -1615,6 +1632,17 @@ def main():
         # ★★ 2026-11-17、見出しの下に出す行（--nige / --age / --anatag。上の OBI の★★）。
         #   .track の**外**（見出しの下）に出すので、馬の left/top は1pxも動かない。
         #   `--plain` では出さない。
+        if KEIKOU and KK and ven == '大井' and not plain and not nopct:
+            dk = '%dm' % v['dist']
+            bk = baba if baba in ('良', '稍重', '重', '不良') else '全'
+            cp = (KK.get('choku_pos') or {}).get('%s|%s' % (dk, bk))
+            if cp and cp[0][0] >= 30:
+                tx = '%s・%s　4角前2割 %.1f%% ／ 後ろ2割 %.1f%%' % (
+                    dk, '全馬場' if bk == '全' else bk, cp[0][1], cp[4][1])
+                sd = (KK.get('side') or {}).get('%s|%s' % (dk, bk))
+                if sd and sd['外'][0] >= 30 and sd['内'][0] >= 30:
+                    tx += '　併走なら 外%.1f%%／内%.1f%%' % (sd['外'][1], sd['内'][1])
+                hdl.append((R, 'kk', '大井3年', tx))
         if (NIGE or AGE or ANATAG) and not plain:
             def _mb(n):
                 return chr(0x2460 + n - 1) if 1 <= n <= 20 else '(%d)' % n
@@ -1710,9 +1738,16 @@ def main():
            '<div class="sub"><b>%s</b>%s　／　'
            '過去走の<b>%s</b>で隊列を組み、' % (h_sou, h_kline, h_tsuka) +
             '<b>枠と騎手</b>で位置を直しています。' + mline + '<br>'
-            '内外は枠と騎手から —— 1枠79.8% / 2枠71.1% / 3枠60.5% / 4枠50.9% / '
-            '5枠45.0% / 6枠34.6% / 7枠30.8% / 8枠21.9%（4コーナーで併走したとき内にいた割合・'
-            '南関12,244頭）。騎手は併走60回以上の人だけ、基準線44.7%との差を足しています。<br>'
+            # ★ 2026-11-28、大井の鞍で WK_OOI を使うときは説明の数字も大井のものにする
+            #   （図が大井の値で、説明が南関の値だと食い違う。ルール65と同じ形）。
+            #   `--nankan-waku` のときと大井以外の場は、元の文字列のまま。
+            + (('内外は枠と騎手から —— 1枠84.1% / 2枠75.5% / 3枠63.5% / 4枠54.2% / '
+              '5枠45.5% / 6枠36.0% / 7枠27.9% / 8枠20.6%（4コーナーで併走したとき内にいた割合・'
+              '大井3年分9,893頭）。騎手は併走60回以上の人だけ、基準線44.7%との差を足しています。<br>')
+             if WK.get(1) == WK_OOI[1] else
+             ('内外は枠と騎手から —— 1枠79.8% / 2枠71.1% / 3枠60.5% / 4枠50.9% / '
+              '5枠45.0% / 6枠34.6% / 7枠30.8% / 8枠21.9%（4コーナーで併走したとき内にいた割合・'
+              '南関12,244頭）。騎手は併走60回以上の人だけ、基準線44.7%との差を足しています。<br>')) +
             '<b>縦の並びは重なりを避けただけです。</b>'
             '位置の予想は平均で0.21ずれます（南関803鞍で測定）。'
             # ★「1角から」も地点名が嘘になる（2026-11-14・ルール45）。gain は
@@ -1732,7 +1767,10 @@ def main():
         for R_, cls, tag, bodytx in hdl:
             inner = ('<span class="nmx %s">%s</span>' % (cls, bodytx)) if bodytx.strip() \
                 else '<span class="non">なし</span>'
-            pre = ('<span class="non">%dR</span>' % R_) if many else ''
+            # ★ 2026-11-28、%d → %s。鞍番号が文字（'6'）で入る出馬表だと、
+            #   見出しの下の行（--nige / --age / --anatag）を複数鞍で出したとき落ちていた。
+            #   数字で入っていた鞍の出力は同じ（'%s' % 6 も '%d' % 6 も「6」）。
+            pre = ('<span class="non">%sR</span>' % R_) if many else ''
             hsub += ('<div class="hdl">%s<span class="tag %s">%s</span>%s</div>'
                      % (pre, cls, tag, inner))
     page = (page.replace('@@SUB@@', sub + hsub).replace('@@CSS@@', CSS).replace('@@DATE@@', date).replace('@@VEN@@', ven)
