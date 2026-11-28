@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """隊列図の精度を、その日1日だけで測る。
 
-  python3 zu_kensho.py <カードjson> <結果ディレクトリ> --ven 浦和 [--half]
+  python3 zu_kensho.py <カードjson> <結果ディレクトリ> --ven 浦和 [--half] [--cy 調教json]
 
 なぜ道具にしたか（2026-11-27）:
   毎日その場で python を書いて測っていたら、**図が描いている値と別の値を測る事故**を
@@ -67,6 +67,66 @@ def bars(title, pairs):
 
 
 BN = [(0, 1 / 3, '前'), (1 / 3, 2 / 3, '中'), (2 / 3, 1.01, '後')]
+
+# ★ 調教の総評の言葉（2026-11-27 に足した）。**この2つの並びはこちらが手で作ったもの**で、
+#   競馬ブックが定めた分類ではない。浦和3日391頭で当てはめた結果が下のとおりだったので
+#   残してあるが、**言葉を増やすほど当てはめが良くなる性質のもの**なので、
+#   これを根拠に図や印を変えてはいけない（ルール77④・ルール31★）。
+#
+#     全頭      良い言葉33.3%(93) ／ 悪い言葉20.0%(55) ／ どちらでもない24.6%(268)
+#     前3分の1   良い **58.8%**(34中20) ／ 悪い35.7%(14中5) ／ 帯だけ44.3%
+#     中3分の1   良い20.0%(20) ／ 悪い **31.2%**(16) ← **逆転する**
+#     後3分の1   良い12.1%(33) ／ 悪い4.2%(24)
+#
+#   **矢印（↗）は効かない。** 浦和3日は ↗19.2%(26頭) 対 →24.9%(365頭) で↗のほうが低く、
+#   前の帯の中でも ↗30.0%(10頭) 対 →45.5%(121頭)。11/16 大井（ルール53）の
+#   21.4% 対 25.4% と**場も開催も違うのに同じ向き**。
+CYO_YOI = ('好調', '良化', '上々', '上向', '仕上がり良', '素軽', '気配良', '動き良', '絞れ')
+CYO_WARU = ('手控え', '今ひと息', '平凡', '重め', 'フラつ', '物足り', 'ひと息', '案外', 'もう少し')
+
+
+def cyokyo(card, rs, ven, Rs, CY):
+    """調教が、直線の図の帯の上に何か足すか。`--cy <cyokyo.json>` を渡したときだけ出る。"""
+    rows = []
+    for R in Rs:
+        d = rs[R]
+        ch = {int(u): v['chaku'] for u, v in d['horses'].items() if v.get('chaku')}
+        cyr = CY.get(str(R)) or {}
+        if not cyr:
+            continue
+        z = sorted([r for r in rows_of(card, R, ven, True) if r.get('pos') is not None],
+                   key=lambda r: r['pos'])
+        N = len(z) or 1
+        for i, r in enumerate(z):
+            c = ch.get(r['ub'])
+            if c is None:
+                continue
+            k = cyr.get(str(r['ub'])) or {}
+            t = k.get('tanpyo') or ''
+            fr = i / max(1, N - 1)
+            rows.append(dict(in3=c <= 3, ya=k.get('ya'),
+                             oi=sum(1 for x in (k.get('runs') or []) if x.get('oikiri')),
+                             yoi=any(w in t for w in CYO_YOI),
+                             waru=any(w in t for w in CYO_WARU),
+                             band='前' if fr < 1 / 3 else ('中' if fr < 2 / 3 else '後')))
+    if not rows:
+        return
+
+    def pr(nm, g):
+        if g:
+            print('    %-20s %5.1f%%  (%3d頭中%2d)' % (
+                nm, 100 * sum(x['in3'] for x in g) / len(g), len(g), sum(x['in3'] for x in g)))
+
+    print('  ■ 調教（のべ%d頭）  ★矢印は効かない・言葉のほうを見る（CYO_YOI の★）' % len(rows))
+    for y in ('↗', '→', '↓'):
+        pr('矢印 %s' % y, [r for r in rows if r['ya'] == y])
+    pr('追い切り0本', [r for r in rows if r['oi'] == 0])
+    pr('追い切り1本以上', [r for r in rows if r['oi'] >= 1])
+    for b in ('前', '中', '後'):
+        g = [r for r in rows if r['band'] == b]
+        pr('%s3分の1 ぜんぶ' % b, g)
+        pr('  %s × 良い言葉' % b, [r for r in g if r['yoi']])
+        pr('  %s × 悪い言葉' % b, [r for r in g if r['waru']])
 
 
 def erabu(card, rs, ven, Rs):
@@ -149,7 +209,7 @@ def erabu(card, rs, ven, Rs):
         t2[0], t2[2], 100 * t2[2] / t2[0], t2[3], 100 * t2[3] / t2[0], t2[1]))
 
 
-def run(card, rs, ven, Rs, lab):
+def run(card, rs, ven, Rs, lab, CY=None):
     if not Rs:
         return
     tot = sum(len([v for v in rs[R]['horses'].values() if v.get('chaku')]) for R in Rs)
@@ -279,6 +339,8 @@ def run(card, rs, ven, Rs, lab):
         print('    隣どうしが3着内 … 1枚目 %d/%d鞍 ／ **直線 %d/%d鞍**' % (ton, n2, tonz, n2))
 
     erabu(card, rs, ven, Rs)
+    if CY:
+        cyokyo(card, rs, ven, Rs, CY)
 
     w1 = i3 = nn = 0
     for R in Rs:
@@ -305,7 +367,8 @@ def main():
     Rs = sorted(rs)
     if not Rs:
         print('結果が1鞍も無い'); return
-    run(card, rs, ven, Rs, '1日ぜんぶ')
+    CY = json.load(open(os.path.expanduser(a[a.index('--cy') + 1]))) if '--cy' in a else None
+    run(card, rs, ven, Rs, '1日ぜんぶ', CY)
     if '--half' in a:
         h = len(Rs) // 2
         run(card, rs, ven, Rs[:h], '前半（%dR〜%dR）' % (Rs[0], Rs[h - 1]))
