@@ -90,7 +90,9 @@ ZU_FLAG = ('--noswap', '--c4', '--nomb', '--old', '--svg',
            #   --no-agari … 推定の括弧の「・上がり」を出さない
            #   --no-baba-n … 道悪の札の回数（0/3）を出さない
            #   --no-marulegend … 「●赤丸＝狙い」の凡例を出さない
-           '--no-agari', '--no-baba-n', '--no-marulegend')
+           '--no-agari', '--no-baba-n', '--no-marulegend',
+           # ★ 2026-11-27〜28 に足した口（CLAUDE.md ルール81・83）
+           '--keikou', '--jk-ninhi', '--furyo-soto', '--furyo-soto-all', '--nankan-waku')
 
 
 def die(msg, code=2):
@@ -366,6 +368,15 @@ def run(a, extra):
                     break
                 zu_args.append(tok)
     zu_args += [k for k in ZU_FLAG if k in a]
+    # ★★ 2026-11-28、**大井の日は3年分の口を自動で付ける**（CLAUDE.md ルール82・84）。
+    #   --keikou（距離×馬場の3年分の形を1行）／--jk-ninhi（騎手の人気比）／
+    #   --furyo-soto（不良の日だけ、4角前半に来そうな7-8枠）。
+    #   どれも `--plain` / `--no-pct` の図には出ない作り。`--no-ooi3y` で付けない（＝2026-11-27 までと同じ）。
+    if ven == "大井" and "--no-ooi3y" not in a:
+        for k in ("--keikou", "--jk-ninhi", "--furyo-soto"):
+            if k not in zu_args and k not in extra and not (
+                    k == "--furyo-soto" and "--furyo-soto-all" in zu_args):
+                zu_args.append(k)
     zu_args += [t for t in a if t.startswith("note:")]
     zu_args += extra
     import tenkai_zu

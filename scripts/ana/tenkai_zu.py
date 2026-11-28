@@ -1479,7 +1479,9 @@ def main():
             if FURYO_SOTO and not plain and baba == '不良' and r['waku'] >= 7 and (
                     FURYO_ALL or (r.get('pos_c4') is not None and r['pos_c4'] < .5)):
                 so += '<span class="fsoto">不良・外</span>'
-            if JK_NINHI and not plain and ven == '大井':
+            # ★ 2026-11-28、`--no-pct`（人に見せる版）でも出さない。人気比は数字で、
+            #   ルール47「秘密にしないと」で騎手の札（内◯%）を消したのと同じ扱い。
+            if JK_NINHI and not plain and not nopct and ven == '大井':
                 jv = JKN.get(r.get('jk') or '')
                 if jv and jv[1] is not None and abs(jv[1]) >= 2.0:
                     so += ('<span class="jknp">%s 人気以上 +%.1f</span>' if jv[1] > 0 else

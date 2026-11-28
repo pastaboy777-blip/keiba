@@ -3,6 +3,7 @@
   python3 ooi3y.py --scan 20231127 20261126   # 日付ごとに楽天の一覧を見て大井の base16 を拾う
   python3 ooi3y.py --harvest [--max N]        # 拾った日の結果を古い順に取る（1日ずつ）
   python3 ooi3y.py --stat                     # どこまで進んだか
+  python3 ooi3y.py --update                   # 最後に見た日の翌日〜今日を見て、取って、集計し直す
 
 ★ 2026-11-26、ユーザーの指示 ──「過去3年分　大井競馬の展開隊列図　データ取って！」「大井競馬だけ！」
 
@@ -87,12 +88,34 @@ def stat():
         sum(n_res("ooi" + d) for d in days)))
 
 
+def update():
+    """★ 2026-11-28 に足した。cal.json の最後の日の翌日から今日までを走査して取り、
+    集計（ooi3y_page/keikou.json）と騎手の人気比（jk_ninhi_ooi.json）を作り直す。
+    図の `--keikou` / `--jk-ninhi` はこの2つを読むので、開催のあとに1回回せば新しくなる。
+    harvest/ には触らない（3つの --build にも触らない。ルール38・79）。"""
+    import subprocess
+    C = load_cal()
+    last = max(C) if C else "20231127"
+    d0 = dt.date(int(last[:4]), int(last[4:6]), int(last[6:])) + dt.timedelta(days=1)
+    d1 = dt.date.today()
+    if d0 <= d1:
+        scan(d0.strftime("%Y%m%d"), d1.strftime("%Y%m%d"))
+    harvest()
+    py = sys.executable
+    subprocess.run([py, os.path.join(HERE, "ooi_keikou.py"),
+                    "--json", os.path.join(HERE, "ooi3y_page", "keikou.json"),
+                    "--jkjson", os.path.join(HERE, "jk_ninhi_ooi.json")], check=True)
+    stat()
+
+
 def main():
     a = sys.argv[1:]
     if "--scan" in a:
         i = a.index("--scan"); scan(a[i + 1], a[i + 2])
     elif "--harvest" in a:
         harvest(int(a[a.index("--max") + 1]) if "--max" in a else None)
+    elif "--update" in a:
+        update()
     elif "--stat" in a:
         stat()
     else:
