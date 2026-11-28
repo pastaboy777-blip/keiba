@@ -1283,6 +1283,9 @@ def main():
     POS_MEDIAN = '--pos-median' in a              # pos を中央値に戻す
     FUTATSU = '--no-futatsu' not in a             # 「先頭候補」の札を出さない
     SWAPDU = '--swapdu' in a                      # 内度による前後の入れ替えを復活させる
+    # ★ 2026-11-27、終い（l）を直近重みづけにする口（tenkai.py の L_WMEAN の★）。
+    #   既定は中央値のまま。印に使う欄が動かないので既定は変えていない。
+    T.L_WMEAN = '--shimai-wmean' in a
     # ★ 2026-11-27、1枚目の pos から「いちばん後ろの1走」を落とすのをやめる口（pos_of1 の★）
     POS_TRIM = '--no-pos-trim' not in a
     # ★ 2026-11-15、過去走なしを中央に重ねる旧の形に戻す口（上の NOPAST_* の★）
